@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
+
+import { PublicUploadFlow } from "@/features/public-upload/public-upload-flow";
+
+export const metadata: Metadata = {
+  title: "Enviar nota | WinfraBR",
+  description: "Envie uma nota fiscal para auditoria de forma rápida e segura.",
+};
+
 export default function Home() {
-  return (
-    <main>
-      <h1>Auditoria de Gastos HWN</h1>
-      <p>Base técnica do MVP configurada.</p>
-    </main>
-  );
+  return <PublicUploadFlow />;
 }
