@@ -17,4 +17,63 @@ import * as Prisma from './internal/prismaNamespaceBrowser'
 export { Prisma }
 export * as $Enums from './enums'
 export * from './enums';
-
+/**
+ * Model Profile
+ * 
+ */
+export type Profile = Prisma.ProfileModel
+/**
+ * Model Work
+ * 
+ */
+export type Work = Prisma.WorkModel
+/**
+ * Model Note
+ * 
+ */
+export type Note = Prisma.NoteModel
+/**
+ * Model NoteItem
+ * 
+ */
+export type NoteItem = Prisma.NoteItemModel
+/**
+ * Model AuditParameter
+ * 
+ */
+export type AuditParameter = Prisma.AuditParameterModel
+/**
+ * Model AuditRule
+ * 
+ */
+export type AuditRule = Prisma.AuditRuleModel
+/**
+ * Model RuleParameter
+ * 
+ */
+export type RuleParameter = Prisma.RuleParameterModel
+/**
+ * Model Finding
+ * 
+ */
+export type Finding = Prisma.FindingModel
+/**
+ * Model Validation
+ * 
+ */
+export type Validation = Prisma.ValidationModel
+/**
+ * Model NoteEvent
+ * 
+ */
+export type NoteEvent = Prisma.NoteEventModel
+/**
+ * Model Notification
+ * 
+ */
+export type Notification = Prisma.NotificationModel
+/**
+ * Model PushSubscription
+ * 
+ */
+export type PushSubscription = Prisma.PushSubscriptionModel

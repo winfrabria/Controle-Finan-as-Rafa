@@ -8,4 +8,16 @@
  *
  * 🟢 You can import this file directly.
  */
+export type * from './models/Profile'
+export type * from './models/Work'
+export type * from './models/Note'
+export type * from './models/NoteItem'
+export type * from './models/AuditParameter'
+export type * from './models/AuditRule'
+export type * from './models/RuleParameter'
+export type * from './models/Finding'
+export type * from './models/Validation'
+export type * from './models/NoteEvent'
+export type * from './models/Notification'
+export type * from './models/PushSubscription'
 export type * from './commonInputTypes'

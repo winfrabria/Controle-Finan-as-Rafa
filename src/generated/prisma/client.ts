@@ -31,8 +31,8 @@ export * from "./enums"
  * const prisma = new PrismaClient({
  *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
  * })
- * // Fetch zero or more Users
- * const users = await prisma.user.findMany()
+ * // Fetch zero or more Profiles
+ * const profiles = await prisma.profile.findMany()
  * ```
  * 
  * Read more in our [docs](https://pris.ly/d/client).
@@ -41,4 +41,63 @@ export const PrismaClient = $Class.getPrismaClientClass()
 export type PrismaClient<LogOpts extends Prisma.LogLevel = never, OmitOpts extends Prisma.PrismaClientOptions["omit"] = Prisma.PrismaClientOptions["omit"], ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = $Class.PrismaClient<LogOpts, OmitOpts, ExtArgs>
 export { Prisma }
 
-
+/**
+ * Model Profile
+ * 
+ */
+export type Profile = Prisma.ProfileModel
+/**
+ * Model Work
+ * 
+ */
+export type Work = Prisma.WorkModel
+/**
+ * Model Note
+ * 
+ */
+export type Note = Prisma.NoteModel
+/**
+ * Model NoteItem
+ * 
+ */
+export type NoteItem = Prisma.NoteItemModel
+/**
+ * Model AuditParameter
+ * 
+ */
+export type AuditParameter = Prisma.AuditParameterModel
+/**
+ * Model AuditRule
+ * 
+ */
+export type AuditRule = Prisma.AuditRuleModel
+/**
+ * Model RuleParameter
+ * 
+ */
+export type RuleParameter = Prisma.RuleParameterModel
+/**
+ * Model Finding
+ * 
+ */
+export type Finding = Prisma.FindingModel
+/**
+ * Model Validation
+ * 
+ */
+export type Validation = Prisma.ValidationModel
+/**
+ * Model NoteEvent
+ * 
+ */
+export type NoteEvent = Prisma.NoteEventModel
+/**
+ * Model Notification
+ * 
+ */
+export type Notification = Prisma.NotificationModel
+/**
+ * Model PushSubscription
+ * 
+ */
+export type PushSubscription = Prisma.PushSubscriptionModel

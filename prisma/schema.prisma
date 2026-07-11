@@ -6,3 +6,312 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum UserRole {
+  ADMIN
+  REVIEWER
+}
+
+enum NoteStatus {
+  RECEIVED
+  PROCESSING
+  OK
+  PENDING_VALIDATION
+  APPROVED
+  REJECTED
+  READ_FAILED
+  FAILED
+}
+
+enum ProcessingStage {
+  RECEIVED
+  EXTRACTING
+  ANALYZING
+  FINALIZING
+  COMPLETED
+  FAILED
+}
+
+enum NoteClassification {
+  OK
+  SUSPICIOUS
+  INCOMPATIBLE
+}
+
+enum FindingSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum FindingStatus {
+  OPEN
+  CONFIRMED
+  FALSE_POSITIVE
+  RESOLVED
+}
+
+enum ValidationDecision {
+  FINDING_CORRECT
+  FALSE_POSITIVE
+  NOTE_VALID
+  SUSPICION_CONFIRMED
+}
+
+enum NotificationType {
+  VALIDATION_REQUIRED
+  NOTE_PROCESSED
+  NOTE_APPROVED
+  NOTE_REJECTED
+  PROCESSING_FAILED
+}
+
+model Profile {
+  id                String             @id @db.Uuid
+  email             String             @unique
+  fullName          String?            @map("full_name")
+  role              UserRole           @default(REVIEWER)
+  active            Boolean            @default(true)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  submittedNotes    Note[]             @relation("SubmittedNotes")
+  validations       Validation[]
+  events            NoteEvent[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+
+  @@map("profiles")
+}
+
+model Work {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code       String           @unique
+  name       String
+  location   String?
+  active     Boolean          @default(true)
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  notes      Note[]
+  parameters AuditParameter[]
+  rules      AuditRule[]
+
+  @@index([active])
+  @@map("works")
+}
+
+model Note {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workId             String              @map("work_id") @db.Uuid
+  submittedById      String?             @map("submitted_by_id") @db.Uuid
+  originalFilePath   String              @map("original_file_path")
+  originalFileName   String              @map("original_file_name")
+  originalMimeType   String              @map("original_mime_type")
+  originalSizeBytes  BigInt              @map("original_size_bytes")
+  extractedData      Json?               @map("extracted_data") @db.JsonB
+  extractionMarkdown String?             @map("extraction_markdown")
+  documentNumber     String?             @map("document_number")
+  supplierName       String?             @map("supplier_name")
+  supplierTaxId      String?             @map("supplier_tax_id")
+  issuedAt           DateTime?           @map("issued_at") @db.Date
+  totalAmount        Decimal?            @map("total_amount") @db.Decimal(14, 2)
+  status             NoteStatus          @default(RECEIVED)
+  processingStage    ProcessingStage     @default(RECEIVED) @map("processing_stage")
+  classification     NoteClassification?
+  readConfidence     Decimal?            @map("read_confidence") @db.Decimal(5, 4)
+  failureCode        String?             @map("failure_code")
+  failureMessage     String?             @map("failure_message")
+  version            Int                 @default(1)
+  receivedAt         DateTime            @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt        DateTime?           @map("processed_at") @db.Timestamptz(6)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  work               Work                @relation(fields: [workId], references: [id], onDelete: Restrict)
+  submittedBy        Profile?            @relation("SubmittedNotes", fields: [submittedById], references: [id], onDelete: SetNull)
+  items              NoteItem[]
+  findings           Finding[]
+  validations        Validation[]
+  events             NoteEvent[]
+  notifications      Notification[]
+
+  @@index([workId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([classification])
+  @@index([supplierTaxId])
+  @@index([documentNumber])
+  @@map("notes")
+}
+
+model NoteItem {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId      String    @map("note_id") @db.Uuid
+  lineNumber  Int       @map("line_number")
+  code        String?
+  description String
+  quantity    Decimal?  @db.Decimal(14, 4)
+  unit        String?
+  unitPrice   Decimal?  @map("unit_price") @db.Decimal(14, 4)
+  totalAmount Decimal?  @map("total_amount") @db.Decimal(14, 2)
+  rawData     Json?     @map("raw_data") @db.JsonB
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  note        Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  findings    Finding[]
+
+  @@unique([noteId, lineNumber])
+  @@index([noteId])
+  @@map("note_items")
+}
+
+model AuditParameter {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workId      String?         @map("work_id") @db.Uuid
+  key         String
+  name        String
+  category    String
+  description String?
+  value       Json            @db.JsonB
+  active      Boolean         @default(true)
+  validFrom   DateTime?       @map("valid_from") @db.Timestamptz(6)
+  validUntil  DateTime?       @map("valid_until") @db.Timestamptz(6)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  work        Work?           @relation(fields: [workId], references: [id], onDelete: Cascade)
+  rules       RuleParameter[]
+
+  @@unique([workId, key])
+  @@index([category, active])
+  @@map("audit_parameters")
+}
+
+model AuditRule {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workId        String?         @map("work_id") @db.Uuid
+  code          String          @unique
+  name          String
+  category      String
+  description   String?
+  severity      FindingSeverity @default(WARNING)
+  configuration Json?           @db.JsonB
+  active        Boolean         @default(true)
+  priority      Int             @default(100)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  work          Work?           @relation(fields: [workId], references: [id], onDelete: Cascade)
+  parameters    RuleParameter[]
+  findings      Finding[]
+
+  @@index([workId, active, priority])
+  @@index([category, active])
+  @@map("audit_rules")
+}
+
+model RuleParameter {
+  ruleId      String         @map("rule_id") @db.Uuid
+  parameterId String         @map("parameter_id") @db.Uuid
+  inputName   String?        @map("input_name")
+  rule        AuditRule      @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  parameter   AuditParameter @relation(fields: [parameterId], references: [id], onDelete: Cascade)
+
+  @@id([ruleId, parameterId])
+  @@index([parameterId])
+  @@map("rule_parameters")
+}
+
+model Finding {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId          String          @map("note_id") @db.Uuid
+  noteItemId      String?         @map("note_item_id") @db.Uuid
+  ruleId          String?         @map("rule_id") @db.Uuid
+  code            String
+  title           String
+  description     String
+  category        String
+  severity        FindingSeverity @default(WARNING)
+  status          FindingStatus   @default(OPEN)
+  needsValidation Boolean         @default(true) @map("needs_validation")
+  evidence        Json?           @db.JsonB
+  expectedValue   Json?           @map("expected_value") @db.JsonB
+  actualValue     Json?           @map("actual_value") @db.JsonB
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  note            Note            @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  noteItem        NoteItem?       @relation(fields: [noteItemId], references: [id], onDelete: SetNull)
+  rule            AuditRule?      @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  validations     Validation[]
+  notifications   Notification[]
+
+  @@index([noteId, status])
+  @@index([needsValidation, status, createdAt])
+  @@index([ruleId])
+  @@map("findings")
+}
+
+model Validation {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId      String             @map("note_id") @db.Uuid
+  findingId   String?            @map("finding_id") @db.Uuid
+  validatorId String             @map("validator_id") @db.Uuid
+  decision    ValidationDecision
+  reason      String
+  comment     String?
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  note        Note               @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  finding     Finding?           @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  validator   Profile            @relation(fields: [validatorId], references: [id], onDelete: Restrict)
+
+  @@index([noteId, createdAt(sort: Desc)])
+  @@index([findingId, createdAt(sort: Desc)])
+  @@index([validatorId, createdAt(sort: Desc)])
+  @@map("validations")
+}
+
+model NoteEvent {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId     String      @map("note_id") @db.Uuid
+  actorId    String?     @map("actor_id") @db.Uuid
+  type       String
+  fromStatus NoteStatus? @map("from_status")
+  toStatus   NoteStatus? @map("to_status")
+  data       Json?       @db.JsonB
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  note       Note        @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  actor      Profile?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([noteId, createdAt])
+  @@map("note_events")
+}
+
+model Notification {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipientId String           @map("recipient_id") @db.Uuid
+  noteId      String?          @map("note_id") @db.Uuid
+  findingId   String?          @map("finding_id") @db.Uuid
+  type        NotificationType
+  title       String
+  body        String
+  data        Json?            @db.JsonB
+  readAt      DateTime?        @map("read_at") @db.Timestamptz(6)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  recipient   Profile          @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  note        Note?            @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  finding     Finding?         @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, readAt, createdAt(sort: Desc)])
+  @@index([noteId])
+  @@map("notifications")
+}
+
+model PushSubscription {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId String    @map("profile_id") @db.Uuid
+  endpoint  String    @unique
+  p256dh    String
+  auth      String
+  userAgent String?   @map("user_agent")
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@map("push_subscriptions")
+}

@@ -9,7 +9,84 @@
 * 🟢 You can import this file directly.
 */
 
+export const UserRole = {
+  ADMIN: 'ADMIN',
+  REVIEWER: 'REVIEWER'
+} as const
+
+export type UserRole = (typeof UserRole)[keyof typeof UserRole]
 
 
-// This file is empty because there are no enums in the schema.
-export {}
+export const NoteStatus = {
+  RECEIVED: 'RECEIVED',
+  PROCESSING: 'PROCESSING',
+  OK: 'OK',
+  PENDING_VALIDATION: 'PENDING_VALIDATION',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  READ_FAILED: 'READ_FAILED',
+  FAILED: 'FAILED'
+} as const
+
+export type NoteStatus = (typeof NoteStatus)[keyof typeof NoteStatus]
+
+
+export const ProcessingStage = {
+  RECEIVED: 'RECEIVED',
+  EXTRACTING: 'EXTRACTING',
+  ANALYZING: 'ANALYZING',
+  FINALIZING: 'FINALIZING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED'
+} as const
+
+export type ProcessingStage = (typeof ProcessingStage)[keyof typeof ProcessingStage]
+
+
+export const NoteClassification = {
+  OK: 'OK',
+  SUSPICIOUS: 'SUSPICIOUS',
+  INCOMPATIBLE: 'INCOMPATIBLE'
+} as const
+
+export type NoteClassification = (typeof NoteClassification)[keyof typeof NoteClassification]
+
+
+export const FindingSeverity = {
+  INFO: 'INFO',
+  WARNING: 'WARNING',
+  CRITICAL: 'CRITICAL'
+} as const
+
+export type FindingSeverity = (typeof FindingSeverity)[keyof typeof FindingSeverity]
+
+
+export const FindingStatus = {
+  OPEN: 'OPEN',
+  CONFIRMED: 'CONFIRMED',
+  FALSE_POSITIVE: 'FALSE_POSITIVE',
+  RESOLVED: 'RESOLVED'
+} as const
+
+export type FindingStatus = (typeof FindingStatus)[keyof typeof FindingStatus]
+
+
+export const ValidationDecision = {
+  FINDING_CORRECT: 'FINDING_CORRECT',
+  FALSE_POSITIVE: 'FALSE_POSITIVE',
+  NOTE_VALID: 'NOTE_VALID',
+  SUSPICION_CONFIRMED: 'SUSPICION_CONFIRMED'
+} as const
+
+export type ValidationDecision = (typeof ValidationDecision)[keyof typeof ValidationDecision]
+
+
+export const NotificationType = {
+  VALIDATION_REQUIRED: 'VALIDATION_REQUIRED',
+  NOTE_PROCESSED: 'NOTE_PROCESSED',
+  NOTE_APPROVED: 'NOTE_APPROVED',
+  NOTE_REJECTED: 'NOTE_REJECTED',
+  PROCESSING_FAILED: 'PROCESSING_FAILED'
+} as const
+
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]

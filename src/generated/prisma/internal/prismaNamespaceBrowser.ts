@@ -51,7 +51,18 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
-
+  Profile: 'Profile',
+  Work: 'Work',
+  Note: 'Note',
+  NoteItem: 'NoteItem',
+  AuditParameter: 'AuditParameter',
+  AuditRule: 'AuditRule',
+  RuleParameter: 'RuleParameter',
+  Finding: 'Finding',
+  Validation: 'Validation',
+  NoteEvent: 'NoteEvent',
+  Notification: 'Notification',
+  PushSubscription: 'PushSubscription'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -68,4 +79,252 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 } as const)
 
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
+
+
+export const ProfileScalarFieldEnum = {
+  id: 'id',
+  email: 'email',
+  fullName: 'fullName',
+  role: 'role',
+  active: 'active',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ProfileScalarFieldEnum = (typeof ProfileScalarFieldEnum)[keyof typeof ProfileScalarFieldEnum]
+
+
+export const WorkScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  name: 'name',
+  location: 'location',
+  active: 'active',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WorkScalarFieldEnum = (typeof WorkScalarFieldEnum)[keyof typeof WorkScalarFieldEnum]
+
+
+export const NoteScalarFieldEnum = {
+  id: 'id',
+  workId: 'workId',
+  submittedById: 'submittedById',
+  originalFilePath: 'originalFilePath',
+  originalFileName: 'originalFileName',
+  originalMimeType: 'originalMimeType',
+  originalSizeBytes: 'originalSizeBytes',
+  extractedData: 'extractedData',
+  extractionMarkdown: 'extractionMarkdown',
+  documentNumber: 'documentNumber',
+  supplierName: 'supplierName',
+  supplierTaxId: 'supplierTaxId',
+  issuedAt: 'issuedAt',
+  totalAmount: 'totalAmount',
+  status: 'status',
+  processingStage: 'processingStage',
+  classification: 'classification',
+  readConfidence: 'readConfidence',
+  failureCode: 'failureCode',
+  failureMessage: 'failureMessage',
+  version: 'version',
+  receivedAt: 'receivedAt',
+  processedAt: 'processedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type NoteScalarFieldEnum = (typeof NoteScalarFieldEnum)[keyof typeof NoteScalarFieldEnum]
+
+
+export const NoteItemScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  lineNumber: 'lineNumber',
+  code: 'code',
+  description: 'description',
+  quantity: 'quantity',
+  unit: 'unit',
+  unitPrice: 'unitPrice',
+  totalAmount: 'totalAmount',
+  rawData: 'rawData',
+  createdAt: 'createdAt'
+} as const
+
+export type NoteItemScalarFieldEnum = (typeof NoteItemScalarFieldEnum)[keyof typeof NoteItemScalarFieldEnum]
+
+
+export const AuditParameterScalarFieldEnum = {
+  id: 'id',
+  workId: 'workId',
+  key: 'key',
+  name: 'name',
+  category: 'category',
+  description: 'description',
+  value: 'value',
+  active: 'active',
+  validFrom: 'validFrom',
+  validUntil: 'validUntil',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuditParameterScalarFieldEnum = (typeof AuditParameterScalarFieldEnum)[keyof typeof AuditParameterScalarFieldEnum]
+
+
+export const AuditRuleScalarFieldEnum = {
+  id: 'id',
+  workId: 'workId',
+  code: 'code',
+  name: 'name',
+  category: 'category',
+  description: 'description',
+  severity: 'severity',
+  configuration: 'configuration',
+  active: 'active',
+  priority: 'priority',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AuditRuleScalarFieldEnum = (typeof AuditRuleScalarFieldEnum)[keyof typeof AuditRuleScalarFieldEnum]
+
+
+export const RuleParameterScalarFieldEnum = {
+  ruleId: 'ruleId',
+  parameterId: 'parameterId',
+  inputName: 'inputName'
+} as const
+
+export type RuleParameterScalarFieldEnum = (typeof RuleParameterScalarFieldEnum)[keyof typeof RuleParameterScalarFieldEnum]
+
+
+export const FindingScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  noteItemId: 'noteItemId',
+  ruleId: 'ruleId',
+  code: 'code',
+  title: 'title',
+  description: 'description',
+  category: 'category',
+  severity: 'severity',
+  status: 'status',
+  needsValidation: 'needsValidation',
+  evidence: 'evidence',
+  expectedValue: 'expectedValue',
+  actualValue: 'actualValue',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FindingScalarFieldEnum = (typeof FindingScalarFieldEnum)[keyof typeof FindingScalarFieldEnum]
+
+
+export const ValidationScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  findingId: 'findingId',
+  validatorId: 'validatorId',
+  decision: 'decision',
+  reason: 'reason',
+  comment: 'comment',
+  createdAt: 'createdAt'
+} as const
+
+export type ValidationScalarFieldEnum = (typeof ValidationScalarFieldEnum)[keyof typeof ValidationScalarFieldEnum]
+
+
+export const NoteEventScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  actorId: 'actorId',
+  type: 'type',
+  fromStatus: 'fromStatus',
+  toStatus: 'toStatus',
+  data: 'data',
+  createdAt: 'createdAt'
+} as const
+
+export type NoteEventScalarFieldEnum = (typeof NoteEventScalarFieldEnum)[keyof typeof NoteEventScalarFieldEnum]
+
+
+export const NotificationScalarFieldEnum = {
+  id: 'id',
+  recipientId: 'recipientId',
+  noteId: 'noteId',
+  findingId: 'findingId',
+  type: 'type',
+  title: 'title',
+  body: 'body',
+  data: 'data',
+  readAt: 'readAt',
+  createdAt: 'createdAt'
+} as const
+
+export type NotificationScalarFieldEnum = (typeof NotificationScalarFieldEnum)[keyof typeof NotificationScalarFieldEnum]
+
+
+export const PushSubscriptionScalarFieldEnum = {
+  id: 'id',
+  profileId: 'profileId',
+  endpoint: 'endpoint',
+  p256dh: 'p256dh',
+  auth: 'auth',
+  userAgent: 'userAgent',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PushSubscriptionScalarFieldEnum = (typeof PushSubscriptionScalarFieldEnum)[keyof typeof PushSubscriptionScalarFieldEnum]
+
+
+export const SortOrder = {
+  asc: 'asc',
+  desc: 'desc'
+} as const
+
+export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
+export const QueryMode = {
+  default: 'default',
+  insensitive: 'insensitive'
+} as const
+
+export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
+
+
+export const NullsOrder = {
+  first: 'first',
+  last: 'last'
+} as const
+
+export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 
