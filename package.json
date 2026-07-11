@@ -13,7 +13,8 @@
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy"
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "db:seed:works": "node prisma/seed-works.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
