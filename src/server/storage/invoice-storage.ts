@@ -9,7 +9,7 @@ import {
 
 export class InvoiceStorageError extends Error {
   constructor(
-    public readonly operation: "signed-url" | "upload",
+    public readonly operation: "remove" | "signed-url" | "upload",
     message: string,
     options?: ErrorOptions,
   ) {
@@ -23,6 +23,7 @@ export async function uploadInvoiceFile(input: {
   contentType: string;
   fileName: string;
   noteId: string;
+  path?: string;
   workId: string;
 }) {
   const config = getInvoiceStorageConfig();
@@ -32,11 +33,18 @@ export async function uploadInvoiceFile(input: {
     fileName: input.fileName,
     maxFileSizeBytes: config.maxFileSizeBytes,
   });
-  const path = createInvoiceObjectPath({
-    extension: file.extension,
-    noteId: input.noteId,
-    workId: input.workId,
-  });
+  const path = input.path
+    ? assertInvoiceObjectPath(input.path)
+    : createInvoiceObjectPath({
+        extension: file.extension,
+        noteId: input.noteId,
+        workId: input.workId,
+      });
+  const expectedPrefix = `obras/${input.workId}/notas/${input.noteId}/`;
+
+  if (!path.startsWith(expectedPrefix)) {
+    throw new Error("The Storage path does not belong to the informed note.");
+  }
   const client = getStorageAdminClient();
   const { data, error } = await client.storage.from(config.bucket).upload(
     path,
@@ -63,6 +71,21 @@ export async function uploadInvoiceFile(input: {
     path: data.path,
     size: file.size,
   } as const;
+}
+
+export async function removeInvoiceFile(path: string) {
+  const config = getInvoiceStorageConfig();
+  const safePath = assertInvoiceObjectPath(path);
+  const client = getStorageAdminClient();
+  const { error } = await client.storage.from(config.bucket).remove([safePath]);
+
+  if (error) {
+    throw new InvoiceStorageError(
+      "remove",
+      "Supabase Storage could not remove the invoice file.",
+      { cause: error },
+    );
+  }
 }
 
 export async function createInvoiceSignedUrl(input: {
