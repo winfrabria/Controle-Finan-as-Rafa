@@ -1,4 +1,6 @@
 # Prisma
 
-Diretório reservado ao schema e às migrations que serão definidos na tarefa de
-modelagem de dados.
+Contém o schema e as migrations gerenciadas pelo Prisma.
+
+A migration inicial apenas registra o início do histórico técnico. As tabelas e
+relações de negócio serão modeladas na WIN-15.
