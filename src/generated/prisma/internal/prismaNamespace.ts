@@ -384,7 +384,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 
 export const ModelName = {
-  ConnectionProbe: 'ConnectionProbe'
+
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -400,85 +400,10 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "connectionProbe"
+    modelProps: never
     txIsolationLevel: TransactionIsolationLevel
   }
-  model: {
-    ConnectionProbe: {
-      payload: Prisma.$ConnectionProbePayload<ExtArgs>
-      fields: Prisma.ConnectionProbeFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.ConnectionProbeFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.ConnectionProbeFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload>
-        }
-        findFirst: {
-          args: Prisma.ConnectionProbeFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.ConnectionProbeFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload>
-        }
-        findMany: {
-          args: Prisma.ConnectionProbeFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload>[]
-        }
-        create: {
-          args: Prisma.ConnectionProbeCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload>
-        }
-        createMany: {
-          args: Prisma.ConnectionProbeCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        createManyAndReturn: {
-          args: Prisma.ConnectionProbeCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload>[]
-        }
-        delete: {
-          args: Prisma.ConnectionProbeDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload>
-        }
-        update: {
-          args: Prisma.ConnectionProbeUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload>
-        }
-        deleteMany: {
-          args: Prisma.ConnectionProbeDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.ConnectionProbeUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateManyAndReturn: {
-          args: Prisma.ConnectionProbeUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload>[]
-        }
-        upsert: {
-          args: Prisma.ConnectionProbeUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$ConnectionProbePayload>
-        }
-        aggregate: {
-          args: Prisma.ConnectionProbeAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateConnectionProbe>
-        }
-        groupBy: {
-          args: Prisma.ConnectionProbeGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.ConnectionProbeGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.ConnectionProbeCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.ConnectionProbeCountAggregateOutputType> | number
-        }
-      }
-    }
-  }
+  model: {}
 } & {
   other: {
     payload: any
@@ -517,77 +442,7 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
-export const ConnectionProbeScalarFieldEnum = {
-  id: 'id',
-  message: 'message',
-  createdAt: 'createdAt'
-} as const
 
-export type ConnectionProbeScalarFieldEnum = (typeof ConnectionProbeScalarFieldEnum)[keyof typeof ConnectionProbeScalarFieldEnum]
-
-
-export const SortOrder = {
-  asc: 'asc',
-  desc: 'desc'
-} as const
-
-export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
-
-
-export const QueryMode = {
-  default: 'default',
-  insensitive: 'insensitive'
-} as const
-
-export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
-
-
-
-/**
- * Field references
- */
-
-
-/**
- * Reference to a field of type 'String'
- */
-export type StringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'String'>
-    
-
-
-/**
- * Reference to a field of type 'String[]'
- */
-export type ListStringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'String[]'>
-    
-
-
-/**
- * Reference to a field of type 'DateTime'
- */
-export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>
-    
-
-
-/**
- * Reference to a field of type 'DateTime[]'
- */
-export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime[]'>
-    
-
-
-/**
- * Reference to a field of type 'Int'
- */
-export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
-    
-
-
-/**
- * Reference to a field of type 'Int[]'
- */
-export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
-    
 
 /**
  * Batch Payload for updateMany & deleteMany & createMany
@@ -698,9 +553,7 @@ export type PrismaClientOptions = ({
    */
   queryPlanCacheMaxSize?: number
 }
-export type GlobalOmitConfig = {
-  connectionProbe?: Prisma.ConnectionProbeOmit
-}
+export type GlobalOmitConfig = {}
 
 /* Types for Logging */
 export type LogLevel = 'info' | 'query' | 'warn' | 'error'

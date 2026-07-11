@@ -20,7 +20,7 @@ const config: runtime.GetPrismaClientConfig = {
   "clientVersion": "7.8.0",
   "engineVersion": "3c6e192761c0362d496ed980de936e2f3cebcd3a",
   "activeProvider": "postgresql",
-  "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nmodel ConnectionProbe {\n  id        String   @id @default(cuid())\n  message   String\n  createdAt DateTime @default(now()) @map(\"created_at\") @db.Timestamptz(6)\n\n  @@map(\"connection_probes\")\n}\n",
+  "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n",
   "runtimeDataModel": {
     "models": {},
     "enums": {},
@@ -32,10 +32,10 @@ const config: runtime.GetPrismaClientConfig = {
   }
 }
 
-config.runtimeDataModel = JSON.parse("{\"models\":{\"ConnectionProbe\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"message\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"}],\"dbName\":\"connection_probes\"}},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{},\"enums\":{},\"types\":{}}")
 config.parameterizationSchema = {
-  strings: JSON.parse("[\"where\",\"ConnectionProbe.findUnique\",\"ConnectionProbe.findUniqueOrThrow\",\"orderBy\",\"cursor\",\"ConnectionProbe.findFirst\",\"ConnectionProbe.findFirstOrThrow\",\"ConnectionProbe.findMany\",\"data\",\"ConnectionProbe.createOne\",\"ConnectionProbe.createMany\",\"ConnectionProbe.createManyAndReturn\",\"ConnectionProbe.updateOne\",\"ConnectionProbe.updateMany\",\"ConnectionProbe.updateManyAndReturn\",\"create\",\"update\",\"ConnectionProbe.upsertOne\",\"ConnectionProbe.deleteOne\",\"ConnectionProbe.deleteMany\",\"having\",\"_count\",\"_min\",\"_max\",\"ConnectionProbe.groupBy\",\"ConnectionProbe.aggregate\",\"AND\",\"OR\",\"NOT\",\"id\",\"message\",\"createdAt\",\"equals\",\"in\",\"notIn\",\"lt\",\"lte\",\"gt\",\"gte\",\"not\",\"contains\",\"startsWith\",\"endsWith\",\"set\"]"),
-  graph: "KQkQBhoAACIAMBsAAAQAEBwAACIAMB0BAAAAAR4BACMAIR9AACQAIQEAAAABACABAAAAAQAgBhoAACIAMBsAAAQAEBwAACIAMB0BACMAIR4BACMAIR9AACQAIQADAAAABAAgAwAABQAwBAAAAQAgAwAAAAQAIAMAAAUAMAQAAAEAIAMAAAAEACADAAAFADAEAAABACADHQEAAAABHgEAAAABH0AAAAABAQgAAAkAIAMdAQAAAAEeAQAAAAEfQAAAAAEBCAAACwAwAQgAAAsAMAMdAQAoACEeAQAoACEfQAApACECAAAAAQAgCAAADgAgAx0BACgAIR4BACgAIR9AACkAIQIAAAAEACAIAAAQACACAAAABAAgCAAAEAAgAwAAAAEAIA8AAAkAIBAAAA4AIAEAAAABACABAAAABAAgAxUAACUAIBYAACcAIBcAACYAIAYaAAAaADAbAAAXABAcAAAaADAdAQAbACEeAQAbACEfQAAcACEDAAAABAAgAwAAFgAwFAAAFwAgAwAAAAQAIAMAAAUAMAQAAAEAIAYaAAAaADAbAAAXABAcAAAaADAdAQAbACEeAQAbACEfQAAcACEOFQAAHgAgFgAAIQAgFwAAIQAgIAEAAAABIQEAAAAEIgEAAAAEIwEAAAABJAEAAAABJQEAAAABJgEAAAABJwEAIAAhKAEAAAABKQEAAAABKgEAAAABCxUAAB4AIBYAAB8AIBcAAB8AICBAAAAAASFAAAAABCJAAAAABCNAAAAAASRAAAAAASVAAAAAASZAAAAAASdAAB0AIQsVAAAeACAWAAAfACAXAAAfACAgQAAAAAEhQAAAAAQiQAAAAAQjQAAAAAEkQAAAAAElQAAAAAEmQAAAAAEnQAAdACEIIAIAAAABIQIAAAAEIgIAAAAEIwIAAAABJAIAAAABJQIAAAABJgIAAAABJwIAHgAhCCBAAAAAASFAAAAABCJAAAAABCNAAAAAASRAAAAAASVAAAAAASZAAAAAASdAAB8AIQ4VAAAeACAWAAAhACAXAAAhACAgAQAAAAEhAQAAAAQiAQAAAAQjAQAAAAEkAQAAAAElAQAAAAEmAQAAAAEnAQAgACEoAQAAAAEpAQAAAAEqAQAAAAELIAEAAAABIQEAAAAEIgEAAAAEIwEAAAABJAEAAAABJQEAAAABJgEAAAABJwEAIQAhKAEAAAABKQEAAAABKgEAAAABBhoAACIAMBsAAAQAEBwAACIAMB0BACMAIR4BACMAIR9AACQAIQsgAQAAAAEhAQAAAAQiAQAAAAQjAQAAAAEkAQAAAAElAQAAAAEmAQAAAAEnAQAhACEoAQAAAAEpAQAAAAEqAQAAAAEIIEAAAAABIUAAAAAEIkAAAAAEI0AAAAABJEAAAAABJUAAAAABJkAAAAABJ0AAHwAhAAAAASsBAAAAAQErQAAAAAEAAAAAAxUABhYABxcACAAAAAMVAAYWAAcXAAgBAgECAwEFBgEGBwEHCAEJCgEKDAILDQMMDwENEQIOEgQREwESFAETFQIYGAUZGQk"
+  strings: JSON.parse("[]"),
+  graph: "AAAA"
 }
 
 async function decodeBase64AsWasm(wasmBase64: string): Promise<WebAssembly.Module> {
@@ -70,8 +70,8 @@ export interface PrismaClientConstructor {
    * const prisma = new PrismaClient({
    *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
    * })
-   * // Fetch zero or more ConnectionProbes
-   * const connectionProbes = await prisma.connectionProbe.findMany()
+   * // Fetch zero or more Users
+   * const users = await prisma.user.findMany()
    * ```
    * 
    * Read more in our [docs](https://pris.ly/d/client).
@@ -94,8 +94,8 @@ export interface PrismaClientConstructor {
  * const prisma = new PrismaClient({
  *   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
  * })
- * // Fetch zero or more ConnectionProbes
- * const connectionProbes = await prisma.connectionProbe.findMany()
+ * // Fetch zero or more Users
+ * const users = await prisma.user.findMany()
  * ```
  * 
  * Read more in our [docs](https://pris.ly/d/client).
@@ -188,15 +188,7 @@ export interface PrismaClient<
     extArgs: ExtArgs
   }>>
 
-      /**
-   * `prisma.connectionProbe`: Exposes CRUD operations for the **ConnectionProbe** model.
-    * Example usage:
-    * ```ts
-    * // Fetch zero or more ConnectionProbes
-    * const connectionProbes = await prisma.connectionProbe.findMany()
-    * ```
-    */
-  get connectionProbe(): Prisma.ConnectionProbeDelegate<ExtArgs, { omit: OmitOpts }>;
+    
 }
 
 export function getPrismaClientClass(): PrismaClientConstructor {

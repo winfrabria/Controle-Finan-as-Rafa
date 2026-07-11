@@ -6,11 +6,3 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-
-model ConnectionProbe {
-  id        String   @id @default(cuid())
-  message   String
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  @@map("connection_probes")
-}
