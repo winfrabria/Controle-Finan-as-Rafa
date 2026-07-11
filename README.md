@@ -1,34 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Auditoria de Gastos HWN
 
-## Getting Started
+Base fullstack do MVP, construída com Next.js, App Router e TypeScript.
 
-First, run the development server:
+## Desenvolvimento
+
+Requisitos: Node.js 20.9+ e npm.
 
 ```bash
+copy .env.example .env.local
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+A aplicação fica disponível em `http://localhost:3000` e o health check em
+`http://localhost:3000/api/health`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Validação
 
-## Learn More
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Estrutura
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `src/app`: páginas e rotas HTTP do App Router.
+- `src/features`: módulos funcionais do produto.
+- `src/lib/integrations`: adaptadores futuros para Supabase e OpenRouter.
+- `src/server`: regras e serviços exclusivos do servidor.
+- `prisma`: schema e migrations futuros.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+As integrações com Supabase (Postgres, Auth e Storage), Prisma e OpenRouter ainda
+não estão implementadas. As variáveis esperadas estão documentadas em
+`.env.example` sem valores secretos.
