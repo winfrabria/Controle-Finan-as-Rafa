@@ -1,0 +1,22 @@
+{
+  "documentNumber": "NF-2026-001",
+  "supplierName": "Fornecedor de Teste Ltda.",
+  "supplierTaxId": "12.345.678/0001-90",
+  "issuedAt": "2026-07-11",
+  "totalAmount": "1250.50",
+  "currency": "BRL",
+  "items": [
+    {
+      "lineNumber": 1,
+      "code": "MAT-001",
+      "description": "Material de construção",
+      "quantity": "10.0000",
+      "unit": "UN",
+      "unitPrice": "125.0500",
+      "totalAmount": "1250.50"
+    }
+  ],
+  "markdown": "# Nota NF-2026-001\n\nFornecedor e valores legíveis.",
+  "readConfidence": 0.98,
+  "warnings": []
+}
