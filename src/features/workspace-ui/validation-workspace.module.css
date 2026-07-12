@@ -1,7 +1,7 @@
 .layout {
   display: grid;
   gap: 24px;
-  grid-template-columns: minmax(560px, 0.95fr) minmax(620px, 1.12fr);
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.12fr);
 }
 
 .queuePanel,
@@ -25,7 +25,7 @@
   display: flex;
   justify-content: space-between;
   min-height: 68px;
-  padding: 0 20px;
+  padding: 0 16px;
 }
 
 .panelHeader h2 {
@@ -33,8 +33,9 @@
   color: #07163b;
   display: flex;
   font-size: 16px;
-  gap: 9px;
+  gap: 7px;
   margin: 0;
+  white-space: nowrap;
 }
 
 .panelHeader h2 > span {
@@ -402,7 +403,7 @@
   padding-top: 2px;
 }
 
-@media (max-width: 1450px) {
+@media (max-width: 1350px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
   }
