@@ -23,6 +23,7 @@
     "@prisma/client": "^7.8.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.2",
+    "chart.js": "^4.5.1",
     "dotenv": "^17.4.2",
     "next": "16.2.10",
     "pg": "^8.22.0",

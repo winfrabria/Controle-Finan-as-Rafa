@@ -27,12 +27,19 @@ export type ValidationHistoryItem = {
   noteIssuedAt: Date | null;
   noteNumber: string | null;
   reason: string;
+  readConfidence: number | null;
   reviewerEmail: string;
   reviewerName: string | null;
   supplierName: string | null;
   totalAmount: string | null;
   workId: string;
   workName: string;
+};
+
+export type ValidationHistoryAnalyticsItem = {
+  aiCorrect: boolean;
+  createdAt: Date;
+  reason: string;
 };
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -113,7 +120,15 @@ export async function listValidationHistory(filters: ValidationHistoryFilters) {
     decision: { in: [...releasedDecisions] },
   } satisfies Prisma.ValidationWhereInput;
 
-  const [total, validations, confirmed, released, storedHistory, works] =
+  const [
+    total,
+    validations,
+    confirmed,
+    released,
+    storedHistory,
+    analyticsRows,
+    works,
+  ] =
     await prisma.$transaction([
       prisma.validation.count({ where }),
       prisma.validation.findMany({
@@ -133,6 +148,7 @@ export async function listValidationHistory(filters: ValidationHistoryFilters) {
               documentNumber: true,
               id: true,
               issuedAt: true,
+              readConfidence: true,
               supplierName: true,
               totalAmount: true,
               work: { select: { id: true, name: true } },
@@ -149,6 +165,19 @@ export async function listValidationHistory(filters: ValidationHistoryFilters) {
           decision: { in: historyDecisions },
           note: { classification: NoteClassification.SUSPICIOUS },
         },
+      }),
+      prisma.validation.findMany({
+        where: {
+          ...base,
+          decision: { in: historyDecisions },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: {
+          createdAt: true,
+          decision: true,
+          reason: true,
+        },
+        take: 5000,
       }),
       prisma.work.findMany({
         orderBy: [{ active: "desc" }, { name: "asc" }],
@@ -169,6 +198,9 @@ export async function listValidationHistory(filters: ValidationHistoryFilters) {
     noteIssuedAt: validation.note.issuedAt ?? validation.note.createdAt,
     noteNumber: validation.note.documentNumber,
     reason: validation.reason,
+    readConfidence: validation.note.readConfidence
+      ? Number(validation.note.readConfidence)
+      : null,
     reviewerEmail: validation.validator.email,
     reviewerName: validation.validator.fullName,
     supplierName: validation.note.supplierName,
@@ -178,6 +210,13 @@ export async function listValidationHistory(filters: ValidationHistoryFilters) {
   }));
 
   return {
+    analytics: analyticsRows.map((row) => ({
+      aiCorrect: confirmedDecisions.includes(
+        row.decision as (typeof confirmedDecisions)[number],
+      ),
+      createdAt: row.createdAt,
+      reason: row.reason,
+    })) satisfies ValidationHistoryAnalyticsItem[],
     confirmed,
     hasStoredHistory: storedHistory > 0,
     items,

@@ -181,7 +181,7 @@ export function ValidationDecisionForm({
           ))}
         </select>
       </label>
-      <label className={styles.formField}>
+      <label className={`${styles.formField} ${styles.commentField}`}>
         <span className={styles.fieldLabel}>
           {decision === "SUSPEITA"
             ? "Evidências ou comentário (opcional)"
