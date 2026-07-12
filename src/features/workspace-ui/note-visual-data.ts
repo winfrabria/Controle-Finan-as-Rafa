@@ -26,5 +26,6 @@ export function toNoteVisualItems(items: NoteListItem[]) {
     value: item.totalAmount
       ? moneyFormatter.format(Number(item.totalAmount))
       : "—",
+    work: item.workName,
   }));
 }

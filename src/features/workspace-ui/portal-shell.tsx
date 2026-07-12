@@ -3,16 +3,14 @@ import type { ReactNode } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 
-import { Brand, Icon, type IconName } from "./ui-icons";
+import { Icon, type IconName } from "./ui-icons";
+import { ShellControls } from "./shell/shell-controls";
+import shellStyles from "./shell/shell-controls.module.css";
 import styles from "./workspace-ui.module.css";
 
 export type PortalRole = "admin" | "reviewer";
 export type PortalSection =
-  | "dashboard"
-  | "notas"
-  | "validacoes"
-  | "obras"
-  | "logs";
+  "dashboard" | "notas" | "validacoes" | "obras" | "logs";
 
 const menu: { id: PortalSection; label: string; icon: IconName }[] = [
   { id: "dashboard", label: "Dashboard", icon: "home" },
@@ -41,15 +39,11 @@ export function PortalShell({
   const visibleMenu = menu.filter(
     (item) => isAdmin || !["obras", "logs"].includes(item.id),
   );
-  const displayName = isAdmin ? "Administrador WinfraBR" : "Rafael";
-  const roleName = isAdmin ? "Administrador" : "Gerente Financeiro";
-  const notificationCount = isAdmin ? 7 : 3;
-
   return (
     <div className={styles.portal}>
       <aside className={styles.side}>
         <Link href={basePath} className={styles.brandLink}>
-          <Brand />
+          <PortalBrand />
         </Link>
         <nav className={styles.sideNav} aria-label="Navegação principal">
           {visibleMenu.map((item) => (
@@ -74,49 +68,20 @@ export function PortalShell({
       <section className={styles.workspace}>
         <header className={styles.topbar}>
           <Link href={basePath} className={styles.mobileBrand}>
-            <Brand />
+            <PortalBrand />
           </Link>
-          <label className={styles.search}>
-            <Icon name="search" />
-            <input
-              placeholder="Buscar notas, obras, fornecedores..."
-              aria-label="Buscar"
-            />
-          </label>
-          <div className={styles.userTools}>
-            <button
-              className={styles.notification}
-              type="button"
-              aria-label={`${notificationCount} notificações`}
-            >
-              <Icon name="bell" />
-              <b>{notificationCount}</b>
-            </button>
-            <button className={styles.help} type="button" aria-label="Ajuda">
-              <Icon name="help" />
-            </button>
-            <span className={styles.userDivider} />
-            <span className={styles.avatar} title={userEmail}>
-              {isAdmin ? "AW" : "R"}
-            </span>
-            <span className={styles.userCopy}>
-              <strong>{displayName}</strong>
-              <small>{roleName}</small>
-            </span>
-            <Icon name="chevron" className={styles.userChevron} />
-          </div>
+          <ShellControls
+            basePath={basePath}
+            role={role}
+            userEmail={userEmail}
+          />
         </header>
         <main className={styles.portalContent}>{children}</main>
-        <footer className={styles.portalFooter}>
+        <footer
+          className={`${styles.portalFooter} ${shellStyles.copyrightFooter}`}
+        >
           <span>
-            <Icon name="shield" /> Ambiente seguro e em conformidade com a LGPD
-          </span>
-          <span>
-            <Icon name="lock" /> Seus dados estão protegidos com criptografia de
-            ponta a ponta.
-          </span>
-          <span>
-            © 2024 <strong>WinfraBR</strong>. Todos os direitos reservados.
+            © 2026 <strong>WinfraBR</strong>. Todos os direitos reservados.
           </span>
         </footer>
       </section>
@@ -145,6 +110,19 @@ export function PortalShell({
         </Link>
       </nav>
     </div>
+  );
+}
+
+function PortalBrand() {
+  return (
+    <span className={shellStyles.brand} aria-label="WinfraBR">
+      <span className={shellStyles.brandMark}>
+        <Icon name="building" />
+      </span>
+      <span>
+        Winfra<strong>BR</strong>
+      </span>
+    </span>
   );
 }
 

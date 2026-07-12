@@ -288,7 +288,11 @@
   display: grid;
   gap: 12px;
   grid-template-columns: auto 1fr;
-  padding: 20px;
+  min-width: 0;
+  padding: clamp(14px, 1.25vw, 20px);
+}
+.metric > div {
+  min-width: 0;
 }
 .metricIcon {
   align-items: center;
@@ -324,7 +328,8 @@
   margin: 0 0 7px;
 }
 .metric strong {
-  font-size: 24px;
+  font-size: clamp(18px, 1.5vw, 24px);
+  letter-spacing: -0.02em;
   white-space: nowrap;
 }
 .metric small {
@@ -397,12 +402,50 @@
   margin-bottom: 20px;
   padding: 16px 20px;
 }
+.dashboardFilterBar[data-role="reviewer"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+}
 .filterBar label {
   color: #24385f;
   display: grid;
   font-size: 11px;
   font-weight: 600;
   gap: 7px;
+}
+.periodFieldset {
+  border: 0;
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+.periodFieldset legend {
+  color: #24385f;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+.periodFieldset > div {
+  align-items: center;
+  border: 1px solid #d4ddea;
+  border-radius: 7px;
+  display: flex;
+  height: 42px;
+  min-width: 0;
+  padding: 0 10px;
+}
+.periodFieldset input {
+  border: 0;
+  font: inherit;
+  min-width: 105px;
+  outline: 0;
+  padding: 0 5px;
+  width: 100%;
+}
+.periodFieldset span {
+  color: var(--muted);
+  font-size: 10px;
 }
 .selectLike,
 .filterBar select,
@@ -454,6 +497,18 @@
 }
 .dataTable tr:hover td {
   background: #f8fbff;
+}
+.selectedTableRow td {
+  background: #eaf3ff;
+}
+.inlineLogButton {
+  background: transparent;
+  border: 0;
+  color: var(--blue);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
 }
 .eyeButton {
   align-items: center;
@@ -609,6 +664,18 @@
   .metricsAdmin {
     gap: 10px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .metricsAdmin {
+    grid-template-columns: 1fr;
+  }
+  .metricsAdmin .metric {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .metricsAdmin .metric small {
+    grid-column: 3;
+    grid-row: 1;
+    max-width: 105px;
+    text-align: right;
   }
   .metric {
     align-content: start;
@@ -1158,6 +1225,46 @@
   justify-content: center;
   min-height: 44px;
 }
+.adminValidationReview {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px 18px;
+}
+.adminValidationReview h3 {
+  font-size: 13px;
+  margin: 0;
+}
+.adminValidationReview dl {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 14px;
+}
+.adminValidationReview dl div {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: 130px 1fr;
+}
+.adminValidationReview dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.adminValidationReview dd {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+}
+.adminValidationReview p {
+  background: #f4f7fc;
+  border-radius: 8px;
+  color: #425478;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 14px;
+}
 .worksLayout {
   display: grid;
   gap: 24px;
@@ -1241,7 +1348,7 @@
   grid-template-columns: minmax(0, 1fr) 325px;
 }
 .logsLayout .filterBar {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: 1.35fr repeat(3, minmax(130px, 1fr)) auto;
 }
 .miniAvatar {
   align-items: center;
@@ -1255,7 +1362,10 @@
   width: 24px;
 }
 .logDetail {
+  align-self: start;
   padding-bottom: 20px;
+  position: sticky;
+  top: 108px;
 }
 .logDetail dl {
   display: grid;
@@ -1279,6 +1389,14 @@
   color: var(--blue);
   font-size: 12px;
   margin: 18px 20px 8px;
+}
+.logDetailActions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+.logDetailActions > button {
+  display: none;
 }
 .comment {
   background: #f4f7fc;
@@ -1314,10 +1432,42 @@
   top: 2px;
   width: 9px;
 }
+.logNoteLink {
+  align-items: center;
+  background: var(--blue);
+  border-radius: 7px;
+  color: #fff;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  justify-content: center;
+  margin: 18px 20px;
+  min-height: 42px;
+  text-decoration: none;
+}
+.logNoteLink svg {
+  height: 16px;
+  margin-left: 7px;
+  width: 16px;
+}
+.logId {
+  color: var(--muted);
+  display: block;
+  margin: 20px;
+  word-break: break-all;
+}
 .logMobileCard {
+  align-items: center;
+  background: #fff;
   border: 1px solid var(--line);
   border-radius: 9px;
+  color: inherit;
+  display: grid;
+  font: inherit;
+  gap: 8px;
+  grid-template-columns: 0.8fr 1fr auto auto;
   padding: 14px;
+  text-align: left;
 }
 .logMobileCard.selectedLog {
   background: #eaf3ff;
@@ -1359,9 +1509,12 @@
   .logsLayout {
     grid-template-columns: 1fr;
   }
-  .workForm,
-  .logDetail {
+  .workForm {
     display: none;
+  }
+  .logDetail {
+    display: block;
+    position: static;
   }
 }
 @media (max-width: 760px) {
@@ -1446,8 +1599,33 @@
   .logsLayout .filterBar {
     grid-template-columns: repeat(3, 1fr);
   }
-  .logDetail {
+  .logDetail[data-mobile-open="false"] {
     display: none;
+  }
+  .logDetail[data-mobile-open="true"] {
+    background: #fff;
+    border-radius: 18px 18px 0 0;
+    bottom: 72px;
+    box-shadow: 0 -12px 36px #07163b29;
+    display: block;
+    left: 0;
+    max-height: 62vh;
+    overflow: auto;
+    position: fixed;
+    right: 0;
+    top: auto;
+    z-index: 40;
+  }
+  .logDetailActions > button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: var(--navy);
+    display: flex;
+    font-size: 26px;
+    height: 34px;
+    justify-content: center;
+    width: 34px;
   }
 }
 .workSearch select {

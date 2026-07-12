@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useId, useState } from "react";
 
 import { createClient } from "@/lib/supabase/browser";
 import { getSafeRedirectPath } from "@/lib/supabase/redirect";
 
 import styles from "./login.module.css";
+
+const REMEMBERED_EMAIL_KEY = "winfrabr.remembered-email";
 
 type LoginFormProps = {
   nextPath?: string;
@@ -138,9 +140,13 @@ export function LoginForm({
   credentialsError = false,
 }: LoginFormProps) {
   const router = useRouter();
+  const emailId = useId();
+  const passwordId = useId();
+  const errorId = useId();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberEmail, setRememberEmail] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(
     configurationError
@@ -150,11 +156,45 @@ export function LoginForm({
         : null,
   );
 
+  useEffect(() => {
+    let rememberedEmail: string | null = null;
+
+    try {
+      rememberedEmail = window.localStorage.getItem(REMEMBERED_EMAIL_KEY);
+    } catch {
+      // O login continua funcional quando o armazenamento estiver indisponível.
+    }
+
+    if (!rememberedEmail) return;
+    const emailToRemember = rememberedEmail;
+
+    const frame = window.requestAnimationFrame(() => {
+      setEmail(emailToRemember);
+      setRememberEmail(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  function persistRememberedEmail(normalizedEmail: string) {
+    try {
+      if (rememberEmail) {
+        window.localStorage.setItem(REMEMBERED_EMAIL_KEY, normalizedEmail);
+      } else {
+        window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+      }
+    } catch {
+      // Falhas de armazenamento não devem impedir a autenticação.
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
-    if (!email.trim() || !password) {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail || !password) {
       setError("Preencha o e-mail e a senha para continuar.");
       return;
     }
@@ -164,7 +204,7 @@ export function LoginForm({
     try {
       const supabase = createClient();
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: normalizedEmail,
         password,
       });
 
@@ -172,6 +212,8 @@ export function LoginForm({
         setError(mapAuthError(authError.message));
         return;
       }
+
+      persistRememberedEmail(normalizedEmail);
 
       router.replace(getSafeRedirectPath(nextPath));
       router.refresh();
@@ -199,14 +241,21 @@ export function LoginForm({
             type="hidden"
             value={getSafeRedirectPath(nextPath)}
           />
-          {error && <div className={styles.alert}>{error}</div>}
+          {error && (
+            <div className={styles.alert} id={errorId} role="alert">
+              {error}
+            </div>
+          )}
 
           <div className={styles.field}>
-            <label>E-mail</label>
+            <label htmlFor={emailId}>E-mail</label>
             <div className={styles.inputGroup}>
               <IconMail />
               <input
+                aria-describedby={error ? errorId : undefined}
+                aria-invalid={Boolean(error)}
                 autoComplete="email"
+                id={emailId}
                 inputMode="email"
                 name="email"
                 onChange={(e) => setEmail(e.target.value)}
@@ -222,15 +271,18 @@ export function LoginForm({
 
           <div className={styles.field}>
             <div className={styles.labelRow}>
-              <label>Senha</label>
+              <label htmlFor={passwordId}>Senha</label>
               <Link href="/recuperar-senha" className={styles.forgotPassword}>
-                Esqueci minha senha
+                Esqueceu a senha?
               </Link>
             </div>
             <div className={styles.inputGroup}>
               <IconLock />
               <input
+                aria-describedby={error ? errorId : undefined}
+                aria-invalid={Boolean(error)}
                 autoComplete="current-password"
+                id={passwordId}
                 name="password"
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Digite sua senha"
@@ -253,14 +305,21 @@ export function LoginForm({
           </div>
 
           <label className={styles.rememberRow}>
-            <input type="checkbox" className={styles.checkbox} defaultChecked />
-            <span>Lembrar meu acesso</span>
+            <input
+              checked={rememberEmail}
+              className={styles.checkbox}
+              disabled={isSubmitting}
+              onChange={(event) => setRememberEmail(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Lembrar meu login</span>
           </label>
 
           <button
             type="submit"
             className={styles.btnPrimary}
             disabled={isSubmitting}
+            aria-busy={isSubmitting}
           >
             {isSubmitting ? (
               <span className={styles.spinner} />
@@ -276,7 +335,14 @@ export function LoginForm({
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>Enviar nota fiscal</h2>
         <Link href="/enviar-nota" className={styles.btnOutline}>
-          <IconUpload /> Enviar nota fiscal
+          <IconUpload />
+          <span className={styles.uploadCopy}>
+            <strong>Enviar nota fiscal</strong>
+            <small>Envie sua nota fiscal para análise da nossa equipe.</small>
+          </span>
+          <span aria-hidden="true" className={styles.uploadArrow}>
+            ›
+          </span>
         </Link>
       </div>
     </div>

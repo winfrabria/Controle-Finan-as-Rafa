@@ -1,0 +1,218 @@
+.filters {
+  align-items: end;
+  background: #fff;
+  border: 1px solid #dfe6ef;
+  border-radius: 12px;
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(190px, 1fr) minmax(320px, 1.15fr) minmax(
+      190px,
+      0.95fr
+    ) auto;
+  margin: 18px 0;
+  padding: 16px 18px;
+}
+
+.filters label,
+.filters fieldset {
+  border: 0;
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.filters label > span,
+.filters legend {
+  color: #0a2148;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0;
+}
+
+.filters select,
+.dateRange {
+  background: #fff;
+  border: 1px solid #d8e1ed;
+  border-radius: 7px;
+  color: #102a56;
+  font: inherit;
+  min-height: 42px;
+  width: 100%;
+}
+
+.filters select {
+  cursor: pointer;
+  padding: 0 12px;
+}
+
+.dateRange {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: 20px 1fr auto 1fr;
+  padding: 0 10px;
+}
+
+.dateRange svg {
+  color: #456289;
+  height: 18px;
+  width: 18px;
+}
+
+.dateRange input {
+  border: 0;
+  color: #102a56;
+  font: inherit;
+  min-width: 0;
+  outline: 0;
+}
+
+.filters button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #0b5cff;
+  border-radius: 7px;
+  color: #0b5cff;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 17px;
+  white-space: nowrap;
+}
+
+.filters button svg {
+  height: 17px;
+  width: 17px;
+}
+
+.notesPanel {
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.table th,
+.table td {
+  padding-left: 22px !important;
+  padding-right: 22px !important;
+}
+
+.table th:last-child,
+.table td:last-child {
+  text-align: center;
+  width: 84px;
+}
+
+.table td:nth-child(5) {
+  text-align: right;
+}
+
+.empty {
+  color: #657795;
+  margin: 0;
+  padding: 42px 20px;
+  text-align: center;
+}
+
+@media (max-width: 1080px) {
+  .filters {
+    gap: 12px;
+    grid-template-columns: 1fr 1.35fr 1fr;
+  }
+
+  .filters button {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}
+
+@media (max-width: 720px) {
+  .metrics {
+    display: none !important;
+  }
+
+  .filters {
+    background: transparent;
+    border: 0;
+    gap: 10px;
+    grid-template-columns: 0.85fr 1.3fr 0.9fr;
+    margin: 8px 0 18px;
+    padding: 0;
+  }
+
+  .filters label > span,
+  .filters legend {
+    font-size: 11px;
+  }
+
+  .filters select,
+  .dateRange {
+    font-size: 12px;
+    min-height: 43px;
+  }
+
+  .dateRange {
+    gap: 3px;
+    grid-template-columns: 16px 1fr auto 1fr;
+    padding: 0 7px;
+  }
+
+  .dateRange input {
+    font-size: 10px;
+    width: 100%;
+  }
+
+  .dateRange svg {
+    height: 15px;
+    width: 15px;
+  }
+
+  .filters button {
+    display: none;
+  }
+
+  .notesPanel {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    overflow: visible;
+  }
+
+  .mobileList {
+    gap: 12px !important;
+    padding: 0 !important;
+  }
+
+  .mobileCard {
+    background: #fff;
+    border: 1px solid #dfe6ef !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 14px rgb(21 47 88 / 7%);
+    min-height: 120px;
+    padding: 18px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .filters {
+    gap: 7px;
+  }
+
+  .filters select,
+  .dateRange {
+    font-size: 11px;
+  }
+
+  .dateRange {
+    grid-template-columns: 14px 1fr;
+  }
+
+  .dateRange span,
+  .dateRange input:last-child {
+    display: none;
+  }
+}

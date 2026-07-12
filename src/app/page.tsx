@@ -32,38 +32,6 @@ function LogoW() {
   );
 }
 
-function IconShieldCheck() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      <path d="m9 11 2 2 4-4" />
-    </svg>
-  );
-}
-
-function IconLockKeyhole() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  );
-}
-
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const configurationError = params.erro === "configuracao";
@@ -122,22 +90,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       {/* Footer */}
       <footer className={styles.footer}>
-        <div className={styles.footerLeft}>
-          <div className={styles.footerItem}>
-            <IconShieldCheck />
-            <span>Ambiente seguro e em conformidade com a LGPD</span>
-          </div>
-          <div className={styles.footerDivider} />
-          <div className={styles.footerItem}>
-            <IconLockKeyhole />
-            <span>
-              Seus dados estão protegidos com criptografia de ponta a ponta.
-            </span>
-          </div>
-        </div>
         <div className={styles.footerRight}>
-          © 2024 <span className={styles.footerRightBlue}>WinfraBR</span>.
-          Todos os direitos reservados.
+          © 2026 <span className={styles.footerRightBlue}>WinfraBR</span>. Todos
+          os direitos reservados.
         </div>
       </footer>
     </main>

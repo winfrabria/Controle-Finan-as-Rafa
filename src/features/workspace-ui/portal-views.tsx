@@ -1,7 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
 import { AdminWorksClient } from "./admin-works-client";
+import { DashboardFilters } from "./dashboard-filters";
+import { LogsExplorer } from "./logs-explorer";
 import { logRows, noteRows, validationRows, workRows } from "./mock-data";
+import { ReportExportButton } from "./report-export-button";
 import { Icon } from "./ui-icons";
 import {
   MetricCard,
@@ -11,42 +17,92 @@ import {
   type PortalRole,
 } from "./portal-shell";
 import styles from "./workspace-ui.module.css";
+import noteStyles from "./notes-view.module.css";
+import { ValidationDecisionForm } from "./validation-decision-form";
 
 type NoteVisualItem = {
-  id?: string;
+  id: string;
   number: string;
   supplier: string;
   date: string;
   value: string;
   classification: string;
+  work?: string;
 };
 
-function FilterBar({ compact = false }: { compact?: boolean }) {
+function dateToTime(value: string) {
+  const [day, month, year] = value.split("/").map(Number);
+  return new Date(year, month - 1, day).getTime();
+}
+
+function NotesFilterBar({
+  endDate,
+  onClear,
+  onEndDateChange,
+  onStartDateChange,
+  onStatusChange,
+  onWorkChange,
+  startDate,
+  status,
+  work,
+  works,
+}: {
+  endDate: string;
+  onClear: () => void;
+  onEndDateChange: (value: string) => void;
+  onStartDateChange: (value: string) => void;
+  onStatusChange: (value: string) => void;
+  onWorkChange: (value: string) => void;
+  startDate: string;
+  status: string;
+  work: string;
+  works: string[];
+}) {
   return (
-    <form className={styles.filterBar}>
+    <form className={noteStyles.filters} onReset={onClear}>
       <label>
-        Obra
-        <select defaultValue="">
+        <span>Obra</span>
+        <select
+          value={work}
+          onChange={(event) => onWorkChange(event.target.value)}
+        >
           <option value="">Todas as obras</option>
-          <option>Projeto Piloto</option>
+          {works.map((item) => (
+            <option key={item}>{item}</option>
+          ))}
         </select>
       </label>
+      <fieldset>
+        <legend>Período</legend>
+        <div className={noteStyles.dateRange}>
+          <Icon name="calendar" />
+          <input
+            aria-label="Data inicial"
+            type="date"
+            value={startDate}
+            onChange={(event) => onStartDateChange(event.target.value)}
+          />
+          <span>—</span>
+          <input
+            aria-label="Data final"
+            type="date"
+            value={endDate}
+            onChange={(event) => onEndDateChange(event.target.value)}
+          />
+        </div>
+      </fieldset>
       <label>
-        Período
-        <span className={styles.selectLike}>
-          <Icon name="calendar" /> 01/05/2024 - 31/05/2024
-        </span>
+        <span>Status</span>
+        <select
+          value={status}
+          onChange={(event) => onStatusChange(event.target.value)}
+        >
+          <option value="">Todos</option>
+          <option value="OK">OK</option>
+          <option value="Suspeita">Suspeita</option>
+          <option value="Em análise">Em análise</option>
+        </select>
       </label>
-      {!compact && (
-        <label>
-          Status
-          <select defaultValue="">
-            <option value="">Todos</option>
-            <option>OK</option>
-            <option>Suspeita</option>
-          </select>
-        </label>
-      )}
       <button type="reset">
         <Icon name="filter" /> Limpar filtros
       </button>
@@ -71,11 +127,7 @@ export function DashboardView({
             ? "Visão geral completa da plataforma com controle total de notas fiscais e validações."
             : "Visão geral da auditoria e do status das notas fiscais."
         }
-        action={
-          <button>
-            <Icon name="download" /> Exportar relatório
-          </button>
-        }
+        action={<ReportExportButton role={role} />}
       />
       <section
         className={`${styles.metrics} ${admin ? styles.metricsAdmin : ""}`}
@@ -116,7 +168,7 @@ export function DashboardView({
           tone={admin ? "green" : "blue"}
         />
       </section>
-      {!admin && <FilterBar compact />}
+      <DashboardFilters role={role} />
       {admin ? <AdminDashboardPanels /> : <ReviewerDashboardPanels />}
     </PortalShell>
   );
@@ -154,7 +206,7 @@ function ReviewerDashboardPanels() {
         </div>
         <ul className={styles.compactList}>
           {noteRows.slice(0, 5).map((n) => (
-            <li key={n[0]}>
+            <li key={n[5]}>
               <span>{n[0]}</span>
               <b>{n[1]}</b>
               <span>{n[2]}</span>
@@ -202,7 +254,7 @@ function AdminDashboardPanels() {
         </div>
         <ul className={styles.activityList}>
           {noteRows.slice(0, 5).map((n, i) => (
-            <li key={n[0]}>
+            <li key={n[5]}>
               <Icon name={i % 2 ? "warning" : "check"} />
               <span>
                 <strong>{n[1]}</strong>
@@ -263,12 +315,54 @@ export function NotesView({
     items !== undefined
       ? items
       : noteRows.map((n) => ({
+          id: n[5],
           number: n[0],
           supplier: n[1],
           date: n[2],
           value: n[3],
           classification: n[4],
+          work: n[6],
         }));
+  const [work, setWork] = useState("");
+  const [status, setStatus] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const works = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          rows
+            .map((row) => row.work)
+            .filter((item): item is string => Boolean(item)),
+        ),
+      ).sort(),
+    [rows],
+  );
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((row) => {
+        const rowTime = dateToTime(row.date);
+        const startsAt = startDate
+          ? new Date(`${startDate}T00:00:00`).getTime()
+          : null;
+        const endsAt = endDate
+          ? new Date(`${endDate}T23:59:59`).getTime()
+          : null;
+        return (
+          (!work || row.work === work) &&
+          (!status || row.classification === status) &&
+          (startsAt === null || rowTime >= startsAt) &&
+          (endsAt === null || rowTime <= endsAt)
+        );
+      }),
+    [endDate, rows, startDate, status, work],
+  );
+  const clearFilters = () => {
+    setWork("");
+    setStatus("");
+    setStartDate("");
+    setEndDate("");
+  };
   return (
     <PortalShell active="notas" role={role}>
       <PageIntro
@@ -279,7 +373,7 @@ export function NotesView({
             : "Consulte e acompanhe todas as notas fiscais enviadas para análise."
         }
       />
-      <section className={styles.notesMetrics}>
+      <section className={`${styles.notesMetrics} ${noteStyles.metrics}`}>
         <MetricCard
           icon="document"
           label="Total de notas"
@@ -301,9 +395,20 @@ export function NotesView({
           tone="green"
         />
       </section>
-      <FilterBar />
-      <section className={styles.panel}>
-        <table className={styles.dataTable}>
+      <NotesFilterBar
+        endDate={endDate}
+        onClear={clearFilters}
+        onEndDateChange={setEndDate}
+        onStartDateChange={setStartDate}
+        onStatusChange={setStatus}
+        onWorkChange={setWork}
+        startDate={startDate}
+        status={status}
+        work={work}
+        works={works}
+      />
+      <section className={`${styles.panel} ${noteStyles.notesPanel}`}>
+        <table className={`${styles.dataTable} ${noteStyles.table}`}>
           <thead>
             <tr>
               <th>Nº da nota</th>
@@ -315,8 +420,8 @@ export function NotesView({
             </tr>
           </thead>
           <tbody>
-            {rows.map((n) => (
-              <tr key={n.number}>
+            {filteredRows.map((n) => (
+              <tr key={n.id}>
                 <td>{n.number}</td>
                 <td>{n.supplier}</td>
                 <td>{n.date}</td>
@@ -331,10 +436,7 @@ export function NotesView({
                   <strong>{n.value}</strong>
                 </td>
                 <td>
-                  <Link
-                    href={n.id ? `/notas/${n.id}` : "#"}
-                    className={styles.eyeButton}
-                  >
+                  <Link href={`/notas/${n.id}`} className={styles.eyeButton}>
                     <Icon name="eye" />
                   </Link>
                 </td>
@@ -342,9 +444,12 @@ export function NotesView({
             ))}
           </tbody>
         </table>
-        <div className={styles.mobileCardsList}>
-          {rows.map((n) => (
-            <article className={styles.noteMobileCard} key={n.number}>
+        <div className={`${styles.mobileCardsList} ${noteStyles.mobileList}`}>
+          {filteredRows.map((n) => (
+            <article
+              className={`${styles.noteMobileCard} ${noteStyles.mobileCard}`}
+              key={n.id}
+            >
               <span className={styles.noteIcon}>
                 <Icon name="document" />
               </span>
@@ -363,17 +468,20 @@ export function NotesView({
                   {n.classification}
                 </StatusBadge>
                 <strong>{n.value}</strong>
-                <Link
-                  href={n.id ? `/notas/${n.id}` : "#"}
-                  className={styles.eyeButton}
-                >
+                <Link href={`/notas/${n.id}`} className={styles.eyeButton}>
                   <Icon name="eye" />
                 </Link>
               </aside>
             </article>
           ))}
         </div>
-        <Pagination />
+        {filteredRows.length === 0 ? (
+          <p className={noteStyles.empty}>
+            Nenhuma nota encontrada com esses filtros.
+          </p>
+        ) : (
+          <Pagination total={filteredRows.length} />
+        )}
       </section>
     </PortalShell>
   );
@@ -387,7 +495,7 @@ export function ValidationView({
   items?: NoteVisualItem[];
 }) {
   const queue: Array<NoteVisualItem & { state: string }> =
-    items !== undefined
+    items && items.length > 0
       ? items.map((item, index) => ({
           ...item,
           state:
@@ -404,7 +512,7 @@ export function ValidationView({
         title="Validações"
         description={
           role === "admin"
-            ? "Revise e acompanhe as notas fiscais em validação."
+            ? "Acompanhe as decisões registradas pelo Rafael e consulte as evidências de cada nota."
             : "Revise e classifique as notas fiscais que aguardam sua validação."
         }
       />
@@ -412,8 +520,12 @@ export function ValidationView({
         <article className={`${styles.panel} ${styles.validationQueue}`}>
           <div className={styles.panelHeader}>
             <h2>
-              Notas aguardando validação{" "}
-              <StatusBadge tone="info">{items?.length ?? 198}</StatusBadge>
+              {role === "admin"
+                ? "Validações realizadas pelo Rafael "
+                : "Notas aguardando validação "}
+              <StatusBadge tone="info">
+                {items && items.length > 0 ? items.length : 198}
+              </StatusBadge>
             </h2>
             <button>
               <Icon name="filter" /> Filtrar⌄
@@ -424,7 +536,7 @@ export function ValidationView({
               <Link
                 href={n.id ? `/notas/${n.id}` : "#"}
                 className={i === 0 ? styles.selectedQueue : undefined}
-                key={n.number}
+                key={n.id}
               >
                 <span className={`${styles.queueState} ${styles[n.state]}`}>
                   <Icon name={n.state === "ok" ? "check" : "warning"} />
@@ -447,13 +559,13 @@ export function ValidationView({
             ))}
           </div>
         </article>
-        <ValidationDetail />
+        <ValidationDetail readOnly={role === "admin"} />
       </section>
     </PortalShell>
   );
 }
 
-function ValidationDetail() {
+function ValidationDetail({ readOnly }: { readOnly: boolean }) {
   return (
     <article className={`${styles.panel} ${styles.validationDetail}`}>
       <div className={styles.panelHeader}>
@@ -463,7 +575,7 @@ function ValidationDetail() {
           </span>{" "}
           Detalhes da nota selecionada
         </h2>
-        <button>Ver nota fiscal ↗</button>
+        <Link href="/notas/demo-00012589">Ver nota fiscal ↗</Link>
       </div>
       <dl className={styles.noteSummary}>
         <div>
@@ -493,47 +605,33 @@ function ValidationDetail() {
           quantidade entre esta nota e históricos de compras similares.
         </p>
       </section>
-      <form className={styles.validationForm}>
-        <fieldset>
-          <legend>Sua classificação</legend>
-          <label>
-            <input type="radio" name="decision" />
-            <span>
-              <Icon name="check" />
-              <strong>OK</strong>
-              <small>Tudo conforme</small>
-            </span>
-          </label>
-          <label>
-            <input type="radio" name="decision" />
-            <span>
-              <Icon name="warning" />
-              <strong>Suspeita</strong>
-              <small>Requer atenção</small>
-            </span>
-          </label>
-        </fieldset>
-        <label>
-          Motivo da classificação <b>*</b>
-          <select defaultValue="">
-            <option value="" disabled>
-              Selecione o motivo
-            </option>
-            <option>Divergência de quantidade</option>
-          </select>
-        </label>
-        <label>
-          Comentário (opcional)
-          <textarea
-            placeholder="Descreva os principais pontos que levaram à sua decisão..."
-            maxLength={500}
-          />
-          <small>0/500</small>
-        </label>
-        <button type="button">
-          <Icon name="lock" /> Salvar validação
-        </button>
-      </form>
+      {readOnly ? (
+        <section className={styles.adminValidationReview}>
+          <h3>Decisão registrada pelo Rafael</h3>
+          <dl>
+            <div>
+              <dt>Classificação</dt>
+              <dd>
+                <StatusBadge tone="warning">Suspeita</StatusBadge>
+              </dd>
+            </div>
+            <div>
+              <dt>Motivo</dt>
+              <dd>Divergência de quantidade e/ou valor</dd>
+            </div>
+            <div>
+              <dt>Registrada em</dt>
+              <dd>28/05/2024 10:35</dd>
+            </div>
+          </dl>
+          <p>
+            “A quantidade executada está acima do medido em campo. Favor revisar
+            as evidências.”
+          </p>
+        </section>
+      ) : (
+        <ValidationDecisionForm />
+      )}
     </article>
   );
 }
@@ -582,141 +680,17 @@ export function LogsView() {
           tone="purple"
         />
       </section>
-      <section className={styles.logsLayout}>
-        <article>
-          <FilterBar />
-          <div className={styles.panel}>
-            <table className={styles.dataTable}>
-              <thead>
-                <tr>
-                  <th>Data/hora</th>
-                  <th>Usuário</th>
-                  <th>Nº da nota</th>
-                  <th>Ação</th>
-                  <th>Classificação</th>
-                  <th>Motivo</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logRows.map((l) => (
-                  <tr key={l[0]}>
-                    <td>{l[0]}</td>
-                    <td>
-                      <span className={styles.miniAvatar}>R</span> Rafael
-                    </td>
-                    <td>{l[1]}</td>
-                    <td>{l[2]}</td>
-                    <td>
-                      <StatusBadge tone={l[4] === "OK" ? "ok" : "warning"}>
-                        {l[4]}
-                      </StatusBadge>
-                    </td>
-                    <td>{l[3]}</td>
-                    <td>{l[4]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className={styles.mobileCardsList}>
-              {logRows.map((l, i) => (
-                <article
-                  className={`${styles.logMobileCard} ${i === 0 ? styles.selectedLog : ""}`}
-                  key={l[0]}
-                >
-                  <div>
-                    <strong>{l[0]}</strong>
-                    <span>
-                      <i className={styles.miniAvatar}>R</i> Rafael
-                      <br />
-                      {l[1]}
-                    </span>
-                    <StatusBadge tone={l[4] === "OK" ? "ok" : "warning"}>
-                      {l[4]}
-                    </StatusBadge>
-                    <Icon name="chevron" />
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>Ação</dt>
-                      <dd>{l[2]}</dd>
-                    </div>
-                    <div>
-                      <dt>Motivo</dt>
-                      <dd>{l[3]}</dd>
-                    </div>
-                    <div>
-                      <dt>Status</dt>
-                      <dd>{l[4]}</dd>
-                    </div>
-                  </dl>
-                </article>
-              ))}
-            </div>
-            <Pagination />
-          </div>
-        </article>
-        <LogDetail />
-      </section>
+      <LogsExplorer />
     </PortalShell>
   );
 }
 
-function LogDetail() {
-  return (
-    <aside className={`${styles.panel} ${styles.logDetail}`}>
-      <div className={styles.panelHeader}>
-        <h2>Detalhes do log</h2>×
-      </div>
-      <dl>
-        <div>
-          <dt>Data/hora</dt>
-          <dd>28/05/2024 10:35:42</dd>
-        </div>
-        <div>
-          <dt>Usuário</dt>
-          <dd>Rafael</dd>
-        </div>
-        <div>
-          <dt>Nº da nota</dt>
-          <dd>00012589</dd>
-        </div>
-        <div>
-          <dt>Ação</dt>
-          <dd>Rafael marcou como Suspeita</dd>
-        </div>
-        <div>
-          <dt>Classificação</dt>
-          <dd>
-            <StatusBadge tone="warning">Suspeita</StatusBadge>
-          </dd>
-        </div>
-      </dl>
-      <h3>Comentário do Rafael</h3>
-      <p className={styles.comment}>
-        “A quantidade executada informada na nota está acima do medido em campo.
-        Favor revisar as medições e anexar evidências conforme procedimento.”
-      </p>
-      <h3>Linha do tempo</h3>
-      <ol className={styles.timeline}>
-        <li>
-          <b>28/05/2024 10:35:42</b>Rafael marcou a nota como Suspeita
-        </li>
-        <li>
-          <b>28/05/2024 10:28:19</b>Nota enviada para validação
-        </li>
-        <li>
-          <b>28/05/2024 09:12:07</b>Nota fiscal emitida pelo fornecedor
-        </li>
-      </ol>
-    </aside>
-  );
-}
-
-function Pagination() {
+function Pagination({ total = 1248 }: { total?: number }) {
   return (
     <footer className={styles.pagination}>
-      <span>1-8 de 1.248</span>
+      <span>
+        1-{Math.min(10, total)} de {total.toLocaleString("pt-BR")}
+      </span>
       <div className={styles.paginationNumbers}>
         <span>1</span>
         <span>2</span>
