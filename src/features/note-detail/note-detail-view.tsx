@@ -1,0 +1,367 @@
+import Link from "next/link";
+
+import { ValidationDecisionForm } from "@/features/workspace-ui/validation-decision-form";
+import {
+  PortalShell,
+  StatusBadge,
+  type PortalRole,
+} from "@/features/workspace-ui/portal-shell";
+import { Icon } from "@/features/workspace-ui/ui-icons";
+import type { Prisma } from "@/generated/prisma/client";
+
+import type { NoteDetailData } from "./data";
+import { NoteDetailActions } from "./note-detail-actions";
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatDecimal,
+  jsonSummary,
+} from "./note-detail-format";
+import styles from "./note-detail.module.css";
+import { NoteDocumentPreview } from "./note-document-preview";
+
+type NoteDetailViewProps = {
+  data: NoteDetailData;
+  documentUrl: string | null;
+  userEmail: string;
+};
+
+export function NoteDetailView({
+  data,
+  documentUrl,
+  userEmail,
+}: NoteDetailViewProps) {
+  const role: PortalRole = data.viewerRole === "ADMIN" ? "admin" : "reviewer";
+  const basePath = role === "admin" ? "/admin" : "/revisao";
+  const classification = classificationLabel(data.analysis.classification);
+  const primaryFinding = data.analysis.findings[0] ?? null;
+  const latestValidation = data.validations.at(-1) ?? null;
+  const raw = data.analysis.rawExtraction;
+  const number = data.number ?? "Sem número";
+  const supplier = data.supplier.name ?? "Fornecedor não identificado";
+  const total = formatCurrency(data.totalAmount);
+  const extractedFields = [
+    ["Número da nota", number, "document"],
+    ["Série", rawValue(raw, ["serie", "series"]) ?? "Não identificada", "document"],
+    [
+      "Tipo de operação",
+      rawValue(raw, ["tipoOperacao", "operationType"]) ?? "Venda de mercadoria",
+      "building",
+    ],
+    [
+      "Natureza da operação",
+      rawValue(raw, ["naturezaOperacao", "operationNature"]) ??
+        "Venda de mercadoria",
+      "building",
+    ],
+    ["CNPJ do fornecedor", data.supplier.taxId ?? "Não identificado", "document"],
+    [
+      "Inscrição estadual",
+      rawValue(raw, ["inscricaoEstadual", "stateRegistration"]) ??
+        "Não identificada",
+      "document",
+    ],
+    [
+      "CNPJ do destinatário",
+      rawValue(raw, ["destinatarioTaxId", "recipientTaxId"]) ??
+        "Não identificado",
+      "document",
+    ],
+    ["Data de emissão", formatDate(data.issuedAt), "calendar"],
+    [
+      "Valor total dos produtos",
+      rawValue(raw, ["valorProdutos", "productsTotal"])
+        ? formatCurrency(rawValue(raw, ["valorProdutos", "productsTotal"]))
+        : total,
+      "money",
+    ],
+    ["Valor total da nota", total, "money"],
+    [
+      "Base de cálculo ICMS",
+      formatMaybeCurrency(rawValue(raw, ["baseCalculoIcms", "icmsBase"])),
+      "money",
+    ],
+    [
+      "Valor do ICMS",
+      formatMaybeCurrency(rawValue(raw, ["valorIcms", "icmsValue"])),
+      "money",
+    ],
+  ] as const;
+
+  return (
+    <PortalShell active="notas" role={role} userEmail={userEmail}>
+      <div className={styles.detailPage}>
+        <nav className={styles.breadcrumb} aria-label="Navegação estrutural">
+          <Link href={`${basePath}/notas`}>Notas</Link>
+          <Icon name="chevron" />
+          <strong>Detalhe da nota</strong>
+        </nav>
+
+        <header className={styles.pageHeader}>
+          <div>
+            <div className={styles.titleRow}>
+              <h1>Detalhe da nota</h1>
+              <StatusBadge tone={classification === "OK" ? "ok" : "warning"}>
+                ● &nbsp;{classification}
+              </StatusBadge>
+              {data.demoLabel ? (
+                <span className={styles.demoBadge}>{data.demoLabel}</span>
+              ) : null}
+            </div>
+            <p>Análise completa da nota fiscal eletrônica.</p>
+          </div>
+          <NoteDetailActions />
+        </header>
+
+        <section className={styles.metadataStrip} aria-label="Resumo da nota">
+          <MetadataItem icon="document" label="Obra" value={data.work.name} />
+          <MetadataItem icon="help" label="Fornecedor" value={supplier} />
+          <MetadataItem
+            icon="calendar"
+            label="Data da emissão"
+            value={formatDate(data.issuedAt)}
+          />
+          <MetadataItem icon="money" label="Valor da nota (R$)" value={total} green />
+        </section>
+
+        <div className={styles.detailGrid}>
+          <section className={`${styles.card} ${styles.documentCard}`}>
+            <header className={styles.cardHeader}>
+              <h2>Documento em foco (DANFE)</h2>
+              {documentUrl ? (
+                <a href={documentUrl} target="_blank" rel="noreferrer">
+                  Abrir em nova aba ↗
+                </a>
+              ) : null}
+            </header>
+            <NoteDocumentPreview
+              documentUrl={documentUrl}
+              fileName={data.document.fileName}
+              isImage={data.document.mimeType.startsWith("image/")}
+              items={data.items}
+              number={number}
+              supplier={supplier}
+              total={total}
+            />
+          </section>
+
+          <section className={`${styles.card} ${styles.extractedCard}`}>
+            <header className={styles.cardHeader}>
+              <div>
+                <h2>Dados extraídos</h2>
+                <p>Campos identificados na nota fiscal eletrônica.</p>
+              </div>
+            </header>
+            <dl className={styles.extractedGrid}>
+              {extractedFields.map(([label, value, icon]) => (
+                <div key={label}>
+                  <span className={styles.fieldIcon}>
+                    <Icon name={icon} />
+                  </span>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className={styles.itemsSection}>
+              <h3>Itens da nota ({data.items.length})</h3>
+              <div className={styles.itemsTableWrap}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Descrição do produto / serviço</th>
+                      <th>UN</th>
+                      <th>QTD.</th>
+                      <th>Vlr. unit.</th>
+                      <th>Vlr. total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.items.slice(0, 7).map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.description}</td>
+                        <td>{item.unit ?? "—"}</td>
+                        <td>{formatDecimal(item.quantity, 0)}</td>
+                        <td>{formatDecimal(item.unitPrice)}</td>
+                        <td>{formatDecimal(item.totalAmount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <footer>
+                <span>Total de itens</span>
+                <strong>{data.items.length}</strong>
+                <span>Total dos itens</span>
+                <strong>{total}</strong>
+              </footer>
+            </div>
+          </section>
+
+          <aside className={styles.reviewColumn}>
+            <section className={`${styles.card} ${styles.aiSummaryCard}`}>
+              <header className={styles.cardHeader}>
+                <div>
+                  <h2>Explicação da IA</h2>
+                  <p>Principais pontos que levaram à classificação da nota como suspeita.</p>
+                </div>
+              </header>
+              {primaryFinding ? (
+                <div className={styles.primaryFinding}>
+                  <div className={styles.findingTitle}>
+                    <Icon name="warning" />
+                    <strong>1. {primaryFinding.title}</strong>
+                  </div>
+                  <h3>Evidência</h3>
+                  <p>{jsonSummary(primaryFinding.evidence, primaryFinding.description)}</p>
+                  <h3>Justificativa</h3>
+                  <p>
+                    {primaryFinding.rule?.description ?? primaryFinding.description}
+                  </p>
+                </div>
+              ) : (
+                <div className={styles.emptyFinding}>
+                  <Icon name="check" /> Nenhum apontamento identificado.
+                </div>
+              )}
+              {data.analysis.findings.length > 1 ? (
+                <span className={styles.moreFindings}>
+                  +{data.analysis.findings.length - 1} outros apontamentos
+                </span>
+              ) : null}
+              <Link className={styles.analysisLink} href={`/notas/${data.id}/analise-ia`}>
+                Ver análise completa da IA <Icon name="chevron" />
+              </Link>
+            </section>
+
+            <section className={`${styles.card} ${styles.validationCard}`}>
+              <header className={styles.cardHeader}>
+                <div>
+                  <h2>{role === "reviewer" ? "Sua validação" : "Validação humana"}</h2>
+                  <p>
+                    {role === "reviewer"
+                      ? "Revise a análise da IA e registre sua decisão."
+                      : "Acompanhe a decisão registrada pelo revisor."}
+                  </p>
+                </div>
+              </header>
+              <div className={styles.validationBody}>
+                {role === "reviewer" && data.status === "PENDING_VALIDATION" ? (
+                  <ValidationDecisionForm isDemo={data.isDemo} noteId={data.id} showCancel={false} />
+                ) : latestValidation ? (
+                  <dl className={styles.validationResult}>
+                    <div>
+                      <dt>Decisão</dt>
+                      <dd>{validationDecisionLabel(latestValidation.decision)}</dd>
+                    </div>
+                    <div>
+                      <dt>Motivo</dt>
+                      <dd>{latestValidation.reason}</dd>
+                    </div>
+                    <div>
+                      <dt>Responsável</dt>
+                      <dd>{latestValidation.validator.fullName ?? latestValidation.validator.email}</dd>
+                    </div>
+                    {latestValidation.comment ? (
+                      <div>
+                        <dt>Comentário</dt>
+                        <dd>{latestValidation.comment}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                ) : (
+                  <p className={styles.pendingMessage}>Nenhuma decisão humana registrada.</p>
+                )}
+              </div>
+            </section>
+          </aside>
+        </div>
+
+        <section className={`${styles.card} ${styles.timelineCard}`}>
+          <header>
+            <h2>Histórico da nota</h2>
+            <p>Acompanhe todas as ações realizadas nesta nota.</p>
+          </header>
+          <ol>
+            {data.history.slice(-5).map((entry, index) => (
+              <li key={entry.id}>
+                <span className={styles.timelineIcon}>
+                  <Icon
+                    name={
+                      entry.type.includes("VALIDATION")
+                        ? "help"
+                        : entry.type.includes("ANALYSIS")
+                          ? "warning"
+                          : entry.type.includes("EXTRACTION")
+                            ? "money"
+                            : "document"
+                    }
+                  />
+                </span>
+                <div>
+                  <strong>{entry.label}</strong>
+                  <time>{formatDateTime(entry.createdAt)}</time>
+                  <small>{entry.actor?.fullName ?? entry.actor?.email ?? "Sistema"}</small>
+                </div>
+                {index < Math.min(data.history.length, 5) - 1 ? <i /> : null}
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    </PortalShell>
+  );
+}
+
+function MetadataItem({
+  green = false,
+  icon,
+  label,
+  value,
+}: {
+  green?: boolean;
+  icon: "calendar" | "document" | "help" | "money";
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <span className={green ? styles.metadataGreen : styles.metadataBlue}>
+        <Icon name={icon} />
+      </span>
+      <dl>
+        <dt>{label}</dt>
+        <dd>{value}</dd>
+      </dl>
+    </div>
+  );
+}
+
+function classificationLabel(value: string | null) {
+  if (value === "OK") return "OK";
+  if (value === "SUSPICIOUS") return "Suspeita";
+  return "Em análise";
+}
+
+function validationDecisionLabel(value: string) {
+  if (value === "SUSPICION_CONFIRMED") return "Suspeita confirmada";
+  if (value === "FALSE_POSITIVE") return "Alerta descartado";
+  if (value === "NOTE_VALID") return "Nota OK";
+  return "Apontamento confirmado";
+}
+
+function rawValue(value: Prisma.JsonValue | null, keys: string[]) {
+  if (!value || Array.isArray(value) || typeof value !== "object") return null;
+  for (const key of keys) {
+    const entry = value[key];
+    if (typeof entry === "string" || typeof entry === "number") {
+      return String(entry);
+    }
+  }
+  return null;
+}
+
+function formatMaybeCurrency(value: string | null) {
+  return value ? formatCurrency(value) : "Não identificado";
+}

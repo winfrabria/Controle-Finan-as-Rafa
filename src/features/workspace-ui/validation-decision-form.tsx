@@ -32,10 +32,12 @@ export function ValidationDecisionForm({
   isDemo = false,
   noteId,
   onCancel,
+  showCancel = true,
 }: {
   isDemo?: boolean;
   noteId?: string;
   onCancel?: () => void;
+  showCancel?: boolean;
 }) {
   const router = useRouter();
   const [decision, setDecision] = useState<"OK" | "SUSPEITA" | null>(null);
@@ -204,10 +206,14 @@ export function ValidationDecisionForm({
           <small className={styles.counter}>{comment.length}/500</small>
         </span>
       </label>
-      <div className={styles.formActions}>
-        <button type="button" onClick={onCancel} className={styles.cancelBtn}>
-          <Icon name="chevron" /> Voltar para a lista
-        </button>
+      <div
+        className={`${styles.formActions} ${!showCancel ? styles.formActionsSingle : ""}`}
+      >
+        {showCancel ? (
+          <button type="button" onClick={onCancel} className={styles.cancelBtn}>
+            <Icon name="chevron" /> Voltar para a lista
+          </button>
+        ) : null}
         <button
           type="submit"
           className={styles.submitBtn}

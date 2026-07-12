@@ -197,6 +197,10 @@
   margin-top: 1px;
 }
 
+.formActionsSingle {
+  grid-template-columns: 1fr;
+}
+
 .cancelBtn,
 .submitBtn {
   align-items: center;

@@ -55,3 +55,56 @@ The validation comparison confirms that the comment field now occupies a complet
 - [x] No desktop overflow at the tested Chrome viewport
 
 final result: passed
+
+---
+
+# Design QA — Detalhe da nota e análise completa da IA
+
+- Source visual truth (detalhe): `C:\Users\PdrArth\AppData\Local\Temp\codex-clipboard-af07ff39-a4df-4700-ba1c-f9fdf41f68ae.png`
+- Source visual truth (análise): `C:\Users\PdrArth\AppData\Local\Temp\codex-clipboard-06b651b2-1a19-4eb6-8e92-f7f14594ff86.png`
+- Implementation screenshot (detalhe): `C:\Users\PdrArth\AppData\Local\Temp\winfra-note-detail-built.png`
+- Implementation screenshot (análise): `C:\Users\PdrArth\AppData\Local\Temp\winfra-ai-analysis-built.png`
+- Side-by-side comparison (detalhe): `C:\Users\PdrArth\AppData\Local\Temp\winfra-note-detail-comparison.png`
+- Side-by-side comparison (análise): `C:\Users\PdrArth\AppData\Local\Temp\winfra-ai-analysis-comparison.png`
+- Browser and desktop viewport: Chrome, 1463 × 623 CSS pixels
+- Responsive check: Chrome viewport override at 390 × 844, reset after testing
+- State: REVIEWER, explicitly labeled demonstration note; real UUID routes use the Prisma-backed loader
+
+## Visual comparison evidence
+
+The final detail view preserves the approved structure: breadcrumb and status header, four-part metadata strip, DANFE preview, twelve extracted fields, five-item table, concise primary AI finding, `+2 outros apontamentos`, direct link to the complete analysis, compact human-validation form, and the immutable note timeline. The implementation uses the existing WinfraBR shell and scales the reference's 2048 × 1280 composition to the user's live Chrome width without horizontal overflow.
+
+The complete-analysis view preserves the approved three-column hierarchy: selectable finding list, selected finding explanation with rule/evidence/reference/expected-versus-identified/affected item/justification, and the DANFE excerpt with the affected row highlighted plus consulted sources and limitations. The default visual state selects the first finding, matching the source. No AI confidence value is rendered in either REVIEWER screen.
+
+## Runtime and data checks
+
+- Real note UUIDs load Note, Work, NoteItem, Finding, Validation and NoteEvent through Prisma.
+- Only `demo-*` identifiers receive the visible demonstration fallback.
+- The REVIEWER contract recursively removes confidence-related fields; ADMIN keeps `analysis.readConfidence` in the server contract for administrative use.
+- The detail link navigated to `/notas/demo-validation-0001/analise-ia` successfully.
+- Selecting the second finding updated both the central explanation and the highlighted DANFE row.
+- The return route restored the detail view.
+- Zoom, print, actions menu and validation controls are interactive; the real validation path uses `/api/validacoes`.
+- Chrome reported no console errors.
+- Desktop and 390 px checks reported no horizontal overflow.
+- `npm run check` and `npm run build` passed.
+
+## Findings and resolution
+
+1. P2: the initial demonstration note derived its fiscal number from the route slug and left fiscal fields blank. The fallback now maps queue IDs to a stable note number and supplies series, operation, recipient tax ID, state registration, product total, ICMS base and ICMS value.
+2. P2: the first comparison used the second selected finding, unlike the source. The final comparison was recaptured with the first finding selected while the second-finding interaction remained separately verified.
+3. P3: the source uses a photographic Rafael avatar and a client block in the sidebar. The current product shell uses the established initial-based authenticated profile and role-specific navigation; this does not change the requested note-review flow.
+
+## Implementation checklist
+
+- [x] Separate note-detail and complete-AI-analysis routes
+- [x] Primary finding summarized on the detail page
+- [x] All findings available in the complete analysis
+- [x] No AI confidence shown to REVIEWER
+- [x] Prisma-backed data with explicit demo fallback only for `demo-*`
+- [x] Human validation connected to the existing API
+- [x] Functional finding selection, navigation, zoom and actions
+- [x] Desktop and narrow-width responsive validation
+- [x] Side-by-side comparison against both approved sources
+
+final result: passed
