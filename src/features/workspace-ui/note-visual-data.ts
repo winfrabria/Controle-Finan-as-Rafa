@@ -20,6 +20,7 @@ export function toNoteVisualItems(items: NoteListItem[]) {
           ? "Suspeita"
           : "Em análise",
     date: dateFormatter.format(item.issuedAt ?? item.createdAt),
+    finding: item.primaryFinding ?? undefined,
     id: item.id,
     number: item.documentNumber ?? "Sem número",
     supplier: item.supplierName ?? "Fornecedor não identificado",
