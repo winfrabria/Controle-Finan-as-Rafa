@@ -1,8 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { LogoutButton } from "@/components/auth/logout-button";
-
 import { Icon, type IconName } from "./ui-icons";
 import { ShellControls } from "./shell/shell-controls";
 import shellStyles from "./shell/shell-controls.module.css";
@@ -10,12 +8,18 @@ import styles from "./workspace-ui.module.css";
 
 export type PortalRole = "admin" | "reviewer";
 export type PortalSection =
-  "dashboard" | "notas" | "validacoes" | "obras" | "logs";
+  | "dashboard"
+  | "notas"
+  | "validacoes"
+  | "historico"
+  | "obras"
+  | "logs";
 
 const menu: { id: PortalSection; label: string; icon: IconName }[] = [
   { id: "dashboard", label: "Dashboard", icon: "home" },
   { id: "notas", label: "Notas", icon: "document" },
   { id: "validacoes", label: "Validações", icon: "shield" },
+  { id: "historico", label: "Histórico", icon: "clock" },
   { id: "obras", label: "Obras", icon: "building" },
   { id: "logs", label: "Logs", icon: "clock" },
 ];
@@ -39,6 +43,11 @@ export function PortalShell({
   const visibleMenu = menu.filter(
     (item) => isAdmin || !["obras", "logs"].includes(item.id),
   );
+  const mobileMenu = visibleMenu.filter((item) =>
+    isAdmin
+      ? ["dashboard", "notas", "historico", "obras"].includes(item.id)
+      : ["dashboard", "notas", "validacoes", "historico"].includes(item.id),
+  );
   return (
     <div className={styles.portal}>
       <aside className={styles.side}>
@@ -57,12 +66,6 @@ export function PortalShell({
             </Link>
           ))}
         </nav>
-        <div className={styles.sideActions}>
-          <button type="button">
-            <Icon name="chevron" /> Recolher menu
-          </button>
-          <LogoutButton className={styles.signout} />
-        </div>
       </aside>
 
       <section className={styles.workspace}>
@@ -87,7 +90,7 @@ export function PortalShell({
       </section>
 
       <nav className={styles.mobileNav} aria-label="Navegação mobile">
-        {visibleMenu.slice(0, 3).map((item) => (
+        {mobileMenu.map((item) => (
           <Link
             key={item.id}
             href={`${basePath}${item.id === "dashboard" ? "" : `/${item.id}`}`}
@@ -97,17 +100,6 @@ export function PortalShell({
             <span>{item.label}</span>
           </Link>
         ))}
-        <Link
-          href={isAdmin ? `${basePath}/obras` : `${basePath}/menu`}
-          className={
-            active === "obras" || active === "logs"
-              ? styles.mobileActive
-              : undefined
-          }
-        >
-          <Icon name={isAdmin ? "building" : "menu"} />
-          <span>{isAdmin ? "Obras" : "Menu"}</span>
-        </Link>
       </nav>
     </div>
   );
@@ -178,13 +170,17 @@ export function MetricCard({
       <span className={`${styles.metricIcon} ${styles[`metric_${tone}`]}`}>
         <Icon name={icon} />
       </span>
-      <div>
-        <p>{label}</p>
-        <strong>{value}</strong>
+      <div className={styles.metricBody}>
+        <p className={styles.metricLabel}>{label}</p>
+        <p className={styles.metricValue}>{value}</p>
+        <p
+          className={`${styles.metricFootnote} ${
+            tone === "orange" ? styles.negative : styles.positive
+          }`}
+        >
+          {footnote}
+        </p>
       </div>
-      <small className={tone === "orange" ? styles.negative : styles.positive}>
-        {footnote}
-      </small>
     </article>
   );
 }

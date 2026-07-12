@@ -161,7 +161,7 @@ export function ReviewerValidationWorkspace({
       />
 
       <section className={styles.layout}>
-        <article className={styles.queuePanel}>
+        <article className={styles.queuePanel} id="validation-queue">
           <header className={styles.panelHeader}>
             <h2>
               Notas aguardando validação
@@ -252,14 +252,19 @@ export function ReviewerValidationWorkspace({
                         >
                           <Icon name="warning" />
                         </span>
-                        {note.supplier}
+                        <span
+                          className={styles.supplierName}
+                          title={note.supplier}
+                        >
+                          {note.supplier}
+                        </span>
                       </button>
                     </td>
                     <td>{note.number}</td>
                     <td className={styles.money}>{note.value}</td>
                     <td>{note.date}</td>
                     <td>
-                      <StatusBadge tone="warning">Suspeita</StatusBadge>
+                      <span className={styles.queueStatus}>Suspeita</span>
                     </td>
                     <td>
                       <Icon name="chevron" />
@@ -370,7 +375,16 @@ export function ReviewerValidationWorkspace({
                 </p>
               </section>
 
-              <ValidationDecisionForm key={selected.id} />
+              <ValidationDecisionForm
+                key={selected.id}
+                isDemo={isDemo}
+                noteId={selected.id}
+                onCancel={() => {
+                  const queue = document.getElementById("validation-queue");
+                  queue?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  queue?.querySelector<HTMLButtonElement>("button")?.focus();
+                }}
+              />
             </div>
           ) : (
             <div className={styles.detailEmpty}>
