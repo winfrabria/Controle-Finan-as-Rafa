@@ -1,149 +1,442 @@
+/* ================================================================
+   LOGIN PAGE — Fiel ao mockup de referência
+   ================================================================ */
+
+/* ── Reset base ──────────────────────────────────────────── */
 .page {
-  --navy: #052554;
-  --navy-deep: #021a3d;
-  --yellow: #ffb800;
-  --muted: #64748b;
-  background: #f6f8fb;
-  color: var(--navy-deep);
-  display: grid;
-  font-family: Arial, Helvetica, sans-serif;
-  grid-template-columns: minmax(320px, 39%) 1fr;
-  inset: 0;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #ffffff;
+  color: #111827;
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 58%) minmax(520px, 42%);
+  grid-template-rows: 1fr auto;
   position: fixed;
+  inset: 0;
   overflow: auto;
 }
 
-.brandPanel {
-  align-items: center;
-  background:
-    radial-gradient(circle at 72% 32%, rgba(13, 68, 135, 0.55), transparent 38%),
-    linear-gradient(145deg, #062c61 0%, var(--navy-deep) 72%);
-  color: #fff;
+/* ================================================================
+   PAINEL ESQUERDO — Logo + texto + imagem hero
+   ================================================================ */
+.leftPanel {
+  grid-row: 1;
+  grid-column: 1;
+  background: #ffffff;
   display: flex;
-  justify-content: center;
-  min-height: 100vh;
+  flex-direction: column;
+  padding: 58px 62px 0 72px;
+  position: relative;
   overflow: hidden;
-  padding: 48px;
-  position: relative;
 }
 
-.blueprint {
-  background-image:
-    linear-gradient(32deg, transparent 48%, rgba(74, 137, 196, 0.16) 49%, rgba(74, 137, 196, 0.16) 50%, transparent 51%),
-    linear-gradient(90deg, rgba(74, 137, 196, 0.08) 1px, transparent 1px),
-    linear-gradient(rgba(74, 137, 196, 0.08) 1px, transparent 1px);
-  background-size: 220px 180px, 56px 56px, 56px 56px;
-  inset: 0;
-  opacity: 0.8;
+/* Skyline decorativo de fundo (muito sutil) */
+.leftPanel::before {
+  content: '';
   position: absolute;
-  transform: skewY(-8deg) scale(1.2);
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 50%, rgba(241,245,249,0.5) 100%);
+  pointer-events: none;
+  z-index: 0;
 }
 
-.brandContent {
+/* ── Logo ── */
+.logo {
+  display: flex;
   align-items: center;
-  display: grid;
-  grid-template-columns: auto auto;
+  gap: 12px;
+  margin-bottom: 54px;
   position: relative;
-  text-align: center;
   z-index: 1;
 }
 
-.brandMark {
-  color: var(--yellow);
-  font-size: clamp(64px, 7vw, 104px);
-  font-weight: 300;
-  letter-spacing: -22px;
-  line-height: 1;
-  transform: skewX(-12deg);
+.logoIcon {
+  width: 78px;
+  height: 44px;
 }
 
-.brandName {
-  font-size: clamp(34px, 4vw, 58px);
+.logoText {
+  font-size: 42px;
   font-weight: 700;
-  letter-spacing: -2px;
+  color: #111827;
+  letter-spacing: -0.5px;
 }
 
-.brandName span { color: var(--yellow); }
-
-.brandDivider {
-  background: var(--yellow);
-  grid-column: 1 / -1;
-  height: 3px;
-  justify-self: center;
-  margin: 28px 0;
-  width: 80px;
+.logoBr {
+  color: #2563eb;
+  font-weight: 800;
 }
 
-.brandContent p {
-  font-size: 15px;
-  grid-column: 1 / -1;
-  letter-spacing: 2px;
-  line-height: 1.7;
-  margin: 0;
-  text-transform: uppercase;
+/* ── Headline ── */
+.headline {
+  font-size: clamp(40px, 3vw, 48px);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -1.2px;
+  margin: 0 0 24px 0;
+  color: #111827;
+  position: relative;
+  z-index: 1;
+  max-width: 660px;
 }
 
-.formPanel {
-  align-items: center;
+.headlineBlue {
+  color: #2563eb;
+  font-weight: 800;
+}
+
+/* ── Subtítulo ── */
+.subtitle {
+  font-size: 18px;
+  line-height: 1.65;
+  color: #6b7280;
+  margin: 0 0 8px 0;
+  position: relative;
+  z-index: 1;
+  max-width: 580px;
+}
+
+.subtitleBold {
+  font-weight: 600;
+  color: #374151;
+}
+
+/* ── Hero image ── */
+.heroWrap {
+  margin-top: auto;
+  padding-top: 20px;
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: center;
-  min-height: 100vh;
-  padding: 48px clamp(24px, 6vw, 96px);
+  overflow: hidden;
 }
 
-.card {
-  background: #fff;
-  border: 1px solid #e8edf4;
-  border-radius: 22px;
-  box-shadow: 0 22px 65px rgba(2, 26, 61, 0.09);
-  max-width: 680px;
-  padding: clamp(36px, 5vw, 72px);
+.heroImg {
+  display: block;
   width: 100%;
+  max-width: 850px;
+  height: auto;
+  object-fit: contain;
+  object-position: bottom center;
 }
 
-.header { margin-bottom: 40px; text-align: center; }
-.header h1 { font-size: clamp(30px, 3vw, 44px); letter-spacing: -1.2px; margin: 0 0 12px; }
-.header p { color: var(--muted); font-size: 18px; margin: 0; }
-.form { display: flex; flex-direction: column; gap: 20px; }
-.field { display: flex; flex-direction: column; font-size: 16px; font-weight: 700; gap: 10px; }
-.inputWrap { align-items: center; border: 1px solid #cbd5e1; border-radius: 9px; display: flex; min-height: 58px; transition: border-color 160ms, box-shadow 160ms; }
-.inputWrap:focus-within { border-color: #1b5795; box-shadow: 0 0 0 3px rgba(27, 87, 149, 0.12); }
-.inputIcon { color: var(--navy); font-size: 22px; padding-left: 18px; }
-.inputWrap input { background: transparent; border: 0; color: var(--navy-deep); flex: 1; font: inherit; min-width: 0; outline: 0; padding: 17px 16px; }
-.inputWrap input::placeholder { color: #8290a7; }
-.passwordToggle { background: none; border: 0; color: var(--navy); cursor: pointer; font-weight: 700; min-height: 44px; padding: 0 18px; }
-.forgotLink { align-self: flex-end; color: #c98d00; font-size: 15px; margin-top: -8px; text-decoration: none; }
-.forgotLink:hover { text-decoration: underline; }
-.alert { background: #fff3f2; border: 1px solid #f4b8b2; border-radius: 8px; color: #8e281f; font-size: 14px; line-height: 1.45; padding: 12px 14px; }
-.submitButton { align-items: center; background: linear-gradient(100deg, #ffb000, #ffc400); border: 0; border-radius: 9px; color: var(--navy-deep); cursor: pointer; display: flex; font-size: 18px; font-weight: 800; gap: 10px; justify-content: center; min-height: 58px; transition: filter 160ms, transform 160ms; }
-.submitButton:hover:not(:disabled) { filter: brightness(1.04); transform: translateY(-1px); }
-.submitButton:disabled { cursor: wait; opacity: 0.72; }
-.spinner { animation: spin 800ms linear infinite; border: 2px solid rgba(2, 26, 61, 0.25); border-radius: 50%; border-top-color: var(--navy); height: 18px; width: 18px; }
-.separator { align-items: center; color: var(--muted); display: flex; font-weight: 700; gap: 18px; }
-.separator::before, .separator::after { background: #d6dee9; content: ""; flex: 1; height: 1px; }
-.publicLink { align-items: center; border: 1px solid #cbd5e1; border-radius: 9px; color: var(--navy-deep); display: flex; font-size: 17px; font-weight: 800; gap: 12px; justify-content: center; min-height: 56px; text-decoration: none; }
-.publicLink:hover { background: #f8fafc; border-color: #8da1ba; }
-.footer { color: var(--muted); font-size: 13px; margin-top: 64px; text-align: center; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-@media (max-width: 760px) {
-  .page { background: #fff; display: block; position: absolute; }
-  .brandPanel { min-height: 39vh; padding: 48px 24px 72px; }
-  .brandContent { transform: scale(0.8); }
-  .brandContent p { font-size: 13px; }
-  .formPanel { align-items: flex-start; margin-top: -28px; min-height: 64vh; padding: 0; position: relative; z-index: 2; }
-  .card { border: 0; border-radius: 28px 28px 0 0; box-shadow: none; min-height: 64vh; padding: 42px 24px 28px; }
-  .header { margin-bottom: 32px; }
-  .header h1 { font-size: 30px; }
-  .header p { font-size: 16px; }
-  .form { gap: 18px; }
-  .inputWrap, .submitButton { min-height: 54px; }
-  .footer { margin-top: 48px; }
+/* ================================================================
+   PAINEL DIREITO — Cards de login + envio
+   ================================================================ */
+.rightPanel {
+  grid-row: 1;
+  grid-column: 2;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 66px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .spinner { animation-duration: 1.5s; }
-  .submitButton { transition: none; }
+.cardsWrap {
+  width: 100%;
+  max-width: 576px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Card genérico ── */
+.card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(15, 35, 70, 0.06);
+  padding: 50px 48px;
+}
+
+/* ── Título do card ── */
+.cardTitle {
+  font-size: 34px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 34px 0;
+  letter-spacing: -0.4px;
+}
+
+.cardTitleSmall {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 24px 0;
+  letter-spacing: -0.3px;
+}
+
+/* ── Formulário ── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Campo ── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* ── Input wrapper ── */
+.inputWrap {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+  background: #ffffff;
+  padding: 0 14px;
+  gap: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.inputWrap:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.inputWrap svg {
+  width: 18px;
+  height: 18px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.inputWrap input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 16px;
+  font-family: inherit;
+  color: #111827;
+  min-width: 0;
+}
+
+.inputWrap input::placeholder {
+  color: #9ca3af;
+}
+
+/* ── Eye toggle ── */
+.eyeToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.eyeToggle:hover {
+  color: #6b7280;
+}
+
+.eyeToggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Botão Entrar (azul) ── */
+.btnEntrar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 62px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  margin-top: 4px;
+}
+
+.btnEntrar:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.btnEntrar:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.btnEntrar svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Botão Enviar nota (outlined) ── */
+.btnEnviar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 68px;
+  background: transparent;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.btnEnviar:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.btnEnviar svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Spinner ── */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Alerta de erro ── */
+.alert {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 10px 14px;
+}
+
+/* ================================================================
+   FOOTER — Barra de segurança
+   ================================================================ */
+.footer {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 52px;
+  font-size: 15px;
+  color: #6b7280;
+}
+
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.footerItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footerItem svg {
+  width: 16px;
+  height: 16px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.footerSep {
+  width: 1px;
+  height: 18px;
+  background: #d1d5db;
+}
+
+.footerRight {
+  font-size: 15px;
+  color: #6b7280;
+}
+
+.footerBold {
+  font-weight: 700;
+  color: #111827;
+}
+
+/* ================================================================
+   RESPONSIVO
+   ================================================================ */
+@media (max-width: 960px) {
+  .page {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .leftPanel {
+    padding: 36px 28px 0;
+  }
+
+  .headline {
+    font-size: 30px;
+  }
+
+  .heroWrap {
+    display: none;
+  }
+
+  .rightPanel {
+    padding: 32px 24px;
+  }
+
+  .cardsWrap {
+    max-width: 100%;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px 24px;
+    text-align: center;
+  }
+
+  .footerLeft {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .footerSep {
+    display: none;
+  }
 }

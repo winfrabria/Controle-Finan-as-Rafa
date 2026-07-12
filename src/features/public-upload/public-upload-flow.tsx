@@ -1,64 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import {
-  ChangeEvent,
-  DragEvent,
-  FormEvent,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
-import {
-  ACCEPTED_FILE_TYPES,
-  MAX_FILE_SIZE_BYTES,
-  PUBLIC_UPLOAD_ENDPOINTS,
-  type ProjectOption,
-  type ProjectsResponse,
-} from "./api-contract";
+import { ChangeEvent, DragEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { ACCEPTED_FILE_TYPES, MAX_FILE_SIZE_BYTES, PUBLIC_UPLOAD_ENDPOINTS, type ProjectOption, type ProjectsResponse } from "./api-contract";
 import { uploadInvoice } from "./upload-api";
 import styles from "./public-upload.module.css";
 
-type View = "projects" | "file" | "sending" | "processing" | "success" | "error";
+type View = "form" | "sending" | "processing" | "success" | "error";
 
 function formatBytes(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    maximumFractionDigits: 1,
-  }).format(value / 1024 / 1024) + " MB";
+  return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(value / 1024 / 1024)} MB`;
 }
 
 function validateFile(file: File) {
   const extension = file.name.split(".").pop()?.toLowerCase();
   const validExtension = extension && ["pdf", "jpg", "jpeg", "png"].includes(extension);
-  const validType = ACCEPTED_FILE_TYPES.includes(
-    file.type as (typeof ACCEPTED_FILE_TYPES)[number],
-  );
-
-  if (!validType || !validExtension) {
-    return "Envie um arquivo PDF, JPG ou PNG.";
-  }
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    return `O arquivo deve ter no máximo ${formatBytes(MAX_FILE_SIZE_BYTES)}.`;
-  }
+  const validType = ACCEPTED_FILE_TYPES.includes(file.type as (typeof ACCEPTED_FILE_TYPES)[number]);
+  if (!validType || !validExtension) return "Envie um arquivo PDF, JPG ou PNG.";
+  if (file.size > MAX_FILE_SIZE_BYTES) return `O arquivo deve ter no máximo ${formatBytes(MAX_FILE_SIZE_BYTES)}.`;
   if (file.size === 0) return "O arquivo selecionado está vazio.";
   return null;
 }
 
 async function requestProjects() {
-  const response = await fetch(PUBLIC_UPLOAD_ENDPOINTS.projects, {
-    cache: "no-store",
-    headers: { Accept: "application/json" },
-  });
+  const response = await fetch(PUBLIC_UPLOAD_ENDPOINTS.projects, { cache: "no-store", headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error();
   const payload = (await response.json()) as ProjectsResponse;
   if (!Array.isArray(payload.obras)) throw new Error();
   return payload.obras;
 }
 
+function Brand() {
+  return <span className={styles.brand}><span className={styles.brandMark}>W</span><strong>Winfra<span>BR</span></strong></span>;
+}
+
 export function PublicUploadFlow() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [view, setView] = useState<View>("projects");
+  const [view, setView] = useState<View>("form");
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectOption | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -71,230 +49,77 @@ export function PublicUploadFlow() {
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
 
   async function loadProjects() {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      setProjects(await requestProjects());
-    } catch {
-      setLoadError("Não foi possível carregar as obras agora.");
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(true); setLoadError(null);
+    try { setProjects(await requestProjects()); } catch { setLoadError("Não foi possível carregar as obras agora."); } finally { setIsLoading(false); }
   }
 
   useEffect(() => {
     let active = true;
     void requestProjects()
-      .then((result) => {
-        if (active) setProjects(result);
-      })
-      .catch(() => {
-        if (active) setLoadError("Não foi possível carregar as obras agora.");
-      })
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+      .then((result) => { if (active) setProjects(result); })
+      .catch(() => { if (active) setLoadError("Não foi possível carregar as obras agora."); })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
   }, []);
-
-  function chooseProject(project: ProjectOption) {
-    setSelectedProject(project);
-    setView("file");
-  }
 
   function chooseFile(nextFile: File | undefined) {
     if (!nextFile) return;
-    const error = validateFile(nextFile);
-    setFileError(error);
-    setFile(error ? null : nextFile);
+    const error = validateFile(nextFile); setFileError(error); setFile(error ? null : nextFile);
   }
-
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    chooseFile(event.target.files?.[0]);
-    event.target.value = "";
-  }
-
-  function handleDrop(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    setIsDragging(false);
-    chooseFile(event.dataTransfer.files?.[0]);
-  }
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) { chooseFile(event.target.files?.[0]); event.target.value = ""; }
+  function handleDrop(event: DragEvent<HTMLDivElement>) { event.preventDefault(); setIsDragging(false); chooseFile(event.dataTransfer.files?.[0]); }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedProject || !file) {
-      setFileError("Selecione um arquivo antes de enviar.");
-      return;
-    }
-
-    setProgress(0);
-    setSendError(null);
-    setView("sending");
-
+    if (!selectedProject) { setFileError("Selecione uma obra antes de enviar."); return; }
+    if (!file) { setFileError("Selecione um arquivo antes de enviar."); return; }
+    setProgress(0); setSendError(null); setView("sending");
     try {
-      const result = await uploadInvoice({
-        projectId: selectedProject.id,
-        file,
-        onProgress: setProgress,
-      });
-      setInvoiceId(result.nota.id);
-      setView("processing");
-      window.setTimeout(() => setView("success"), 900);
-    } catch (error) {
-      setSendError(
-        error instanceof Error ? error.message : "Não foi possível enviar a nota.",
-      );
-      setView("error");
-    }
+      const result = await uploadInvoice({ projectId: selectedProject.id, file, onProgress: setProgress });
+      setInvoiceId(result.nota.id); setView("processing"); window.setTimeout(() => setView("success"), 900);
+    } catch (error) { setSendError(error instanceof Error ? error.message : "Não foi possível enviar a nota."); setView("error"); }
   }
 
-  function startAgain() {
-    setSelectedProject(null);
-    setFile(null);
-    setFileError(null);
-    setSendError(null);
-    setProgress(0);
-    setInvoiceId(null);
-    setView("projects");
-  }
+  function startAgain() { setSelectedProject(null); setFile(null); setFileError(null); setSendError(null); setProgress(0); setInvoiceId(null); setView("form"); }
 
-  function backToFile() {
-    setSendError(null);
-    setView("file");
-  }
-
-  const step = view === "projects" ? 1 : view === "file" ? 2 : 3;
-
-  return (
-    <main className={styles.page}>
-      <header className={styles.topbar}>
-        <Link className={styles.logo} href="/" aria-label="WinfraBR — início">
-          <span className={styles.logoMark}>W</span>
-          Winfra<span>BR</span>
-        </Link>
-        <Link className={styles.loginLink} href="/login">Área interna</Link>
-      </header>
-
-      <div className={styles.shell}>
-        <aside className={styles.intro}>
-          <span className={styles.eyebrow}>Auditoria de gastos</span>
-          <h1>Envie sua nota<br />com segurança</h1>
-          <p>Selecione a obra, anexe o documento e acompanhe o recebimento em poucos passos.</p>
-          <div className={styles.securityNote}><span aria-hidden="true">✓</span> Seus arquivos são armazenados de forma privada.</div>
-        </aside>
-
-        <section className={styles.card} aria-live="polite">
-          <ol className={styles.steps} aria-label="Etapas do envio">
-            {["Obra", "Arquivo", "Envio"].map((label, index) => (
-              <li className={index + 1 <= step ? styles.stepActive : ""} key={label}>
-                <span>{index + 1 < step ? "✓" : index + 1}</span>{label}
-              </li>
-            ))}
-          </ol>
-
-          {view === "projects" ? (
-            <div className={styles.view}>
-              <div className={styles.heading}><span className={styles.mobileStep}>Passo 1 de 3</span><h2>Selecione a obra</h2><p>Escolha onde esta nota será registrada.</p></div>
-              {isLoading ? <ProjectSkeletons /> : null}
-              {!isLoading && loadError ? (
-                <Feedback title="Não foi possível carregar" message={loadError}>
-                  <button className={styles.primaryButton} onClick={() => void loadProjects()} type="button">Tentar novamente</button>
-                </Feedback>
-              ) : null}
-              {!isLoading && !loadError && projects.length === 0 ? (
-                <Feedback title="Nenhuma obra disponível" message="Ainda não há obras ativas para receber notas." />
-              ) : null}
-              {!isLoading && !loadError && projects.length > 0 ? (
-                <div className={styles.projectGrid}>
-                  {projects.map((project) => (
-                    <button className={styles.projectCard} key={project.id} onClick={() => chooseProject(project)} type="button">
-                      <span className={styles.projectIcon} aria-hidden="true">⌂</span>
-                      <span><strong>{project.nome}</strong><small>{project.local || "Local não informado"}</small></span>
-                      <span className={styles.arrow} aria-hidden="true">→</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+  return <main className={styles.page}>
+    <header className={styles.header}><Link href="/" aria-label="WinfraBR — início"><Brand /></Link><Link className={styles.loginLink} href="/login"><span>↪</span> Voltar para login</Link></header>
+    <div className={styles.content}>
+      <section className={styles.mainColumn}>
+        <div className={styles.titleBlock}><h1>Enviar nota fiscal</h1><p>Envie sua nota fiscal para análise sem precisar fazer login.<br />Rápido, seguro e sem complicação.</p></div>
+        <ol className={styles.stepper}><li className={styles.active}><span>1</span>Selecione a obra</li><li><span>2</span>Envie sua nota fiscal</li><li><span>3</span>Conclusão</li></ol>
+        <section className={styles.formCard} aria-live="polite">
+          {view === "form" ? <form onSubmit={handleSubmit}>
+            <h2>1. Selecione a obra</h2><label className={styles.label} htmlFor="project">Obra <b>*</b></label>
+            <div className={styles.selectWrap}><span>▥</span><select id="project" disabled={isLoading} value={selectedProject?.id ?? ""} onChange={(event) => { setSelectedProject(projects.find((item) => item.id === event.target.value) ?? null); setFileError(null); }}><option value="">{isLoading ? "Carregando obras..." : "Selecione a obra"}</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.nome}{project.local ? ` — ${project.local}` : ""}</option>)}</select></div>
+            {loadError ? <p className={styles.fieldError}>{loadError} <button type="button" onClick={() => void loadProjects()}>Tentar novamente</button></p> : null}
+            <div className={styles.divider} />
+            <h2>2. Envie sua nota fiscal</h2><p className={styles.helper}>Envie apenas 1 nota por vez. Formatos aceitos: PDF, JPG, PNG.</p>
+            <div className={`${styles.dropzone} ${isDragging ? styles.dragging : ""}`} onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} onClick={() => inputRef.current?.click()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") inputRef.current?.click(); }}>
+              <input ref={inputRef} type="file" className={styles.fileInput} accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={handleFileChange} />
+              <span className={styles.uploadCircle}>↥</span><p><strong>Clique para selecionar</strong> ou arraste o arquivo aqui</p><small>Tamanho máximo: 10 MB • Apenas 1 arquivo por envio</small>
             </div>
-          ) : null}
-
-          {view === "file" && selectedProject ? (
-            <form className={styles.view} onSubmit={handleSubmit}>
-              <button className={styles.backButton} onClick={() => setView("projects")} type="button">← Trocar obra</button>
-              <div className={styles.heading}><span className={styles.mobileStep}>Passo 2 de 3</span><h2>Adicione a nota</h2><p>Obra selecionada: <strong>{selectedProject.nome}</strong></p></div>
-              <div
-                className={`${styles.dropzone} ${isDragging ? styles.dropzoneActive : ""} ${fileError ? styles.dropzoneError : ""}`}
-                onDragEnter={(event) => { event.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={handleDrop}
-              >
-                <input accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className={styles.fileInput} onChange={handleFileChange} ref={inputRef} type="file" />
-                {file ? (
-                  <div className={styles.selectedFile}>
-                    <span className={styles.fileIcon} aria-hidden="true">▤</span>
-                    <span><strong>{file.name}</strong><small>{formatBytes(file.size)}</small></span>
-                    <button aria-label="Remover arquivo" onClick={() => setFile(null)} type="button">×</button>
-                  </div>
-                ) : (
-                  <>
-                    <span className={styles.uploadIcon} aria-hidden="true">↑</span>
-                    <strong>Arraste o arquivo para cá</strong>
-                    <span>ou</span>
-                    <button className={styles.selectButton} onClick={() => inputRef.current?.click()} type="button">Selecionar arquivo</button>
-                    <small>PDF, JPG ou PNG • máximo de 10 MB</small>
-                  </>
-                )}
-              </div>
-              {fileError ? <p className={styles.fieldError} role="alert">{fileError}</p> : null}
-              <div className={styles.tips}><strong>Para uma leitura melhor:</strong><span>Use uma imagem nítida, bem iluminada e com a nota inteira visível.</span></div>
-              <button className={styles.primaryButton} disabled={!file} type="submit">Enviar nota <span aria-hidden="true">→</span></button>
-            </form>
-          ) : null}
-
-          {view === "sending" ? (
-            <StatusView icon="upload" title="Enviando sua nota" description="Mantenha esta página aberta até o arquivo ser recebido.">
-              <div className={styles.progressTrack}><span style={{ width: `${progress}%` }} /></div>
-              <strong className={styles.progressLabel}>{progress}% enviado</strong>
-            </StatusView>
-          ) : null}
-
-          {view === "processing" ? (
-            <StatusView icon="processing" title="Arquivo recebido" description="Estamos preparando a nota para análise.">
-              <ul className={styles.processingList}><li className={styles.complete}>✓ Upload concluído</li><li><span className={styles.dotPulse} /> Preparando processamento</li></ul>
-            </StatusView>
-          ) : null}
-
-          {view === "success" && selectedProject && file ? (
-            <StatusView icon="success" title="Nota recebida com sucesso!" description="O arquivo foi armazenado e seguirá para análise. Você já pode sair desta página.">
-              <dl className={styles.summary}><div><dt>Obra</dt><dd>{selectedProject.nome}</dd></div><div><dt>Arquivo</dt><dd>{file.name}</dd></div>{invoiceId ? <div><dt>Protocolo</dt><dd>{invoiceId}</dd></div> : null}</dl>
-              <button className={styles.primaryButton} onClick={startAgain} type="button">Enviar outra nota</button>
-            </StatusView>
-          ) : null}
-
-          {view === "error" ? (
-            <StatusView icon="error" title="O envio não foi concluído" description={sendError || "Houve uma falha técnica durante o envio. Seu arquivo não foi registrado."}>
-              <button className={styles.primaryButton} onClick={backToFile} type="button">Tentar novamente</button>
-              <button className={styles.secondaryButton} onClick={startAgain} type="button">Voltar ao início</button>
-            </StatusView>
-          ) : null}
+            {file ? <div className={styles.fileRow}><span className={styles.pdfIcon}>{file.name.toLowerCase().endsWith(".pdf") ? "PDF" : "IMG"}</span><span><strong>{file.name}</strong><small>{formatBytes(file.size)}</small></span><i>✓</i><button type="button" aria-label="Remover arquivo" onClick={() => setFile(null)}>×</button></div> : null}
+            {fileError ? <p className={styles.fieldError} role="alert">{fileError}</p> : null}
+            <button className={styles.submit} type="submit" disabled={!selectedProject || !file}><span>↥</span> Enviar nota fiscal</button>
+            <p className={styles.lockNote}>▣ <span>Não é necessário login. Seus dados estão protegidos com criptografia de ponta a ponta.</span></p>
+          </form> : null}
+          {view === "sending" ? <Status icon="↥" title="Enviando sua nota" text="Mantenha esta página aberta até o arquivo ser recebido."><div className={styles.progress}><span style={{ width: `${progress}%` }} /></div><strong>{progress}% enviado</strong></Status> : null}
+          {view === "processing" ? <Status icon="◌" title="Arquivo recebido" text="Estamos preparando a nota para análise."><p className={styles.ok}>✓ Upload concluído</p><p className={styles.pulsing}>● Preparando processamento</p></Status> : null}
+          {view === "success" ? <Status icon="✓" title="Nota recebida com sucesso!" text="O arquivo foi armazenado e seguirá para análise."><div className={styles.summary}><b>Obra</b><span>{selectedProject?.nome}</span><b>Arquivo</b><span>{file?.name}</span>{invoiceId ? <><b>Protocolo</b><span>{invoiceId}</span></> : null}</div><button className={styles.submit} onClick={startAgain}>Enviar outra nota</button></Status> : null}
+          {view === "error" ? <Status icon="!" title="O envio não foi concluído" text={sendError || "Houve uma falha técnica durante o envio."}><button className={styles.submit} onClick={() => setView("form")}>Tentar novamente</button></Status> : null}
         </section>
-      </div>
-    </main>
-  );
+      </section>
+      <aside className={styles.sidebar}>
+        <section className={styles.infoCard}><h2>Como funciona</h2>{[["▥","1. Selecione a obra","Escolha a obra relacionada à nota fiscal que você deseja enviar."],["↥","2. Envie sua nota fiscal","Faça o upload da 1 nota fiscal por vez. Formatos aceitos: PDF, JPG, PNG."],["♢","3. Análise e retorno","Nossa equipe analisará sua nota e entrará em contato caso seja necessário."]].map(([icon,title,text]) => <div className={styles.infoRow} key={title}><span>{icon}</span><div><h3>{title}</h3><p>{text}</p></div></div>)}</section>
+        <section className={`${styles.infoCard} ${styles.security}`}><h2>Segurança e privacidade</h2><div className={styles.infoRow}><span>♢</span><p>Suas informações e documentos são tratados com total segurança e confidencialidade. Utilizamos criptografia de ponta a ponta e seguimos a LGPD.</p></div></section>
+        <section className={styles.notice}><span>ⓘ</span><div><strong>Este envio não requer login.</strong><p>Se for necessário acompanhar o status, nossa equipe entrará em contato pelos dados informados na nota.</p></div></section>
+      </aside>
+    </div>
+    <footer className={styles.footer}><p>♢ <span>Ambiente seguro e em conformidade com a LGPD</span><i />▣ <span>Seus dados estão protegidos com criptografia de ponta a ponta.</span></p><p>© 2024 <strong>WinfraBR.</strong> Todos os direitos reservados.</p></footer>
+  </main>;
 }
 
-function ProjectSkeletons() {
-  return <div className={styles.projectGrid} aria-label="Carregando obras">{[1, 2, 3].map((item) => <div className={styles.skeleton} key={item} />)}</div>;
-}
-
-function Feedback({ title, message, children }: { title: string; message: string; children?: React.ReactNode }) {
-  return <div className={styles.feedback}><span aria-hidden="true">!</span><h3>{title}</h3><p>{message}</p>{children}</div>;
-}
-
-function StatusView({ icon, title, description, children }: { icon: "upload" | "processing" | "success" | "error"; title: string; description: string; children: React.ReactNode }) {
-  const symbols = { upload: "↑", processing: "◌", success: "✓", error: "!" };
-  return <div className={styles.statusView}><span className={`${styles.statusIcon} ${styles[icon]}`} aria-hidden="true">{symbols[icon]}</span><h2>{title}</h2><p>{description}</p>{children}</div>;
+function Status({ icon, title, text, children }: { icon: string; title: string; text: string; children: React.ReactNode }) {
+  return <div className={styles.status}><span className={styles.statusIcon}>{icon}</span><h2>{title}</h2><p>{text}</p>{children}</div>;
 }
