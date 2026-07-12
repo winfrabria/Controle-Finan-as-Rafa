@@ -1,18 +1,8 @@
 import "server-only";
 
-import { redirect } from "next/navigation";
-
-import { createClient } from "@/lib/supabase/server";
+import { INTERNAL_ROLES } from "@/server/auth/access-policy";
+import { requirePageRoles } from "@/server/auth/authorization";
 
 export async function requireInternalUser(nextPath: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect(`/login?next=${encodeURIComponent(nextPath)}`);
-  }
-
-  return user;
+  return requirePageRoles(nextPath, INTERNAL_ROLES);
 }

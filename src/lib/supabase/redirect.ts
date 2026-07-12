@@ -1,4 +1,4 @@
-const DEFAULT_AUTHENTICATED_PATH = "/notas";
+const DEFAULT_AUTHENTICATED_PATH = "/auth/landing";
 
 export function getSafeRedirectPath(value: string | null | undefined) {
   if (

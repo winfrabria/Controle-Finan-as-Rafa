@@ -1,442 +1,705 @@
-/* ================================================================
-   LOGIN PAGE — Fiel ao mockup de referência
-   ================================================================ */
-
-/* ── Reset base ──────────────────────────────────────────── */
 .page {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: #ffffff;
-  color: #111827;
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(0, 58%) minmax(520px, 42%);
-  grid-template-rows: 1fr auto;
-  position: fixed;
-  inset: 0;
-  overflow: auto;
-}
+  --blue-primary: #0052ff;
+  --blue-dark: #0044dd;
+  --blue-light: #ebf2ff;
+  --text-main: #0b1426;
+  --text-muted: #4b5563;
+  --text-light: #9ca3af;
+  --border-color: #e2e8f0;
+  --bg-page-left: #ffffff;
+  --bg-page-right: #f9fafb;
 
-/* ================================================================
-   PAINEL ESQUERDO — Logo + texto + imagem hero
-   ================================================================ */
-.leftPanel {
-  grid-row: 1;
-  grid-column: 1;
-  background: #ffffff;
+  background-color: var(--bg-page-left);
+  height: 100vh;
+  width: 100vw;
   display: flex;
   flex-direction: column;
-  padding: 58px 62px 0 72px;
-  position: relative;
-  overflow: hidden;
+  font-family:
+    var(--font-inter),
+    system-ui,
+    -apple-system,
+    sans-serif;
+  color: var(--text-main);
+  overflow: hidden; /* Força caber tudo em 1 tela, sem scroll */
 }
 
-/* Skyline decorativo de fundo (muito sutil) */
-.leftPanel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, transparent 50%, rgba(241,245,249,0.5) 100%);
-  pointer-events: none;
-  z-index: 0;
+.container {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  height: calc(100vh - 56px); /* Desconta o tamanho exato do footer */
+  margin: 0;
+  padding: 0;
 }
 
-/* ── Logo ── */
+/* ── Painel Esquerdo ── */
+.leftPanel {
+  flex: 1.15;
+  padding: clamp(24px, 4vh, 48px) clamp(32px, 5vw, 64px) 0; /* Padding dinâmico */
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-page-left);
+  justify-content: flex-start;
+}
+
 .logo {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 54px;
-  position: relative;
-  z-index: 1;
+  gap: 8px;
+  margin-bottom: clamp(24px, 5vh, 56px);
 }
 
-.logoIcon {
-  width: 78px;
-  height: 44px;
+.logoSvg {
+  height: clamp(28px, 4vh, 36px);
+  width: auto;
 }
 
 .logoText {
-  font-size: 42px;
+  font-size: clamp(20px, 3vh, 26px);
   font-weight: 700;
-  color: #111827;
   letter-spacing: -0.5px;
+  color: var(--text-main);
 }
 
-.logoBr {
-  color: #2563eb;
+.logoBlue {
+  color: var(--blue-primary);
   font-weight: 800;
 }
 
-/* ── Headline ── */
 .headline {
-  font-size: clamp(40px, 3vw, 48px);
-  font-weight: 800;
+  font-size: clamp(28px, 4vw, 42px); /* Mais proporcional */
+  font-weight: 700;
   line-height: 1.15;
-  letter-spacing: -1.2px;
-  margin: 0 0 24px 0;
-  color: #111827;
-  position: relative;
-  z-index: 1;
-  max-width: 660px;
+  letter-spacing: -1px;
+  margin: 0 0 clamp(12px, 2vh, 20px) 0;
+  color: var(--text-main);
 }
 
-.headlineBlue {
-  color: #2563eb;
-  font-weight: 800;
+.textBlue {
+  color: var(--blue-primary);
+  font-weight: 700;
 }
 
-/* ── Subtítulo ── */
 .subtitle {
-  font-size: 18px;
-  line-height: 1.65;
-  color: #6b7280;
-  margin: 0 0 8px 0;
-  position: relative;
-  z-index: 1;
-  max-width: 580px;
+  font-size: clamp(13px, 1.5vh, 15px);
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0 0 clamp(16px, 3vh, 32px) 0;
+  max-width: 500px;
 }
 
-.subtitleBold {
-  font-weight: 600;
-  color: #374151;
-}
-
-/* ── Hero image ── */
-.heroWrap {
+.heroImageContainer {
   margin-top: auto;
-  padding-top: 20px;
-  position: relative;
-  z-index: 1;
+  width: 100%;
+  max-width: 600px;
   display: flex;
-  justify-content: center;
-  overflow: hidden;
+  align-items: flex-end;
+  justify-content: flex-start;
 }
 
 .heroImg {
-  display: block;
   width: 100%;
-  max-width: 850px;
   height: auto;
+  max-height: 50vh; /* Garante que a imagem nunca empurre o conteúdo pra fora */
   object-fit: contain;
-  object-position: bottom center;
+  object-position: bottom left;
+  display: block;
 }
 
-/* ================================================================
-   PAINEL DIREITO — Cards de login + envio
-   ================================================================ */
+/* ── Painel Direito ── */
 .rightPanel {
-  grid-row: 1;
-  grid-column: 2;
-  background: #f8fafc;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 66px;
-}
-
-.cardsWrap {
-  width: 100%;
-  max-width: 576px;
+  flex: 0.85;
+  padding: clamp(24px, 4vh, 48px) clamp(24px, 4vw, 64px);
+  background-color: var(--bg-page-right);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  justify-content: center;
+  align-items: center;
+  border-left: 1px solid var(--border-color);
 }
 
-/* ── Card genérico ── */
+.cardsWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2.5vh, 24px);
+  width: 100%;
+  max-width: 420px;
+}
+
+/* Cards com cantos bem arredondados e borda sutil */
 .card {
   background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  box-shadow: 0 10px 28px rgba(15, 35, 70, 0.06);
-  padding: 50px 48px;
+  border-radius: 12px;
+  padding: clamp(24px, 4vh, 36px);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
-/* ── Título do card ── */
 .cardTitle {
-  font-size: 34px;
+  font-size: clamp(20px, 2.5vh, 22px);
   font-weight: 700;
-  color: #111827;
-  margin: 0 0 34px 0;
-  letter-spacing: -0.4px;
+  margin: 0 0 clamp(16px, 3vh, 24px) 0;
+  color: var(--text-main);
+  letter-spacing: -0.5px;
 }
 
-.cardTitleSmall {
-  font-size: 28px;
-  font-weight: 700;
-  color: #111827;
-  margin: 0 0 24px 0;
-  letter-spacing: -0.3px;
-}
-
-/* ── Formulário ── */
+/* Formulário */
 .form {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: clamp(12px, 2vh, 16px);
 }
 
-/* ── Campo ── */
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.fieldLabel {
-  font-size: 16px;
-  font-weight: 600;
-  color: #374151;
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
 }
 
-/* ── Input wrapper ── */
-.inputWrap {
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.forgotPassword {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue-primary);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.forgotPassword:hover {
+  color: var(--blue-dark);
+  text-decoration: underline;
+}
+
+/* Input Group com ícone interno */
+.inputGroup {
   display: flex;
   align-items: center;
-  height: 56px;
-  border: 1px solid #d1d5db;
-  border-radius: 9px;
-  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  height: clamp(42px, 5.5vh, 46px);
   padding: 0 14px;
-  gap: 10px;
-  transition: border-color 0.15s ease;
+  background: #ffffff;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  position: relative;
 }
 
-.inputWrap:focus-within {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+.inputGroup:focus-within {
+  border-color: var(--blue-primary);
+  box-shadow: 0 0 0 3px rgba(0, 82, 255, 0.08);
 }
 
-.inputWrap svg {
-  width: 18px;
-  height: 18px;
-  color: #9ca3af;
+.inputGroup svg {
+  color: var(--text-light);
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 
-.inputWrap input {
+.inputIconLeft {
+  margin-right: 10px;
+}
+
+.inputGroup input {
   flex: 1;
   border: none;
   outline: none;
   background: transparent;
-  font-size: 16px;
-  font-family: inherit;
-  color: #111827;
-  min-width: 0;
+  font-size: 14px;
+  color: var(--text-main);
+  width: 100%;
 }
 
-.inputWrap input::placeholder {
-  color: #9ca3af;
+.inputGroup input::placeholder {
+  color: var(--text-light);
 }
 
-/* ── Eye toggle ── */
-.eyeToggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Toggle do olho */
+.eyeBtn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px;
-  color: #9ca3af;
-  flex-shrink: 0;
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: 10px;
+  transition: color 0.15s;
 }
 
-.eyeToggle:hover {
-  color: #6b7280;
+.eyeBtn:hover {
+  color: var(--text-muted);
 }
 
-.eyeToggle svg {
-  width: 18px;
-  height: 18px;
+/* Lembrar meu acesso */
+.rememberRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin-top: -2px;
+  margin-bottom: 2px;
 }
 
-/* ── Botão Entrar (azul) ── */
-.btnEntrar {
+.checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-color);
+  accent-color: var(--blue-primary);
+  cursor: pointer;
+}
+
+.rememberRow span {
+  font-size: 13px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+/* Botões do mockup */
+.btnPrimary {
+  background: var(--blue-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  height: clamp(44px, 6vh, 48px);
+  font-size: 14px;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 100%;
-  height: 62px;
-  background: #2563eb;
-  color: #ffffff;
-  border: none;
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 18px;
-  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s;
   margin-top: 4px;
 }
 
-.btnEntrar:hover:not(:disabled) {
-  background: #1d4ed8;
+.btnPrimary:hover {
+  background: #0044dd;
 }
 
-.btnEntrar:disabled {
-  opacity: 0.6;
-  cursor: wait;
+.btnPrimary svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
 }
 
-.btnEntrar svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* ── Botão Enviar nota (outlined) ── */
-.btnEnviar {
+.btnOutline {
+  background: transparent;
+  color: var(--blue-primary);
+  border: 1px solid var(--blue-primary);
+  border-radius: 8px;
+  height: clamp(44px, 6vh, 48px);
+  font-size: 14px;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 100%;
-  height: 68px;
-  background: transparent;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 18px;
-  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s;
   text-decoration: none;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  width: 100%;
 }
 
-.btnEnviar:hover {
-  border-color: #9ca3af;
-  background: #f9fafb;
+.btnOutline:hover {
+  background: rgba(0, 82, 255, 0.05);
 }
 
-.btnEnviar svg {
-  width: 18px;
-  height: 18px;
+.btnOutline svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
 }
 
-/* ── Spinner ── */
 .spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: #ffffff;
+  animation: spin 1s linear infinite;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  border-top-color: #ffffff;
+  height: 16px;
+  width: 16px;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* ── Alerta de erro ── */
 .alert {
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 8px;
   color: #991b1b;
-  font-size: 13px;
-  line-height: 1.5;
-  padding: 10px 14px;
+  font-size: 12px;
+  padding: 10px 12px;
 }
 
-/* ================================================================
-   FOOTER — Barra de segurança
-   ================================================================ */
+/* ── Footer ── */
 .footer {
-  grid-row: 2;
-  grid-column: 1 / -1;
-  background: #ffffff;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-color);
+  padding: 0 40px;
+  height: 56px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 20px 52px;
-  font-size: 15px;
-  color: #6b7280;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: #ffffff;
+  flex-shrink: 0;
 }
 
 .footerLeft {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
 }
 
 .footerItem {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .footerItem svg {
   width: 16px;
   height: 16px;
-  color: #9ca3af;
-  flex-shrink: 0;
+  color: var(--text-muted);
 }
 
-.footerSep {
+.footerDivider {
   width: 1px;
-  height: 18px;
-  background: #d1d5db;
+  height: 14px;
+  background: var(--border-color);
 }
 
 .footerRight {
-  font-size: 15px;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
-.footerBold {
+.footerRightBlue {
+  color: var(--blue-primary);
   font-weight: 700;
-  color: #111827;
 }
 
-/* ================================================================
-   RESPONSIVO
-   ================================================================ */
-@media (max-width: 960px) {
+/* Responsividade de emergência (Celulares) */
+@media (max-width: 1024px) {
   .page {
-    display: flex;
+    overflow: auto;
+    height: auto;
+  }
+  .container {
     flex-direction: column;
-    position: relative;
+    height: auto;
   }
-
-  .leftPanel {
-    padding: 36px 28px 0;
+  .leftPanel,
+  .rightPanel {
+    flex: auto;
+    padding: 32px 24px;
+    border-left: none;
   }
-
-  .headline {
-    font-size: 30px;
-  }
-
-  .heroWrap {
+  .heroImageContainer {
     display: none;
   }
-
-  .rightPanel {
-    padding: 32px 24px;
-  }
-
-  .cardsWrap {
-    max-width: 100%;
-  }
-
   .footer {
     flex-direction: column;
     gap: 12px;
-    padding: 20px 24px;
+    padding: 24px 16px;
+    height: auto;
     text-align: center;
   }
-
   .footerLeft {
     flex-direction: column;
     gap: 8px;
   }
-
-  .footerSep {
+  .footerDivider {
     display: none;
+  }
+}
+
+/* Fidelidade às referências finais desktop + experiência PWA dedicada. */
+.forgotPassword,
+.rememberRow {
+  display: none;
+}
+@media (min-width: 1025px) {
+  .page {
+    background: #fff;
+    min-height: 100vh;
+  }
+  .container {
+    height: calc(100vh - 68px);
+  }
+  .leftPanel {
+    background: linear-gradient(115deg, #fff 45%, #f3f8ff);
+    flex: 1.38;
+    overflow: hidden;
+    padding: 54px 64px 0;
+    position: relative;
+  }
+  .rightPanel {
+    background: #fff;
+    flex: 1;
+    padding: 44px 66px;
+  }
+  .logo {
+    margin-bottom: 48px;
+  }
+  .logoSvg {
+    height: 42px;
+  }
+  .logoText {
+    font-size: 36px;
+  }
+  .headline {
+    font-size: 43px;
+    line-height: 1.17;
+    max-width: 680px;
+  }
+  .subtitle {
+    font-size: 17px;
+    line-height: 1.62;
+    max-width: 590px;
+  }
+  .heroImageContainer {
+    bottom: 0;
+    height: 65%;
+    left: 38px;
+    max-width: none;
+    position: absolute;
+    width: 94%;
+  }
+  .heroImg {
+    height: 100%;
+    max-height: none;
+    object-fit: contain;
+    object-position: left bottom;
+    width: 100%;
+  }
+  .cardsWrapper {
+    gap: 28px;
+    max-width: 575px;
+  }
+  .card {
+    border-radius: 16px;
+    padding: 44px 48px;
+  }
+  .cardTitle {
+    font-size: 30px;
+    margin-bottom: 30px;
+  }
+  .form {
+    gap: 24px;
+  }
+  .field {
+    gap: 10px;
+  }
+  .field label {
+    font-size: 16px;
+  }
+  .inputGroup {
+    border-radius: 9px;
+    height: 58px;
+  }
+  .inputGroup input {
+    font-size: 16px;
+  }
+  .inputGroup svg {
+    height: 20px;
+    width: 20px;
+  }
+  .btnPrimary,
+  .btnOutline {
+    border-radius: 8px;
+    font-size: 17px;
+    height: 61px;
+  }
+  .footer {
+    height: 68px;
+    font-size: 13px;
+    padding: 0 52px;
+  }
+}
+@media (max-width: 1024px) {
+  .page {
+    background: linear-gradient(180deg, #f9fcff, #fff);
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+  .container {
+    display: block;
+    height: auto;
+    min-height: 100vh;
+  }
+  .leftPanel {
+    background: linear-gradient(180deg, #fff 72%, #f0f7ff);
+    display: block;
+    min-height: 610px;
+    overflow: hidden;
+    padding: 52px 24px 0;
+    position: relative;
+  }
+  .logo {
+    margin: 0 0 46px;
+  }
+  .logoSvg {
+    height: 40px;
+  }
+  .logoText {
+    font-size: 31px;
+  }
+  .headline {
+    font-size: 31px;
+    line-height: 1.25;
+    max-width: 560px;
+    position: relative;
+    z-index: 2;
+  }
+  .subtitle {
+    font-size: 15px;
+    line-height: 1.9;
+    max-width: 430px;
+    position: relative;
+    z-index: 2;
+  }
+  .subtitle br {
+    display: none;
+  }
+  .heroImageContainer {
+    bottom: -28px;
+    display: block;
+    height: 330px;
+    max-width: none;
+    position: absolute;
+    right: -110px;
+    width: 510px;
+  }
+  .heroImg {
+    height: 100%;
+    max-height: none;
+    object-fit: cover;
+    object-position: 60% center;
+    width: 100%;
+  }
+  .rightPanel {
+    align-items: stretch;
+    background: transparent;
+    border: 0;
+    margin-top: -36px;
+    padding: 0 18px 36px;
+    position: relative;
+    z-index: 3;
+  }
+  .cardsWrapper {
+    gap: 18px;
+    max-width: none;
+  }
+  .card {
+    border-radius: 18px;
+    box-shadow: 0 8px 28px rgba(18, 49, 95, 0.12);
+    padding: 28px 24px;
+  }
+  .cardTitle {
+    font-size: 0;
+    margin: 0;
+  }
+  .cardTitle:after {
+    content: "";
+  }
+  .form {
+    gap: 20px;
+  }
+  .field label {
+    font-size: 16px;
+  }
+  .inputGroup {
+    height: 58px;
+  }
+  .inputGroup input {
+    font-size: 16px;
+  }
+  .btnPrimary {
+    font-size: 18px;
+    height: 60px;
+  }
+  .cardsWrapper .card:last-child {
+    padding: 0;
+  }
+  .cardsWrapper .card:last-child .cardTitle {
+    display: none;
+  }
+  .btnOutline {
+    border: 0;
+    color: var(--text-main);
+    height: 116px;
+    justify-content: flex-start;
+    padding: 0 32px;
+    position: relative;
+  }
+  .btnOutline svg {
+    color: var(--blue-primary);
+    height: 38px;
+    margin-right: 16px;
+    width: 38px;
+  }
+  .btnOutline:after {
+    color: #5b6e91;
+    content: "›";
+    font-size: 42px;
+    position: absolute;
+    right: 30px;
+  }
+  .footer {
+    align-items: flex-start;
+    background: transparent;
+    border: 0;
+    gap: 14px;
+    height: auto;
+    padding: 0 34px 40px;
+    text-align: left;
+  }
+  .footerLeft {
+    align-items: flex-start;
+  }
+  .footerItem {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .footerRight,
+  .footerDivider {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .leftPanel {
+    min-height: 590px;
+  }
+  .headline {
+    font-size: 28px;
+  }
+  .subtitle {
+    font-size: 14px;
+  }
+  .heroImageContainer {
+    height: 300px;
+    right: -135px;
+  }
+  .rightPanel {
+    margin-top: -25px;
   }
 }

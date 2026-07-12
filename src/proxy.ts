@@ -4,7 +4,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { getSafeRedirectPath } from "@/lib/supabase/redirect";
 
-const protectedPaths = ["/notas", "/validacoes"];
+const protectedPaths = [
+  "/admin",
+  "/auth/landing",
+  "/notas",
+  "/revisao",
+  "/validacoes",
+];
 
 function isProtectedPath(pathname: string) {
   return protectedPaths.some(
@@ -38,12 +44,12 @@ export async function proxy(request: NextRequest) {
     const { pathname, search } = request.nextUrl;
 
     if (!user && isProtectedPath(pathname)) {
-      const loginUrl = new URL("/login", request.url);
+      const loginUrl = new URL("/", request.url);
       loginUrl.searchParams.set("next", `${pathname}${search}`);
       return NextResponse.redirect(loginUrl);
     }
 
-    if (user && pathname === "/login") {
+    if (user && (pathname === "/" || pathname === "/login")) {
       const nextPath = getSafeRedirectPath(
         request.nextUrl.searchParams.get("next"),
       );
@@ -51,7 +57,7 @@ export async function proxy(request: NextRequest) {
     }
   } catch {
     if (isProtectedPath(request.nextUrl.pathname)) {
-      const loginUrl = new URL("/login", request.url);
+      const loginUrl = new URL("/", request.url);
       loginUrl.searchParams.set("erro", "configuracao");
       return NextResponse.redirect(loginUrl);
     }

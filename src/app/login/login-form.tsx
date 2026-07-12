@@ -12,6 +12,7 @@ import styles from "./login.module.css";
 type LoginFormProps = {
   nextPath?: string;
   configurationError: boolean;
+  credentialsError?: boolean;
 };
 
 function mapAuthError(message: string) {
@@ -32,38 +33,64 @@ function mapAuthError(message: string) {
   return "Não foi possível entrar agora. Tente novamente em instantes.";
 }
 
-/* ── Ícones SVG ── */
-
-function MailIcon() {
+function IconMail() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="2" y="4" width="20" height="16" rx="2" />
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
     </svg>
   );
 }
 
-function LockIcon() {
+function IconLock() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="11" width="18" height="11" rx="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
   );
 }
 
-function EyeIcon() {
+function IconEye() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
 
-function EyeOffIcon() {
+function IconEyeOff() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
       <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
       <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
@@ -72,18 +99,32 @@ function EyeOffIcon() {
   );
 }
 
-function LockBtnIcon() {
+function IconLockBtn() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="11" width="18" height="11" rx="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
   );
 }
 
-function UploadIcon() {
+function IconUpload() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
@@ -91,7 +132,11 @@ function UploadIcon() {
   );
 }
 
-export function LoginForm({ nextPath, configurationError }: LoginFormProps) {
+export function LoginForm({
+  nextPath,
+  configurationError,
+  credentialsError = false,
+}: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -100,7 +145,9 @@ export function LoginForm({ nextPath, configurationError }: LoginFormProps) {
   const [error, setError] = useState<string | null>(
     configurationError
       ? "A autenticação ainda não está configurada neste ambiente."
-      : null,
+      : credentialsError
+        ? "E-mail ou senha incorretos. Confira os dados e tente novamente."
+        : null,
   );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -136,21 +183,28 @@ export function LoginForm({ nextPath, configurationError }: LoginFormProps) {
   }
 
   return (
-    <div className={styles.cardsWrap}>
-      {/* ── Card: Acesso à plataforma ── */}
+    <div className={styles.cardsWrapper}>
+      {/* Card principal */}
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>Acesso à plataforma</h2>
+        <form
+          action="/auth/login"
+          className={styles.form}
+          method="post"
+          onSubmit={handleSubmit}
+          noValidate
+        >
+          <input
+            name="next"
+            type="hidden"
+            value={getSafeRedirectPath(nextPath)}
+          />
+          {error && <div className={styles.alert}>{error}</div>}
 
-        <form className={styles.form} onSubmit={handleSubmit} noValidate>
-          {error ? (
-            <div className={styles.alert} role="alert">{error}</div>
-          ) : null}
-
-          {/* E-mail */}
           <div className={styles.field}>
-            <span className={styles.fieldLabel}>E-mail</span>
-            <div className={styles.inputWrap}>
-              <MailIcon />
+            <label>E-mail</label>
+            <div className={styles.inputGroup}>
+              <IconMail />
               <input
                 autoComplete="email"
                 inputMode="email"
@@ -161,15 +215,20 @@ export function LoginForm({ nextPath, configurationError }: LoginFormProps) {
                 type="email"
                 value={email}
                 disabled={isSubmitting}
+                className={styles.inputIconLeft}
               />
             </div>
           </div>
 
-          {/* Senha */}
           <div className={styles.field}>
-            <span className={styles.fieldLabel}>Senha</span>
-            <div className={styles.inputWrap}>
-              <LockIcon />
+            <div className={styles.labelRow}>
+              <label>Senha</label>
+              <Link href="/recuperar-senha" className={styles.forgotPassword}>
+                Esqueci minha senha
+              </Link>
+            </div>
+            <div className={styles.inputGroup}>
+              <IconLock />
               <input
                 autoComplete="current-password"
                 name="password"
@@ -179,42 +238,45 @@ export function LoginForm({ nextPath, configurationError }: LoginFormProps) {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 disabled={isSubmitting}
+                className={styles.inputIconLeft}
               />
               <button
                 type="button"
-                className={styles.eyeToggle}
-                onClick={() => setShowPassword((v) => !v)}
+                className={styles.eyeBtn}
+                onClick={() => setShowPassword(!showPassword)}
                 disabled={isSubmitting}
                 aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
               >
-                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                {showPassword ? <IconEyeOff /> : <IconEye />}
               </button>
             </div>
           </div>
 
-          {/* Botão Entrar */}
+          <label className={styles.rememberRow}>
+            <input type="checkbox" className={styles.checkbox} defaultChecked />
+            <span>Lembrar meu acesso</span>
+          </label>
+
           <button
             type="submit"
-            className={styles.btnEntrar}
+            className={styles.btnPrimary}
             disabled={isSubmitting}
-            id="login-submit"
           >
             {isSubmitting ? (
-              <span className={styles.spinner} aria-hidden="true" />
+              <span className={styles.spinner} />
             ) : (
-              <LockBtnIcon />
+              <IconLockBtn />
             )}
             {isSubmitting ? "Entrando..." : "Entrar"}
           </button>
         </form>
       </div>
 
-      {/* ── Card: Enviar nota fiscal ── */}
+      {/* Card secundário */}
       <div className={styles.card}>
-        <h2 className={styles.cardTitleSmall}>Enviar nota fiscal</h2>
-        <Link href="/" className={styles.btnEnviar} id="public-upload-link">
-          <UploadIcon />
-          Enviar nota fiscal
+        <h2 className={styles.cardTitle}>Enviar nota fiscal</h2>
+        <Link href="/enviar-nota" className={styles.btnOutline}>
+          <IconUpload /> Enviar nota fiscal
         </Link>
       </div>
     </div>

@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 
-import { InternalShell } from "@/features/internal-notes/internal-shell";
 import {
   listNotes,
   parseNoteListFilters,
 } from "@/features/internal-notes/note-list-query";
-import { NoteListView } from "@/features/internal-notes/note-list-view";
 import { requireInternalUser } from "@/features/internal-notes/require-internal-user";
+import { ValidationView } from "@/features/workspace-ui/portal-views";
 
 export const metadata: Metadata = {
   title: "Validações | WinfraBR",
@@ -17,27 +16,34 @@ type ValidationsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function ValidationsPage({ searchParams }: ValidationsPageProps) {
+export default async function ValidationsPage({
+  searchParams,
+}: ValidationsPageProps) {
   const params = await searchParams;
-  const user = await requireInternalUser("/validacoes");
+  await requireInternalUser("/validacoes");
   const filters = parseNoteListFilters(params);
   const result = await listNotes(filters, { validationOnly: true });
 
-  return (
-    <InternalShell
-      activePath="/validacoes"
-      description="Priorize as notas que precisam da sua decisão."
-      email={user.email ?? "usuario@winfrabr.com.br"}
-      eyebrow="Fila de revisão"
-      title="Validações"
-    >
-      <NoteListView
-        {...result}
-        filters={filters}
-        pathname="/validacoes"
-        searchParams={params}
-        validationOnly
-      />
-    </InternalShell>
-  );
+  const items = result.items.map((item) => ({
+    id: item.id,
+    number: item.documentNumber ?? "Sem número",
+    supplier: item.supplierName ?? "Fornecedor não identificado",
+    date: new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+    }).format(item.issuedAt ?? item.createdAt),
+    value: item.totalAmount
+      ? new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }).format(Number(item.totalAmount))
+      : "—",
+    classification:
+      item.classification === "OK"
+        ? "OK"
+        : item.classification === "SUSPICIOUS"
+          ? "Suspeita"
+          : "Em análise",
+  }));
+
+  return <ValidationView role="reviewer" items={items} />;
 }

@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 
-import { InternalShell } from "@/features/internal-notes/internal-shell";
 import {
   listNotes,
   parseNoteListFilters,
 } from "@/features/internal-notes/note-list-query";
-import { NoteListView } from "@/features/internal-notes/note-list-view";
 import { requireInternalUser } from "@/features/internal-notes/require-internal-user";
+import { NotesView } from "@/features/workspace-ui/portal-views";
 
 export const metadata: Metadata = {
   title: "Notas | WinfraBR",
@@ -19,24 +18,30 @@ type NotesPageProps = {
 
 export default async function NotesPage({ searchParams }: NotesPageProps) {
   const params = await searchParams;
-  const user = await requireInternalUser("/notas");
+  await requireInternalUser("/notas");
   const filters = parseNoteListFilters(params);
   const result = await listNotes(filters);
 
-  return (
-    <InternalShell
-      activePath="/notas"
-      description="Consulte, filtre e acompanhe todas as notas recebidas."
-      email={user.email ?? "usuario@winfrabr.com.br"}
-      eyebrow="Auditoria de gastos"
-      title="Notas"
-    >
-      <NoteListView
-        {...result}
-        filters={filters}
-        pathname="/notas"
-        searchParams={params}
-      />
-    </InternalShell>
-  );
+  const items = result.items.map((item) => ({
+    id: item.id,
+    number: item.documentNumber ?? "Sem número",
+    supplier: item.supplierName ?? "Fornecedor não identificado",
+    date: new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+    }).format(item.issuedAt ?? item.createdAt),
+    value: item.totalAmount
+      ? new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }).format(Number(item.totalAmount))
+      : "—",
+    classification:
+      item.classification === "OK"
+        ? "OK"
+        : item.classification === "SUSPICIOUS"
+          ? "Suspeita"
+          : "Em análise",
+  }));
+
+  return <NotesView role="reviewer" items={items} />;
 }
