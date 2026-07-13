@@ -8,6 +8,7 @@ import {
   createDemoNoteDetail,
 } from "./note-detail-demo";
 import type {
+  AdminNoteDetailFinding,
   LoadNoteDetailInput,
   NoteDetailBase,
   NoteDetailData,
@@ -25,6 +26,28 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const noteDetailSelect = {
+  aiRuns: {
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: {
+      attempts: true,
+      completedAt: true,
+      completionTokens: true,
+      costUsd: true,
+      createdAt: true,
+      id: true,
+      kind: true,
+      latencyMs: true,
+      model: true,
+      policyVersion: true,
+      promptTokens: true,
+      provider: true,
+      reasoningEffort: true,
+      startedAt: true,
+      status: true,
+      totalTokens: true,
+    },
+    take: 12,
+  },
   classification: true,
   createdAt: true,
   documentNumber: true,
@@ -48,14 +71,19 @@ const noteDetailSelect = {
     orderBy: [{ severity: "desc" }, { createdAt: "asc" }, { id: "asc" }],
     select: {
       actualValue: true,
+      aiRunId: true,
       category: true,
       code: true,
+      confidence: true,
       createdAt: true,
       description: true,
       evidence: true,
       expectedValue: true,
       id: true,
+      isNovel: true,
+      justification: true,
       needsValidation: true,
+      references: true,
       noteItem: {
         select: {
           code: true,
@@ -74,8 +102,10 @@ const noteDetailSelect = {
         },
       },
       severity: true,
+      source: true,
       status: true,
       title: true,
+      ruleVersion: true,
       updatedAt: true,
     },
   },
@@ -312,11 +342,33 @@ export async function loadNoteDetail(
   };
 
   if (input.role === "ADMIN") {
+    const adminFindings: AdminNoteDetailFinding[] = findings.map(
+      (finding, index) => {
+        const technical = note.findings[index];
+        return {
+          ...finding,
+          aiRunId: technical.aiRunId,
+          confidence: technical.confidence.toNumber(),
+          isNovel: technical.isNovel,
+          justification: technical.justification,
+          references: technical.references,
+          ruleVersion: technical.ruleVersion,
+          source: technical.source,
+        };
+      },
+    );
     return {
       ...base,
       analysis: {
         ...base.analysis,
+        findings: adminFindings,
         readConfidence: note.readConfidence?.toNumber() ?? null,
+      },
+      technical: {
+        aiRuns: note.aiRuns.map((run) => ({
+          ...run,
+          costUsd: run.costUsd?.toString() ?? null,
+        })),
       },
       viewerRole: "ADMIN",
     };

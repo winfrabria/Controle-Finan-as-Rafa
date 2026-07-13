@@ -10,6 +10,7 @@ import { Icon } from "@/features/workspace-ui/ui-icons";
 import type { Prisma } from "@/generated/prisma/client";
 
 import type { NoteDetailData } from "./data";
+import { AdminComparativeAuditView } from "./admin-comparative-audit-view";
 import { NoteDetailActions } from "./note-detail-actions";
 import {
   formatCurrency,
@@ -32,8 +33,18 @@ export function NoteDetailView({
   documentUrl,
   userEmail,
 }: NoteDetailViewProps) {
-  const role: PortalRole = data.viewerRole === "ADMIN" ? "admin" : "reviewer";
-  const basePath = role === "admin" ? "/admin" : "/revisao";
+  if (data.viewerRole === "ADMIN") {
+    return (
+      <AdminComparativeAuditView
+        data={data}
+        documentUrl={documentUrl}
+        userEmail={userEmail}
+      />
+    );
+  }
+
+  const role: PortalRole = "reviewer";
+  const basePath = "/revisao";
   const classification = classificationLabel(data.analysis.classification);
   const primaryFinding = data.analysis.findings[0] ?? null;
   const latestValidation = data.validations.at(-1) ?? null;

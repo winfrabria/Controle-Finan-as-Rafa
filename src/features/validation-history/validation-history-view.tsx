@@ -7,11 +7,10 @@ import {
   type PortalRole,
 } from "@/features/workspace-ui/portal-shell";
 
-import { HistoryTrendChart } from "./history-trend-chart";
 import type {
-  ValidationHistoryAnalyticsItem,
   ValidationHistoryFilters,
   ValidationHistoryItem,
+  ValidationHistoryResult,
 } from "./validation-history-query";
 import { buildValidationHistoryPageHref } from "./validation-history-query";
 import styles from "./validation-history-view.module.css";
@@ -19,73 +18,23 @@ import styles from "./validation-history-view.module.css";
 type SearchParams = Record<string, string | string[] | undefined>;
 
 type HistoryMeta = {
-  analytics: ValidationHistoryAnalyticsItem[];
   confirmed: number;
   filters: ValidationHistoryFilters;
-  hasStoredHistory: boolean;
+  overallTotal: number;
   page: number;
   pageCount: number;
   released: number;
+  selectedItem: ValidationHistoryItem | null;
   total: number;
   works: { id: string; name: string }[];
 };
 
-const demoWorks = [
-  { id: "10000000-0000-4000-8000-000000000001", name: "Obra Piloto HWN" },
-  { id: "10000000-0000-4000-8000-000000000002", name: "Edifício Aurora" },
-  { id: "10000000-0000-4000-8000-000000000003", name: "Hospital Central" },
-];
-
-const demoRows: ValidationHistoryItem[] = [
-  demoRow(1, "Construtora Silva Ltda.", "00012589", "Obra Piloto HWN", true, "Preço acima do histórico", 92),
-  demoRow(2, "Transportes Ideal", "00012567", "Edifício Aurora", true, "Divergência de CNPJ", 88),
-  demoRow(3, "MegaParafusos", "00012541", "Hospital Central", false, "Preço acima do histórico", 65),
-  demoRow(4, "Locação Equip. Sul", "00012532", "Obra Piloto HWN", true, "Compatibilidade de item", 94),
-  demoRow(5, "Hidráulica Prime", "00012498", "Edifício Aurora", false, "Valor fracionado", 60),
-  demoRow(6, "Ferragens Brasil", "00012487", "Hospital Central", true, "Quantidade acima do histórico", 91),
-];
-
-const demoTrend = [
-  { label: "Jan/26", rate: 58.1 },
-  { label: "Fev/26", rate: 61.4 },
-  { label: "Mar/26", rate: 63.2 },
-  { label: "Abr/26", rate: 65.1 },
-  { label: "Mai/26", rate: 66.7 },
-];
-
-function demoRow(
-  index: number,
-  supplierName: string,
-  noteNumber: string,
-  workName: string,
-  aiCorrect: boolean,
-  reason: string,
-  confidence: number,
-): ValidationHistoryItem {
-  const work = demoWorks.find((item) => item.name === workName) ?? demoWorks[0];
-  return {
-    aiCorrect,
-    comment:
-      index % 2 === 0
-        ? "Conferência concluída com os documentos da obra."
-        : null,
-    createdAt: new Date(2026, 4, 29 - index, 8 + index, 18),
-    decision: aiCorrect ? "SUSPICION_CONFIRMED" : "FALSE_POSITIVE",
-    findingTitle: reason,
-    id: `demo-history-${index}`,
-    noteId: `demo-note-${index}`,
-    noteIssuedAt: new Date(2026, 4, 20 + index),
-    noteNumber,
-    readConfidence: confidence / 100,
-    reason,
-    reviewerEmail: "pdrarthoficial3@gmail.com",
-    reviewerName: "Rafael",
-    supplierName,
-    totalAmount: String(12850 + index * 1375.42),
-    workId: work.id,
-    workName,
-  };
-}
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+});
 
 const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
@@ -94,12 +43,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
   month: "2-digit",
   timeZone: "America/Sao_Paulo",
   year: "numeric",
-});
-
-const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
-  month: "short",
-  timeZone: "America/Sao_Paulo",
-  year: "2-digit",
 });
 
 export function ValidationHistoryView({
@@ -113,373 +56,400 @@ export function ValidationHistoryView({
   role: PortalRole;
   searchParams: SearchParams;
 }) {
-  const isDemo = !meta.hasStoredHistory;
-  const works = meta.works.length ? meta.works : demoWorks;
-  const demoData = demoRows.map((item, index) => ({
-    ...item,
-    workId: works[index % works.length].id,
-    workName: works[index % works.length].name,
-  }));
-  const visibleItems = isDemo
-    ? filterDemoRows(demoData, meta.filters)
-    : items;
-  const analytics = isDemo
-    ? visibleItems.map(({ aiCorrect, createdAt, reason }) => ({
-        aiCorrect,
-        createdAt,
-        reason,
-      }))
-    : meta.analytics;
-  const confirmed = analytics.filter((item) => item.aiCorrect).length;
-  const released = analytics.length - confirmed;
-  const agreement = analytics.length
-    ? (confirmed / analytics.length) * 100
-    : 0;
-  const trend = isDemo ? demoTrend : buildTrend(analytics);
-  const trendDelta =
-    trend.length > 1
-      ? trend[trend.length - 1].rate - trend[trend.length - 2].rate
-      : 0;
-  const reasons = buildReasonRanking(analytics);
   const basePath = role === "admin" ? "/admin" : "/revisao";
   const pathname = `${basePath}/historico`;
-  const showConfidence = role === "admin";
+  const confirmationRate = percentage(meta.confirmed, meta.overallTotal);
+  const releasedRate = percentage(meta.released, meta.overallTotal);
 
   return (
     <PortalShell active="historico" role={role}>
       <div className={styles.page}>
         <PageIntro
-          title="Histórico e qualidade da IA"
-          description="Acompanhe o desempenho da IA nas validações e o aprendizado contínuo."
-          action={
-            isDemo ? (
-              <span className={styles.demoBadge}>Dados de demonstração</span>
-            ) : undefined
-          }
+          title="Histórico de validações"
+          description="Consulte decisões já finalizadas e revise os detalhes de cada validação."
         />
 
-        <HistoryFilters
-          filters={meta.filters}
-          pathname={pathname}
-          works={works}
-        />
-
-        <section className={styles.analyticsPanel} aria-label="Qualidade da IA">
-          <article className={styles.metricCard}>
-            <small>Taxa de concordância</small>
-            <span>IA × humano</span>
-            <strong>{formatPercent(agreement)}</strong>
-            <em className={trendDelta >= 0 ? styles.positive : styles.negative}>
-              {trendDelta >= 0 ? "▲" : "▼"} {formatSignedPercent(trendDelta)} vs. mês anterior
-            </em>
-          </article>
-          <article className={styles.metricCard}>
-            <small>Suspeitas confirmadas</small>
-            <span>pelo revisor humano</span>
-            <strong>{confirmed}</strong>
-            <em>{formatPercent(agreement)} das suspeitas</em>
-          </article>
-          <article className={styles.metricCard}>
-            <small>Falsos positivos</small>
-            <span>IA marcou suspeita</span>
-            <strong>{released}</strong>
-            <em>{formatPercent(100 - agreement)} das suspeitas</em>
-          </article>
-          <article className={styles.chartCard}>
-            <header>
-              <strong>Concordância IA × humano</strong>
-              <span>Tendência mensal</span>
-            </header>
-            <HistoryTrendChart points={trend} />
-          </article>
+        <section className={styles.metrics} aria-label="Resumo do histórico">
+          <MetricCard
+            icon="document"
+            label="Decisões finalizadas"
+            tone="blue"
+            value={meta.overallTotal.toLocaleString("pt-BR")}
+          />
+          <MetricCard
+            icon="check"
+            label="Taxa de confirmação (IA acertou)"
+            tone="green"
+            value={formatPercent(confirmationRate)}
+          />
+          <MetricCard
+            icon="warning"
+            label="Falsos positivos (IA suspeitou e foi liberada)"
+            tone="orange"
+            value={formatPercent(releasedRate)}
+          />
         </section>
 
-        <section className={styles.historySection}>
-          <div className={styles.historyMain}>
-            <header className={styles.sectionTitle}>
-              <div>
-                <h2>Linhas do tempo de validações</h2>
-                <p>Últimas decisões concluídas no período</p>
-              </div>
-              <span>{isDemo ? "Demonstração" : `${meta.total} registro(s)`}</span>
-            </header>
+        <section className={styles.workspace}>
+          <div className={styles.listPanel}>
+            <HistorySearch
+              filters={meta.filters}
+              pathname={pathname}
+            />
+            <HistoryTabs
+              filters={meta.filters}
+              pathname={pathname}
+              searchParams={searchParams}
+            />
 
-            {visibleItems.length ? (
-              <>
-                <div className={styles.tableWrap}>
-                  <table className={showConfidence ? styles.adminHistoryTable : styles.reviewerHistoryTable}>
-                    <thead>
-                      <tr>
-                        <th>Data e hora</th>
-                        <th>Nota e fornecedor</th>
-                        <th>Regra disparada (IA)</th>
-                        {showConfidence ? <th>Confiança da IA</th> : null}
-                        <th>Decisão e resultado</th>
-                        <th>Motivo da decisão</th>
-                        <th aria-label="Ação" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visibleItems.map((item) => (
-                        <HistoryRow
-                          key={item.id}
-                          item={item}
-                          showConfidence={showConfidence}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className={styles.mobileHistoryList}>
-                  {visibleItems.map((item) => (
-                    <HistoryCard
-                      key={item.id}
-                      item={item}
-                      showConfidence={showConfidence}
-                    />
-                  ))}
-                </div>
-              </>
+            {items.length ? (
+              <div className={styles.historyList}>
+                {items.map((item) => (
+                  <HistoryListItem
+                    active={item.id === meta.selectedItem?.id}
+                    item={item}
+                    key={item.id}
+                    pathname={pathname}
+                    searchParams={searchParams}
+                  />
+                ))}
+              </div>
             ) : (
-              <div className={styles.emptyState}>
-                <Icon name="filter" />
+              <div className={styles.emptyList}>
+                <Icon name="search" />
                 <strong>Nenhuma validação encontrada</strong>
-                <span>Ajuste obra ou período para consultar outros dados.</span>
+                <span>Tente outro número de nota, fornecedor ou obra.</span>
               </div>
             )}
 
-            <footer className={styles.tableFooter}>
-              <span>Exibindo {visibleItems.length} validações</span>
-              <div className={styles.legend}>
-                <span><i className={styles.legendCorrect} /> IA acertou</span>
-                <span><i className={styles.legendFalse} /> Falso positivo</span>
-              </div>
-              {!isDemo && meta.pageCount > 1 ? (
-                <nav aria-label="Paginação">
-                  {meta.page > 1 ? (
-                    <Link href={buildValidationHistoryPageHref(pathname, searchParams, meta.page - 1)}>Anterior</Link>
-                  ) : null}
-                  <span>{meta.page}/{meta.pageCount}</span>
-                  {meta.page < meta.pageCount ? (
-                    <Link href={buildValidationHistoryPageHref(pathname, searchParams, meta.page + 1)}>Próxima</Link>
-                  ) : null}
-                </nav>
-              ) : (
-                <Link href={`${basePath}/validacoes`}>Ver validações <Icon name="chevron" /></Link>
-              )}
-            </footer>
+            <HistoryPagination
+              meta={meta}
+              pathname={pathname}
+              searchParams={searchParams}
+            />
           </div>
 
-          <aside className={styles.reasonsPanel}>
-            <header>
-              <h2>Principais motivos</h2>
-              <p>Por quantidade de ocorrências</p>
-            </header>
-            <div className={styles.reasonList}>
-              {reasons.map((reason) => (
-                <div key={reason.label}>
-                  <span><strong>{reason.label}</strong><b>{reason.count}</b></span>
-                  <progress max={reasons[0]?.count ?? 1} value={reason.count} />
-                </div>
-              ))}
-            </div>
-            <p className={styles.learningNote}>
-              <Icon name="shield" />
-              A IA aprende com as decisões humanas para reduzir falsos positivos e aumentar a precisão.
-            </p>
-          </aside>
+          <ValidationDetail item={meta.selectedItem} />
         </section>
       </div>
     </PortalShell>
   );
 }
 
-function HistoryFilters({
-  filters,
-  pathname,
-  works,
+function MetricCard({
+  icon,
+  label,
+  tone,
+  value,
 }: {
-  filters: ValidationHistoryFilters;
-  pathname: string;
-  works: { id: string; name: string }[];
+  icon: "check" | "document" | "warning";
+  label: string;
+  tone: "blue" | "green" | "orange";
+  value: string;
 }) {
   return (
-    <form action={pathname} method="get" className={styles.topFilters}>
-      <label>
-        <span>Obra</span>
-        <span className={styles.controlShell}>
-          <Icon name="building" />
-          <select name="obra" defaultValue={filters.obra ?? ""}>
-            <option value="">Todas as obras</option>
-            {works.map((work) => (
-              <option key={work.id} value={work.id}>{work.name}</option>
-            ))}
-          </select>
-        </span>
-      </label>
-      <fieldset>
-        <legend>Período</legend>
-        <span className={styles.controlShell}>
-          <Icon name="calendar" />
-          <input aria-label="Data inicial" type="date" name="dataDe" defaultValue={filters.dataDe ?? ""} />
-          <i>—</i>
-          <input aria-label="Data final" type="date" name="dataAte" defaultValue={filters.dataAte ?? ""} />
-        </span>
-      </fieldset>
-      <button type="submit"><Icon name="filter" /> Aplicar</button>
-      <Link href={pathname}>Limpar</Link>
-    </form>
-  );
-}
-
-function HistoryRow({
-  item,
-  showConfidence,
-}: {
-  item: ValidationHistoryItem;
-  showConfidence: boolean;
-}) {
-  const confidence = confidencePercent(item.readConfidence);
-  return (
-    <tr>
-      <td>{dateTimeFormatter.format(item.createdAt)}</td>
-      <td>
-        <Link className={styles.noteLink} href={`/notas/${item.noteId}`}>
-          <Icon name="document" />
-          <span>
-            <strong>{item.noteNumber ?? "Sem número"}</strong>
-            <small>{item.supplierName ?? "Fornecedor não identificado"}</small>
-          </span>
-        </Link>
-      </td>
-      <td><span className={styles.ruleText}>{item.findingTitle ?? item.reason}</span></td>
-      {showConfidence ? (
-        <td>
-          <span className={styles.confidence}>
-            <b>{confidence === null ? "—" : `${confidence}%`}</b>
-            <progress max="100" value={confidence ?? 0} />
-          </span>
-        </td>
-      ) : null}
-      <td>
-        <span className={styles.decisionResult}>
-          <DecisionBadge confirmed={item.aiCorrect} />
-          <ResultBadge confirmed={item.aiCorrect} />
-        </span>
-      </td>
-      <td title={item.comment ? `${item.reason} — ${item.comment}` : item.reason}>
-        <span className={styles.reasonText}>{item.reason}</span>
-      </td>
-      <td>
-        <Link className={styles.rowAction} href={`/notas/${item.noteId}`} aria-label={`Abrir nota ${item.noteNumber ?? "sem número"}`}>
-          <Icon name="chevron" />
-        </Link>
-      </td>
-    </tr>
-  );
-}
-
-function HistoryCard({
-  item,
-  showConfidence,
-}: {
-  item: ValidationHistoryItem;
-  showConfidence: boolean;
-}) {
-  const confidence = confidencePercent(item.readConfidence);
-  return (
-    <article>
-      <header>
-        <span>
-          <strong>NF {item.noteNumber ?? "Sem número"}</strong>
-          <small>{item.supplierName ?? "Fornecedor não identificado"}</small>
-        </span>
-        <ResultBadge confirmed={item.aiCorrect} />
-      </header>
-      <dl>
-        <div><dt>Data</dt><dd>{dateTimeFormatter.format(item.createdAt)}</dd></div>
-        <div><dt>Regra da IA</dt><dd>{item.findingTitle ?? item.reason}</dd></div>
-        {showConfidence ? (
-          <div><dt>Confiança da IA</dt><dd>{confidence === null ? "—" : `${confidence}%`}</dd></div>
-        ) : null}
-        <div><dt>Decisão humana</dt><dd>{item.aiCorrect ? "Confirma suspeita" : "Descarta suspeita"}</dd></div>
-        <div><dt>Motivo</dt><dd>{item.reason}</dd></div>
-      </dl>
-      <Link href={`/notas/${item.noteId}`}>Abrir nota <Icon name="chevron" /></Link>
+    <article className={styles.metricCard}>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      <i className={styles[tone]}><Icon name={icon} /></i>
     </article>
   );
 }
 
-function DecisionBadge({ confirmed }: { confirmed: boolean }) {
+function HistorySearch({
+  filters,
+  pathname,
+}: {
+  filters: ValidationHistoryFilters;
+  pathname: string;
+}) {
   return (
-    <span className={`${styles.decisionBadge} ${confirmed ? styles.confirmDecision : styles.releaseDecision}`}>
-      {confirmed ? "Confirma suspeita" : "Descarta suspeita"}
+    <form action={pathname} className={styles.searchForm} method="get">
+      {filters.resultado ? (
+        <input name="resultado" type="hidden" value={filters.resultado} />
+      ) : null}
+      <label>
+        <Icon name="search" />
+        <input
+          aria-label="Buscar no histórico"
+          defaultValue={filters.busca ?? ""}
+          name="busca"
+          placeholder="Buscar no histórico..."
+          type="search"
+        />
+      </label>
+      <button aria-label="Buscar" type="submit"><Icon name="filter" /></button>
+    </form>
+  );
+}
+
+function HistoryTabs({
+  filters,
+  pathname,
+  searchParams,
+}: {
+  filters: ValidationHistoryFilters;
+  pathname: string;
+  searchParams: SearchParams;
+}) {
+  const tabs: Array<{ label: string; value?: ValidationHistoryResult }> = [
+    { label: "Todas" },
+    { label: "IA acertou", value: "confirmed" },
+    { label: "Liberadas", value: "released" },
+  ];
+
+  return (
+    <nav className={styles.tabs} aria-label="Filtrar resultado da validação">
+      {tabs.map((tab) => (
+        <Link
+          aria-current={filters.resultado === tab.value ? "page" : undefined}
+          className={filters.resultado === tab.value ? styles.activeTab : undefined}
+          href={historyHref(pathname, searchParams, {
+            pagina: null,
+            resultado: tab.value ?? null,
+            validacao: null,
+          })}
+          key={tab.label}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function HistoryListItem({
+  active,
+  item,
+  pathname,
+  searchParams,
+}: {
+  active: boolean;
+  item: ValidationHistoryItem;
+  pathname: string;
+  searchParams: SearchParams;
+}) {
+  return (
+    <Link
+      className={`${styles.historyItem} ${active ? styles.activeItem : ""}`}
+      href={historyHref(pathname, searchParams, { validacao: item.id })}
+    >
+      <span className={`${styles.resultIcon} ${item.aiCorrect ? styles.confirmedIcon : styles.releasedIcon}`}>
+        <Icon name={item.aiCorrect ? "check" : "warning"} />
+      </span>
+      <span className={styles.noteIdentity}>
+        <strong>{item.noteNumber ?? "Sem número"}</strong>
+        <b>{item.supplierName ?? "Fornecedor não identificado"}</b>
+        <small>{item.workName}</small>
+      </span>
+      <span className={styles.itemMeta}>
+        <time dateTime={item.createdAt.toISOString()}>{dateFormatter.format(item.createdAt)}</time>
+        <DecisionPill confirmed={item.aiCorrect} />
+      </span>
+      <Icon className={styles.itemChevron} name="chevron" />
+    </Link>
+  );
+}
+
+function HistoryPagination({
+  meta,
+  pathname,
+  searchParams,
+}: {
+  meta: HistoryMeta;
+  pathname: string;
+  searchParams: SearchParams;
+}) {
+  const first = meta.total ? (meta.page - 1) * 6 + 1 : 0;
+  const last = Math.min(meta.page * 6, meta.total);
+
+  return (
+    <footer className={styles.pagination}>
+      <span>{first}-{last} de {meta.total.toLocaleString("pt-BR")}</span>
+      <nav aria-label="Paginação do histórico">
+        {meta.page > 1 ? (
+          <Link aria-label="Página anterior" href={buildValidationHistoryPageHref(pathname, searchParams, meta.page - 1)}>‹</Link>
+        ) : <span aria-hidden="true">‹</span>}
+        <b>{meta.page}</b>
+        <small>de {meta.pageCount}</small>
+        {meta.page < meta.pageCount ? (
+          <Link aria-label="Próxima página" href={buildValidationHistoryPageHref(pathname, searchParams, meta.page + 1)}>›</Link>
+        ) : <span aria-hidden="true">›</span>}
+      </nav>
+    </footer>
+  );
+}
+
+function ValidationDetail({ item }: { item: ValidationHistoryItem | null }) {
+  if (!item) {
+    return (
+      <div className={styles.detailEmpty}>
+        <Icon name="document" />
+        <strong>Selecione uma validação</strong>
+        <span>Os detalhes da decisão aparecerão aqui.</span>
+      </div>
+    );
+  }
+
+  return (
+    <article className={styles.detailPanel}>
+      <header className={styles.detailHeader}>
+        <div>
+          <span className={`${styles.resultIcon} ${item.aiCorrect ? styles.confirmedIcon : styles.releasedIcon}`}>
+            <Icon name={item.aiCorrect ? "check" : "warning"} />
+          </span>
+          <span>
+            <strong>Decisão final: <b>{item.aiCorrect ? "Suspeita" : "OK"}</b></strong>
+            <small>
+              Nota {item.noteNumber ?? "sem número"} <i>•</i> {item.supplierName ?? "Fornecedor não identificado"} <i>•</i> {item.workName}
+            </small>
+          </span>
+        </div>
+        <time dateTime={item.createdAt.toISOString()}>{dateFormatter.format(item.createdAt)}</time>
+        <Link href={`/notas/${item.noteId}`}>Abrir nota detalhada <Icon name="chevron" /></Link>
+      </header>
+
+      <div className={styles.comparison}>
+        <section className={styles.aiDecision}>
+          <header>Suspeita indicada pela IA</header>
+          <div>
+            <small>Classificação sugerida</small>
+            <span className={styles.suspectPill}>Suspeita</span>
+            <hr />
+            <small>Motivo principal</small>
+            <strong>{item.findingTitle ?? item.reason}</strong>
+            {item.findingJustification ? <p>{item.findingJustification}</p> : null}
+            {item.findingSource ? <em>{sourceLabel(item.findingSource)}</em> : null}
+          </div>
+        </section>
+
+        <span className={styles.versus}>VS</span>
+
+        <section className={styles.humanDecision}>
+          <header>Decisão humana</header>
+          <div>
+            <small>Decisão do revisor</small>
+            <DecisionPill confirmed={item.aiCorrect} />
+            <hr />
+            <small>Resultado</small>
+            <strong>
+              {item.aiCorrect
+                ? "O revisor confirmou o apontamento da IA."
+                : "A nota foi liberada após a revisão humana."}
+            </strong>
+            <span className={styles.agreement}>
+              Concordância com a IA <b>{item.aiCorrect ? "Sim" : "Não"}</b>
+            </span>
+          </div>
+        </section>
+      </div>
+
+      <section className={styles.decisionDetails}>
+        <DetailLine icon="shield" label="Motivo da decisão">
+          {item.reason}
+        </DetailLine>
+        <DetailLine icon="document" label="Evidência utilizada">
+          {item.findingEvidence.length ? (
+            <ul>{item.findingEvidence.map((evidence) => <li key={evidence}>{evidence}</li>)}</ul>
+          ) : (
+            item.findingJustification ?? "Nenhuma evidência adicional foi registrada."
+          )}
+        </DetailLine>
+        <DetailLine icon="more" label="Comentário do revisor">
+          {item.comment ?? "Nenhum comentário foi registrado."}
+        </DetailLine>
+      </section>
+
+      <footer className={styles.auditFooter}>
+        <div>
+          <small>Revisor</small>
+          <span className={styles.avatar}>{initials(item.reviewerName ?? item.reviewerEmail)}</span>
+          <strong>{item.reviewerName ?? item.reviewerEmail}</strong>
+          {item.reviewerName ? <em>{item.reviewerEmail}</em> : null}
+        </div>
+        <div>
+          <small>Data da revisão</small>
+          <strong><Icon name="calendar" /> {dateTimeFormatter.format(item.createdAt)}</strong>
+        </div>
+        <div>
+          <small>ID da validação</small>
+          <strong>{item.id}</strong>
+        </div>
+      </footer>
+    </article>
+  );
+}
+
+function DetailLine({
+  children,
+  icon,
+  label,
+}: {
+  children: React.ReactNode;
+  icon: "document" | "more" | "shield";
+  label: string;
+}) {
+  return (
+    <div className={styles.detailLine}>
+      <span><Icon name={icon} /></span>
+      <div><strong>{label}</strong><div>{children}</div></div>
+    </div>
+  );
+}
+
+function DecisionPill({ confirmed }: { confirmed: boolean }) {
+  return (
+    <span className={`${styles.decisionPill} ${confirmed ? styles.suspectPill : styles.okPill}`}>
+      {confirmed ? "Suspeita" : "OK"}
     </span>
   );
 }
 
-function ResultBadge({ confirmed }: { confirmed: boolean }) {
-  return (
-    <span className={`${styles.resultBadge} ${confirmed ? styles.correctResult : styles.falseResult}`}>
-      <Icon name={confirmed ? "check" : "warning"} />
-      {confirmed ? "IA acertou" : "Falso positivo"}
-    </span>
-  );
-}
-
-function confidencePercent(value: number | null) {
-  if (value === null) return null;
-  return Math.round(value <= 1 ? value * 100 : value);
-}
-
-function buildTrend(rows: ValidationHistoryAnalyticsItem[]) {
-  const months = new Map<string, { confirmed: number; date: Date; total: number }>();
-  for (const row of rows) {
-    const date = new Date(row.createdAt);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    const current = months.get(key) ?? { confirmed: 0, date, total: 0 };
-    current.total += 1;
-    if (row.aiCorrect) current.confirmed += 1;
-    months.set(key, current);
+function historyHref(
+  pathname: string,
+  params: SearchParams,
+  changes: Record<string, string | null>,
+) {
+  const next = new URLSearchParams();
+  for (const [key, raw] of Object.entries(params)) {
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    if (value) next.set(key, value);
   }
-  return [...months.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-5)
-    .map(([, value]) => ({
-      label: monthFormatter.format(value.date).replace(" de ", "/"),
-      rate: Number(((value.confirmed / value.total) * 100).toFixed(1)),
-    }));
+  for (const [key, value] of Object.entries(changes)) {
+    if (value === null) next.delete(key);
+    else next.set(key, value);
+  }
+  const query = next.toString();
+  return query ? `${pathname}?${query}` : pathname;
 }
 
-function buildReasonRanking(rows: ValidationHistoryAnalyticsItem[]) {
-  const counts = new Map<string, number>();
-  for (const row of rows) {
-    const label = row.reason || "Sem motivo informado";
-    counts.set(label, (counts.get(label) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, 6)
-    .map(([label, count]) => ({ label, count }));
+function percentage(part: number, total: number) {
+  return total ? (part / total) * 100 : 0;
 }
 
 function formatPercent(value: number) {
-  return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%`;
+  return `${value.toLocaleString("pt-BR", {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
+  })}%`;
 }
 
-function formatSignedPercent(value: number) {
-  const absolute = Math.abs(value);
-  return `${absolute.toLocaleString("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} p.p.`;
+function sourceLabel(source: string) {
+  const labels: Record<string, string> = {
+    AI_DISCOVERY: "Descoberta adicional da IA",
+    UNIVERSAL_RULE: "Regra universal",
+    WORK_RULE: "Regra da obra",
+  };
+  return labels[source] ?? source.replaceAll("_", " ").toLocaleLowerCase("pt-BR");
 }
 
-function filterDemoRows(
-  rows: ValidationHistoryItem[],
-  filters: ValidationHistoryFilters,
-) {
-  return rows.filter((item) => {
-    if (filters.obra && item.workId !== filters.obra) return false;
-    if (filters.dataDe && item.createdAt < new Date(`${filters.dataDe}T00:00:00-03:00`)) return false;
-    if (filters.dataAte && item.createdAt > new Date(`${filters.dataAte}T23:59:59.999-03:00`)) return false;
-    return true;
-  });
+function initials(value: string) {
+  return value
+    .split(/\s+|@/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 }

@@ -1,10 +1,14 @@
 import type { Prisma } from "@/generated/prisma/client";
 import type {
+  AiRunKind,
+  AiRunStatus,
+  FindingSource,
   FindingSeverity,
   FindingStatus,
   NoteClassification,
   NoteStatus,
   ProcessingStage,
+  ReasoningEffort,
   UserRole,
   ValidationDecision,
 } from "@/generated/prisma/enums";
@@ -56,6 +60,35 @@ export type NoteDetailFinding = {
   status: FindingStatus;
   title: string;
   updatedAt: Date;
+};
+
+export type AdminNoteDetailFinding = NoteDetailFinding & {
+  aiRunId: string | null;
+  confidence: number;
+  isNovel: boolean;
+  justification: string;
+  references: Prisma.JsonValue | null;
+  ruleVersion: string | null;
+  source: FindingSource;
+};
+
+export type AdminNoteAiRun = {
+  attempts: number;
+  completedAt: Date | null;
+  completionTokens: number | null;
+  costUsd: string | null;
+  createdAt: Date;
+  id: string;
+  kind: AiRunKind;
+  latencyMs: number | null;
+  model: string;
+  policyVersion: string;
+  promptTokens: number | null;
+  provider: string | null;
+  reasoningEffort: ReasoningEffort;
+  startedAt: Date;
+  status: AiRunStatus;
+  totalTokens: number | null;
 };
 
 export type NoteDetailValidation = {
@@ -141,9 +174,13 @@ export type NoteDetailBase = {
   };
 };
 
-export type AdminNoteDetail = NoteDetailBase & {
-  analysis: NoteDetailBase["analysis"] & {
+export type AdminNoteDetail = Omit<NoteDetailBase, "analysis"> & {
+  analysis: Omit<NoteDetailBase["analysis"], "findings"> & {
+    findings: AdminNoteDetailFinding[];
     readConfidence: number | null;
+  };
+  technical: {
+    aiRuns: AdminNoteAiRun[];
   };
   viewerRole: "ADMIN";
 };

@@ -340,7 +340,43 @@ export function createDemoNoteDetail({
   if (role === "ADMIN") {
     return {
       ...base,
-      analysis: { ...base.analysis, readConfidence: 0.96 },
+      analysis: {
+        ...base.analysis,
+        findings: base.analysis.findings.map((finding, index) => ({
+          ...finding,
+          aiRunId: `${id}-ai-run-audit`,
+          confidence: [0.98, 0.95, 0.92][index] ?? 0.9,
+          isNovel: false,
+          justification:
+            finding.rule?.description ?? finding.description,
+          references: finding.sources.map((item) => item.label),
+          ruleVersion: "2026.07",
+          source: index === 0 ? "WORK_RULE" : "UNIVERSAL_RULE",
+        })),
+        readConfidence: 0.96,
+      },
+      technical: {
+        aiRuns: [
+          {
+            attempts: 1,
+            completedAt: processedAt,
+            completionTokens: 1840,
+            costUsd: "0.02485000",
+            createdAt: extractedAt,
+            id: `${id}-ai-run-audit`,
+            kind: "AUDIT",
+            latencyMs: 3720,
+            model: "openai/gpt-5.6-sol",
+            policyVersion: "2026.07",
+            promptTokens: 6310,
+            provider: "OpenRouter",
+            reasoningEffort: "HIGH",
+            startedAt: extractedAt,
+            status: "SUCCEEDED",
+            totalTokens: 8150,
+          },
+        ],
+      },
       viewerRole: "ADMIN",
     };
   }

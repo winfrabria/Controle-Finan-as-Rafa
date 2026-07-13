@@ -21,9 +21,22 @@ function safeJson(value: unknown) {
   return serialized.length > 1_500 ? `${serialized.slice(0, 1_500)}…` : serialized;
 }
 
-export default async function AdminLogsPage() {
+type PageProps = {
+  searchParams?: Promise<{ noteId?: string }>;
+};
+
+export default async function AdminLogsPage({ searchParams }: PageProps) {
+  const requestedNoteId = (await searchParams)?.noteId;
+  const noteId =
+    requestedNoteId &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      requestedNoteId,
+    )
+      ? requestedNoteId
+      : undefined;
   const [runs, validations, administrative] = await prisma.$transaction([
     prisma.aiRun.findMany({
+      where: noteId ? { noteId } : undefined,
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {
@@ -39,6 +52,7 @@ export default async function AdminLogsPage() {
       },
     }),
     prisma.validation.findMany({
+      where: noteId ? { noteId } : undefined,
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {
@@ -54,6 +68,9 @@ export default async function AdminLogsPage() {
       },
     }),
     prisma.adminAuditLog.findMany({
+      where: noteId
+        ? { entityId: noteId, entityType: "note" }
+        : undefined,
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
