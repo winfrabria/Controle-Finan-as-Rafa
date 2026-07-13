@@ -4,7 +4,8 @@ type AdminAuditAction =
   | "work.created"
   | "work.updated"
   | "work.deactivated"
-  | "work.reactivated";
+  | "work.reactivated"
+  | "work.imported";
 
 type AdminAuditEntry = {
   action: AdminAuditAction;

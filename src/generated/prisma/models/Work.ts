@@ -30,6 +30,7 @@ export type WorkMinAggregateOutputType = {
   name: string | null
   location: string | null
   active: boolean | null
+  responsibleProfileId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -40,6 +41,7 @@ export type WorkMaxAggregateOutputType = {
   name: string | null
   location: string | null
   active: boolean | null
+  responsibleProfileId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -50,6 +52,7 @@ export type WorkCountAggregateOutputType = {
   name: number
   location: number
   active: number
+  responsibleProfileId: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -62,6 +65,7 @@ export type WorkMinAggregateInputType = {
   name?: true
   location?: true
   active?: true
+  responsibleProfileId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -72,6 +76,7 @@ export type WorkMaxAggregateInputType = {
   name?: true
   location?: true
   active?: true
+  responsibleProfileId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -82,6 +87,7 @@ export type WorkCountAggregateInputType = {
   name?: true
   location?: true
   active?: true
+  responsibleProfileId?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -165,6 +171,7 @@ export type WorkGroupByOutputType = {
   name: string
   location: string | null
   active: boolean
+  responsibleProfileId: string | null
   createdAt: Date
   updatedAt: Date
   _count: WorkCountAggregateOutputType | null
@@ -196,8 +203,10 @@ export type WorkWhereInput = {
   name?: Prisma.StringFilter<"Work"> | string
   location?: Prisma.StringNullableFilter<"Work"> | string | null
   active?: Prisma.BoolFilter<"Work"> | boolean
+  responsibleProfileId?: Prisma.UuidNullableFilter<"Work"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Work"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Work"> | Date | string
+  responsibleProfile?: Prisma.XOR<Prisma.ProfileNullableScalarRelationFilter, Prisma.ProfileWhereInput> | null
   notes?: Prisma.NoteListRelationFilter
   parameters?: Prisma.AuditParameterListRelationFilter
   rules?: Prisma.AuditRuleListRelationFilter
@@ -209,8 +218,10 @@ export type WorkOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   location?: Prisma.SortOrderInput | Prisma.SortOrder
   active?: Prisma.SortOrder
+  responsibleProfileId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  responsibleProfile?: Prisma.ProfileOrderByWithRelationInput
   notes?: Prisma.NoteOrderByRelationAggregateInput
   parameters?: Prisma.AuditParameterOrderByRelationAggregateInput
   rules?: Prisma.AuditRuleOrderByRelationAggregateInput
@@ -225,8 +236,10 @@ export type WorkWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"Work"> | string
   location?: Prisma.StringNullableFilter<"Work"> | string | null
   active?: Prisma.BoolFilter<"Work"> | boolean
+  responsibleProfileId?: Prisma.UuidNullableFilter<"Work"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Work"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Work"> | Date | string
+  responsibleProfile?: Prisma.XOR<Prisma.ProfileNullableScalarRelationFilter, Prisma.ProfileWhereInput> | null
   notes?: Prisma.NoteListRelationFilter
   parameters?: Prisma.AuditParameterListRelationFilter
   rules?: Prisma.AuditRuleListRelationFilter
@@ -238,6 +251,7 @@ export type WorkOrderByWithAggregationInput = {
   name?: Prisma.SortOrder
   location?: Prisma.SortOrderInput | Prisma.SortOrder
   active?: Prisma.SortOrder
+  responsibleProfileId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.WorkCountOrderByAggregateInput
@@ -254,6 +268,7 @@ export type WorkScalarWhereWithAggregatesInput = {
   name?: Prisma.StringWithAggregatesFilter<"Work"> | string
   location?: Prisma.StringNullableWithAggregatesFilter<"Work"> | string | null
   active?: Prisma.BoolWithAggregatesFilter<"Work"> | boolean
+  responsibleProfileId?: Prisma.UuidNullableWithAggregatesFilter<"Work"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Work"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Work"> | Date | string
 }
@@ -266,6 +281,7 @@ export type WorkCreateInput = {
   active?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  responsibleProfile?: Prisma.ProfileCreateNestedOneWithoutResponsibleWorksInput
   notes?: Prisma.NoteCreateNestedManyWithoutWorkInput
   parameters?: Prisma.AuditParameterCreateNestedManyWithoutWorkInput
   rules?: Prisma.AuditRuleCreateNestedManyWithoutWorkInput
@@ -277,6 +293,7 @@ export type WorkUncheckedCreateInput = {
   name: string
   location?: string | null
   active?: boolean
+  responsibleProfileId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   notes?: Prisma.NoteUncheckedCreateNestedManyWithoutWorkInput
@@ -292,6 +309,7 @@ export type WorkUpdateInput = {
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  responsibleProfile?: Prisma.ProfileUpdateOneWithoutResponsibleWorksNestedInput
   notes?: Prisma.NoteUpdateManyWithoutWorkNestedInput
   parameters?: Prisma.AuditParameterUpdateManyWithoutWorkNestedInput
   rules?: Prisma.AuditRuleUpdateManyWithoutWorkNestedInput
@@ -303,6 +321,7 @@ export type WorkUncheckedUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  responsibleProfileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   notes?: Prisma.NoteUncheckedUpdateManyWithoutWorkNestedInput
@@ -316,6 +335,7 @@ export type WorkCreateManyInput = {
   name: string
   location?: string | null
   active?: boolean
+  responsibleProfileId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -336,8 +356,19 @@ export type WorkUncheckedUpdateManyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  responsibleProfileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type WorkListRelationFilter = {
+  every?: Prisma.WorkWhereInput
+  some?: Prisma.WorkWhereInput
+  none?: Prisma.WorkWhereInput
+}
+
+export type WorkOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder
 }
 
 export type WorkCountOrderByAggregateInput = {
@@ -346,6 +377,7 @@ export type WorkCountOrderByAggregateInput = {
   name?: Prisma.SortOrder
   location?: Prisma.SortOrder
   active?: Prisma.SortOrder
+  responsibleProfileId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -356,6 +388,7 @@ export type WorkMaxOrderByAggregateInput = {
   name?: Prisma.SortOrder
   location?: Prisma.SortOrder
   active?: Prisma.SortOrder
+  responsibleProfileId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -366,6 +399,7 @@ export type WorkMinOrderByAggregateInput = {
   name?: Prisma.SortOrder
   location?: Prisma.SortOrder
   active?: Prisma.SortOrder
+  responsibleProfileId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -378,6 +412,48 @@ export type WorkScalarRelationFilter = {
 export type WorkNullableScalarRelationFilter = {
   is?: Prisma.WorkWhereInput | null
   isNot?: Prisma.WorkWhereInput | null
+}
+
+export type WorkCreateNestedManyWithoutResponsibleProfileInput = {
+  create?: Prisma.XOR<Prisma.WorkCreateWithoutResponsibleProfileInput, Prisma.WorkUncheckedCreateWithoutResponsibleProfileInput> | Prisma.WorkCreateWithoutResponsibleProfileInput[] | Prisma.WorkUncheckedCreateWithoutResponsibleProfileInput[]
+  connectOrCreate?: Prisma.WorkCreateOrConnectWithoutResponsibleProfileInput | Prisma.WorkCreateOrConnectWithoutResponsibleProfileInput[]
+  createMany?: Prisma.WorkCreateManyResponsibleProfileInputEnvelope
+  connect?: Prisma.WorkWhereUniqueInput | Prisma.WorkWhereUniqueInput[]
+}
+
+export type WorkUncheckedCreateNestedManyWithoutResponsibleProfileInput = {
+  create?: Prisma.XOR<Prisma.WorkCreateWithoutResponsibleProfileInput, Prisma.WorkUncheckedCreateWithoutResponsibleProfileInput> | Prisma.WorkCreateWithoutResponsibleProfileInput[] | Prisma.WorkUncheckedCreateWithoutResponsibleProfileInput[]
+  connectOrCreate?: Prisma.WorkCreateOrConnectWithoutResponsibleProfileInput | Prisma.WorkCreateOrConnectWithoutResponsibleProfileInput[]
+  createMany?: Prisma.WorkCreateManyResponsibleProfileInputEnvelope
+  connect?: Prisma.WorkWhereUniqueInput | Prisma.WorkWhereUniqueInput[]
+}
+
+export type WorkUpdateManyWithoutResponsibleProfileNestedInput = {
+  create?: Prisma.XOR<Prisma.WorkCreateWithoutResponsibleProfileInput, Prisma.WorkUncheckedCreateWithoutResponsibleProfileInput> | Prisma.WorkCreateWithoutResponsibleProfileInput[] | Prisma.WorkUncheckedCreateWithoutResponsibleProfileInput[]
+  connectOrCreate?: Prisma.WorkCreateOrConnectWithoutResponsibleProfileInput | Prisma.WorkCreateOrConnectWithoutResponsibleProfileInput[]
+  upsert?: Prisma.WorkUpsertWithWhereUniqueWithoutResponsibleProfileInput | Prisma.WorkUpsertWithWhereUniqueWithoutResponsibleProfileInput[]
+  createMany?: Prisma.WorkCreateManyResponsibleProfileInputEnvelope
+  set?: Prisma.WorkWhereUniqueInput | Prisma.WorkWhereUniqueInput[]
+  disconnect?: Prisma.WorkWhereUniqueInput | Prisma.WorkWhereUniqueInput[]
+  delete?: Prisma.WorkWhereUniqueInput | Prisma.WorkWhereUniqueInput[]
+  connect?: Prisma.WorkWhereUniqueInput | Prisma.WorkWhereUniqueInput[]
+  update?: Prisma.WorkUpdateWithWhereUniqueWithoutResponsibleProfileInput | Prisma.WorkUpdateWithWhereUniqueWithoutResponsibleProfileInput[]
+  updateMany?: Prisma.WorkUpdateManyWithWhereWithoutResponsibleProfileInput | Prisma.WorkUpdateManyWithWhereWithoutResponsibleProfileInput[]
+  deleteMany?: Prisma.WorkScalarWhereInput | Prisma.WorkScalarWhereInput[]
+}
+
+export type WorkUncheckedUpdateManyWithoutResponsibleProfileNestedInput = {
+  create?: Prisma.XOR<Prisma.WorkCreateWithoutResponsibleProfileInput, Prisma.WorkUncheckedCreateWithoutResponsibleProfileInput> | Prisma.WorkCreateWithoutResponsibleProfileInput[] | Prisma.WorkUncheckedCreateWithoutResponsibleProfileInput[]
+  connectOrCreate?: Prisma.WorkCreateOrConnectWithoutResponsibleProfileInput | Prisma.WorkCreateOrConnectWithoutResponsibleProfileInput[]
+  upsert?: Prisma.WorkUpsertWithWhereUniqueWithoutResponsibleProfileInput | Prisma.WorkUpsertWithWhereUniqueWithoutResponsibleProfileInput[]
+  createMany?: Prisma.WorkCreateManyResponsibleProfileInputEnvelope
+  set?: Prisma.WorkWhereUniqueInput | Prisma.WorkWhereUniqueInput[]
+  disconnect?: Prisma.WorkWhereUniqueInput | Prisma.WorkWhereUniqueInput[]
+  delete?: Prisma.WorkWhereUniqueInput | Prisma.WorkWhereUniqueInput[]
+  connect?: Prisma.WorkWhereUniqueInput | Prisma.WorkWhereUniqueInput[]
+  update?: Prisma.WorkUpdateWithWhereUniqueWithoutResponsibleProfileInput | Prisma.WorkUpdateWithWhereUniqueWithoutResponsibleProfileInput[]
+  updateMany?: Prisma.WorkUpdateManyWithWhereWithoutResponsibleProfileInput | Prisma.WorkUpdateManyWithWhereWithoutResponsibleProfileInput[]
+  deleteMany?: Prisma.WorkScalarWhereInput | Prisma.WorkScalarWhereInput[]
 }
 
 export type WorkCreateNestedOneWithoutNotesInput = {
@@ -426,6 +502,72 @@ export type WorkUpdateOneWithoutRulesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.WorkUpdateToOneWithWhereWithoutRulesInput, Prisma.WorkUpdateWithoutRulesInput>, Prisma.WorkUncheckedUpdateWithoutRulesInput>
 }
 
+export type WorkCreateWithoutResponsibleProfileInput = {
+  id?: string
+  code: string
+  name: string
+  location?: string | null
+  active?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  notes?: Prisma.NoteCreateNestedManyWithoutWorkInput
+  parameters?: Prisma.AuditParameterCreateNestedManyWithoutWorkInput
+  rules?: Prisma.AuditRuleCreateNestedManyWithoutWorkInput
+}
+
+export type WorkUncheckedCreateWithoutResponsibleProfileInput = {
+  id?: string
+  code: string
+  name: string
+  location?: string | null
+  active?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  notes?: Prisma.NoteUncheckedCreateNestedManyWithoutWorkInput
+  parameters?: Prisma.AuditParameterUncheckedCreateNestedManyWithoutWorkInput
+  rules?: Prisma.AuditRuleUncheckedCreateNestedManyWithoutWorkInput
+}
+
+export type WorkCreateOrConnectWithoutResponsibleProfileInput = {
+  where: Prisma.WorkWhereUniqueInput
+  create: Prisma.XOR<Prisma.WorkCreateWithoutResponsibleProfileInput, Prisma.WorkUncheckedCreateWithoutResponsibleProfileInput>
+}
+
+export type WorkCreateManyResponsibleProfileInputEnvelope = {
+  data: Prisma.WorkCreateManyResponsibleProfileInput | Prisma.WorkCreateManyResponsibleProfileInput[]
+  skipDuplicates?: boolean
+}
+
+export type WorkUpsertWithWhereUniqueWithoutResponsibleProfileInput = {
+  where: Prisma.WorkWhereUniqueInput
+  update: Prisma.XOR<Prisma.WorkUpdateWithoutResponsibleProfileInput, Prisma.WorkUncheckedUpdateWithoutResponsibleProfileInput>
+  create: Prisma.XOR<Prisma.WorkCreateWithoutResponsibleProfileInput, Prisma.WorkUncheckedCreateWithoutResponsibleProfileInput>
+}
+
+export type WorkUpdateWithWhereUniqueWithoutResponsibleProfileInput = {
+  where: Prisma.WorkWhereUniqueInput
+  data: Prisma.XOR<Prisma.WorkUpdateWithoutResponsibleProfileInput, Prisma.WorkUncheckedUpdateWithoutResponsibleProfileInput>
+}
+
+export type WorkUpdateManyWithWhereWithoutResponsibleProfileInput = {
+  where: Prisma.WorkScalarWhereInput
+  data: Prisma.XOR<Prisma.WorkUpdateManyMutationInput, Prisma.WorkUncheckedUpdateManyWithoutResponsibleProfileInput>
+}
+
+export type WorkScalarWhereInput = {
+  AND?: Prisma.WorkScalarWhereInput | Prisma.WorkScalarWhereInput[]
+  OR?: Prisma.WorkScalarWhereInput[]
+  NOT?: Prisma.WorkScalarWhereInput | Prisma.WorkScalarWhereInput[]
+  id?: Prisma.UuidFilter<"Work"> | string
+  code?: Prisma.StringFilter<"Work"> | string
+  name?: Prisma.StringFilter<"Work"> | string
+  location?: Prisma.StringNullableFilter<"Work"> | string | null
+  active?: Prisma.BoolFilter<"Work"> | boolean
+  responsibleProfileId?: Prisma.UuidNullableFilter<"Work"> | string | null
+  createdAt?: Prisma.DateTimeFilter<"Work"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"Work"> | Date | string
+}
+
 export type WorkCreateWithoutNotesInput = {
   id?: string
   code: string
@@ -434,6 +576,7 @@ export type WorkCreateWithoutNotesInput = {
   active?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  responsibleProfile?: Prisma.ProfileCreateNestedOneWithoutResponsibleWorksInput
   parameters?: Prisma.AuditParameterCreateNestedManyWithoutWorkInput
   rules?: Prisma.AuditRuleCreateNestedManyWithoutWorkInput
 }
@@ -444,6 +587,7 @@ export type WorkUncheckedCreateWithoutNotesInput = {
   name: string
   location?: string | null
   active?: boolean
+  responsibleProfileId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   parameters?: Prisma.AuditParameterUncheckedCreateNestedManyWithoutWorkInput
@@ -474,6 +618,7 @@ export type WorkUpdateWithoutNotesInput = {
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  responsibleProfile?: Prisma.ProfileUpdateOneWithoutResponsibleWorksNestedInput
   parameters?: Prisma.AuditParameterUpdateManyWithoutWorkNestedInput
   rules?: Prisma.AuditRuleUpdateManyWithoutWorkNestedInput
 }
@@ -484,6 +629,7 @@ export type WorkUncheckedUpdateWithoutNotesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  responsibleProfileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   parameters?: Prisma.AuditParameterUncheckedUpdateManyWithoutWorkNestedInput
@@ -498,6 +644,7 @@ export type WorkCreateWithoutParametersInput = {
   active?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  responsibleProfile?: Prisma.ProfileCreateNestedOneWithoutResponsibleWorksInput
   notes?: Prisma.NoteCreateNestedManyWithoutWorkInput
   rules?: Prisma.AuditRuleCreateNestedManyWithoutWorkInput
 }
@@ -508,6 +655,7 @@ export type WorkUncheckedCreateWithoutParametersInput = {
   name: string
   location?: string | null
   active?: boolean
+  responsibleProfileId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   notes?: Prisma.NoteUncheckedCreateNestedManyWithoutWorkInput
@@ -538,6 +686,7 @@ export type WorkUpdateWithoutParametersInput = {
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  responsibleProfile?: Prisma.ProfileUpdateOneWithoutResponsibleWorksNestedInput
   notes?: Prisma.NoteUpdateManyWithoutWorkNestedInput
   rules?: Prisma.AuditRuleUpdateManyWithoutWorkNestedInput
 }
@@ -548,6 +697,7 @@ export type WorkUncheckedUpdateWithoutParametersInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  responsibleProfileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   notes?: Prisma.NoteUncheckedUpdateManyWithoutWorkNestedInput
@@ -562,6 +712,7 @@ export type WorkCreateWithoutRulesInput = {
   active?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
+  responsibleProfile?: Prisma.ProfileCreateNestedOneWithoutResponsibleWorksInput
   notes?: Prisma.NoteCreateNestedManyWithoutWorkInput
   parameters?: Prisma.AuditParameterCreateNestedManyWithoutWorkInput
 }
@@ -572,6 +723,7 @@ export type WorkUncheckedCreateWithoutRulesInput = {
   name: string
   location?: string | null
   active?: boolean
+  responsibleProfileId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   notes?: Prisma.NoteUncheckedCreateNestedManyWithoutWorkInput
@@ -602,6 +754,7 @@ export type WorkUpdateWithoutRulesInput = {
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  responsibleProfile?: Prisma.ProfileUpdateOneWithoutResponsibleWorksNestedInput
   notes?: Prisma.NoteUpdateManyWithoutWorkNestedInput
   parameters?: Prisma.AuditParameterUpdateManyWithoutWorkNestedInput
 }
@@ -612,10 +765,57 @@ export type WorkUncheckedUpdateWithoutRulesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  responsibleProfileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   notes?: Prisma.NoteUncheckedUpdateManyWithoutWorkNestedInput
   parameters?: Prisma.AuditParameterUncheckedUpdateManyWithoutWorkNestedInput
+}
+
+export type WorkCreateManyResponsibleProfileInput = {
+  id?: string
+  code: string
+  name: string
+  location?: string | null
+  active?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type WorkUpdateWithoutResponsibleProfileInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  code?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  notes?: Prisma.NoteUpdateManyWithoutWorkNestedInput
+  parameters?: Prisma.AuditParameterUpdateManyWithoutWorkNestedInput
+  rules?: Prisma.AuditRuleUpdateManyWithoutWorkNestedInput
+}
+
+export type WorkUncheckedUpdateWithoutResponsibleProfileInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  code?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  notes?: Prisma.NoteUncheckedUpdateManyWithoutWorkNestedInput
+  parameters?: Prisma.AuditParameterUncheckedUpdateManyWithoutWorkNestedInput
+  rules?: Prisma.AuditRuleUncheckedUpdateManyWithoutWorkNestedInput
+}
+
+export type WorkUncheckedUpdateManyWithoutResponsibleProfileInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  code?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 
@@ -673,8 +873,10 @@ export type WorkSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   name?: boolean
   location?: boolean
   active?: boolean
+  responsibleProfileId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  responsibleProfile?: boolean | Prisma.Work$responsibleProfileArgs<ExtArgs>
   notes?: boolean | Prisma.Work$notesArgs<ExtArgs>
   parameters?: boolean | Prisma.Work$parametersArgs<ExtArgs>
   rules?: boolean | Prisma.Work$rulesArgs<ExtArgs>
@@ -687,8 +889,10 @@ export type WorkSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   name?: boolean
   location?: boolean
   active?: boolean
+  responsibleProfileId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  responsibleProfile?: boolean | Prisma.Work$responsibleProfileArgs<ExtArgs>
 }, ExtArgs["result"]["work"]>
 
 export type WorkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -697,8 +901,10 @@ export type WorkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   name?: boolean
   location?: boolean
   active?: boolean
+  responsibleProfileId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  responsibleProfile?: boolean | Prisma.Work$responsibleProfileArgs<ExtArgs>
 }, ExtArgs["result"]["work"]>
 
 export type WorkSelectScalar = {
@@ -707,23 +913,30 @@ export type WorkSelectScalar = {
   name?: boolean
   location?: boolean
   active?: boolean
+  responsibleProfileId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type WorkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "code" | "name" | "location" | "active" | "createdAt" | "updatedAt", ExtArgs["result"]["work"]>
+export type WorkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "code" | "name" | "location" | "active" | "responsibleProfileId" | "createdAt" | "updatedAt", ExtArgs["result"]["work"]>
 export type WorkInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  responsibleProfile?: boolean | Prisma.Work$responsibleProfileArgs<ExtArgs>
   notes?: boolean | Prisma.Work$notesArgs<ExtArgs>
   parameters?: boolean | Prisma.Work$parametersArgs<ExtArgs>
   rules?: boolean | Prisma.Work$rulesArgs<ExtArgs>
   _count?: boolean | Prisma.WorkCountOutputTypeDefaultArgs<ExtArgs>
 }
-export type WorkIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
-export type WorkIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
+export type WorkIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  responsibleProfile?: boolean | Prisma.Work$responsibleProfileArgs<ExtArgs>
+}
+export type WorkIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  responsibleProfile?: boolean | Prisma.Work$responsibleProfileArgs<ExtArgs>
+}
 
 export type $WorkPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Work"
   objects: {
+    responsibleProfile: Prisma.$ProfilePayload<ExtArgs> | null
     notes: Prisma.$NotePayload<ExtArgs>[]
     parameters: Prisma.$AuditParameterPayload<ExtArgs>[]
     rules: Prisma.$AuditRulePayload<ExtArgs>[]
@@ -734,6 +947,7 @@ export type $WorkPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     name: string
     location: string | null
     active: boolean
+    responsibleProfileId: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["work"]>
@@ -1130,6 +1344,7 @@ readonly fields: WorkFieldRefs;
  */
 export interface Prisma__WorkClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  responsibleProfile<T extends Prisma.Work$responsibleProfileArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Work$responsibleProfileArgs<ExtArgs>>): Prisma.Prisma__ProfileClient<runtime.Types.Result.GetResult<Prisma.$ProfilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   notes<T extends Prisma.Work$notesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Work$notesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   parameters<T extends Prisma.Work$parametersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Work$parametersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuditParameterPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   rules<T extends Prisma.Work$rulesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Work$rulesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AuditRulePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -1167,6 +1382,7 @@ export interface WorkFieldRefs {
   readonly name: Prisma.FieldRef<"Work", 'String'>
   readonly location: Prisma.FieldRef<"Work", 'String'>
   readonly active: Prisma.FieldRef<"Work", 'Boolean'>
+  readonly responsibleProfileId: Prisma.FieldRef<"Work", 'String'>
   readonly createdAt: Prisma.FieldRef<"Work", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Work", 'DateTime'>
 }
@@ -1423,6 +1639,10 @@ export type WorkCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensions
    */
   data: Prisma.WorkCreateManyInput | Prisma.WorkCreateManyInput[]
   skipDuplicates?: boolean
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.WorkIncludeCreateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1493,6 +1713,10 @@ export type WorkUpdateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensions
    * Limit how many Works to update.
    */
   limit?: number
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.WorkIncludeUpdateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1559,6 +1783,25 @@ export type WorkDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Internal
    * Limit how many Works to delete.
    */
   limit?: number
+}
+
+/**
+ * Work.responsibleProfile
+ */
+export type Work$responsibleProfileArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Profile
+   */
+  select?: Prisma.ProfileSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Profile
+   */
+  omit?: Prisma.ProfileOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ProfileInclude<ExtArgs> | null
+  where?: Prisma.ProfileWhereInput
 }
 
 /**

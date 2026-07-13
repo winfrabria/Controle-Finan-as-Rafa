@@ -1,6 +1,14 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Icon } from "./ui-icons";
 import styles from "./admin-works.module.css";
@@ -11,9 +19,17 @@ type AdminWork = {
   nome: string;
   local: string | null;
   ativa: boolean;
+  responsavel: ResponsibleProfile | null;
   totalNotas: number;
   criadaEm: string;
   atualizadaEm: string;
+};
+
+type ResponsibleProfile = {
+  id: string;
+  nome: string | null;
+  email: string;
+  papel: "ADMIN" | "REVIEWER";
 };
 
 type WorksResponse = {
@@ -30,9 +46,24 @@ type WorkFormState = {
   codigo: string;
   nome: string;
   local: string;
+  responsavelId: string;
+  ativa: boolean;
 };
 
-const emptyForm: WorkFormState = { codigo: "", nome: "", local: "" };
+type ImportResult = {
+  valido: boolean;
+  aplicado: boolean;
+  totalLinhas: number;
+  erros: Array<{ linha: number; campo: string; mensagem: string }>;
+};
+
+const emptyForm: WorkFormState = {
+  codigo: "",
+  nome: "",
+  local: "",
+  responsavelId: "",
+  ativa: true,
+};
 const PAGE_SIZE = 10;
 
 function getApiError(payload: unknown, fallback: string) {
@@ -88,6 +119,11 @@ export function AdminWorksClient() {
   const [form, setForm] = useState<WorkFormState>(emptyForm);
   const [formOpen, setFormOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState<string | null>(null);
+  const [responsibles, setResponsibles] = useState<ResponsibleProfile[]>([]);
+  const [importCsv, setImportCsv] = useState("");
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -170,6 +206,23 @@ export function AdminWorksClient() {
   }, [loadMetrics]);
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void requestJson<{ responsaveis: ResponsibleProfile[] }>(
+        "/api/admin/usuarios/responsaveis",
+      )
+        .then((result) => setResponsibles(result.responsaveis))
+        .catch((caught) =>
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : "Não foi possível carregar os responsáveis.",
+          ),
+        );
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
     if (!formOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -193,7 +246,13 @@ export function AdminWorksClient() {
 
   function startEdit(work: AdminWork) {
     setEditing(work);
-    setForm({ codigo: work.codigo, nome: work.nome, local: work.local ?? "" });
+    setForm({
+      codigo: work.codigo,
+      nome: work.nome,
+      local: work.local ?? "",
+      responsavelId: work.responsavel?.id ?? "",
+      ativa: work.ativa,
+    });
     setError(null);
     setSuccess(null);
     setActionsOpen(null);
@@ -220,6 +279,8 @@ export function AdminWorksClient() {
         codigo: form.codigo.trim(),
         nome: form.nome.trim(),
         local: form.local.trim() || null,
+        responsavelId: form.responsavelId,
+        ativa: form.ativa,
       };
       if (editing) {
         await requestJson(`/api/admin/obras/${editing.id}`, {
@@ -244,6 +305,51 @@ export function AdminWorksClient() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function validateImport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const csv = await file.text();
+      const result = await requestJson<ImportResult>("/api/admin/obras/import", {
+        method: "POST",
+        body: JSON.stringify({ modo: "validar", csv }),
+      });
+      setImportCsv(csv);
+      setImportResult(result);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível validar o CSV.",
+      );
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function applyImport() {
+    if (!importResult?.valido || !importCsv) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const result = await requestJson<ImportResult>("/api/admin/obras/import", {
+        method: "POST",
+        body: JSON.stringify({ modo: "aplicar", csv: importCsv }),
+      });
+      setImportResult(null);
+      setImportCsv("");
+      setSuccess(`${result.totalLinhas} obra(s) importada(s) com sucesso.`);
+      await Promise.all([loadWorks(), loadMetrics()]);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível importar as obras.",
+      );
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -301,6 +407,14 @@ export function AdminWorksClient() {
     const open = actionsOpen === work.id;
     return (
       <div className={styles.actionsMenu}>
+        <button
+          type="button"
+          className={styles.editButton}
+          aria-label={`Editar ${work.nome}`}
+          onClick={() => startEdit(work)}
+        >
+          Editar
+        </button>
         <button
           type="button"
           className={styles.moreButton}
@@ -379,8 +493,9 @@ export function AdminWorksClient() {
         />
       </label>
       <label>
-        Cidade / Estado
+        Cidade / Estado <b>*</b>
         <input
+          required
           maxLength={240}
           placeholder="Ex.: Goiânia - GO"
           value={form.local}
@@ -388,6 +503,41 @@ export function AdminWorksClient() {
             setForm((current) => ({ ...current, local: event.target.value }))
           }
         />
+      </label>
+      <label>
+        Responsável <b>*</b>
+        <select
+          required
+          value={form.responsavelId}
+          onChange={(event) =>
+            setForm((current) => ({
+              ...current,
+              responsavelId: event.target.value,
+            }))
+          }
+        >
+          <option value="">Selecione o responsável</option>
+          {responsibles.map((responsible) => (
+            <option key={responsible.id} value={responsible.id}>
+              {responsible.nome || responsible.email}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Status <b>*</b>
+        <select
+          value={form.ativa ? "ativa" : "inativa"}
+          onChange={(event) =>
+            setForm((current) => ({
+              ...current,
+              ativa: event.target.value === "ativa",
+            }))
+          }
+        >
+          <option value="ativa">Ativa</option>
+          <option value="inativa">Inativa</option>
+        </select>
       </label>
       <p className={styles.historyNote}>
         A desativação nunca exclui as notas nem o histórico vinculados à obra.
@@ -412,9 +562,25 @@ export function AdminWorksClient() {
             seleção do envio de notas fiscais.
           </p>
         </div>
-        <button className={styles.newWorkButton} onClick={startCreate}>
-          <span>＋</span> Nova obra
-        </button>
+        <div className={styles.headerActions}>
+          <input
+            ref={importInputRef}
+            className={styles.fileInput}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={(event) => void validateImport(event)}
+          />
+          <button
+            className={styles.importButton}
+            disabled={importing}
+            onClick={() => importInputRef.current?.click()}
+          >
+            <Icon name="upload" /> {importing ? "Validando..." : "Importar"}
+          </button>
+          <button className={styles.newWorkButton} onClick={startCreate}>
+            <span>＋</span> Nova obra
+          </button>
+        </div>
       </header>
 
       <div className={styles.desktopGrid}>
@@ -517,7 +683,7 @@ export function AdminWorksClient() {
                         <th>Nome da obra</th>
                         <th>Código</th>
                         <th>Local</th>
-                        <th>Notas</th>
+                        <th>Responsável</th>
                         <th>Status</th>
                         <th aria-label="Ações" />
                       </tr>
@@ -530,7 +696,11 @@ export function AdminWorksClient() {
                           </td>
                           <td>{work.codigo}</td>
                           <td>{work.local || "Não informado"}</td>
-                          <td>{work.totalNotas}</td>
+                          <td>
+                            {work.responsavel?.nome ||
+                              work.responsavel?.email ||
+                              "Não definido"}
+                          </td>
                           <td>{renderStatus(work)}</td>
                           <td>{renderActions(work)}</td>
                         </tr>
@@ -550,7 +720,9 @@ export function AdminWorksClient() {
                         <p>
                           {work.codigo} <i>•</i> {work.local || "Não informado"}
                         </p>
-                        <small>{work.totalNotas} nota(s)</small>
+                        <small>
+                          Responsável: {work.responsavel?.nome || work.responsavel?.email || "Não definido"}
+                        </small>
                         {renderStatus(work)}
                       </div>
                       {renderActions(work)}
@@ -612,6 +784,66 @@ export function AdminWorksClient() {
           <div className={styles.mobileFormDialog} role="dialog" aria-modal>
             {workForm}
           </div>
+        </div>
+      ) : null}
+
+      {importResult ? (
+        <div className={styles.importBackdrop} role="presentation">
+          <section className={styles.importDialog} role="dialog" aria-modal>
+            <div className={styles.formHeader}>
+              <div>
+                <h2>Importar obras</h2>
+                <p>
+                  {importResult.valido
+                    ? `${importResult.totalLinhas} linha(s) pronta(s) para importar.`
+                    : "Corrija os itens indicados e selecione o CSV novamente."}
+                </p>
+              </div>
+              <button
+                className={styles.closeFormButton}
+                type="button"
+                aria-label="Fechar importação"
+                onClick={() => {
+                  setImportResult(null);
+                  setImportCsv("");
+                }}
+              >
+                ×
+              </button>
+            </div>
+            {importResult.erros.length > 0 ? (
+              <ul className={styles.importErrors}>
+                {importResult.erros.slice(0, 12).map((issue, index) => (
+                  <li key={`${issue.linha}-${issue.campo}-${index}`}>
+                    Linha {issue.linha}, {issue.campo}: {issue.mensagem}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.importReady}>
+                Validação concluída. Nenhum conflito foi encontrado.
+              </p>
+            )}
+            <div className={styles.importActions}>
+              <button
+                className={styles.clearButton}
+                type="button"
+                onClick={() => {
+                  setImportResult(null);
+                  setImportCsv("");
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                className={styles.saveButton}
+                disabled={!importResult.valido || importing}
+                onClick={() => void applyImport()}
+              >
+                {importing ? "Importando..." : "Aplicar importação"}
+              </button>
+            </div>
+          </section>
         </div>
       ) : null}
     </div>

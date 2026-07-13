@@ -22,12 +22,25 @@ const workLocationSchema = z
   .trim()
   .max(240, "O local deve ter no máximo 240 caracteres.")
   .nullable()
-  .transform((value) => value || null);
+  .refine((value) => !value || /^.+\s-\s[A-Za-z]{2}$/.test(value), {
+    message: "Informe o local no formato Cidade - UF.",
+  })
+  .transform((value) => {
+    if (!value) return null;
+    const separator = value.lastIndexOf(" - ");
+    return `${value.slice(0, separator)} - ${value.slice(separator + 3).toUpperCase()}`;
+  });
+
+const responsibleProfileIdSchema = z.uuid(
+  "Selecione um responsável válido.",
+);
 
 export const createAdminWorkSchema = z.strictObject({
   codigo: workCodeSchema,
   nome: workNameSchema,
   local: workLocationSchema.optional(),
+  responsavelId: responsibleProfileIdSchema,
+  ativa: z.boolean().optional().default(true),
 });
 
 export const updateAdminWorkSchema = z
@@ -35,6 +48,7 @@ export const updateAdminWorkSchema = z
     codigo: workCodeSchema.optional(),
     nome: workNameSchema.optional(),
     local: workLocationSchema.optional(),
+    responsavelId: responsibleProfileIdSchema.nullable().optional(),
     ativa: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
@@ -50,6 +64,14 @@ export const listAdminWorksQuerySchema = z.object({
 
 export const adminWorkIdSchema = z.uuid("Identificador da obra inválido.");
 
+export const adminWorkImportRequestSchema = z.strictObject({
+  modo: z.enum(["validar", "aplicar"]),
+  csv: z.string().min(1, "Selecione um arquivo CSV preenchido.").max(2_000_000),
+});
+
 export type CreateAdminWorkInput = z.infer<typeof createAdminWorkSchema>;
 export type UpdateAdminWorkInput = z.infer<typeof updateAdminWorkSchema>;
 export type ListAdminWorksQuery = z.infer<typeof listAdminWorksQuerySchema>;
+export type AdminWorkImportRequest = z.infer<
+  typeof adminWorkImportRequestSchema
+>;

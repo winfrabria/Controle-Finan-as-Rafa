@@ -43,6 +43,43 @@
   font-weight: 650;
 }
 
+.headerActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.fileInput {
+  display: none;
+}
+
+.importButton {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #bfcce0;
+  border-radius: 8px;
+  padding: 0 16px;
+  color: var(--blue);
+  background: #fff;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.importButton svg {
+  width: 18px;
+  height: 18px;
+}
+
+.importButton:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .newWorkButton {
   display: inline-flex;
   min-width: 128px;
@@ -258,27 +295,27 @@
 }
 
 .table th:first-child {
-  width: 27%;
+  width: 25%;
 }
 
 .table th:nth-child(2) {
-  width: 15%;
-}
-
-.table th:nth-child(3) {
-  width: 22%;
-}
-
-.table th:nth-child(4) {
-  width: 10%;
-}
-
-.table th:nth-child(5) {
   width: 14%;
 }
 
+.table th:nth-child(3) {
+  width: 19%;
+}
+
+.table th:nth-child(4) {
+  width: 23%;
+}
+
+.table th:nth-child(5) {
+  width: 12%;
+}
+
 .table th:last-child {
-  width: 58px;
+  width: 88px;
 }
 
 .table td {
@@ -332,9 +369,11 @@
   position: relative;
   display: flex;
   justify-content: flex-end;
+  gap: 6px;
 }
 
-.moreButton {
+.moreButton,
+.editButton {
   display: grid;
   width: 34px;
   height: 32px;
@@ -346,7 +385,17 @@
   cursor: pointer;
 }
 
-.moreButton svg {
+.editButton {
+  width: auto;
+  padding: 0 9px;
+  color: var(--blue);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.moreButton svg,
+.editButton svg {
   width: 18px;
   height: 18px;
 }
@@ -479,7 +528,8 @@
   color: #eb344f;
 }
 
-.workForm input {
+.workForm input,
+.workForm select {
   display: block;
   width: 100%;
   height: 43px;
@@ -494,7 +544,12 @@
   font-weight: 400;
 }
 
-.workForm input:focus {
+.workForm select {
+  appearance: auto;
+}
+
+.workForm input:focus,
+.workForm select:focus {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgb(7 92 246 / 10%);
 }
@@ -591,6 +646,66 @@
   display: none;
 }
 
+.importBackdrop {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(6 18 44 / 48%);
+  backdrop-filter: blur(3px);
+}
+
+.importDialog {
+  width: min(100%, 560px);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(9 24 55 / 25%);
+}
+
+.importDialog .closeFormButton {
+  display: grid;
+  place-items: center;
+}
+
+.importErrors {
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+  border-radius: 8px;
+  padding: 12px 12px 12px 32px;
+  color: #a42334;
+  background: #fff1f3;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.importReady {
+  margin: 0;
+  border-radius: 8px;
+  padding: 14px;
+  color: #08723d;
+  background: #e8f8ef;
+  font-size: 0.86rem;
+}
+
+.importActions {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.importActions .saveButton,
+.importActions .clearButton {
+  margin-top: 0;
+}
+
 @media (max-width: 1180px) {
   .desktopGrid {
     grid-template-columns: minmax(0, 1fr) 270px;
@@ -675,6 +790,16 @@
 
   .newWorkButton {
     display: none;
+  }
+
+  .headerActions {
+    align-self: flex-start;
+  }
+
+  .importButton {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 12px;
   }
 
   .metrics {
@@ -830,11 +955,30 @@
   .workForm {
     padding: 20px;
   }
+
+  .importBackdrop {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .importDialog {
+    max-height: calc(100vh - 20px);
+    padding: 20px;
+  }
 }
 
 @media (max-width: 410px) {
+  .metrics {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
   .metricCard {
-    padding: 11px;
+    min-height: 88px;
+    flex-direction: row;
+    align-items: center;
+    gap: 13px;
+    padding: 13px 15px;
   }
 
   .metricIcon {
@@ -856,7 +1000,10 @@
   }
 
   .metricCard small {
-    font-size: 0.58rem;
+    overflow: visible;
+    font-size: 0.7rem;
+    text-overflow: clip;
+    white-space: normal;
   }
 
   .statusFilter select {

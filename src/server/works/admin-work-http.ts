@@ -6,6 +6,7 @@ import type { ZodError } from "zod";
 import {
   WorkCodeConflictError,
   WorkNotFoundError,
+  WorkResponsibleNotFoundError,
 } from "@/server/works/admin-work-service";
 
 export function workValidationError(error: ZodError) {
@@ -35,6 +36,10 @@ export function workServiceError(error: unknown, operation: string) {
 
   if (error instanceof WorkCodeConflictError) {
     return NextResponse.json({ error: error.message }, { status: 409 });
+  }
+
+  if (error instanceof WorkResponsibleNotFoundError) {
+    return NextResponse.json({ error: error.message }, { status: 422 });
   }
 
   console.error(`Failed to ${operation} work`, error);

@@ -115,23 +115,27 @@ model Profile {
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
   adminAuditLogs    AdminAuditLog[]
+  responsibleWorks  Work[]             @relation("WorkResponsible")
 
   @@map("profiles")
 }
 
 model Work {
-  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code       String           @unique
-  name       String
-  location   String?
-  active     Boolean          @default(true)
-  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-  notes      Note[]
-  parameters AuditParameter[]
-  rules      AuditRule[]
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                 String           @unique
+  name                 String
+  location             String?
+  active               Boolean          @default(true)
+  responsibleProfileId String?          @map("responsible_profile_id") @db.Uuid
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  responsibleProfile   Profile?         @relation("WorkResponsible", fields: [responsibleProfileId], references: [id], onDelete: SetNull)
+  notes                Note[]
+  parameters           AuditParameter[]
+  rules                AuditRule[]
 
   @@index([active])
+  @@index([responsibleProfileId])
   @@map("works")
 }
 

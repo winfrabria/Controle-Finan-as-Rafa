@@ -204,6 +204,7 @@ export type ProfileWhereInput = {
   notifications?: Prisma.NotificationListRelationFilter
   pushSubscriptions?: Prisma.PushSubscriptionListRelationFilter
   adminAuditLogs?: Prisma.AdminAuditLogListRelationFilter
+  responsibleWorks?: Prisma.WorkListRelationFilter
 }
 
 export type ProfileOrderByWithRelationInput = {
@@ -220,6 +221,7 @@ export type ProfileOrderByWithRelationInput = {
   notifications?: Prisma.NotificationOrderByRelationAggregateInput
   pushSubscriptions?: Prisma.PushSubscriptionOrderByRelationAggregateInput
   adminAuditLogs?: Prisma.AdminAuditLogOrderByRelationAggregateInput
+  responsibleWorks?: Prisma.WorkOrderByRelationAggregateInput
 }
 
 export type ProfileWhereUniqueInput = Prisma.AtLeast<{
@@ -239,6 +241,7 @@ export type ProfileWhereUniqueInput = Prisma.AtLeast<{
   notifications?: Prisma.NotificationListRelationFilter
   pushSubscriptions?: Prisma.PushSubscriptionListRelationFilter
   adminAuditLogs?: Prisma.AdminAuditLogListRelationFilter
+  responsibleWorks?: Prisma.WorkListRelationFilter
 }, "id" | "email">
 
 export type ProfileOrderByWithAggregationInput = {
@@ -281,6 +284,7 @@ export type ProfileCreateInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
   pushSubscriptions?: Prisma.PushSubscriptionCreateNestedManyWithoutProfileInput
   adminAuditLogs?: Prisma.AdminAuditLogCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileUncheckedCreateInput = {
@@ -297,6 +301,7 @@ export type ProfileUncheckedCreateInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedCreateNestedManyWithoutProfileInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkUncheckedCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileUpdateInput = {
@@ -313,6 +318,7 @@ export type ProfileUpdateInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUpdateManyWithoutProfileNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileUncheckedUpdateInput = {
@@ -329,6 +335,7 @@ export type ProfileUncheckedUpdateInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedUpdateManyWithoutProfileNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUncheckedUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileCreateManyInput = {
@@ -421,6 +428,22 @@ export type DateTimeFieldUpdateOperationsInput = {
   set?: Date | string
 }
 
+export type ProfileCreateNestedOneWithoutResponsibleWorksInput = {
+  create?: Prisma.XOR<Prisma.ProfileCreateWithoutResponsibleWorksInput, Prisma.ProfileUncheckedCreateWithoutResponsibleWorksInput>
+  connectOrCreate?: Prisma.ProfileCreateOrConnectWithoutResponsibleWorksInput
+  connect?: Prisma.ProfileWhereUniqueInput
+}
+
+export type ProfileUpdateOneWithoutResponsibleWorksNestedInput = {
+  create?: Prisma.XOR<Prisma.ProfileCreateWithoutResponsibleWorksInput, Prisma.ProfileUncheckedCreateWithoutResponsibleWorksInput>
+  connectOrCreate?: Prisma.ProfileCreateOrConnectWithoutResponsibleWorksInput
+  upsert?: Prisma.ProfileUpsertWithoutResponsibleWorksInput
+  disconnect?: Prisma.ProfileWhereInput | boolean
+  delete?: Prisma.ProfileWhereInput | boolean
+  connect?: Prisma.ProfileWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ProfileUpdateToOneWithWhereWithoutResponsibleWorksInput, Prisma.ProfileUpdateWithoutResponsibleWorksInput>, Prisma.ProfileUncheckedUpdateWithoutResponsibleWorksInput>
+}
+
 export type ProfileCreateNestedOneWithoutSubmittedNotesInput = {
   create?: Prisma.XOR<Prisma.ProfileCreateWithoutSubmittedNotesInput, Prisma.ProfileUncheckedCreateWithoutSubmittedNotesInput>
   connectOrCreate?: Prisma.ProfileCreateOrConnectWithoutSubmittedNotesInput
@@ -511,6 +534,86 @@ export type ProfileUpdateOneRequiredWithoutPushSubscriptionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ProfileUpdateToOneWithWhereWithoutPushSubscriptionsInput, Prisma.ProfileUpdateWithoutPushSubscriptionsInput>, Prisma.ProfileUncheckedUpdateWithoutPushSubscriptionsInput>
 }
 
+export type ProfileCreateWithoutResponsibleWorksInput = {
+  id: string
+  email: string
+  fullName?: string | null
+  role?: $Enums.UserRole
+  active?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  submittedNotes?: Prisma.NoteCreateNestedManyWithoutSubmittedByInput
+  validations?: Prisma.ValidationCreateNestedManyWithoutValidatorInput
+  events?: Prisma.NoteEventCreateNestedManyWithoutActorInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
+  pushSubscriptions?: Prisma.PushSubscriptionCreateNestedManyWithoutProfileInput
+  adminAuditLogs?: Prisma.AdminAuditLogCreateNestedManyWithoutActorInput
+}
+
+export type ProfileUncheckedCreateWithoutResponsibleWorksInput = {
+  id: string
+  email: string
+  fullName?: string | null
+  role?: $Enums.UserRole
+  active?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  submittedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutSubmittedByInput
+  validations?: Prisma.ValidationUncheckedCreateNestedManyWithoutValidatorInput
+  events?: Prisma.NoteEventUncheckedCreateNestedManyWithoutActorInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
+  pushSubscriptions?: Prisma.PushSubscriptionUncheckedCreateNestedManyWithoutProfileInput
+  adminAuditLogs?: Prisma.AdminAuditLogUncheckedCreateNestedManyWithoutActorInput
+}
+
+export type ProfileCreateOrConnectWithoutResponsibleWorksInput = {
+  where: Prisma.ProfileWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProfileCreateWithoutResponsibleWorksInput, Prisma.ProfileUncheckedCreateWithoutResponsibleWorksInput>
+}
+
+export type ProfileUpsertWithoutResponsibleWorksInput = {
+  update: Prisma.XOR<Prisma.ProfileUpdateWithoutResponsibleWorksInput, Prisma.ProfileUncheckedUpdateWithoutResponsibleWorksInput>
+  create: Prisma.XOR<Prisma.ProfileCreateWithoutResponsibleWorksInput, Prisma.ProfileUncheckedCreateWithoutResponsibleWorksInput>
+  where?: Prisma.ProfileWhereInput
+}
+
+export type ProfileUpdateToOneWithWhereWithoutResponsibleWorksInput = {
+  where?: Prisma.ProfileWhereInput
+  data: Prisma.XOR<Prisma.ProfileUpdateWithoutResponsibleWorksInput, Prisma.ProfileUncheckedUpdateWithoutResponsibleWorksInput>
+}
+
+export type ProfileUpdateWithoutResponsibleWorksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  submittedNotes?: Prisma.NoteUpdateManyWithoutSubmittedByNestedInput
+  validations?: Prisma.ValidationUpdateManyWithoutValidatorNestedInput
+  events?: Prisma.NoteEventUpdateManyWithoutActorNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
+  pushSubscriptions?: Prisma.PushSubscriptionUpdateManyWithoutProfileNestedInput
+  adminAuditLogs?: Prisma.AdminAuditLogUpdateManyWithoutActorNestedInput
+}
+
+export type ProfileUncheckedUpdateWithoutResponsibleWorksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  active?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  submittedNotes?: Prisma.NoteUncheckedUpdateManyWithoutSubmittedByNestedInput
+  validations?: Prisma.ValidationUncheckedUpdateManyWithoutValidatorNestedInput
+  events?: Prisma.NoteEventUncheckedUpdateManyWithoutActorNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
+  pushSubscriptions?: Prisma.PushSubscriptionUncheckedUpdateManyWithoutProfileNestedInput
+  adminAuditLogs?: Prisma.AdminAuditLogUncheckedUpdateManyWithoutActorNestedInput
+}
+
 export type ProfileCreateWithoutSubmittedNotesInput = {
   id: string
   email: string
@@ -524,6 +627,7 @@ export type ProfileCreateWithoutSubmittedNotesInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
   pushSubscriptions?: Prisma.PushSubscriptionCreateNestedManyWithoutProfileInput
   adminAuditLogs?: Prisma.AdminAuditLogCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileUncheckedCreateWithoutSubmittedNotesInput = {
@@ -539,6 +643,7 @@ export type ProfileUncheckedCreateWithoutSubmittedNotesInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedCreateNestedManyWithoutProfileInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkUncheckedCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileCreateOrConnectWithoutSubmittedNotesInput = {
@@ -570,6 +675,7 @@ export type ProfileUpdateWithoutSubmittedNotesInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUpdateManyWithoutProfileNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileUncheckedUpdateWithoutSubmittedNotesInput = {
@@ -585,6 +691,7 @@ export type ProfileUncheckedUpdateWithoutSubmittedNotesInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedUpdateManyWithoutProfileNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUncheckedUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileCreateWithoutValidationsInput = {
@@ -600,6 +707,7 @@ export type ProfileCreateWithoutValidationsInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
   pushSubscriptions?: Prisma.PushSubscriptionCreateNestedManyWithoutProfileInput
   adminAuditLogs?: Prisma.AdminAuditLogCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileUncheckedCreateWithoutValidationsInput = {
@@ -615,6 +723,7 @@ export type ProfileUncheckedCreateWithoutValidationsInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedCreateNestedManyWithoutProfileInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkUncheckedCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileCreateOrConnectWithoutValidationsInput = {
@@ -646,6 +755,7 @@ export type ProfileUpdateWithoutValidationsInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUpdateManyWithoutProfileNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileUncheckedUpdateWithoutValidationsInput = {
@@ -661,6 +771,7 @@ export type ProfileUncheckedUpdateWithoutValidationsInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedUpdateManyWithoutProfileNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUncheckedUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileCreateWithoutAdminAuditLogsInput = {
@@ -676,6 +787,7 @@ export type ProfileCreateWithoutAdminAuditLogsInput = {
   events?: Prisma.NoteEventCreateNestedManyWithoutActorInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
   pushSubscriptions?: Prisma.PushSubscriptionCreateNestedManyWithoutProfileInput
+  responsibleWorks?: Prisma.WorkCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileUncheckedCreateWithoutAdminAuditLogsInput = {
@@ -691,6 +803,7 @@ export type ProfileUncheckedCreateWithoutAdminAuditLogsInput = {
   events?: Prisma.NoteEventUncheckedCreateNestedManyWithoutActorInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedCreateNestedManyWithoutProfileInput
+  responsibleWorks?: Prisma.WorkUncheckedCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileCreateOrConnectWithoutAdminAuditLogsInput = {
@@ -722,6 +835,7 @@ export type ProfileUpdateWithoutAdminAuditLogsInput = {
   events?: Prisma.NoteEventUpdateManyWithoutActorNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUpdateManyWithoutProfileNestedInput
+  responsibleWorks?: Prisma.WorkUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileUncheckedUpdateWithoutAdminAuditLogsInput = {
@@ -737,6 +851,7 @@ export type ProfileUncheckedUpdateWithoutAdminAuditLogsInput = {
   events?: Prisma.NoteEventUncheckedUpdateManyWithoutActorNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedUpdateManyWithoutProfileNestedInput
+  responsibleWorks?: Prisma.WorkUncheckedUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileCreateWithoutEventsInput = {
@@ -752,6 +867,7 @@ export type ProfileCreateWithoutEventsInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
   pushSubscriptions?: Prisma.PushSubscriptionCreateNestedManyWithoutProfileInput
   adminAuditLogs?: Prisma.AdminAuditLogCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileUncheckedCreateWithoutEventsInput = {
@@ -767,6 +883,7 @@ export type ProfileUncheckedCreateWithoutEventsInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedCreateNestedManyWithoutProfileInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkUncheckedCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileCreateOrConnectWithoutEventsInput = {
@@ -798,6 +915,7 @@ export type ProfileUpdateWithoutEventsInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUpdateManyWithoutProfileNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileUncheckedUpdateWithoutEventsInput = {
@@ -813,6 +931,7 @@ export type ProfileUncheckedUpdateWithoutEventsInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedUpdateManyWithoutProfileNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUncheckedUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileCreateWithoutNotificationsInput = {
@@ -828,6 +947,7 @@ export type ProfileCreateWithoutNotificationsInput = {
   events?: Prisma.NoteEventCreateNestedManyWithoutActorInput
   pushSubscriptions?: Prisma.PushSubscriptionCreateNestedManyWithoutProfileInput
   adminAuditLogs?: Prisma.AdminAuditLogCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileUncheckedCreateWithoutNotificationsInput = {
@@ -843,6 +963,7 @@ export type ProfileUncheckedCreateWithoutNotificationsInput = {
   events?: Prisma.NoteEventUncheckedCreateNestedManyWithoutActorInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedCreateNestedManyWithoutProfileInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkUncheckedCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileCreateOrConnectWithoutNotificationsInput = {
@@ -874,6 +995,7 @@ export type ProfileUpdateWithoutNotificationsInput = {
   events?: Prisma.NoteEventUpdateManyWithoutActorNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUpdateManyWithoutProfileNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileUncheckedUpdateWithoutNotificationsInput = {
@@ -889,6 +1011,7 @@ export type ProfileUncheckedUpdateWithoutNotificationsInput = {
   events?: Prisma.NoteEventUncheckedUpdateManyWithoutActorNestedInput
   pushSubscriptions?: Prisma.PushSubscriptionUncheckedUpdateManyWithoutProfileNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUncheckedUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileCreateWithoutPushSubscriptionsInput = {
@@ -904,6 +1027,7 @@ export type ProfileCreateWithoutPushSubscriptionsInput = {
   events?: Prisma.NoteEventCreateNestedManyWithoutActorInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutRecipientInput
   adminAuditLogs?: Prisma.AdminAuditLogCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileUncheckedCreateWithoutPushSubscriptionsInput = {
@@ -919,6 +1043,7 @@ export type ProfileUncheckedCreateWithoutPushSubscriptionsInput = {
   events?: Prisma.NoteEventUncheckedCreateNestedManyWithoutActorInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutRecipientInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedCreateNestedManyWithoutActorInput
+  responsibleWorks?: Prisma.WorkUncheckedCreateNestedManyWithoutResponsibleProfileInput
 }
 
 export type ProfileCreateOrConnectWithoutPushSubscriptionsInput = {
@@ -950,6 +1075,7 @@ export type ProfileUpdateWithoutPushSubscriptionsInput = {
   events?: Prisma.NoteEventUpdateManyWithoutActorNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutRecipientNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 export type ProfileUncheckedUpdateWithoutPushSubscriptionsInput = {
@@ -965,6 +1091,7 @@ export type ProfileUncheckedUpdateWithoutPushSubscriptionsInput = {
   events?: Prisma.NoteEventUncheckedUpdateManyWithoutActorNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutRecipientNestedInput
   adminAuditLogs?: Prisma.AdminAuditLogUncheckedUpdateManyWithoutActorNestedInput
+  responsibleWorks?: Prisma.WorkUncheckedUpdateManyWithoutResponsibleProfileNestedInput
 }
 
 
@@ -979,6 +1106,7 @@ export type ProfileCountOutputType = {
   notifications: number
   pushSubscriptions: number
   adminAuditLogs: number
+  responsibleWorks: number
 }
 
 export type ProfileCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -988,6 +1116,7 @@ export type ProfileCountOutputTypeSelect<ExtArgs extends runtime.Types.Extension
   notifications?: boolean | ProfileCountOutputTypeCountNotificationsArgs
   pushSubscriptions?: boolean | ProfileCountOutputTypeCountPushSubscriptionsArgs
   adminAuditLogs?: boolean | ProfileCountOutputTypeCountAdminAuditLogsArgs
+  responsibleWorks?: boolean | ProfileCountOutputTypeCountResponsibleWorksArgs
 }
 
 /**
@@ -1042,6 +1171,13 @@ export type ProfileCountOutputTypeCountAdminAuditLogsArgs<ExtArgs extends runtim
   where?: Prisma.AdminAuditLogWhereInput
 }
 
+/**
+ * ProfileCountOutputType without action
+ */
+export type ProfileCountOutputTypeCountResponsibleWorksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.WorkWhereInput
+}
+
 
 export type ProfileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1057,6 +1193,7 @@ export type ProfileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   notifications?: boolean | Prisma.Profile$notificationsArgs<ExtArgs>
   pushSubscriptions?: boolean | Prisma.Profile$pushSubscriptionsArgs<ExtArgs>
   adminAuditLogs?: boolean | Prisma.Profile$adminAuditLogsArgs<ExtArgs>
+  responsibleWorks?: boolean | Prisma.Profile$responsibleWorksArgs<ExtArgs>
   _count?: boolean | Prisma.ProfileCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["profile"]>
 
@@ -1098,6 +1235,7 @@ export type ProfileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs
   notifications?: boolean | Prisma.Profile$notificationsArgs<ExtArgs>
   pushSubscriptions?: boolean | Prisma.Profile$pushSubscriptionsArgs<ExtArgs>
   adminAuditLogs?: boolean | Prisma.Profile$adminAuditLogsArgs<ExtArgs>
+  responsibleWorks?: boolean | Prisma.Profile$responsibleWorksArgs<ExtArgs>
   _count?: boolean | Prisma.ProfileCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ProfileIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1112,6 +1250,7 @@ export type $ProfilePayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     notifications: Prisma.$NotificationPayload<ExtArgs>[]
     pushSubscriptions: Prisma.$PushSubscriptionPayload<ExtArgs>[]
     adminAuditLogs: Prisma.$AdminAuditLogPayload<ExtArgs>[]
+    responsibleWorks: Prisma.$WorkPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1521,6 +1660,7 @@ export interface Prisma__ProfileClient<T, Null = never, ExtArgs extends runtime.
   notifications<T extends Prisma.Profile$notificationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Profile$notificationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   pushSubscriptions<T extends Prisma.Profile$pushSubscriptionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Profile$pushSubscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PushSubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   adminAuditLogs<T extends Prisma.Profile$adminAuditLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Profile$adminAuditLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AdminAuditLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  responsibleWorks<T extends Prisma.Profile$responsibleWorksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Profile$responsibleWorksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WorkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2091,6 +2231,30 @@ export type Profile$adminAuditLogsArgs<ExtArgs extends runtime.Types.Extensions.
   take?: number
   skip?: number
   distinct?: Prisma.AdminAuditLogScalarFieldEnum | Prisma.AdminAuditLogScalarFieldEnum[]
+}
+
+/**
+ * Profile.responsibleWorks
+ */
+export type Profile$responsibleWorksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Work
+   */
+  select?: Prisma.WorkSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Work
+   */
+  omit?: Prisma.WorkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.WorkInclude<ExtArgs> | null
+  where?: Prisma.WorkWhereInput
+  orderBy?: Prisma.WorkOrderByWithRelationInput | Prisma.WorkOrderByWithRelationInput[]
+  cursor?: Prisma.WorkWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.WorkScalarFieldEnum | Prisma.WorkScalarFieldEnum[]
 }
 
 /**
