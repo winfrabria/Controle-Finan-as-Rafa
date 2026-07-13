@@ -18,6 +18,10 @@ import {
   type ProjectsResponse,
 } from "./api-contract";
 import { uploadInvoice } from "./upload-api";
+import {
+  resolvePublicUploadResult,
+  type PublicNoteStatus,
+} from "./public-upload-status";
 import styles from "./public-upload.module.css";
 
 // ── Ícones SVG Compartilhados ──
@@ -331,6 +335,47 @@ function IconArrowLeft() {
 }
 
 type View = "form" | "sending" | "processing" | "success" | "error";
+type ResultKind = "OK" | "NO_PARAMETER" | "SUSPICIOUS" | "PENDING";
+type FailureKind = "READ_FAILED" | "TECHNICAL";
+
+type NoteStatusResponse = {
+  nota: PublicNoteStatus;
+};
+
+class ProcessingTimeoutError extends Error {}
+
+async function waitForNoteResult(noteId: string, signal: AbortSignal) {
+  const deadline = Date.now() + 90_000;
+
+  while (Date.now() < deadline) {
+    const response = await fetch(`/api/notas/${noteId}/status`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal,
+    });
+    if (!response.ok) throw new Error("Não foi possível consultar a análise.");
+    const payload = (await response.json()) as NoteStatusResponse;
+    const note = payload.nota;
+
+    if (resolvePublicUploadResult(note)) {
+      return note;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const onAbort = () => {
+        window.clearTimeout(timer);
+        reject(new DOMException("Operação cancelada", "AbortError"));
+      };
+      const timer = window.setTimeout(() => {
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      }, 1_500);
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
+  }
+
+  throw new ProcessingTimeoutError("A análise continua em andamento.");
+}
 
 function formatBytes(value: number) {
   return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(value / 1024 / 1024)} MB`;
@@ -375,6 +420,7 @@ async function requestProjects() {
 
 export function PublicUploadFlow() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const pollingControllerRef = useRef<AbortController | null>(null);
   const [view, setView] = useState<View>("form");
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectOption | null>(
@@ -388,6 +434,9 @@ export function PublicUploadFlow() {
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [resultKind, setResultKind] = useState<ResultKind>("OK");
+  const [failureKind, setFailureKind] = useState<FailureKind>("TECHNICAL");
+  const [failureMessage, setFailureMessage] = useState("");
 
   async function loadProjects() {
     setIsLoading(true);
@@ -418,6 +467,13 @@ export function PublicUploadFlow() {
     };
   }, []);
 
+  useEffect(
+    () => () => {
+      pollingControllerRef.current?.abort();
+    },
+    [],
+  );
+
   function chooseFile(nextFile: File | undefined) {
     if (!nextFile) return;
     const error = validateFile(nextFile);
@@ -445,6 +501,7 @@ export function PublicUploadFlow() {
       return;
     }
     setProgress(0);
+    setFailureMessage("");
     setView("sending");
     try {
       const result = await uploadInvoice({
@@ -459,29 +516,139 @@ export function PublicUploadFlow() {
             .padStart(5, "0")}`,
       );
       setView("processing");
-      window.setTimeout(() => setView("success"), 900);
-    } catch {
+      const controller = new AbortController();
+      pollingControllerRef.current?.abort();
+      pollingControllerRef.current = controller;
+
+      try {
+        const note = await waitForNoteResult(result.nota.id, controller.signal);
+        const outcome = resolvePublicUploadResult(note);
+        if (outcome === "READ_FAILED") {
+          setFailureKind("READ_FAILED");
+          setFailureMessage(
+            note.erro?.mensagem ??
+              "Não foi possível identificar as informações da nota.",
+          );
+          setView("error");
+          return;
+        }
+        if (outcome === "FAILED") {
+          setFailureKind("TECHNICAL");
+          setFailureMessage(
+            note.erro?.mensagem ?? "O processamento não pôde ser concluído.",
+          );
+          setView("error");
+          return;
+        }
+        setResultKind(outcome ?? "OK");
+        setView("success");
+      } catch (pollError) {
+        if (pollError instanceof ProcessingTimeoutError) {
+          setResultKind("PENDING");
+          setView("success");
+          return;
+        }
+        if (pollError instanceof DOMException && pollError.name === "AbortError") {
+          return;
+        }
+        throw pollError;
+      }
+    } catch (caught) {
+      setFailureKind("TECHNICAL");
+      setFailureMessage(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível enviar a nota.",
+      );
       setView("error");
     }
   }
 
   function startAgain() {
+    pollingControllerRef.current?.abort();
     setSelectedProject(null);
     setFile(null);
     setFileError(null);
     setProgress(0);
     setInvoiceId(null);
+    setResultKind("OK");
+    setFailureKind("TECHNICAL");
+    setFailureMessage("");
     setView("form");
+  }
+
+  async function retryProcessing() {
+    if (!invoiceId) return;
+    const controller = new AbortController();
+    pollingControllerRef.current?.abort();
+    pollingControllerRef.current = controller;
+    setView("processing");
+    try {
+      const note = await waitForNoteResult(invoiceId, controller.signal);
+      const outcome = resolvePublicUploadResult(note);
+      if (outcome === "READ_FAILED" || outcome === "FAILED") {
+        setFailureKind(outcome === "READ_FAILED" ? "READ_FAILED" : "TECHNICAL");
+        setFailureMessage(
+          note.erro?.mensagem ??
+            (outcome === "READ_FAILED"
+              ? "Não foi possível identificar as informações da nota."
+              : "O processamento não pôde ser concluído."),
+        );
+        setView("error");
+        return;
+      }
+      setResultKind(outcome ?? "OK");
+      setView("success");
+    } catch (caught) {
+      if (caught instanceof ProcessingTimeoutError) {
+        setResultKind("PENDING");
+        setView("success");
+        return;
+      }
+      if (caught instanceof DOMException && caught.name === "AbortError") return;
+      setFailureKind("TECHNICAL");
+      setFailureMessage(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível consultar a análise.",
+      );
+      setView("error");
+    }
   }
 
   const isFormView =
     view === "form" || view === "sending" || view === "processing";
+  const successCopy =
+    resultKind === "SUSPICIOUS"
+      ? {
+          badge: "Encaminhada para validação",
+          description:
+            "A análise encontrou pontos que precisam da decisão do responsável.",
+          title: "Nota recebida e em validação",
+        }
+      : resultKind === "NO_PARAMETER"
+        ? {
+            badge: "Análise concluída sem parâmetros suficientes",
+            description:
+              "A nota foi registrada e poderá ser reprocessada quando novos parâmetros forem cadastrados.",
+            title: "Nota recebida com sucesso",
+          }
+        : resultKind === "PENDING"
+          ? {
+              badge: "Análise em andamento",
+              description:
+                "O arquivo foi recebido. A análise está demorando mais que o esperado, mas continuará em segundo plano.",
+              title: "Nota recebida com sucesso",
+            }
+          : {
+              badge: "Análise concluída",
+              description: "Sua nota fiscal foi recebida e analisada corretamente.",
+              title: "Nota enviada com sucesso",
+            };
+  const readFailure = failureKind === "READ_FAILED";
 
   return (
-    <main
-      className={styles.page}
-      style={{ overflow: !isFormView ? "hidden" : "auto" }}
-    >
+    <main className={styles.page}>
       <header className={styles.header}>
         <Link href="/enviar-nota" aria-label="WinfraBR — início">
           <div className={styles.brand}>
@@ -759,73 +926,16 @@ export function PublicUploadFlow() {
 
           {view === "success" && (
             <div className={styles.resultCard}>
-              <div className={styles.resultIconSuccess}>
-                <div
-                  className={styles.sparkle}
-                  style={{
-                    top: "10%",
-                    left: "-10%",
-                    width: "4px",
-                    height: "4px",
-                    background: "#3B82F6",
-                  }}
-                ></div>
-                <div
-                  className={styles.sparkle}
-                  style={{
-                    top: "50%",
-                    left: "-30%",
-                    width: "5px",
-                    height: "5px",
-                    background: "#3B82F6",
-                  }}
-                ></div>
-                <div
-                  className={styles.sparkle}
-                  style={{
-                    top: "-15%",
-                    left: "30%",
-                    width: "6px",
-                    height: "6px",
-                    background: "#10B981",
-                  }}
-                ></div>
-                <div
-                  className={styles.sparkle}
-                  style={{
-                    top: "-20%",
-                    right: "20%",
-                    width: "4px",
-                    height: "4px",
-                    background: "#3B82F6",
-                  }}
-                ></div>
-                <div
-                  className={styles.sparkle}
-                  style={{
-                    top: "30%",
-                    right: "-30%",
-                    width: "5px",
-                    height: "5px",
-                    background: "#10B981",
-                  }}
-                ></div>
-                <div
-                  className={styles.sparkle}
-                  style={{
-                    top: "80%",
-                    right: "-10%",
-                    width: "4px",
-                    height: "4px",
-                    background: "#3B82F6",
-                  }}
-                ></div>
+              <div
+                className={styles.resultIconSuccess}
+                data-result={resultKind.toLowerCase()}
+              >
                 <IconCheckCircle />
               </div>
-              <h2>Nota enviada com sucesso</h2>
-              <p>Sua nota fiscal foi recebida e analisada corretamente.</p>
-              <span className={styles.badgeSuccess}>
-                <IconCheckCircle /> Análise concluída
+              <h2>{successCopy.title}</h2>
+              <p>{successCopy.description}</p>
+              <span className={styles.badgeSuccess} data-result={resultKind.toLowerCase()}>
+                <IconCheckCircle /> {successCopy.badge}
               </span>
 
               <div className={styles.summaryBoxSuccess}>
@@ -871,6 +981,11 @@ export function PublicUploadFlow() {
               </div>
 
               <div className={styles.resultButtons}>
+                {resultKind === "PENDING" ? (
+                  <button className={styles.submitBtn} onClick={() => void retryProcessing()}>
+                    <IconFocus /> Atualizar análise
+                  </button>
+                ) : null}
                 <button className={styles.submitBtn} onClick={startAgain}>
                   <IconFilePlus /> Enviar nova nota
                 </button>
@@ -887,12 +1002,17 @@ export function PublicUploadFlow() {
                 <div className={styles.resultIconError}>
                   <IconAlertTriangle />
                 </div>
-                <h2>Não foi possível ler a nota fiscal</h2>
+                <h2>
+                  {readFailure
+                    ? "Não foi possível ler a nota fiscal"
+                    : "Não foi possível concluir o processamento"}
+                </h2>
                 <p>
-                  Recebemos o arquivo enviado, mas não foi possível ler as
-                  informações da nota fiscal corretamente.
-                  <br />
-                  Por favor, envie novamente com uma imagem de melhor qualidade.
+                  {readFailure
+                    ? failureMessage ||
+                      "Recebemos o arquivo, mas não foi possível identificar corretamente as informações da nota. Envie uma imagem mais nítida."
+                    : failureMessage ||
+                      "Ocorreu uma falha técnica durante o envio ou processamento. Tente novamente em alguns instantes."}
                 </p>
 
                 <div className={styles.summaryBoxError}>
@@ -942,7 +1062,7 @@ export function PublicUploadFlow() {
                           Status da leitura
                         </span>
                         <span className={styles.badgeError}>
-                          <IconX /> Leitura não realizada
+                          <IconX /> {readFailure ? "Leitura não realizada" : "Processamento interrompido"}
                         </span>
                       </div>
                     </div>
@@ -1028,7 +1148,7 @@ export function PublicUploadFlow() {
           </div>
         </div>
         <div className={styles.footerRight}>
-          © 2024 <span className={styles.footerRightBlue}>WinfraBR</span>.
+          © 2026 <span className={styles.footerRightBlue}>WinfraBR</span>.
           Todos os direitos reservados.
         </div>
       </footer>

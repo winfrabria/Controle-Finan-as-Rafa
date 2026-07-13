@@ -169,9 +169,11 @@
 
 .textareaControl {
   display: block;
-  min-height: 112px;
+  height: 112px;
+  max-height: 168px;
+  min-height: 96px;
   padding: 10px 11px 24px;
-  resize: vertical;
+  resize: none;
 }
 
 .selectControl:focus,
@@ -265,10 +267,56 @@
 }
 
 @media (min-width: 761px) and (max-height: 720px) {
+  .validationForm {
+    gap: 6px;
+  }
+
+  .decisionGroup legend,
+  .formField {
+    margin-bottom: 0;
+  }
+
+  .decisionGroup legend {
+    margin-bottom: 3px;
+  }
+
+  .formField {
+    gap: 3px;
+  }
+
+  .decisionContent {
+    min-height: 44px;
+    padding-block: 3px;
+  }
+
+  .decisionIconWrap {
+    height: 25px;
+    width: 25px;
+  }
+
+  .decisionIconWrap svg {
+    height: 15px;
+    width: 15px;
+  }
+
+  .selectControl {
+    height: 34px;
+  }
+
+  .textareaControl {
+    height: 58px;
+    max-height: 80px;
+    min-height: 54px;
+    padding-block: 7px 18px;
+  }
+
   .formActions {
     background: #fff;
     bottom: 0;
-    padding-top: 8px;
+    border-top: 1px solid #e4eaf2;
+    margin: 0 -2px;
+    padding-bottom: 2px;
+    padding-top: 5px;
     position: sticky;
     z-index: 2;
   }
@@ -289,6 +337,8 @@
   }
 
   .textareaControl {
-    min-height: 128px;
+    height: 112px;
+    max-height: 140px;
+    min-height: 96px;
   }
 }

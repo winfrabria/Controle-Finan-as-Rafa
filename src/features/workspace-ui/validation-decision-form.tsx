@@ -58,6 +58,25 @@ export function ValidationDecisionForm({
         ? "Motivo da confirmação"
         : "Motivo da classificação";
 
+  function resizeCommentArea(element: HTMLTextAreaElement) {
+    const shortDesktop = window.matchMedia(
+      "(min-width: 761px) and (max-height: 720px)",
+    ).matches;
+    const maximumHeight = shortDesktop
+      ? 80
+      : window.matchMedia("(max-width: 760px)").matches
+        ? 140
+        : 168;
+    const minimumHeight = shortDesktop ? 54 : 96;
+    element.style.height = "0px";
+    const nextHeight = Math.min(
+      Math.max(element.scrollHeight, minimumHeight),
+      maximumHeight,
+    );
+    element.style.height = `${nextHeight}px`;
+    element.style.overflowY = element.scrollHeight > maximumHeight ? "auto" : "hidden";
+  }
+
   function chooseDecision(nextDecision: "OK" | "SUSPEITA") {
     setDecision(nextDecision);
     setReason("");
@@ -195,7 +214,10 @@ export function ValidationDecisionForm({
           <textarea
             className={styles.textareaControl}
             value={comment}
-            onChange={(event) => setComment(event.target.value)}
+            onChange={(event) => {
+              setComment(event.target.value);
+              resizeCommentArea(event.currentTarget);
+            }}
             placeholder={
               decision === "OK"
                 ? "Se quiser, explique por que a nota está correta..."
@@ -204,6 +226,7 @@ export function ValidationDecisionForm({
                   : "Escolha uma classificação e registre sua análise..."
             }
             maxLength={500}
+            rows={4}
           />
           <small className={styles.counter}>{comment.length}/500</small>
         </span>

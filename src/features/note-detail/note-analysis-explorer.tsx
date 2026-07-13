@@ -148,6 +148,20 @@ export function NoteAnalysisExplorer({
               </tr>
             </tbody>
           </table>
+          <article className={styles.mobileAffectedCard}>
+            <strong>
+              {affectedItem?.description ??
+                selected.affectedItem?.description ??
+                "Item geral da nota"}
+            </strong>
+            <dl>
+              <div><dt>Código</dt><dd>{affectedItem?.code ?? selected.affectedItem?.code ?? "—"}</dd></div>
+              <div><dt>Unidade</dt><dd>{affectedItem?.unit ?? "—"}</dd></div>
+              <div><dt>Quantidade</dt><dd>{formatDecimal(affectedItem?.quantity ?? null, 0)}</dd></div>
+              <div><dt>Valor unitário</dt><dd>{formatDecimal(affectedItem?.unitPrice ?? null)}</dd></div>
+              <div><dt>Valor total</dt><dd>{formatDecimal(affectedItem?.totalAmount ?? null)}</dd></div>
+            </dl>
+          </article>
         </section>
 
         <section className={styles.justification}>
@@ -188,6 +202,22 @@ export function NoteAnalysisExplorer({
                 ))}
               </tbody>
             </table>
+            <div className={styles.danfeItemCards}>
+              {items.slice(0, 6).map((item) => (
+                <article
+                  key={item.id}
+                  data-highlight={item.id === selected.affectedItem?.id}
+                >
+                  <strong>{item.description}</strong>
+                  <span>{item.code ?? "Sem código"}</span>
+                  <dl>
+                    <div><dt>UN</dt><dd>{item.unit ?? "—"}</dd></div>
+                    <div><dt>QTD.</dt><dd>{formatDecimal(item.quantity, 0)}</dd></div>
+                    <div><dt>Total</dt><dd>{formatDecimal(item.totalAmount)}</dd></div>
+                  </dl>
+                </article>
+              ))}
+            </div>
           </div>
         </details>
 
