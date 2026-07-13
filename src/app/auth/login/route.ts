@@ -2,7 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getSupabaseConfig } from "@/lib/supabase/config";
-import { getSafeRedirectPath } from "@/lib/supabase/redirect";
+import {
+  getAuthLandingPath,
+  getSafeRedirectPath,
+} from "@/lib/supabase/redirect";
 
 function loginRedirect(request: NextRequest, error?: string) {
   const url = new URL("/", request.url);
@@ -26,7 +29,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();
-    const response = NextResponse.redirect(new URL(nextPath, request.url), 303);
+    const response = NextResponse.redirect(
+      new URL(getAuthLandingPath(nextPath), request.url),
+      303,
+    );
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll: () => request.cookies.getAll(),

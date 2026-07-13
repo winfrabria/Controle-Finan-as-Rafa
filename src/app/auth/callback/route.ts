@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { getSafeRedirectPath } from "@/lib/supabase/redirect";
+import {
+  getAuthLandingPath,
+  getSafeRedirectPath,
+} from "@/lib/supabase/redirect";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
@@ -11,7 +14,11 @@ export async function GET(request: NextRequest) {
     try {
       const supabase = await createClient();
       const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (!error) return NextResponse.redirect(new URL(nextPath, request.url));
+      if (!error) {
+        return NextResponse.redirect(
+          new URL(getAuthLandingPath(nextPath), request.url),
+        );
+      }
     } catch {
       // Redireciona para uma mensagem segura no login.
     }

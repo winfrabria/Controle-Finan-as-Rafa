@@ -7,6 +7,7 @@ export async function POST(request: NextRequest) {
   const response = NextResponse.redirect(new URL("/login", request.url), {
     status: 303,
   });
+  response.cookies.delete("winfra_role");
 
   try {
     const { supabaseUrl, supabaseAnonKey } = getSupabaseConfig();

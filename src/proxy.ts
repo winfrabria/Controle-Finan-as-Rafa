@@ -2,7 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getSupabaseConfig } from "@/lib/supabase/config";
-import { getSafeRedirectPath } from "@/lib/supabase/redirect";
+import {
+  getAuthLandingPath,
+  getSafeRedirectPath,
+} from "@/lib/supabase/redirect";
+import { getRoleDestination, type ApplicationRole } from "@/server/auth/access-policy";
 
 const protectedPaths = [
   "/admin",
@@ -45,15 +49,43 @@ export async function proxy(request: NextRequest) {
 
     if (!user && isProtectedPath(pathname)) {
       const loginUrl = new URL("/", request.url);
-      loginUrl.searchParams.set("next", `${pathname}${search}`);
+      const nextPath =
+        pathname === "/auth/landing"
+          ? getSafeRedirectPath(request.nextUrl.searchParams.get("next"))
+          : `${pathname}${search}`;
+      if (nextPath !== "/auth/landing") {
+        loginUrl.searchParams.set("next", nextPath);
+      }
       return NextResponse.redirect(loginUrl);
+    }
+
+    if (
+      user &&
+      (pathname === "/admin" ||
+        pathname.startsWith("/admin/") ||
+        pathname === "/revisao" ||
+        pathname.startsWith("/revisao/"))
+    ) {
+      const role = request.cookies.get("winfra_role")?.value;
+      if (role === "ADMIN" || role === "REVIEWER") {
+        const currentPath = `${pathname}${search}`;
+        const destination = getRoleDestination(
+          role as ApplicationRole,
+          currentPath,
+        );
+        if (destination !== currentPath) {
+          return NextResponse.redirect(new URL(destination, request.url));
+        }
+      }
     }
 
     if (user && (pathname === "/" || pathname === "/login")) {
       const nextPath = getSafeRedirectPath(
         request.nextUrl.searchParams.get("next"),
       );
-      return NextResponse.redirect(new URL(nextPath, request.url));
+      return NextResponse.redirect(
+        new URL(getAuthLandingPath(nextPath), request.url),
+      );
     }
   } catch {
     if (isProtectedPath(request.nextUrl.pathname)) {

@@ -12,3 +12,13 @@ export function getSafeRedirectPath(value: string | null | undefined) {
 
   return value;
 }
+
+export function getAuthLandingPath(value: string | null | undefined) {
+  const nextPath = getSafeRedirectPath(value);
+
+  if (nextPath === DEFAULT_AUTHENTICATED_PATH) {
+    return DEFAULT_AUTHENTICATED_PATH;
+  }
+
+  return `${DEFAULT_AUTHENTICATED_PATH}?next=${encodeURIComponent(nextPath)}`;
+}
