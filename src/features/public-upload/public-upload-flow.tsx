@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { WinfraBrand } from "@/components/brand/winfra-brand";
 import {
   ACCEPTED_FILE_TYPES,
   MAX_FILE_SIZE_BYTES,
@@ -313,24 +314,6 @@ function IconPdfBadge() {
     </svg>
   );
 }
-function LogoW() {
-  return (
-    <svg
-      className={styles.logoSvg}
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M3 8 L10 26 C10.5 27 11.5 27 12 26 L17 14 L20 26 C20.5 27 21.5 27 22 26 L29 8"
-        stroke="#0052FF"
-        strokeWidth="5.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 function IconArrowLeft() {
   return (
     <svg
@@ -502,10 +485,7 @@ export function PublicUploadFlow() {
       <header className={styles.header}>
         <Link href="/enviar-nota" aria-label="WinfraBR — início">
           <div className={styles.brand}>
-            <LogoW />
-            <span className={styles.logoText}>
-              Winfra<span className={styles.logoBlue}>BR</span>
-            </span>
+            <WinfraBrand priority size={30} />
           </div>
         </Link>
         <Link className={styles.loginLink} href="/">

@@ -164,39 +164,6 @@ export function NoteDetailView({
                 </div>
               ))}
             </dl>
-            <div className={styles.itemsSection}>
-              <h3>Itens da nota ({data.items.length})</h3>
-              <div className={styles.itemsTableWrap}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Descrição do produto / serviço</th>
-                      <th>UN</th>
-                      <th>QTD.</th>
-                      <th>Vlr. unit.</th>
-                      <th>Vlr. total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.items.slice(0, 7).map((item) => (
-                      <tr key={item.id}>
-                        <td>{item.description}</td>
-                        <td>{item.unit ?? "—"}</td>
-                        <td>{formatDecimal(item.quantity, 0)}</td>
-                        <td>{formatDecimal(item.unitPrice)}</td>
-                        <td>{formatDecimal(item.totalAmount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <footer>
-                <span>Total de itens</span>
-                <strong>{data.items.length}</strong>
-                <span>Total dos itens</span>
-                <strong>{total}</strong>
-              </footer>
-            </div>
           </section>
 
           <aside className={styles.reviewColumn}>
@@ -277,6 +244,61 @@ export function NoteDetailView({
             </section>
           </aside>
         </div>
+
+        <section className={`${styles.card} ${styles.itemsCard}`}>
+          <header className={styles.itemsHeader}>
+            <div>
+              <h2>Itens da nota</h2>
+              <p>Produtos e serviços identificados no documento fiscal.</p>
+            </div>
+            <dl>
+              <div><dt>Total de itens</dt><dd>{data.items.length}</dd></div>
+              <div><dt>Valor total</dt><dd>{total}</dd></div>
+            </dl>
+          </header>
+          <div className={styles.itemsTableWrap}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Descrição do produto / serviço</th>
+                  <th>UN</th>
+                  <th>QTD.</th>
+                  <th>Vlr. unit.</th>
+                  <th>Vlr. total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.code ?? "—"}</td>
+                    <td>{item.description}</td>
+                    <td>{item.unit ?? "—"}</td>
+                    <td>{formatDecimal(item.quantity, 0)}</td>
+                    <td>{formatDecimal(item.unitPrice)}</td>
+                    <td>{formatDecimal(item.totalAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className={styles.itemCards}>
+            {data.items.map((item) => (
+              <article key={item.id}>
+                <header>
+                  <span>{item.code ?? "Sem código"}</span>
+                  <strong>{formatDecimal(item.totalAmount)}</strong>
+                </header>
+                <h3>{item.description}</h3>
+                <dl>
+                  <div><dt>Unidade</dt><dd>{item.unit ?? "—"}</dd></div>
+                  <div><dt>Quantidade</dt><dd>{formatDecimal(item.quantity, 0)}</dd></div>
+                  <div><dt>Valor unitário</dt><dd>{formatDecimal(item.unitPrice)}</dd></div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section className={`${styles.card} ${styles.timelineCard}`}>
           <header>

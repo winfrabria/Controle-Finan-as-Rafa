@@ -7,7 +7,7 @@
   align-items: center;
   color: #50658a;
   display: flex;
-  font-size: 11px;
+  font-size: 12px;
   gap: 8px;
   margin: 1px 0 14px;
 }
@@ -59,7 +59,7 @@
   border: 1px solid #d7e1ed;
   border-radius: 999px;
   color: #405678;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   padding: 4px 9px;
 }
@@ -186,7 +186,7 @@
 
 .metadataStrip dt {
   color: #526688;
-  font-size: 9px;
+  font-size: 11px;
   margin-bottom: 5px;
 }
 
@@ -229,7 +229,7 @@
 .cardHeader p,
 .timelineCard header p {
   color: #647695;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.4;
   margin: 4px 0 0;
 }
@@ -238,7 +238,7 @@
   border: 1px solid #d3deea;
   border-radius: 6px;
   color: #254064;
-  font-size: 9px;
+  font-size: 12px;
   padding: 6px 9px;
   text-decoration: none;
 }
@@ -288,7 +288,7 @@
   border: 1px solid #ccd7e5;
   border-radius: 6px;
   color: #19345f;
-  font-size: 9px;
+  font-size: 12px;
   max-width: 170px;
   overflow: hidden;
   padding: 7px 10px;
@@ -443,12 +443,12 @@
 
 .extractedGrid dt {
   color: #637493;
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .extractedGrid dd {
   color: #17345e;
-  font-size: 11px;
+  font-size: 13px;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -473,7 +473,7 @@
 
 .itemsSection th {
   color: #5b6f90;
-  font-size: 7px;
+  font-size: 12px;
   font-weight: 600;
   padding: 5px;
   text-align: right;
@@ -489,19 +489,19 @@
 .itemsSection td {
   border-top: 1px solid #edf1f6;
   color: #213c65;
-  font-size: 8px;
-  max-width: 110px;
-  overflow: hidden;
-  padding: 5px;
+  font-size: 12px;
+  max-width: none;
+  overflow: visible;
+  padding: 8px 5px;
   text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .itemsSection footer {
   align-items: center;
   display: flex;
-  font-size: 8px;
+  font-size: 12px;
   gap: 11px;
   justify-content: flex-end;
   padding: 8px 3px 10px;
@@ -542,17 +542,17 @@
 }
 
 .findingTitle strong {
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .primaryFinding h3 {
-  font-size: 9px;
+  font-size: 11px;
   margin: 13px 0 4px;
 }
 
 .primaryFinding p {
   color: #344c70;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.45;
   margin: 0;
 }
@@ -566,7 +566,7 @@
   align-items: center;
   color: #075cff;
   display: flex;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   gap: 6px;
   margin: 0 12px;
@@ -613,12 +613,12 @@
 
 .validationResult dt {
   color: #637493;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .validationResult dd {
   color: #17345e;
-  font-size: 11px;
+  font-size: 13px;
   margin: 3px 0 0;
 }
 
@@ -682,13 +682,13 @@
 }
 
 .timelineCard li strong {
-  font-size: 8px;
+  font-size: 12px;
 }
 
 .timelineCard li time,
 .timelineCard li small {
   color: #607394;
-  font-size: 7px;
+  font-size: 11px;
   margin-top: 2px;
 }
 
@@ -773,7 +773,7 @@
 
 .findingsPanel > p {
   color: #637493;
-  font-size: 9px;
+  font-size: 12px;
   margin: 5px 0 15px;
 }
 
@@ -818,13 +818,13 @@
 }
 
 .findingList strong {
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1.3;
 }
 
 .findingList small {
   color: #526788;
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1.45;
 }
 
@@ -861,7 +861,7 @@
 
 .findingLead {
   color: #344c70;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.55;
   margin: -7px 0 18px 36px;
 }
@@ -893,7 +893,7 @@
 .comparison p,
 .justification p {
   color: #344c70;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.55;
   margin: 0;
 }
@@ -920,7 +920,7 @@
   border-radius: 5px;
   color: #dc7300;
   display: inline-flex;
-  font-size: 8px;
+  font-size: 11px;
   margin-top: 8px;
   padding: 4px 7px;
 }
@@ -932,19 +932,20 @@
 
 .evidenceTable {
   margin-top: 8px;
+  table-layout: fixed;
 }
 
 .evidenceTable th,
 .evidenceTable td {
   border: 1px solid #c8d5e4;
-  font-size: 8px;
+  font-size: 12px;
   padding: 7px;
   text-align: left;
 }
 
 .evidenceTable th {
   color: #526788;
-  font-size: 7px;
+  font-size: 11px;
   text-transform: uppercase;
 }
 
@@ -957,13 +958,15 @@
   gap: 12px;
 }
 
-.analysisAside > section {
+.analysisAside > section,
+.analysisAside > details {
   padding: 16px;
 }
 
-.analysisAside > section > p {
+.analysisAside > section > p,
+.analysisAside > details > p {
   color: #637493;
-  font-size: 8px;
+  font-size: 11px;
   margin: 5px 0 12px;
 }
 
@@ -975,13 +978,14 @@
 
 .danfeExcerpt table {
   border-collapse: collapse;
+  table-layout: fixed;
   width: 100%;
 }
 
 .danfeExcerpt th,
 .danfeExcerpt td {
   border: 1px solid #aab8c9;
-  font-size: 6px;
+  font-size: 11px;
   padding: 8px 5px;
   text-align: left;
 }
@@ -1007,7 +1011,7 @@
   align-items: center;
   color: #344c70;
   display: flex;
-  font-size: 8px;
+  font-size: 12px;
   gap: 8px;
 }
 
@@ -1022,12 +1026,192 @@
 
 .limitationsList li {
   color: #526788;
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
 .analysisBottomBack {
   margin-top: 14px;
+}
+
+.itemsCard {
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.itemsHeader {
+  align-items: center;
+  border-bottom: 1px solid #e1e8f1;
+  display: flex;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 11px 14px;
+}
+
+.itemsHeader h2 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.itemsHeader p {
+  color: #637493;
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.itemsHeader dl {
+  display: flex;
+  gap: 24px;
+  margin: 0;
+}
+
+.itemsHeader dl div {
+  display: grid;
+  gap: 3px;
+  text-align: right;
+}
+
+.itemsHeader dt {
+  color: #637493;
+  font-size: 11px;
+}
+
+.itemsHeader dd {
+  color: #17345e;
+  font-size: 13px;
+  font-weight: 750;
+  margin: 0;
+}
+
+.itemsCard table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.itemsCard th,
+.itemsCard td {
+  border-bottom: 1px solid #e8edf4;
+  color: #30496f;
+  font-size: 12px;
+  height: 44px;
+  overflow: hidden;
+  padding: 7px 12px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemsCard th {
+  background: #fbfcfe;
+  color: #5b6f90;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.itemsCard th:nth-child(1) { width: 11%; }
+.itemsCard th:nth-child(2) { width: 45%; }
+.itemsCard th:nth-child(3) { width: 9%; }
+.itemsCard th:nth-child(4) { width: 11%; }
+.itemsCard th:nth-child(5) { width: 12%; }
+.itemsCard th:nth-child(6) { width: 12%; }
+
+.itemsCard th:nth-child(1),
+.itemsCard td:nth-child(1),
+.itemsCard th:nth-child(2),
+.itemsCard td:nth-child(2) {
+  text-align: left;
+}
+
+.itemCards {
+  display: none;
+}
+
+.analysisAside > details {
+  background: #fff;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+}
+
+.analysisAccordion > summary,
+.findingSection > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  list-style: none;
+}
+
+.analysisAccordion > summary::-webkit-details-marker,
+.findingSection > summary::-webkit-details-marker {
+  display: none;
+}
+
+.analysisAccordion > summary::after,
+.findingSection > summary::after {
+  color: #637493;
+  content: "−";
+  font-size: 16px;
+  margin-left: auto;
+}
+
+.analysisAccordion:not([open]) > summary::after,
+.findingSection:not([open]) > summary::after {
+  content: "+";
+}
+
+.analysisAccordion h2,
+.findingSection h3 {
+  margin: 0;
+}
+
+.findingSection {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.findingSection > summary {
+  color: #17345e;
+  min-height: 34px;
+}
+
+.findingSection > summary svg {
+  color: #47668f;
+  height: 17px;
+  width: 17px;
+}
+
+.findingSection > p {
+  margin: 4px 0 0 25px;
+}
+
+@media (min-width: 1440px) {
+  .detailGrid {
+    grid-template-columns: minmax(300px, 0.96fr) minmax(390px, 1.12fr) minmax(340px, 1fr);
+  }
+
+  .analysisLayout {
+    grid-template-columns: minmax(260px, 0.66fr) minmax(520px, 1.34fr) minmax(320px, 0.9fr);
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .detailGrid,
+  .analysisLayout {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .reviewColumn,
+  .analysisAside {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .findingsPanel,
+  .findingDetailPanel {
+    min-height: 0;
+  }
 }
 
 @media (max-width: 1250px) {
@@ -1044,6 +1228,23 @@
 
   .findingsPanel,
   .findingDetailPanel {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  .detailGrid,
+  .analysisLayout,
+  .reviewColumn,
+  .analysisAside {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .findingsPanel,
+  .findingDetailPanel,
+  .documentCard,
+  .extractedCard {
     min-height: 0;
   }
 }
@@ -1113,6 +1314,99 @@
   .timelineCard li > i {
     display: none;
   }
+
+  .itemsTableWrap {
+    display: none;
+  }
+
+  .itemCards {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .itemCards article {
+    border: 1px solid #dce5ef;
+    border-radius: 9px;
+    padding: 12px;
+  }
+
+  .itemCards header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .itemCards header span {
+    color: #607394;
+    font-size: 11px;
+  }
+
+  .itemCards header strong,
+  .itemCards h3 {
+    color: #17345e;
+    font-size: 13px;
+  }
+
+  .itemCards h3 {
+    line-height: 1.4;
+    margin: 9px 0;
+  }
+
+  .itemCards dl {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+  }
+
+  .itemCards dt {
+    color: #637493;
+    font-size: 10px;
+  }
+
+  .itemCards dd {
+    color: #17345e;
+    font-size: 12px;
+    margin: 3px 0 0;
+  }
+
+  .itemsHeader {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .itemsHeader dl {
+    gap: 12px;
+  }
+
+  .analysisAccordion:not([open]) > :not(summary),
+  .findingSection:not([open]) > :not(summary) {
+    display: none;
+  }
+
+  .evidenceTable th:nth-child(1),
+  .evidenceTable td:nth-child(1),
+  .evidenceTable th:nth-child(3),
+  .evidenceTable td:nth-child(3),
+  .evidenceTable th:nth-child(5),
+  .evidenceTable td:nth-child(5),
+  .danfeExcerpt th:nth-child(1),
+  .danfeExcerpt td:nth-child(1),
+  .danfeExcerpt th:nth-child(3),
+  .danfeExcerpt td:nth-child(3),
+  .danfeExcerpt th:nth-child(5),
+  .danfeExcerpt td:nth-child(5) {
+    display: none;
+  }
+
+  .evidenceTable th,
+  .evidenceTable td,
+  .danfeExcerpt th,
+  .danfeExcerpt td {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1148,6 +1442,23 @@
   .affectedItems,
   .justification {
     margin-left: 0;
+  }
+
+  .itemsHeader {
+    flex-direction: column;
+  }
+
+  .itemsHeader dl {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .itemsHeader dl div {
+    text-align: left;
+  }
+
+  .itemCards dl {
+    grid-template-columns: 1fr;
   }
 }
 

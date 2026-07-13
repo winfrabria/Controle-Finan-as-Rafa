@@ -1,0 +1,37 @@
+.brand {
+  align-items: center;
+  color: #0b1739;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.55rem;
+  line-height: 1;
+  min-width: 0;
+}
+
+.mark {
+  display: block;
+  flex: 0 0 auto;
+  height: var(--winfra-brand-size, 2rem);
+  object-fit: contain;
+  width: var(--winfra-brand-size, 2rem);
+}
+
+.wordmark {
+  font-size: var(--winfra-wordmark-size, 1.35rem);
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.wordmark strong {
+  color: #075cff;
+  font-weight: 850;
+}
+
+.inverse {
+  color: #ffffff;
+}
+
+.inverse .wordmark strong {
+  color: #38bdf8;
+}

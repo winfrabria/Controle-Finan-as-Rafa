@@ -143,6 +143,7 @@ export function ValidationHistoryView({
   const reasons = buildReasonRanking(analytics);
   const basePath = role === "admin" ? "/admin" : "/revisao";
   const pathname = `${basePath}/historico`;
+  const showConfidence = role === "admin";
 
   return (
     <PortalShell active="historico" role={role}>
@@ -204,27 +205,41 @@ export function ValidationHistoryView({
             </header>
 
             {visibleItems.length ? (
-              <div className={styles.tableWrap}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Data e hora</th>
-                      <th>Nota fiscal</th>
-                      <th>Fornecedor</th>
-                      <th>Regra disparada (IA)</th>
-                      <th>Confiança da IA</th>
-                      <th>Decisão humana</th>
-                      <th>Motivo da decisão</th>
-                      <th>Resultado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleItems.map((item) => (
-                      <HistoryRow key={item.id} item={item} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className={styles.tableWrap}>
+                  <table className={showConfidence ? styles.adminHistoryTable : styles.reviewerHistoryTable}>
+                    <thead>
+                      <tr>
+                        <th>Data e hora</th>
+                        <th>Nota e fornecedor</th>
+                        <th>Regra disparada (IA)</th>
+                        {showConfidence ? <th>Confiança da IA</th> : null}
+                        <th>Decisão e resultado</th>
+                        <th>Motivo da decisão</th>
+                        <th aria-label="Ação" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleItems.map((item) => (
+                        <HistoryRow
+                          key={item.id}
+                          item={item}
+                          showConfidence={showConfidence}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className={styles.mobileHistoryList}>
+                  {visibleItems.map((item) => (
+                    <HistoryCard
+                      key={item.id}
+                      item={item}
+                      showConfidence={showConfidence}
+                    />
+                  ))}
+                </div>
+              </>
             ) : (
               <div className={styles.emptyState}>
                 <Icon name="filter" />
@@ -317,30 +332,81 @@ function HistoryFilters({
   );
 }
 
-function HistoryRow({ item }: { item: ValidationHistoryItem }) {
+function HistoryRow({
+  item,
+  showConfidence,
+}: {
+  item: ValidationHistoryItem;
+  showConfidence: boolean;
+}) {
   const confidence = confidencePercent(item.readConfidence);
   return (
     <tr>
       <td>{dateTimeFormatter.format(item.createdAt)}</td>
       <td>
         <Link className={styles.noteLink} href={`/notas/${item.noteId}`}>
-          <Icon name="document" /> {item.noteNumber ?? "Sem número"}
+          <Icon name="document" />
+          <span>
+            <strong>{item.noteNumber ?? "Sem número"}</strong>
+            <small>{item.supplierName ?? "Fornecedor não identificado"}</small>
+          </span>
         </Link>
       </td>
-      <td title={item.supplierName ?? undefined}>{item.supplierName ?? "Não identificado"}</td>
       <td><span className={styles.ruleText}>{item.findingTitle ?? item.reason}</span></td>
+      {showConfidence ? (
+        <td>
+          <span className={styles.confidence}>
+            <b>{confidence === null ? "—" : `${confidence}%`}</b>
+            <progress max="100" value={confidence ?? 0} />
+          </span>
+        </td>
+      ) : null}
       <td>
-        <span className={styles.confidence}>
-          <b>{confidence === null ? "—" : `${confidence}%`}</b>
-          <progress max="100" value={confidence ?? 0} />
+        <span className={styles.decisionResult}>
+          <DecisionBadge confirmed={item.aiCorrect} />
+          <ResultBadge confirmed={item.aiCorrect} />
         </span>
       </td>
-      <td><DecisionBadge confirmed={item.aiCorrect} /></td>
       <td title={item.comment ? `${item.reason} — ${item.comment}` : item.reason}>
         <span className={styles.reasonText}>{item.reason}</span>
       </td>
-      <td><ResultBadge confirmed={item.aiCorrect} /></td>
+      <td>
+        <Link className={styles.rowAction} href={`/notas/${item.noteId}`} aria-label={`Abrir nota ${item.noteNumber ?? "sem número"}`}>
+          <Icon name="chevron" />
+        </Link>
+      </td>
     </tr>
+  );
+}
+
+function HistoryCard({
+  item,
+  showConfidence,
+}: {
+  item: ValidationHistoryItem;
+  showConfidence: boolean;
+}) {
+  const confidence = confidencePercent(item.readConfidence);
+  return (
+    <article>
+      <header>
+        <span>
+          <strong>NF {item.noteNumber ?? "Sem número"}</strong>
+          <small>{item.supplierName ?? "Fornecedor não identificado"}</small>
+        </span>
+        <ResultBadge confirmed={item.aiCorrect} />
+      </header>
+      <dl>
+        <div><dt>Data</dt><dd>{dateTimeFormatter.format(item.createdAt)}</dd></div>
+        <div><dt>Regra da IA</dt><dd>{item.findingTitle ?? item.reason}</dd></div>
+        {showConfidence ? (
+          <div><dt>Confiança da IA</dt><dd>{confidence === null ? "—" : `${confidence}%`}</dd></div>
+        ) : null}
+        <div><dt>Decisão humana</dt><dd>{item.aiCorrect ? "Confirma suspeita" : "Descarta suspeita"}</dd></div>
+        <div><dt>Motivo</dt><dd>{item.reason}</dd></div>
+      </dl>
+      <Link href={`/notas/${item.noteId}`}>Abrir nota <Icon name="chevron" /></Link>
+    </article>
   );
 }
 

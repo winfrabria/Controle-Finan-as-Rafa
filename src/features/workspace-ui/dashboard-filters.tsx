@@ -7,16 +7,15 @@ import styles from "./workspace-ui.module.css";
 
 type DashboardFiltersProps = {
   role: "admin" | "reviewer";
+  works?: { id: string; name: string }[];
 };
 
 const initialFilters = {
   work: "",
-  startDate: "2024-05-01",
-  endDate: "2024-05-31",
-  reviewer: "",
+  period: "maio",
 };
 
-export function DashboardFilters({ role }: DashboardFiltersProps) {
+export function DashboardFilters({ role, works = [] }: DashboardFiltersProps) {
   const [filters, setFilters] = useState(initialFilters);
 
   function update(name: keyof typeof filters, value: string) {
@@ -24,7 +23,7 @@ export function DashboardFilters({ role }: DashboardFiltersProps) {
   }
 
   function reset() {
-    setFilters({ ...initialFilters, work: "", reviewer: "" });
+    setFilters(initialFilters);
   }
 
   return (
@@ -33,52 +32,48 @@ export function DashboardFilters({ role }: DashboardFiltersProps) {
       data-role={role}
       onSubmit={(event) => event.preventDefault()}
     >
-      <label>
-        Obra
-        <select
-          value={filters.work}
-          onChange={(event) => update("work", event.target.value)}
-        >
-          <option value="">Todas as obras</option>
-          <option value="piloto">Projeto Piloto HWN – Alphaville</option>
-          <option value="aurora">Edifício Aurora</option>
-          <option value="hospital">Hospital Central</option>
-        </select>
-      </label>
-      <fieldset className={styles.periodFieldset}>
-        <legend>Período</legend>
-        <div>
-          <Icon name="calendar" />
-          <input
-            aria-label="Data inicial"
-            type="date"
-            value={filters.startDate}
-            onChange={(event) => update("startDate", event.target.value)}
-          />
-          <span>até</span>
-          <input
-            aria-label="Data final"
-            type="date"
-            value={filters.endDate}
-            onChange={(event) => update("endDate", event.target.value)}
-          />
-        </div>
-      </fieldset>
-      {role === "admin" ? (
-        <label>
-          Responsável pela validação
+      <label className={styles.filterLabel}>
+        <span>Obra</span>
+        <div className={styles.selectWrapper}>
+          <Icon name="building" className={styles.leftIcon} />
           <select
-            value={filters.reviewer}
-            onChange={(event) => update("reviewer", event.target.value)}
+            value={filters.work}
+            onChange={(event) => update("work", event.target.value)}
+            className={styles.hasLeftIcon}
           >
-            <option value="">Todos os responsáveis</option>
-            <option value="rafael">Rafael</option>
+            <option value="">Todas as obras</option>
+            {works.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
           </select>
-        </label>
-      ) : null}
-      <button type="button" onClick={reset}>
-        <Icon name="filter" /> Limpar filtros
-      </button>
+          <Icon name="chevron" className={styles.rightChevron} />
+        </div>
+      </label>
+
+      <label className={styles.filterLabel}>
+        <span>Período</span>
+        <div className={styles.selectWrapper}>
+          <Icon name="calendar" className={styles.leftIcon} />
+          <select
+            value={filters.period}
+            onChange={(event) => update("period", event.target.value)}
+            className={styles.hasLeftIcon}
+          >
+            <option value="maio">01/05/2024 - 31/05/2024</option>
+            <option value="abril">01/04/2024 - 30/04/2024</option>
+            <option value="março">01/03/2024 - 31/03/2024</option>
+          </select>
+          <Icon name="chevron" className={styles.rightChevron} />
+        </div>
+      </label>
+
+      <div className={styles.filterAction}>
+        <button type="button" onClick={reset} className={styles.btnOutlineBlue}>
+          <Icon name="filter" /> Limpar filtros
+        </button>
+      </div>
     </form>
   );
 }

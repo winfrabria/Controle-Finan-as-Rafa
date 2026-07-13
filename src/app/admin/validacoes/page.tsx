@@ -3,7 +3,7 @@ import {
   parseNoteListFilters,
 } from "@/features/internal-notes/note-list-query";
 import { toNoteVisualItems } from "@/features/workspace-ui/note-visual-data";
-import { ValidationView } from "@/features/workspace-ui/portal-views";
+import { ValidationWorkspace } from "@/features/workspace-ui/validation-workspace";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -15,6 +15,20 @@ export default async function AdminValidationsPage({
   const filters = parseNoteListFilters(await searchParams);
   const result = await listNotes(filters, { validationOnly: true });
   return (
-    <ValidationView role="admin" items={toNoteVisualItems(result.items)} />
+    <ValidationWorkspace
+      items={toNoteVisualItems(result.items)}
+      role="admin"
+      meta={{
+        filters: {
+          dataAte: filters.dataAte,
+          dataDe: filters.dataDe,
+          obra: filters.obra,
+        },
+        page: result.page,
+        pageCount: result.pageCount,
+        total: result.total,
+        works: result.works,
+      }}
+    />
   );
 }

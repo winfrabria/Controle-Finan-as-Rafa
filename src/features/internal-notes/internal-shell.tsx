@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { LogoutButton } from "@/components/auth/logout-button";
+import { WinfraBrand } from "@/components/brand/winfra-brand";
 
 import styles from "./internal-notes.module.css";
 
@@ -25,10 +26,7 @@ export function InternalShell({
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
         <Link className={styles.brand} href="/notas" aria-label="WinfraBR">
-          <span className={styles.brandMark}>W</span>
-          <span>
-            Winfra<strong>BR</strong>
-          </span>
+          <WinfraBrand tone="inverse" size={34} />
         </Link>
         <nav className={styles.navigation} aria-label="Navegação principal">
           <Link
@@ -64,7 +62,7 @@ export function InternalShell({
       <main className={styles.main}>
         <header className={styles.mobileHeader}>
           <Link className={styles.mobileBrand} href="/notas">
-            Winfra<strong>BR</strong>
+            <WinfraBrand tone="inverse" size={28} />
           </Link>
           <LogoutButton className={styles.mobileLogout} />
         </header>

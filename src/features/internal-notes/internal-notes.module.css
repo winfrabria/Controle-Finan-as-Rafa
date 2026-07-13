@@ -76,7 +76,7 @@
 
 .desktopTable { background: var(--surface); border: 1px solid #e3e9f1; border-radius: 12px; box-shadow: 0 5px 20px rgba(16,36,66,.04); overflow: hidden; }
 .desktopTable table { border-collapse: collapse; width: 100%; }
-.desktopTable th { background: #f8fafc; color: #6b788c; font-size: 11px; letter-spacing: .45px; padding: 13px 16px; text-align: left; text-transform: uppercase; }
+.desktopTable th { background: #f8fafc; color: #6b788c; font-size: 12px; letter-spacing: .45px; padding: 13px 16px; text-align: left; text-transform: uppercase; }
 .desktopTable td { border-top: 1px solid #edf1f6; color: #425067; font-size: 13px; padding: 15px 16px; vertical-align: middle; }
 .desktopTable td:first-child strong, .desktopTable td:first-child span { display: block; }
 .desktopTable td:first-child strong { color: var(--navy-deep); margin-bottom: 4px; }

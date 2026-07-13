@@ -56,7 +56,7 @@
   border: 1px solid #d8e1ee;
   border-radius: 999px;
   color: #526486;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: 4px 7px;
@@ -187,7 +187,7 @@
 
 .tableWrap th {
   color: #60718f;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
   overflow: hidden;
   padding: 12px 6px;
@@ -199,8 +199,8 @@
 .tableWrap td {
   border-top: 1px solid #e4eaf2;
   color: #24385f;
-  font-size: 10px;
-  height: 40px;
+  font-size: 12px;
+  height: 44px;
   overflow: hidden;
   padding: 5px 6px;
   text-overflow: ellipsis;
@@ -294,7 +294,7 @@
   border-radius: 6px;
   color: #ef8500;
   display: inline-flex;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   justify-content: center;
   line-height: 1;
@@ -416,12 +416,12 @@
 
 .summaryCard dt {
   color: #60718f;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .summaryCard dd {
   color: #07163b;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   margin: 0;
   overflow: hidden;
@@ -447,7 +447,7 @@
 }
 
 .aiSummary h3 {
-  font-size: 12px;
+  font-size: 13px;
   margin: 0;
 }
 
@@ -457,7 +457,7 @@
   border-radius: 7px;
   color: #5b4a2e;
   display: flex;
-  font-size: 11px;
+  font-size: 12px;
   gap: 10px;
   line-height: 1.5;
   margin: 0;
@@ -476,7 +476,58 @@
   padding-top: 9px;
 }
 
-@media (max-width: 1350px) {
+.mobileQueue {
+  display: none;
+}
+
+.adminReadOnly {
+  align-items: center;
+  background: #f6f9fe;
+  border: 1px solid #d7e3f3;
+  border-radius: 9px;
+  display: grid;
+  gap: 11px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.adminReadOnly > span {
+  align-items: center;
+  background: #eaf2ff;
+  border-radius: 50%;
+  color: #075cff;
+  display: flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.adminReadOnly > span svg {
+  height: 17px;
+  width: 17px;
+}
+
+.adminReadOnly h3 {
+  font-size: 13px;
+  margin: 0 0 3px;
+}
+
+.adminReadOnly p {
+  color: #526789;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.adminReadOnly a {
+  color: #075cff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 1179px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -486,78 +537,21 @@
   }
 }
 
-@media (min-width: 1351px) and (max-height: 720px) {
-  .panelHeader {
-    min-height: 44px;
+@media (min-width: 1180px) and (max-height: 720px) {
+  .queuePanel,
+  .detailPanel {
+    max-height: calc(100dvh - 178px);
   }
 
-  .tableWrap {
-    min-height: 0;
-  }
-
-  .tableWrap th {
-    padding-bottom: 7px;
-    padding-top: 7px;
-  }
-
-  .tableWrap td {
-    height: 28px;
-    padding-bottom: 2px;
-    padding-top: 2px;
-  }
-
-  .dangerIcon,
-  .warningIcon {
-    height: 17px;
-    width: 17px;
-  }
-
-  .dangerIcon svg,
-  .warningIcon svg {
-    height: 13px;
-    width: 13px;
-  }
-
-  .queueStatus {
-    padding-bottom: 5px;
-    padding-top: 5px;
-  }
-
-  .pagination {
-    min-height: 38px;
-  }
-
+  .tableWrap,
   .detailBody {
-    gap: 3px;
-    padding: 5px 9px 6px;
+    min-height: 0;
+    overflow-y: auto;
   }
 
-  .summaryCard {
-    min-height: 45px;
-    padding-bottom: 3px;
-    padding-top: 3px;
-  }
-
-  .summaryCard > span {
-    height: 28px;
-    width: 28px;
-  }
-
-  .aiSummary {
-    padding: 5px 7px;
-  }
-
-  .aiSummary header {
-    margin-bottom: 3px;
-  }
-
-  .aiSummary p {
-    line-height: 1.2;
-    padding: 4px 7px;
-  }
-
-  .detailBody form {
-    padding-top: 3px;
+  .panelHeader,
+  .pagination {
+    flex: 0 0 auto;
   }
 }
 
@@ -585,27 +579,67 @@
     grid-column: auto;
   }
 
-  .tableWrap th:nth-child(3),
-  .tableWrap td:nth-child(3),
-  .tableWrap th:nth-child(4),
-  .tableWrap td:nth-child(4) {
+  .tableWrap {
     display: none;
   }
 
-  .tableWrap th:nth-child(1) {
-    width: 46%;
+  .mobileQueue {
+    display: grid;
   }
 
-  .tableWrap th:nth-child(2) {
-    width: 22%;
+  .mobileQueue > button {
+    align-items: center;
+    background: #fff;
+    border: 0;
+    border-top: 1px solid #e4eaf2;
+    color: #17345e;
+    display: grid;
+    gap: 9px;
+    grid-template-columns: 28px minmax(0, 1fr) auto 14px;
+    min-height: 68px;
+    padding: 10px 14px;
+    text-align: left;
   }
 
-  .tableWrap th:nth-child(5) {
-    width: 27%;
+  .mobileQueue > button[data-selected="true"] {
+    background: #eaf3ff;
+    box-shadow: inset 3px 0 #075cff;
   }
 
-  .tableWrap th:nth-child(6) {
-    width: 5%;
+  .mobileQueueMain,
+  .mobileQueueValue {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .mobileQueueMain strong,
+  .mobileQueueMain small,
+  .mobileQueueValue strong,
+  .mobileQueueValue small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobileQueueMain strong,
+  .mobileQueueValue strong {
+    font-size: 13px;
+  }
+
+  .mobileQueueMain small,
+  .mobileQueueValue small {
+    color: #60718f;
+    font-size: 11px;
+  }
+
+  .mobileQueueValue {
+    text-align: right;
+  }
+
+  .mobileQueue > button > svg {
+    height: 14px;
+    width: 14px;
   }
 
   .summaryCard {
@@ -626,5 +660,16 @@
   .detailLink {
     font-size: 11px;
     padding: 0 9px;
+  }
+
+  .adminReadOnly {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .adminReadOnly a {
+    grid-column: 1 / -1;
+    min-height: 40px;
+    padding-top: 10px;
+    text-align: center;
   }
 }

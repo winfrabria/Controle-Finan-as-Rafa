@@ -1,5 +1,7 @@
 import type { SVGProps } from "react";
 
+import { WinfraBrand } from "@/components/brand/winfra-brand";
+
 export type IconName =
   | "bell"
   | "building"
@@ -7,6 +9,7 @@ export type IconName =
   | "check"
   | "chevron"
   | "clock"
+  | "close"
   | "document"
   | "download"
   | "eye"
@@ -54,6 +57,12 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
+    </>
+  ),
+  close: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m15 9-6 6M9 9l6 6" />
     </>
   ),
   document: (
@@ -168,14 +177,5 @@ export function Icon({
 }
 
 export function Brand({ compact = false }: { compact?: boolean }) {
-  return (
-    <span className="wf-brand">
-      <span className="wf-brand-mark">W</span>
-      {compact ? null : (
-        <span>
-          Winfra<strong>BR</strong>
-        </span>
-      )}
-    </span>
-  );
+  return <WinfraBrand compact={compact} size={32} />;
 }

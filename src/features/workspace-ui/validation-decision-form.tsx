@@ -31,11 +31,13 @@ const okReasons = [
 export function ValidationDecisionForm({
   isDemo = false,
   noteId,
+  noteVersion,
   onCancel,
   showCancel = true,
 }: {
   isDemo?: boolean;
   noteId?: string;
+  noteVersion?: number;
   onCancel?: () => void;
   showCancel?: boolean;
 }) {
@@ -78,7 +80,7 @@ export function ValidationDecisionForm({
 
     try {
       const response = await fetch("/api/validacoes", {
-        body: JSON.stringify({ comment, decision, noteId, reason }),
+        body: JSON.stringify({ comment, decision, noteId, noteVersion, reason }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });

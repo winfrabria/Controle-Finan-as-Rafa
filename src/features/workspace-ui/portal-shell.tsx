@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { WinfraBrand } from "@/components/brand/winfra-brand";
+
 import { Icon, type IconName } from "./ui-icons";
 import { ShellControls } from "./shell/shell-controls";
 import shellStyles from "./shell/shell-controls.module.css";
@@ -45,8 +47,11 @@ export function PortalShell({
   );
   const mobileMenu = visibleMenu.filter((item) =>
     isAdmin
-      ? ["dashboard", "notas", "historico", "obras"].includes(item.id)
+      ? ["dashboard", "notas", "historico"].includes(item.id)
       : ["dashboard", "notas", "validacoes", "historico"].includes(item.id),
+  );
+  const adminMoreMenu = visibleMenu.filter((item) =>
+    ["obras", "validacoes", "logs"].includes(item.id),
   );
   return (
     <div className={styles.portal}>
@@ -100,22 +105,43 @@ export function PortalShell({
             <span>{item.label}</span>
           </Link>
         ))}
+        {isAdmin ? (
+          <details className={styles.mobileMore}>
+            <summary
+              className={
+                adminMoreMenu.some((item) => item.id === active)
+                  ? styles.mobileActive
+                  : undefined
+              }
+            >
+              <Icon name="more" />
+              <span>Mais</span>
+            </summary>
+            <div className={styles.mobileMoreMenu}>
+              {adminMoreMenu.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`${basePath}/${item.id}`}
+                  className={active === item.id ? styles.mobileMoreActive : undefined}
+                >
+                  <Icon name={item.icon} />
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+              <span className={styles.mobileMoreDisabled} aria-disabled="true">
+                Configurações
+                <small>Em breve</small>
+              </span>
+            </div>
+          </details>
+        ) : null}
       </nav>
     </div>
   );
 }
 
 function PortalBrand() {
-  return (
-    <span className={shellStyles.brand} aria-label="WinfraBR">
-      <span className={shellStyles.brandMark}>
-        <Icon name="building" />
-      </span>
-      <span>
-        Winfra<strong>BR</strong>
-      </span>
-    </span>
-  );
+  return <WinfraBrand className={shellStyles.brand} size={34} />;
 }
 
 export function PageIntro({

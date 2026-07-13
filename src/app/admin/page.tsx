@@ -1,5 +1,16 @@
+import { prisma } from "@/server/db/prisma";
 import { DashboardView } from "@/features/workspace-ui/portal-views";
 
-export default function AdminPage() {
-  return <DashboardView role="admin" />;
+export default async function AdminPage() {
+  const works = await prisma.work.findMany({
+    select: {
+      id: true,
+      name: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+  });
+
+  return <DashboardView role="admin" works={works} />;
 }

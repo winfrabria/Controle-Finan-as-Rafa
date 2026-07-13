@@ -18,6 +18,8 @@ export function toNoteVisualItems(items: NoteListItem[]) {
         ? "OK"
         : item.classification === "SUSPICIOUS"
           ? "Suspeita"
+          : item.classification === "NO_PARAMETER"
+            ? "Sem parâmetro"
           : "Em análise",
     date: dateFormatter.format(item.issuedAt ?? item.createdAt),
     finding: item.primaryFinding ?? undefined,
@@ -27,6 +29,7 @@ export function toNoteVisualItems(items: NoteListItem[]) {
     value: item.totalAmount
       ? moneyFormatter.format(Number(item.totalAmount))
       : "—",
+    version: item.version,
     work: item.workName,
   }));
 }

@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Icon } from "./ui-icons";
-import { PageIntro, PortalShell, StatusBadge } from "./portal-shell";
+import {
+  PageIntro,
+  PortalShell,
+  StatusBadge,
+  type PortalRole,
+} from "./portal-shell";
 import { ValidationDecisionForm } from "./validation-decision-form";
 import styles from "./validation-workspace.module.css";
 
@@ -16,6 +21,7 @@ export type ValidationQueueItem = {
   number: string;
   supplier: string;
   value: string;
+  version: number;
   work?: string;
   workId?: string;
 };
@@ -32,14 +38,18 @@ export type ValidationMeta = {
   works: Array<{ id: string; name: string }>;
 };
 
-function pageHref(page: number, filters: ValidationMeta["filters"]) {
+function pageHref(
+  page: number,
+  filters: ValidationMeta["filters"],
+  basePath: string,
+) {
   const params = new URLSearchParams();
   if (filters.obra) params.set("obra", filters.obra);
   if (filters.dataDe) params.set("dataDe", filters.dataDe);
   if (filters.dataAte) params.set("dataAte", filters.dataAte);
   if (page > 1) params.set("pagina", String(page));
   const query = params.toString();
-  return query ? `/revisao/validacoes?${query}` : "/revisao/validacoes";
+  return query ? `${basePath}/validacoes?${query}` : `${basePath}/validacoes`;
 }
 
 function visiblePages(page: number, pageCount: number) {
@@ -96,6 +106,7 @@ function createDemoItems(
         currency: "BRL",
         style: "currency",
       }),
+      version: 1,
       work: work.name,
       workId: work.id,
     };
@@ -107,13 +118,17 @@ function toIsoDate(value: string) {
   return `${year}-${month}-${day}`;
 }
 
-export function ReviewerValidationWorkspace({
+export function ValidationWorkspace({
   items,
   meta,
+  role,
 }: {
   items: ValidationQueueItem[];
   meta: ValidationMeta;
+  role: PortalRole;
 }) {
+  const isReviewer = role === "reviewer";
+  const basePath = role === "admin" ? "/admin" : "/revisao";
   const isDemo = meta.total === 0 && items.length === 0;
   const availableWorks = meta.works.length > 0 ? meta.works : demoWorks;
   const demoItems = useMemo(
@@ -135,36 +150,43 @@ export function ReviewerValidationWorkspace({
   const displayTotal = isDemo ? demoFiltered.length : meta.total;
   const displayPageCount = Math.max(1, Math.ceil(displayTotal / 10));
   const displayPage = Math.min(meta.page, displayPageCount);
-  const suspiciousItems = useMemo(() => {
+  const queueItems = useMemo(() => {
     if (isDemo) {
       const start = (displayPage - 1) * 10;
       return demoFiltered.slice(start, start + 10);
     }
-    return items.filter((item) => item.classification === "Suspeita");
-  }, [demoFiltered, displayPage, isDemo, items]);
+    return isReviewer
+      ? items.filter((item) => item.classification === "Suspeita")
+      : items;
+  }, [demoFiltered, displayPage, isDemo, isReviewer, items]);
   const [selectedId, setSelectedId] = useState<string | null>(
-    suspiciousItems[0]?.id ?? null,
+    queueItems[0]?.id ?? null,
   );
   const [showFilters, setShowFilters] = useState(false);
   const selected =
-    suspiciousItems.find((item) => item.id === selectedId) ??
-    suspiciousItems[0];
+    queueItems.find((item) => item.id === selectedId) ?? queueItems[0];
   const pages = visiblePages(displayPage, displayPageCount);
   const rangeStart = displayTotal === 0 ? 0 : (displayPage - 1) * 10 + 1;
   const rangeEnd = Math.min(displayPage * 10, displayTotal);
 
   return (
-    <PortalShell active="validacoes" role="reviewer">
+    <PortalShell active="validacoes" role={role}>
       <PageIntro
         title="Validações"
-        description="Revise e classifique as notas fiscais suspeitas que aguardam sua validação."
+        description={
+          isReviewer
+            ? "Revise e classifique as notas fiscais suspeitas que aguardam sua validação."
+            : "Acompanhe a fila, as evidências e as decisões registradas pelo revisor."
+        }
       />
 
       <section className={styles.layout}>
         <article className={styles.queuePanel} id="validation-queue">
           <header className={styles.panelHeader}>
             <h2>
-              Notas aguardando validação
+              {isReviewer
+                ? "Notas aguardando validação"
+                : "Validações em acompanhamento"}
               <span>{displayTotal}</span>
               {isDemo ? (
                 <small className={styles.demoBadge}>Demonstração</small>
@@ -210,7 +232,7 @@ export function ReviewerValidationWorkspace({
                 />
               </label>
               <div className={styles.filterActions}>
-                <Link href="/revisao/validacoes">Limpar</Link>
+                <Link href={`${basePath}/validacoes`}>Limpar</Link>
                 <button type="submit">Aplicar filtros</button>
               </div>
             </form>
@@ -229,7 +251,7 @@ export function ReviewerValidationWorkspace({
                 </tr>
               </thead>
               <tbody>
-                {suspiciousItems.map((note, index) => (
+                {queueItems.map((note, index) => (
                   <tr
                     key={note.id}
                     className={
@@ -264,7 +286,9 @@ export function ReviewerValidationWorkspace({
                     <td className={styles.money}>{note.value}</td>
                     <td>{note.date}</td>
                     <td>
-                      <span className={styles.queueStatus}>Suspeita</span>
+                      <span className={styles.queueStatus}>
+                        {note.classification}
+                      </span>
                     </td>
                     <td>
                       <Icon name="chevron" />
@@ -275,11 +299,49 @@ export function ReviewerValidationWorkspace({
             </table>
           </div>
 
-          {suspiciousItems.length === 0 ? (
+          <div className={styles.mobileQueue} aria-label="Fila de validações">
+            {queueItems.map((note, index) => (
+              <button
+                key={note.id}
+                type="button"
+                data-selected={note.id === selected?.id}
+                onClick={() => setSelectedId(note.id)}
+              >
+                <span
+                  className={
+                    index % 3 === 0 ? styles.dangerIcon : styles.warningIcon
+                  }
+                >
+                  <Icon name="warning" />
+                </span>
+                <span className={styles.mobileQueueMain}>
+                  <strong>{note.supplier}</strong>
+                  <small>
+                    NF {note.number} · {note.date}
+                  </small>
+                </span>
+                <span className={styles.mobileQueueValue}>
+                  <strong>{note.value}</strong>
+                  <small>{note.classification}</small>
+                </span>
+                <Icon name="chevron" />
+              </button>
+            ))}
+          </div>
+
+          {queueItems.length === 0 ? (
             <div className={styles.emptyState}>
               <Icon name="check" />
-              <strong>Nenhuma nota suspeita aguardando validação</strong>
-              <p>A fila está em dia para os filtros selecionados.</p>
+              <strong>
+                {isReviewer
+                  ? "Nenhuma nota suspeita aguardando validação"
+                  : "Nenhuma validação encontrada"}
+              </strong>
+              <p>
+                {isReviewer
+                  ? "A fila está em dia para os filtros selecionados."
+                  : "Ajuste os filtros para consultar outro período."}
+              </p>
             </div>
           ) : null}
 
@@ -291,7 +353,11 @@ export function ReviewerValidationWorkspace({
               <Link
                 aria-disabled={displayPage === 1}
                 className={displayPage === 1 ? styles.disabledPage : undefined}
-                href={pageHref(Math.max(1, displayPage - 1), meta.filters)}
+                href={pageHref(
+                  Math.max(1, displayPage - 1),
+                  meta.filters,
+                  basePath,
+                )}
               >
                 ‹
               </Link>
@@ -302,7 +368,7 @@ export function ReviewerValidationWorkspace({
                     className={
                       page === displayPage ? styles.activePage : undefined
                     }
-                    href={pageHref(page, meta.filters)}
+                    href={pageHref(page, meta.filters, basePath)}
                   >
                     {page}
                   </Link>
@@ -318,6 +384,7 @@ export function ReviewerValidationWorkspace({
                 href={pageHref(
                   Math.min(displayPageCount, displayPage + 1),
                   meta.filters,
+                  basePath,
                 )}
               >
                 ›
@@ -375,16 +442,31 @@ export function ReviewerValidationWorkspace({
                 </p>
               </section>
 
-              <ValidationDecisionForm
-                key={selected.id}
-                isDemo={isDemo}
-                noteId={selected.id}
-                onCancel={() => {
-                  const queue = document.getElementById("validation-queue");
-                  queue?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  queue?.querySelector<HTMLButtonElement>("button")?.focus();
-                }}
-              />
+              {isReviewer ? (
+                <ValidationDecisionForm
+                  key={selected.id}
+                  isDemo={isDemo}
+                  noteId={selected.id}
+                  noteVersion={selected.version}
+                  onCancel={() => {
+                    const queue = document.getElementById("validation-queue");
+                    queue?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    queue?.querySelector<HTMLButtonElement>("button")?.focus();
+                  }}
+                />
+              ) : (
+                <section className={styles.adminReadOnly}>
+                  <span><Icon name="lock" /></span>
+                  <div>
+                    <h3>Acompanhamento somente leitura</h3>
+                    <p>
+                      A decisão, o motivo e o comentário do revisor ficam
+                      disponíveis no detalhe e no histórico da nota.
+                    </p>
+                  </div>
+                  <Link href={`/notas/${selected.id}`}>Abrir detalhe</Link>
+                </section>
+              )}
             </div>
           ) : (
             <div className={styles.detailEmpty}>
@@ -398,3 +480,5 @@ export function ReviewerValidationWorkspace({
     </PortalShell>
   );
 }
+
+export const ReviewerValidationWorkspace = ValidationWorkspace;

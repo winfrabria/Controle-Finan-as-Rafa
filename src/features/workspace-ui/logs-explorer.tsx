@@ -7,95 +7,33 @@ import { Icon } from "./ui-icons";
 import { StatusBadge } from "./portal-shell";
 import styles from "./workspace-ui.module.css";
 
-type LogClassification = "OK" | "Suspeita" | "Incompatível" | "Processamento";
+export type LogClassification = "OK" | "Suspeita" | "Incompatível" | "Processamento";
 
-type AuditLog = {
+export type AuditLog = {
   id: string;
   at: string;
+  dateIso: string;
   user: string;
   noteNumber: string;
+  noteId?: string;
   action: string;
   classification: LogClassification;
   reason: string;
   work: string;
   status: string;
   comment: string;
+  technical?: {
+    costUsd?: string;
+    error?: string;
+    effort?: string;
+    latencyMs?: number;
+    model?: string;
+    policyVersion?: string;
+    promptVersion?: string;
+    response?: string;
+    tokens?: number;
+  };
 };
-
-const logs: AuditLog[] = [
-  {
-    id: "LOG-20240528-0012487",
-    at: "28/05/2024 10:35:42",
-    user: "Rafael",
-    noteNumber: "00012589",
-    action: "Rafael marcou como Suspeita",
-    classification: "Suspeita",
-    reason: "Divergência de quantidade e/ou valor",
-    work: "Projeto Piloto HWN – Alphaville",
-    status: "Revisada",
-    comment: "A quantidade executada informada está acima do medido em campo.",
-  },
-  {
-    id: "LOG-20240528-0012486",
-    at: "28/05/2024 09:18:11",
-    user: "Rafael",
-    noteNumber: "00012560",
-    action: "Rafael marcou como OK",
-    classification: "OK",
-    reason: "Valores de acordo com contrato",
-    work: "Edifício Aurora",
-    status: "Revisada",
-    comment: "Documento conferido e aprovado.",
-  },
-  {
-    id: "LOG-20240527-0012485",
-    at: "27/05/2024 16:43:09",
-    user: "Rafael",
-    noteNumber: "00012541",
-    action: "Rafael manteve a suspeita da IA",
-    classification: "Suspeita",
-    reason: "Material não previsto no contrato",
-    work: "Hospital Central",
-    status: "Revisada",
-    comment: "Item não consta no contrato vigente da obra.",
-  },
-  {
-    id: "LOG-20240527-0012484",
-    at: "27/05/2024 15:42:33",
-    user: "Sistema",
-    noteNumber: "00012543",
-    action: "Nota recebida e processada pela IA",
-    classification: "OK",
-    reason: "Nenhuma inconsistência material encontrada",
-    work: "Hospital Central",
-    status: "Processada",
-    comment: "Extração concluída com confiança de 98%.",
-  },
-  {
-    id: "LOG-20240527-0012483",
-    at: "27/05/2024 14:22:33",
-    user: "Sistema",
-    noteNumber: "Sem número",
-    action: "Leitura automática não concluída",
-    classification: "Incompatível",
-    reason: "Documento ilegível ou sem campos fiscais suficientes",
-    work: "Viaduto Norte",
-    status: "Falha de leitura",
-    comment: "O arquivo precisa ser reenviado com melhor resolução.",
-  },
-  {
-    id: "LOG-20240526-0012482",
-    at: "26/05/2024 11:07:58",
-    user: "Sistema",
-    noteNumber: "00012510",
-    action: "Nota enviada para análise",
-    classification: "Processamento",
-    reason: "Aguardando extração e aplicação das regras",
-    work: "Complexo Industrial",
-    status: "Em processamento",
-    comment: "Arquivo validado e armazenado com segurança.",
-  },
-];
 
 function tone(classification: LogClassification) {
   if (classification === "OK") return "ok" as const;
@@ -104,14 +42,14 @@ function tone(classification: LogClassification) {
   return "warning" as const;
 }
 
-export function LogsExplorer() {
-  const [selectedId, setSelectedId] = useState(logs[0].id);
+export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
+  const [selectedId, setSelectedId] = useState(logs[0]?.id ?? "");
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [user, setUser] = useState("");
   const [work, setWork] = useState("");
   const [classification, setClassification] = useState("");
-  const [startDate, setStartDate] = useState("2024-05-01");
-  const [endDate, setEndDate] = useState("2024-05-31");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const filtered = useMemo(
     () =>
@@ -119,24 +57,36 @@ export function LogsExplorer() {
         (log) =>
           (!user || log.user === user) &&
           (!work || log.work === work) &&
-          (!classification || log.classification === classification),
+          (!classification || log.classification === classification) &&
+          (!startDate || log.dateIso >= startDate) &&
+          (!endDate || log.dateIso <= endDate),
       ),
-    [classification, user, work],
+    [classification, endDate, logs, startDate, user, work],
   );
   const selected =
-    filtered.find((log) => log.id === selectedId) ?? filtered[0] ?? logs[0];
+    filtered.find((log) => log.id === selectedId) ?? filtered[0];
 
   function clearFilters() {
     setUser("");
     setWork("");
     setClassification("");
-    setStartDate("2024-05-01");
-    setEndDate("2024-05-31");
+    setStartDate("");
+    setEndDate("");
   }
 
   function selectLog(id: string) {
     setSelectedId(id);
     setMobileDetailOpen(true);
+  }
+
+  if (!selected) {
+    return (
+      <section className={styles.emptyState}>
+        <Icon name="document" />
+        <h2>Nenhum log encontrado</h2>
+        <p>Os eventos reais de processamento, IA e validação aparecerão aqui.</p>
+      </section>
+    );
   }
 
   return (
@@ -332,8 +282,8 @@ export function LogsExplorer() {
         <p className={styles.comment}>{selected.comment}</p>
         <h3>Motivo da classificação</h3>
         <p className={styles.comment}>{selected.reason}</p>
-        {selected.noteNumber !== "Sem número" ? (
-          <Link className={styles.logNoteLink} href="/notas/demo-00012589">
+        {selected.noteId ? (
+          <Link className={styles.logNoteLink} href={`/notas/${selected.noteId}`}>
             Abrir detalhe da nota <Icon name="chevron" />
           </Link>
         ) : null}
@@ -347,6 +297,24 @@ export function LogsExplorer() {
             <b>Etapa anterior</b>Nota recebida pelo sistema
           </li>
         </ol>
+        {selected.technical ? (
+          <>
+            <h3>Execução técnica</h3>
+            <dl>
+              {selected.technical.model ? <div><dt>Modelo</dt><dd>{selected.technical.model}</dd></div> : null}
+              {selected.technical.effort ? <div><dt>Esforço</dt><dd>{selected.technical.effort}</dd></div> : null}
+              {selected.technical.tokens !== undefined ? <div><dt>Tokens</dt><dd>{selected.technical.tokens}</dd></div> : null}
+              {selected.technical.costUsd ? <div><dt>Custo</dt><dd>US$ {selected.technical.costUsd}</dd></div> : null}
+              {selected.technical.latencyMs !== undefined ? <div><dt>Latência</dt><dd>{selected.technical.latencyMs} ms</dd></div> : null}
+              {selected.technical.policyVersion ? <div><dt>Política</dt><dd>{selected.technical.policyVersion}</dd></div> : null}
+              {selected.technical.promptVersion ? <div><dt>Prompt</dt><dd>{selected.technical.promptVersion}</dd></div> : null}
+              {selected.technical.error ? <div><dt>Falha segura</dt><dd>{selected.technical.error}</dd></div> : null}
+            </dl>
+            {selected.technical.response ? (
+              <><h3>Resposta estruturada</h3><p className={styles.comment}>{selected.technical.response}</p></>
+            ) : null}
+          </>
+        ) : null}
         <small className={styles.logId}>ID do log: {selected.id}</small>
       </aside>
     </section>

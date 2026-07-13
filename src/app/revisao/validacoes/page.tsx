@@ -3,7 +3,7 @@ import {
   parseNoteListFilters,
 } from "@/features/internal-notes/note-list-query";
 import { toNoteVisualItems } from "@/features/workspace-ui/note-visual-data";
-import { ReviewerValidationWorkspace } from "@/features/workspace-ui/validation-workspace";
+import { ValidationWorkspace } from "@/features/workspace-ui/validation-workspace";
 import { NoteClassification } from "@/generated/prisma/enums";
 
 type PageProps = {
@@ -22,8 +22,9 @@ export default async function ReviewerValidationsPage({
     { validationOnly: true },
   );
   return (
-    <ReviewerValidationWorkspace
+    <ValidationWorkspace
       items={toNoteVisualItems(result.items)}
+      role="reviewer"
       meta={{
         filters: {
           dataAte: filters.dataAte,

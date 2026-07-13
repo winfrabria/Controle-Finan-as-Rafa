@@ -54,6 +54,18 @@ export function ShellControls({
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [readNotifications, setReadNotifications] = useState<string[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setIsMounted(true);
+      try {
+        const saved = sessionStorage.getItem("winfrabr-read-notifications");
+        if (saved) setReadNotifications(JSON.parse(saved));
+      } catch {}
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
   const isAdmin = role === "admin";
   const displayName = isAdmin ? "Administrador WinfraBR" : "Rafael";
   const roleName = isAdmin ? "Administrador" : "Gerente Financeiro";
@@ -220,12 +232,26 @@ export function ShellControls({
   };
 
   const openNotification = (notification: Notification) => {
-    setReadNotifications((current) =>
-      current.includes(notification.id)
+    setReadNotifications((current) => {
+      const next = current.includes(notification.id)
         ? current
-        : [...current, notification.id],
-    );
+        : [...current, notification.id];
+      sessionStorage.setItem(
+        "winfrabr-read-notifications",
+        JSON.stringify(next),
+      );
+      return next;
+    });
     setOpenPanel(null);
+  };
+
+  const markAllRead = () => {
+    const allIds = notifications.map((n) => n.id);
+    setReadNotifications(allIds);
+    sessionStorage.setItem(
+      "winfrabr-read-notifications",
+      JSON.stringify(allIds),
+    );
   };
 
   return (
@@ -290,7 +316,7 @@ export function ShellControls({
             type="button"
           >
             <Icon name="bell" />
-            {unreadCount ? <b>{unreadCount}</b> : null}
+            {isMounted && unreadCount > 0 ? <b>{unreadCount}</b> : null}
           </button>
           {openPanel === "notifications" ? (
             <section className={styles.dropdown} aria-label="Notificações">
@@ -299,14 +325,7 @@ export function ShellControls({
                   <strong>Notificações</strong>
                   <small>{unreadCount} não lidas</small>
                 </div>
-                <button
-                  onClick={() =>
-                    setReadNotifications(
-                      notifications.map((notification) => notification.id),
-                    )
-                  }
-                  type="button"
-                >
+                <button onClick={markAllRead} type="button">
                   Marcar como lidas
                 </button>
               </header>

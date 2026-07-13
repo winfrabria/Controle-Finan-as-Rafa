@@ -33,6 +33,7 @@ export type NoteListItem = {
   status: NoteStatus;
   supplierName: string | null;
   totalAmount: string | null;
+  version: number;
   workName: string;
 };
 
@@ -149,6 +150,7 @@ export async function listNotes(
         status: true,
         supplierName: true,
         totalAmount: true,
+        version: true,
         work: { select: { name: true } },
       },
     }),
@@ -170,6 +172,7 @@ export async function listNotes(
     status: note.status,
     supplierName: note.supplierName,
     totalAmount: note.totalAmount?.toFixed(2) ?? null,
+    version: note.version,
     workName: note.work.name,
   }));
 

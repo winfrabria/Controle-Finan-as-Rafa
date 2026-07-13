@@ -157,8 +157,8 @@ export function NoteAnalysisExplorer({
       </article>
 
       <aside className={styles.analysisAside}>
-        <section>
-          <h2>Trecho da DANFE (evidência)</h2>
+        <details className={styles.analysisAccordion} open>
+          <summary><h2>Trecho da DANFE (evidência)</h2></summary>
           <p>Exibição do item relacionado ao apontamento selecionado.</p>
           <div className={styles.danfeExcerpt}>
             <table>
@@ -189,10 +189,10 @@ export function NoteAnalysisExplorer({
               </tbody>
             </table>
           </div>
-        </section>
+        </details>
 
-        <section>
-          <h2>Fontes consultadas</h2>
+        <details className={styles.analysisAccordion} open>
+          <summary><h2>Fontes consultadas</h2></summary>
           <ul className={styles.sourceList}>
             {allSources.slice(0, 6).map((source) => (
               <li key={`${source.kind}:${source.label}:${source.url ?? ""}`}>
@@ -207,10 +207,10 @@ export function NoteAnalysisExplorer({
               </li>
             ))}
           </ul>
-        </section>
+        </details>
 
-        <section>
-          <h2>Limitações da análise</h2>
+        <details className={styles.analysisAccordion} open>
+          <summary><h2>Limitações da análise</h2></summary>
           <ul className={styles.limitationsList}>
             <li>
               A análise considera as informações disponíveis na nota e as referências
@@ -224,7 +224,7 @@ export function NoteAnalysisExplorer({
               A IA não substitui a análise humana; a decisão final pertence ao revisor.
             </li>
           </ul>
-        </section>
+        </details>
       </aside>
     </div>
   );
@@ -240,12 +240,12 @@ function FindingSection({
   title: string;
 }) {
   return (
-    <section className={styles.findingSection}>
-      <Icon name={icon} />
-      <div>
+    <details className={styles.findingSection} open>
+      <summary>
+        <Icon name={icon} />
         <h3>{title}</h3>
-        <p>{children}</p>
-      </div>
-    </section>
+      </summary>
+      <p>{children}</p>
+    </details>
   );
 }

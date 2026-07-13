@@ -8,7 +8,7 @@
   color: var(--navy);
   display: grid;
   font-family: var(--font-inter), Inter, Arial, sans-serif;
-  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-columns: 184px minmax(0, 1fr);
   min-height: 100vh;
 }
 .portal * {
@@ -512,7 +512,7 @@
 .dataTable th {
   background: #fbfcfe;
   color: #34476b;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   padding: 12px 18px;
   text-align: left;
@@ -581,9 +581,6 @@
   color: var(--blue);
 }
 @media (max-width: 1100px) {
-  .portal {
-    grid-template-columns: 190px minmax(0, 1fr);
-  }
   .metrics,
   .metricsAdmin {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -598,10 +595,172 @@
     width: 45%;
   }
 }
+
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .portal {
+    grid-template-columns: 168px minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .portal {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .side {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .brandLink {
+    display: flex;
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .brandLink > span > span:last-child,
+  .sideNav a span {
+    display: none;
+  }
+
+  .sideNav a {
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  .portal {
+    display: block;
+    padding-bottom: 64px;
+  }
+
+  .side {
+    display: none;
+  }
+
+  .workspace {
+    min-height: 100vh;
+  }
+
+  .topbar {
+    height: 64px;
+    padding: 0 16px;
+  }
+
+  .mobileBrand {
+    display: block;
+  }
+
+  .portalContent {
+    padding: 18px 16px 24px;
+  }
+
+  .portalFooter {
+    display: none;
+  }
+
+  .mobileNav {
+    background: #fff;
+    border-top: 1px solid var(--line);
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    height: 64px;
+    left: 0;
+    position: fixed;
+    right: 0;
+    z-index: 30;
+  }
+
+  .mobileNav > a,
+  .mobileMore > summary {
+    align-items: center;
+    color: #4c6188;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    font-size: 11px;
+    gap: 3px;
+    justify-content: center;
+    text-decoration: none;
+  }
+
+  .mobileMore {
+    min-width: 0;
+    position: relative;
+  }
+
+  .mobileMore > summary {
+    height: 100%;
+    list-style: none;
+  }
+
+  .mobileMore > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobileMoreMenu {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    bottom: 72px;
+    box-shadow: 0 14px 34px rgb(15 34 73 / 18%);
+    display: grid;
+    gap: 4px;
+    min-width: 210px;
+    padding: 8px;
+    position: absolute;
+    right: 8px;
+  }
+
+  .mobileMoreMenu a,
+  .mobileMoreDisabled {
+    align-items: center;
+    border-radius: 10px;
+    color: #263e67;
+    display: flex;
+    flex-direction: row;
+    font-size: 13px;
+    gap: 10px;
+    justify-content: flex-start;
+    min-height: 44px;
+    padding: 9px 11px;
+    text-decoration: none;
+  }
+
+  .mobileMoreMenu a:hover,
+  .mobileMoreActive {
+    background: #edf4ff;
+    color: var(--blue);
+  }
+
+  .mobileMoreDisabled {
+    color: #8593aa;
+    justify-content: space-between;
+  }
+
+  .mobileMoreDisabled small {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .mobileNav svg {
+    height: 22px;
+    width: 22px;
+  }
+
+  .mobileNav .mobileActive {
+    color: var(--blue);
+  }
+}
+
 @media (max-width: 760px) {
   .portal {
     display: block;
-    padding-bottom: 72px;
+    padding-bottom: 64px;
   }
   .side {
     display: none;
@@ -610,7 +769,7 @@
     min-height: 100vh;
   }
   .topbar {
-    height: 84px;
+    height: 60px;
     padding: 0 18px;
   }
   .mobileBrand {
@@ -651,13 +810,14 @@
     bottom: 0;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    height: 72px;
+    height: 64px;
     left: 0;
     position: fixed;
     right: 0;
     z-index: 30;
   }
-  .mobileNav a {
+  .mobileNav > a,
+  .mobileMore > summary {
     align-items: center;
     color: #4c6188;
     display: flex;
@@ -2040,7 +2200,7 @@
 .dataTable th {
   text-align: left;
   padding: 10px 14px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #64748b;
   border-bottom: 1px solid var(--line);

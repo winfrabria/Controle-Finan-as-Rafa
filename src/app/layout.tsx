@@ -8,8 +8,17 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Auditoria de Gastos HWN",
-  description: "MVP para envio e auditoria de notas fiscais.",
+  title: "WinfraBR",
+  description: "Auditoria inteligente de notas fiscais da construção.",
+  applicationName: "WinfraBR",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({
