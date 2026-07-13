@@ -60,6 +60,9 @@ export const ModelName = {
   RuleParameter: 'RuleParameter',
   Finding: 'Finding',
   Validation: 'Validation',
+  ProcessingJob: 'ProcessingJob',
+  AiRun: 'AiRun',
+  AdminAuditLog: 'AdminAuditLog',
   NoteEvent: 'NoteEvent',
   Notification: 'Notification',
   PushSubscription: 'PushSubscription'
@@ -212,6 +215,14 @@ export const FindingScalarFieldEnum = {
   severity: 'severity',
   status: 'status',
   needsValidation: 'needsValidation',
+  source: 'source',
+  confidence: 'confidence',
+  justification: 'justification',
+  references: 'references',
+  ruleVersion: 'ruleVersion',
+  isNovel: 'isNovel',
+  policyVersion: 'policyVersion',
+  aiRunId: 'aiRunId',
   evidence: 'evidence',
   expectedValue: 'expectedValue',
   actualValue: 'actualValue',
@@ -230,10 +241,82 @@ export const ValidationScalarFieldEnum = {
   decision: 'decision',
   reason: 'reason',
   comment: 'comment',
+  noteVersion: 'noteVersion',
+  policyVersion: 'policyVersion',
+  findingSnapshot: 'findingSnapshot',
+  aiRunId: 'aiRunId',
   createdAt: 'createdAt'
 } as const
 
 export type ValidationScalarFieldEnum = (typeof ValidationScalarFieldEnum)[keyof typeof ValidationScalarFieldEnum]
+
+
+export const ProcessingJobScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  type: 'type',
+  status: 'status',
+  idempotencyKey: 'idempotencyKey',
+  attempt: 'attempt',
+  maxAttempts: 'maxAttempts',
+  availableAt: 'availableAt',
+  lockedAt: 'lockedAt',
+  lockedBy: 'lockedBy',
+  lastErrorCode: 'lastErrorCode',
+  lastError: 'lastError',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ProcessingJobScalarFieldEnum = (typeof ProcessingJobScalarFieldEnum)[keyof typeof ProcessingJobScalarFieldEnum]
+
+
+export const AiRunScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  processingJobId: 'processingJobId',
+  kind: 'kind',
+  status: 'status',
+  idempotencyKey: 'idempotencyKey',
+  requestFingerprint: 'requestFingerprint',
+  policyVersion: 'policyVersion',
+  promptVersion: 'promptVersion',
+  schemaVersion: 'schemaVersion',
+  model: 'model',
+  provider: 'provider',
+  reasoningEffort: 'reasoningEffort',
+  attempts: 'attempts',
+  promptTokens: 'promptTokens',
+  completionTokens: 'completionTokens',
+  totalTokens: 'totalTokens',
+  costUsd: 'costUsd',
+  latencyMs: 'latencyMs',
+  structuredResponse: 'structuredResponse',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AiRunScalarFieldEnum = (typeof AiRunScalarFieldEnum)[keyof typeof AiRunScalarFieldEnum]
+
+
+export const AdminAuditLogScalarFieldEnum = {
+  id: 'id',
+  actorId: 'actorId',
+  actorEmail: 'actorEmail',
+  action: 'action',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  requestId: 'requestId',
+  data: 'data',
+  createdAt: 'createdAt'
+} as const
+
+export type AdminAuditLogScalarFieldEnum = (typeof AdminAuditLogScalarFieldEnum)[keyof typeof AdminAuditLogScalarFieldEnum]
 
 
 export const NoteEventScalarFieldEnum = {

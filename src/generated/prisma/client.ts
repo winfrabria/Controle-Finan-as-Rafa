@@ -87,6 +87,21 @@ export type Finding = Prisma.FindingModel
  */
 export type Validation = Prisma.ValidationModel
 /**
+ * Model ProcessingJob
+ * 
+ */
+export type ProcessingJob = Prisma.ProcessingJobModel
+/**
+ * Model AiRun
+ * 
+ */
+export type AiRun = Prisma.AiRunModel
+/**
+ * Model AdminAuditLog
+ * 
+ */
+export type AdminAuditLog = Prisma.AdminAuditLogModel
+/**
  * Model NoteEvent
  * 
  */

@@ -393,6 +393,9 @@ export const ModelName = {
   RuleParameter: 'RuleParameter',
   Finding: 'Finding',
   Validation: 'Validation',
+  ProcessingJob: 'ProcessingJob',
+  AiRun: 'AiRun',
+  AdminAuditLog: 'AdminAuditLog',
   NoteEvent: 'NoteEvent',
   Notification: 'Notification',
   PushSubscription: 'PushSubscription'
@@ -411,7 +414,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "profile" | "work" | "note" | "noteItem" | "auditParameter" | "auditRule" | "ruleParameter" | "finding" | "validation" | "noteEvent" | "notification" | "pushSubscription"
+    modelProps: "profile" | "work" | "note" | "noteItem" | "auditParameter" | "auditRule" | "ruleParameter" | "finding" | "validation" | "processingJob" | "aiRun" | "adminAuditLog" | "noteEvent" | "notification" | "pushSubscription"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1081,6 +1084,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ProcessingJob: {
+      payload: Prisma.$ProcessingJobPayload<ExtArgs>
+      fields: Prisma.ProcessingJobFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ProcessingJobFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ProcessingJobFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload>
+        }
+        findFirst: {
+          args: Prisma.ProcessingJobFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ProcessingJobFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload>
+        }
+        findMany: {
+          args: Prisma.ProcessingJobFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload>[]
+        }
+        create: {
+          args: Prisma.ProcessingJobCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload>
+        }
+        createMany: {
+          args: Prisma.ProcessingJobCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ProcessingJobCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload>[]
+        }
+        delete: {
+          args: Prisma.ProcessingJobDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload>
+        }
+        update: {
+          args: Prisma.ProcessingJobUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload>
+        }
+        deleteMany: {
+          args: Prisma.ProcessingJobDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ProcessingJobUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ProcessingJobUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload>[]
+        }
+        upsert: {
+          args: Prisma.ProcessingJobUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProcessingJobPayload>
+        }
+        aggregate: {
+          args: Prisma.ProcessingJobAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateProcessingJob>
+        }
+        groupBy: {
+          args: Prisma.ProcessingJobGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProcessingJobGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ProcessingJobCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProcessingJobCountAggregateOutputType> | number
+        }
+      }
+    }
+    AiRun: {
+      payload: Prisma.$AiRunPayload<ExtArgs>
+      fields: Prisma.AiRunFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AiRunFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AiRunFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload>
+        }
+        findFirst: {
+          args: Prisma.AiRunFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AiRunFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload>
+        }
+        findMany: {
+          args: Prisma.AiRunFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload>[]
+        }
+        create: {
+          args: Prisma.AiRunCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload>
+        }
+        createMany: {
+          args: Prisma.AiRunCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AiRunCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload>[]
+        }
+        delete: {
+          args: Prisma.AiRunDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload>
+        }
+        update: {
+          args: Prisma.AiRunUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload>
+        }
+        deleteMany: {
+          args: Prisma.AiRunDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AiRunUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AiRunUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload>[]
+        }
+        upsert: {
+          args: Prisma.AiRunUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AiRunPayload>
+        }
+        aggregate: {
+          args: Prisma.AiRunAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAiRun>
+        }
+        groupBy: {
+          args: Prisma.AiRunGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AiRunGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AiRunCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AiRunCountAggregateOutputType> | number
+        }
+      }
+    }
+    AdminAuditLog: {
+      payload: Prisma.$AdminAuditLogPayload<ExtArgs>
+      fields: Prisma.AdminAuditLogFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AdminAuditLogFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AdminAuditLogFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload>
+        }
+        findFirst: {
+          args: Prisma.AdminAuditLogFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AdminAuditLogFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload>
+        }
+        findMany: {
+          args: Prisma.AdminAuditLogFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload>[]
+        }
+        create: {
+          args: Prisma.AdminAuditLogCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload>
+        }
+        createMany: {
+          args: Prisma.AdminAuditLogCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AdminAuditLogCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload>[]
+        }
+        delete: {
+          args: Prisma.AdminAuditLogDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload>
+        }
+        update: {
+          args: Prisma.AdminAuditLogUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload>
+        }
+        deleteMany: {
+          args: Prisma.AdminAuditLogDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AdminAuditLogUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AdminAuditLogUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload>[]
+        }
+        upsert: {
+          args: Prisma.AdminAuditLogUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AdminAuditLogPayload>
+        }
+        aggregate: {
+          args: Prisma.AdminAuditLogAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAdminAuditLog>
+        }
+        groupBy: {
+          args: Prisma.AdminAuditLogGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AdminAuditLogGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AdminAuditLogCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AdminAuditLogCountAggregateOutputType> | number
+        }
+      }
+    }
     NoteEvent: {
       payload: Prisma.$NoteEventPayload<ExtArgs>
       fields: Prisma.NoteEventFieldRefs
@@ -1473,6 +1698,14 @@ export const FindingScalarFieldEnum = {
   severity: 'severity',
   status: 'status',
   needsValidation: 'needsValidation',
+  source: 'source',
+  confidence: 'confidence',
+  justification: 'justification',
+  references: 'references',
+  ruleVersion: 'ruleVersion',
+  isNovel: 'isNovel',
+  policyVersion: 'policyVersion',
+  aiRunId: 'aiRunId',
   evidence: 'evidence',
   expectedValue: 'expectedValue',
   actualValue: 'actualValue',
@@ -1491,10 +1724,82 @@ export const ValidationScalarFieldEnum = {
   decision: 'decision',
   reason: 'reason',
   comment: 'comment',
+  noteVersion: 'noteVersion',
+  policyVersion: 'policyVersion',
+  findingSnapshot: 'findingSnapshot',
+  aiRunId: 'aiRunId',
   createdAt: 'createdAt'
 } as const
 
 export type ValidationScalarFieldEnum = (typeof ValidationScalarFieldEnum)[keyof typeof ValidationScalarFieldEnum]
+
+
+export const ProcessingJobScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  type: 'type',
+  status: 'status',
+  idempotencyKey: 'idempotencyKey',
+  attempt: 'attempt',
+  maxAttempts: 'maxAttempts',
+  availableAt: 'availableAt',
+  lockedAt: 'lockedAt',
+  lockedBy: 'lockedBy',
+  lastErrorCode: 'lastErrorCode',
+  lastError: 'lastError',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ProcessingJobScalarFieldEnum = (typeof ProcessingJobScalarFieldEnum)[keyof typeof ProcessingJobScalarFieldEnum]
+
+
+export const AiRunScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  processingJobId: 'processingJobId',
+  kind: 'kind',
+  status: 'status',
+  idempotencyKey: 'idempotencyKey',
+  requestFingerprint: 'requestFingerprint',
+  policyVersion: 'policyVersion',
+  promptVersion: 'promptVersion',
+  schemaVersion: 'schemaVersion',
+  model: 'model',
+  provider: 'provider',
+  reasoningEffort: 'reasoningEffort',
+  attempts: 'attempts',
+  promptTokens: 'promptTokens',
+  completionTokens: 'completionTokens',
+  totalTokens: 'totalTokens',
+  costUsd: 'costUsd',
+  latencyMs: 'latencyMs',
+  structuredResponse: 'structuredResponse',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AiRunScalarFieldEnum = (typeof AiRunScalarFieldEnum)[keyof typeof AiRunScalarFieldEnum]
+
+
+export const AdminAuditLogScalarFieldEnum = {
+  id: 'id',
+  actorId: 'actorId',
+  actorEmail: 'actorEmail',
+  action: 'action',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  requestId: 'requestId',
+  data: 'data',
+  createdAt: 'createdAt'
+} as const
+
+export type AdminAuditLogScalarFieldEnum = (typeof AdminAuditLogScalarFieldEnum)[keyof typeof AdminAuditLogScalarFieldEnum]
 
 
 export const NoteEventScalarFieldEnum = {
@@ -1772,6 +2077,20 @@ export type ListEnumFindingStatusFieldRefInput<$PrismaModel> = FieldRefInputType
 
 
 /**
+ * Reference to a field of type 'FindingSource'
+ */
+export type EnumFindingSourceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FindingSource'>
+    
+
+
+/**
+ * Reference to a field of type 'FindingSource[]'
+ */
+export type ListEnumFindingSourceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FindingSource[]'>
+    
+
+
+/**
  * Reference to a field of type 'ValidationDecision'
  */
 export type EnumValidationDecisionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ValidationDecision'>
@@ -1782,6 +2101,76 @@ export type EnumValidationDecisionFieldRefInput<$PrismaModel> = FieldRefInputTyp
  * Reference to a field of type 'ValidationDecision[]'
  */
 export type ListEnumValidationDecisionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ValidationDecision[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ProcessingJobType'
+ */
+export type EnumProcessingJobTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProcessingJobType'>
+    
+
+
+/**
+ * Reference to a field of type 'ProcessingJobType[]'
+ */
+export type ListEnumProcessingJobTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProcessingJobType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ProcessingJobStatus'
+ */
+export type EnumProcessingJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProcessingJobStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ProcessingJobStatus[]'
+ */
+export type ListEnumProcessingJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProcessingJobStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AiRunKind'
+ */
+export type EnumAiRunKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AiRunKind'>
+    
+
+
+/**
+ * Reference to a field of type 'AiRunKind[]'
+ */
+export type ListEnumAiRunKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AiRunKind[]'>
+    
+
+
+/**
+ * Reference to a field of type 'AiRunStatus'
+ */
+export type EnumAiRunStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AiRunStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'AiRunStatus[]'
+ */
+export type ListEnumAiRunStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AiRunStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ReasoningEffort'
+ */
+export type EnumReasoningEffortFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ReasoningEffort'>
+    
+
+
+/**
+ * Reference to a field of type 'ReasoningEffort[]'
+ */
+export type ListEnumReasoningEffortFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ReasoningEffort[]'>
     
 
 
@@ -1931,6 +2320,9 @@ export type GlobalOmitConfig = {
   ruleParameter?: Prisma.RuleParameterOmit
   finding?: Prisma.FindingOmit
   validation?: Prisma.ValidationOmit
+  processingJob?: Prisma.ProcessingJobOmit
+  aiRun?: Prisma.AiRunOmit
+  adminAuditLog?: Prisma.AdminAuditLogOmit
   noteEvent?: Prisma.NoteEventOmit
   notification?: Prisma.NotificationOmit
   pushSubscription?: Prisma.PushSubscriptionOmit

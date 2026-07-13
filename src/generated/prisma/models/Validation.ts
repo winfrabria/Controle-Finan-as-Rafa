@@ -20,8 +20,18 @@ export type ValidationModel = runtime.Types.Result.DefaultSelection<Prisma.$Vali
 
 export type AggregateValidation = {
   _count: ValidationCountAggregateOutputType | null
+  _avg: ValidationAvgAggregateOutputType | null
+  _sum: ValidationSumAggregateOutputType | null
   _min: ValidationMinAggregateOutputType | null
   _max: ValidationMaxAggregateOutputType | null
+}
+
+export type ValidationAvgAggregateOutputType = {
+  noteVersion: number | null
+}
+
+export type ValidationSumAggregateOutputType = {
+  noteVersion: number | null
 }
 
 export type ValidationMinAggregateOutputType = {
@@ -32,6 +42,9 @@ export type ValidationMinAggregateOutputType = {
   decision: $Enums.ValidationDecision | null
   reason: string | null
   comment: string | null
+  noteVersion: number | null
+  policyVersion: string | null
+  aiRunId: string | null
   createdAt: Date | null
 }
 
@@ -43,6 +56,9 @@ export type ValidationMaxAggregateOutputType = {
   decision: $Enums.ValidationDecision | null
   reason: string | null
   comment: string | null
+  noteVersion: number | null
+  policyVersion: string | null
+  aiRunId: string | null
   createdAt: Date | null
 }
 
@@ -54,10 +70,22 @@ export type ValidationCountAggregateOutputType = {
   decision: number
   reason: number
   comment: number
+  noteVersion: number
+  policyVersion: number
+  findingSnapshot: number
+  aiRunId: number
   createdAt: number
   _all: number
 }
 
+
+export type ValidationAvgAggregateInputType = {
+  noteVersion?: true
+}
+
+export type ValidationSumAggregateInputType = {
+  noteVersion?: true
+}
 
 export type ValidationMinAggregateInputType = {
   id?: true
@@ -67,6 +95,9 @@ export type ValidationMinAggregateInputType = {
   decision?: true
   reason?: true
   comment?: true
+  noteVersion?: true
+  policyVersion?: true
+  aiRunId?: true
   createdAt?: true
 }
 
@@ -78,6 +109,9 @@ export type ValidationMaxAggregateInputType = {
   decision?: true
   reason?: true
   comment?: true
+  noteVersion?: true
+  policyVersion?: true
+  aiRunId?: true
   createdAt?: true
 }
 
@@ -89,6 +123,10 @@ export type ValidationCountAggregateInputType = {
   decision?: true
   reason?: true
   comment?: true
+  noteVersion?: true
+  policyVersion?: true
+  findingSnapshot?: true
+  aiRunId?: true
   createdAt?: true
   _all?: true
 }
@@ -131,6 +169,18 @@ export type ValidationAggregateArgs<ExtArgs extends runtime.Types.Extensions.Int
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: ValidationAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: ValidationSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: ValidationMinAggregateInputType
@@ -161,6 +211,8 @@ export type ValidationGroupByArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   _count?: ValidationCountAggregateInputType | true
+  _avg?: ValidationAvgAggregateInputType
+  _sum?: ValidationSumAggregateInputType
   _min?: ValidationMinAggregateInputType
   _max?: ValidationMaxAggregateInputType
 }
@@ -173,8 +225,14 @@ export type ValidationGroupByOutputType = {
   decision: $Enums.ValidationDecision
   reason: string
   comment: string | null
+  noteVersion: number
+  policyVersion: string | null
+  findingSnapshot: runtime.JsonValue | null
+  aiRunId: string | null
   createdAt: Date
   _count: ValidationCountAggregateOutputType | null
+  _avg: ValidationAvgAggregateOutputType | null
+  _sum: ValidationSumAggregateOutputType | null
   _min: ValidationMinAggregateOutputType | null
   _max: ValidationMaxAggregateOutputType | null
 }
@@ -205,10 +263,15 @@ export type ValidationWhereInput = {
   decision?: Prisma.EnumValidationDecisionFilter<"Validation"> | $Enums.ValidationDecision
   reason?: Prisma.StringFilter<"Validation"> | string
   comment?: Prisma.StringNullableFilter<"Validation"> | string | null
+  noteVersion?: Prisma.IntFilter<"Validation"> | number
+  policyVersion?: Prisma.StringNullableFilter<"Validation"> | string | null
+  findingSnapshot?: Prisma.JsonNullableFilter<"Validation">
+  aiRunId?: Prisma.UuidNullableFilter<"Validation"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Validation"> | Date | string
   note?: Prisma.XOR<Prisma.NoteScalarRelationFilter, Prisma.NoteWhereInput>
   finding?: Prisma.XOR<Prisma.FindingNullableScalarRelationFilter, Prisma.FindingWhereInput> | null
   validator?: Prisma.XOR<Prisma.ProfileScalarRelationFilter, Prisma.ProfileWhereInput>
+  aiRun?: Prisma.XOR<Prisma.AiRunNullableScalarRelationFilter, Prisma.AiRunWhereInput> | null
 }
 
 export type ValidationOrderByWithRelationInput = {
@@ -219,10 +282,15 @@ export type ValidationOrderByWithRelationInput = {
   decision?: Prisma.SortOrder
   reason?: Prisma.SortOrder
   comment?: Prisma.SortOrderInput | Prisma.SortOrder
+  noteVersion?: Prisma.SortOrder
+  policyVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  findingSnapshot?: Prisma.SortOrderInput | Prisma.SortOrder
+  aiRunId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   note?: Prisma.NoteOrderByWithRelationInput
   finding?: Prisma.FindingOrderByWithRelationInput
   validator?: Prisma.ProfileOrderByWithRelationInput
+  aiRun?: Prisma.AiRunOrderByWithRelationInput
 }
 
 export type ValidationWhereUniqueInput = Prisma.AtLeast<{
@@ -236,10 +304,15 @@ export type ValidationWhereUniqueInput = Prisma.AtLeast<{
   decision?: Prisma.EnumValidationDecisionFilter<"Validation"> | $Enums.ValidationDecision
   reason?: Prisma.StringFilter<"Validation"> | string
   comment?: Prisma.StringNullableFilter<"Validation"> | string | null
+  noteVersion?: Prisma.IntFilter<"Validation"> | number
+  policyVersion?: Prisma.StringNullableFilter<"Validation"> | string | null
+  findingSnapshot?: Prisma.JsonNullableFilter<"Validation">
+  aiRunId?: Prisma.UuidNullableFilter<"Validation"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Validation"> | Date | string
   note?: Prisma.XOR<Prisma.NoteScalarRelationFilter, Prisma.NoteWhereInput>
   finding?: Prisma.XOR<Prisma.FindingNullableScalarRelationFilter, Prisma.FindingWhereInput> | null
   validator?: Prisma.XOR<Prisma.ProfileScalarRelationFilter, Prisma.ProfileWhereInput>
+  aiRun?: Prisma.XOR<Prisma.AiRunNullableScalarRelationFilter, Prisma.AiRunWhereInput> | null
 }, "id">
 
 export type ValidationOrderByWithAggregationInput = {
@@ -250,10 +323,16 @@ export type ValidationOrderByWithAggregationInput = {
   decision?: Prisma.SortOrder
   reason?: Prisma.SortOrder
   comment?: Prisma.SortOrderInput | Prisma.SortOrder
+  noteVersion?: Prisma.SortOrder
+  policyVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  findingSnapshot?: Prisma.SortOrderInput | Prisma.SortOrder
+  aiRunId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.ValidationCountOrderByAggregateInput
+  _avg?: Prisma.ValidationAvgOrderByAggregateInput
   _max?: Prisma.ValidationMaxOrderByAggregateInput
   _min?: Prisma.ValidationMinOrderByAggregateInput
+  _sum?: Prisma.ValidationSumOrderByAggregateInput
 }
 
 export type ValidationScalarWhereWithAggregatesInput = {
@@ -267,6 +346,10 @@ export type ValidationScalarWhereWithAggregatesInput = {
   decision?: Prisma.EnumValidationDecisionWithAggregatesFilter<"Validation"> | $Enums.ValidationDecision
   reason?: Prisma.StringWithAggregatesFilter<"Validation"> | string
   comment?: Prisma.StringNullableWithAggregatesFilter<"Validation"> | string | null
+  noteVersion?: Prisma.IntWithAggregatesFilter<"Validation"> | number
+  policyVersion?: Prisma.StringNullableWithAggregatesFilter<"Validation"> | string | null
+  findingSnapshot?: Prisma.JsonNullableWithAggregatesFilter<"Validation">
+  aiRunId?: Prisma.UuidNullableWithAggregatesFilter<"Validation"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Validation"> | Date | string
 }
 
@@ -275,10 +358,14 @@ export type ValidationCreateInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   note: Prisma.NoteCreateNestedOneWithoutValidationsInput
   finding?: Prisma.FindingCreateNestedOneWithoutValidationsInput
   validator: Prisma.ProfileCreateNestedOneWithoutValidationsInput
+  aiRun?: Prisma.AiRunCreateNestedOneWithoutValidationsInput
 }
 
 export type ValidationUncheckedCreateInput = {
@@ -289,6 +376,10 @@ export type ValidationUncheckedCreateInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: string | null
   createdAt?: Date | string
 }
 
@@ -297,10 +388,14 @@ export type ValidationUpdateInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   note?: Prisma.NoteUpdateOneRequiredWithoutValidationsNestedInput
   finding?: Prisma.FindingUpdateOneWithoutValidationsNestedInput
   validator?: Prisma.ProfileUpdateOneRequiredWithoutValidationsNestedInput
+  aiRun?: Prisma.AiRunUpdateOneWithoutValidationsNestedInput
 }
 
 export type ValidationUncheckedUpdateInput = {
@@ -311,6 +406,10 @@ export type ValidationUncheckedUpdateInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -322,6 +421,10 @@ export type ValidationCreateManyInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: string | null
   createdAt?: Date | string
 }
 
@@ -330,6 +433,9 @@ export type ValidationUpdateManyMutationInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -341,6 +447,10 @@ export type ValidationUncheckedUpdateManyInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -362,7 +472,15 @@ export type ValidationCountOrderByAggregateInput = {
   decision?: Prisma.SortOrder
   reason?: Prisma.SortOrder
   comment?: Prisma.SortOrder
+  noteVersion?: Prisma.SortOrder
+  policyVersion?: Prisma.SortOrder
+  findingSnapshot?: Prisma.SortOrder
+  aiRunId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+}
+
+export type ValidationAvgOrderByAggregateInput = {
+  noteVersion?: Prisma.SortOrder
 }
 
 export type ValidationMaxOrderByAggregateInput = {
@@ -373,6 +491,9 @@ export type ValidationMaxOrderByAggregateInput = {
   decision?: Prisma.SortOrder
   reason?: Prisma.SortOrder
   comment?: Prisma.SortOrder
+  noteVersion?: Prisma.SortOrder
+  policyVersion?: Prisma.SortOrder
+  aiRunId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -384,7 +505,14 @@ export type ValidationMinOrderByAggregateInput = {
   decision?: Prisma.SortOrder
   reason?: Prisma.SortOrder
   comment?: Prisma.SortOrder
+  noteVersion?: Prisma.SortOrder
+  policyVersion?: Prisma.SortOrder
+  aiRunId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+}
+
+export type ValidationSumOrderByAggregateInput = {
+  noteVersion?: Prisma.SortOrder
 }
 
 export type ValidationCreateNestedManyWithoutValidatorInput = {
@@ -517,14 +645,60 @@ export type EnumValidationDecisionFieldUpdateOperationsInput = {
   set?: $Enums.ValidationDecision
 }
 
+export type ValidationCreateNestedManyWithoutAiRunInput = {
+  create?: Prisma.XOR<Prisma.ValidationCreateWithoutAiRunInput, Prisma.ValidationUncheckedCreateWithoutAiRunInput> | Prisma.ValidationCreateWithoutAiRunInput[] | Prisma.ValidationUncheckedCreateWithoutAiRunInput[]
+  connectOrCreate?: Prisma.ValidationCreateOrConnectWithoutAiRunInput | Prisma.ValidationCreateOrConnectWithoutAiRunInput[]
+  createMany?: Prisma.ValidationCreateManyAiRunInputEnvelope
+  connect?: Prisma.ValidationWhereUniqueInput | Prisma.ValidationWhereUniqueInput[]
+}
+
+export type ValidationUncheckedCreateNestedManyWithoutAiRunInput = {
+  create?: Prisma.XOR<Prisma.ValidationCreateWithoutAiRunInput, Prisma.ValidationUncheckedCreateWithoutAiRunInput> | Prisma.ValidationCreateWithoutAiRunInput[] | Prisma.ValidationUncheckedCreateWithoutAiRunInput[]
+  connectOrCreate?: Prisma.ValidationCreateOrConnectWithoutAiRunInput | Prisma.ValidationCreateOrConnectWithoutAiRunInput[]
+  createMany?: Prisma.ValidationCreateManyAiRunInputEnvelope
+  connect?: Prisma.ValidationWhereUniqueInput | Prisma.ValidationWhereUniqueInput[]
+}
+
+export type ValidationUpdateManyWithoutAiRunNestedInput = {
+  create?: Prisma.XOR<Prisma.ValidationCreateWithoutAiRunInput, Prisma.ValidationUncheckedCreateWithoutAiRunInput> | Prisma.ValidationCreateWithoutAiRunInput[] | Prisma.ValidationUncheckedCreateWithoutAiRunInput[]
+  connectOrCreate?: Prisma.ValidationCreateOrConnectWithoutAiRunInput | Prisma.ValidationCreateOrConnectWithoutAiRunInput[]
+  upsert?: Prisma.ValidationUpsertWithWhereUniqueWithoutAiRunInput | Prisma.ValidationUpsertWithWhereUniqueWithoutAiRunInput[]
+  createMany?: Prisma.ValidationCreateManyAiRunInputEnvelope
+  set?: Prisma.ValidationWhereUniqueInput | Prisma.ValidationWhereUniqueInput[]
+  disconnect?: Prisma.ValidationWhereUniqueInput | Prisma.ValidationWhereUniqueInput[]
+  delete?: Prisma.ValidationWhereUniqueInput | Prisma.ValidationWhereUniqueInput[]
+  connect?: Prisma.ValidationWhereUniqueInput | Prisma.ValidationWhereUniqueInput[]
+  update?: Prisma.ValidationUpdateWithWhereUniqueWithoutAiRunInput | Prisma.ValidationUpdateWithWhereUniqueWithoutAiRunInput[]
+  updateMany?: Prisma.ValidationUpdateManyWithWhereWithoutAiRunInput | Prisma.ValidationUpdateManyWithWhereWithoutAiRunInput[]
+  deleteMany?: Prisma.ValidationScalarWhereInput | Prisma.ValidationScalarWhereInput[]
+}
+
+export type ValidationUncheckedUpdateManyWithoutAiRunNestedInput = {
+  create?: Prisma.XOR<Prisma.ValidationCreateWithoutAiRunInput, Prisma.ValidationUncheckedCreateWithoutAiRunInput> | Prisma.ValidationCreateWithoutAiRunInput[] | Prisma.ValidationUncheckedCreateWithoutAiRunInput[]
+  connectOrCreate?: Prisma.ValidationCreateOrConnectWithoutAiRunInput | Prisma.ValidationCreateOrConnectWithoutAiRunInput[]
+  upsert?: Prisma.ValidationUpsertWithWhereUniqueWithoutAiRunInput | Prisma.ValidationUpsertWithWhereUniqueWithoutAiRunInput[]
+  createMany?: Prisma.ValidationCreateManyAiRunInputEnvelope
+  set?: Prisma.ValidationWhereUniqueInput | Prisma.ValidationWhereUniqueInput[]
+  disconnect?: Prisma.ValidationWhereUniqueInput | Prisma.ValidationWhereUniqueInput[]
+  delete?: Prisma.ValidationWhereUniqueInput | Prisma.ValidationWhereUniqueInput[]
+  connect?: Prisma.ValidationWhereUniqueInput | Prisma.ValidationWhereUniqueInput[]
+  update?: Prisma.ValidationUpdateWithWhereUniqueWithoutAiRunInput | Prisma.ValidationUpdateWithWhereUniqueWithoutAiRunInput[]
+  updateMany?: Prisma.ValidationUpdateManyWithWhereWithoutAiRunInput | Prisma.ValidationUpdateManyWithWhereWithoutAiRunInput[]
+  deleteMany?: Prisma.ValidationScalarWhereInput | Prisma.ValidationScalarWhereInput[]
+}
+
 export type ValidationCreateWithoutValidatorInput = {
   id?: string
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   note: Prisma.NoteCreateNestedOneWithoutValidationsInput
   finding?: Prisma.FindingCreateNestedOneWithoutValidationsInput
+  aiRun?: Prisma.AiRunCreateNestedOneWithoutValidationsInput
 }
 
 export type ValidationUncheckedCreateWithoutValidatorInput = {
@@ -534,6 +708,10 @@ export type ValidationUncheckedCreateWithoutValidatorInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: string | null
   createdAt?: Date | string
 }
 
@@ -574,6 +752,10 @@ export type ValidationScalarWhereInput = {
   decision?: Prisma.EnumValidationDecisionFilter<"Validation"> | $Enums.ValidationDecision
   reason?: Prisma.StringFilter<"Validation"> | string
   comment?: Prisma.StringNullableFilter<"Validation"> | string | null
+  noteVersion?: Prisma.IntFilter<"Validation"> | number
+  policyVersion?: Prisma.StringNullableFilter<"Validation"> | string | null
+  findingSnapshot?: Prisma.JsonNullableFilter<"Validation">
+  aiRunId?: Prisma.UuidNullableFilter<"Validation"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Validation"> | Date | string
 }
 
@@ -582,9 +764,13 @@ export type ValidationCreateWithoutNoteInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   finding?: Prisma.FindingCreateNestedOneWithoutValidationsInput
   validator: Prisma.ProfileCreateNestedOneWithoutValidationsInput
+  aiRun?: Prisma.AiRunCreateNestedOneWithoutValidationsInput
 }
 
 export type ValidationUncheckedCreateWithoutNoteInput = {
@@ -594,6 +780,10 @@ export type ValidationUncheckedCreateWithoutNoteInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: string | null
   createdAt?: Date | string
 }
 
@@ -628,9 +818,13 @@ export type ValidationCreateWithoutFindingInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   note: Prisma.NoteCreateNestedOneWithoutValidationsInput
   validator: Prisma.ProfileCreateNestedOneWithoutValidationsInput
+  aiRun?: Prisma.AiRunCreateNestedOneWithoutValidationsInput
 }
 
 export type ValidationUncheckedCreateWithoutFindingInput = {
@@ -640,6 +834,10 @@ export type ValidationUncheckedCreateWithoutFindingInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: string | null
   createdAt?: Date | string
 }
 
@@ -669,6 +867,60 @@ export type ValidationUpdateManyWithWhereWithoutFindingInput = {
   data: Prisma.XOR<Prisma.ValidationUpdateManyMutationInput, Prisma.ValidationUncheckedUpdateManyWithoutFindingInput>
 }
 
+export type ValidationCreateWithoutAiRunInput = {
+  id?: string
+  decision: $Enums.ValidationDecision
+  reason: string
+  comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  note: Prisma.NoteCreateNestedOneWithoutValidationsInput
+  finding?: Prisma.FindingCreateNestedOneWithoutValidationsInput
+  validator: Prisma.ProfileCreateNestedOneWithoutValidationsInput
+}
+
+export type ValidationUncheckedCreateWithoutAiRunInput = {
+  id?: string
+  noteId: string
+  findingId?: string | null
+  validatorId: string
+  decision: $Enums.ValidationDecision
+  reason: string
+  comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+}
+
+export type ValidationCreateOrConnectWithoutAiRunInput = {
+  where: Prisma.ValidationWhereUniqueInput
+  create: Prisma.XOR<Prisma.ValidationCreateWithoutAiRunInput, Prisma.ValidationUncheckedCreateWithoutAiRunInput>
+}
+
+export type ValidationCreateManyAiRunInputEnvelope = {
+  data: Prisma.ValidationCreateManyAiRunInput | Prisma.ValidationCreateManyAiRunInput[]
+  skipDuplicates?: boolean
+}
+
+export type ValidationUpsertWithWhereUniqueWithoutAiRunInput = {
+  where: Prisma.ValidationWhereUniqueInput
+  update: Prisma.XOR<Prisma.ValidationUpdateWithoutAiRunInput, Prisma.ValidationUncheckedUpdateWithoutAiRunInput>
+  create: Prisma.XOR<Prisma.ValidationCreateWithoutAiRunInput, Prisma.ValidationUncheckedCreateWithoutAiRunInput>
+}
+
+export type ValidationUpdateWithWhereUniqueWithoutAiRunInput = {
+  where: Prisma.ValidationWhereUniqueInput
+  data: Prisma.XOR<Prisma.ValidationUpdateWithoutAiRunInput, Prisma.ValidationUncheckedUpdateWithoutAiRunInput>
+}
+
+export type ValidationUpdateManyWithWhereWithoutAiRunInput = {
+  where: Prisma.ValidationScalarWhereInput
+  data: Prisma.XOR<Prisma.ValidationUpdateManyMutationInput, Prisma.ValidationUncheckedUpdateManyWithoutAiRunInput>
+}
+
 export type ValidationCreateManyValidatorInput = {
   id?: string
   noteId: string
@@ -676,6 +928,10 @@ export type ValidationCreateManyValidatorInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: string | null
   createdAt?: Date | string
 }
 
@@ -684,9 +940,13 @@ export type ValidationUpdateWithoutValidatorInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   note?: Prisma.NoteUpdateOneRequiredWithoutValidationsNestedInput
   finding?: Prisma.FindingUpdateOneWithoutValidationsNestedInput
+  aiRun?: Prisma.AiRunUpdateOneWithoutValidationsNestedInput
 }
 
 export type ValidationUncheckedUpdateWithoutValidatorInput = {
@@ -696,6 +956,10 @@ export type ValidationUncheckedUpdateWithoutValidatorInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -706,6 +970,10 @@ export type ValidationUncheckedUpdateManyWithoutValidatorInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -716,6 +984,10 @@ export type ValidationCreateManyNoteInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: string | null
   createdAt?: Date | string
 }
 
@@ -724,9 +996,13 @@ export type ValidationUpdateWithoutNoteInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   finding?: Prisma.FindingUpdateOneWithoutValidationsNestedInput
   validator?: Prisma.ProfileUpdateOneRequiredWithoutValidationsNestedInput
+  aiRun?: Prisma.AiRunUpdateOneWithoutValidationsNestedInput
 }
 
 export type ValidationUncheckedUpdateWithoutNoteInput = {
@@ -736,6 +1012,10 @@ export type ValidationUncheckedUpdateWithoutNoteInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -746,6 +1026,10 @@ export type ValidationUncheckedUpdateManyWithoutNoteInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -756,6 +1040,10 @@ export type ValidationCreateManyFindingInput = {
   decision: $Enums.ValidationDecision
   reason: string
   comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: string | null
   createdAt?: Date | string
 }
 
@@ -764,9 +1052,13 @@ export type ValidationUpdateWithoutFindingInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   note?: Prisma.NoteUpdateOneRequiredWithoutValidationsNestedInput
   validator?: Prisma.ProfileUpdateOneRequiredWithoutValidationsNestedInput
+  aiRun?: Prisma.AiRunUpdateOneWithoutValidationsNestedInput
 }
 
 export type ValidationUncheckedUpdateWithoutFindingInput = {
@@ -776,6 +1068,10 @@ export type ValidationUncheckedUpdateWithoutFindingInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -786,6 +1082,66 @@ export type ValidationUncheckedUpdateManyWithoutFindingInput = {
   decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
   reason?: Prisma.StringFieldUpdateOperationsInput | string
   comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ValidationCreateManyAiRunInput = {
+  id?: string
+  noteId: string
+  findingId?: string | null
+  validatorId: string
+  decision: $Enums.ValidationDecision
+  reason: string
+  comment?: string | null
+  noteVersion: number
+  policyVersion?: string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+}
+
+export type ValidationUpdateWithoutAiRunInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
+  reason?: Prisma.StringFieldUpdateOperationsInput | string
+  comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  note?: Prisma.NoteUpdateOneRequiredWithoutValidationsNestedInput
+  finding?: Prisma.FindingUpdateOneWithoutValidationsNestedInput
+  validator?: Prisma.ProfileUpdateOneRequiredWithoutValidationsNestedInput
+}
+
+export type ValidationUncheckedUpdateWithoutAiRunInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  noteId?: Prisma.StringFieldUpdateOperationsInput | string
+  findingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  validatorId?: Prisma.StringFieldUpdateOperationsInput | string
+  decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
+  reason?: Prisma.StringFieldUpdateOperationsInput | string
+  comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ValidationUncheckedUpdateManyWithoutAiRunInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  noteId?: Prisma.StringFieldUpdateOperationsInput | string
+  findingId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  validatorId?: Prisma.StringFieldUpdateOperationsInput | string
+  decision?: Prisma.EnumValidationDecisionFieldUpdateOperationsInput | $Enums.ValidationDecision
+  reason?: Prisma.StringFieldUpdateOperationsInput | string
+  comment?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  noteVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  policyVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  findingSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -799,10 +1155,15 @@ export type ValidationSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   decision?: boolean
   reason?: boolean
   comment?: boolean
+  noteVersion?: boolean
+  policyVersion?: boolean
+  findingSnapshot?: boolean
+  aiRunId?: boolean
   createdAt?: boolean
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   finding?: boolean | Prisma.Validation$findingArgs<ExtArgs>
   validator?: boolean | Prisma.ProfileDefaultArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Validation$aiRunArgs<ExtArgs>
 }, ExtArgs["result"]["validation"]>
 
 export type ValidationSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -813,10 +1174,15 @@ export type ValidationSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   decision?: boolean
   reason?: boolean
   comment?: boolean
+  noteVersion?: boolean
+  policyVersion?: boolean
+  findingSnapshot?: boolean
+  aiRunId?: boolean
   createdAt?: boolean
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   finding?: boolean | Prisma.Validation$findingArgs<ExtArgs>
   validator?: boolean | Prisma.ProfileDefaultArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Validation$aiRunArgs<ExtArgs>
 }, ExtArgs["result"]["validation"]>
 
 export type ValidationSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -827,10 +1193,15 @@ export type ValidationSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   decision?: boolean
   reason?: boolean
   comment?: boolean
+  noteVersion?: boolean
+  policyVersion?: boolean
+  findingSnapshot?: boolean
+  aiRunId?: boolean
   createdAt?: boolean
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   finding?: boolean | Prisma.Validation$findingArgs<ExtArgs>
   validator?: boolean | Prisma.ProfileDefaultArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Validation$aiRunArgs<ExtArgs>
 }, ExtArgs["result"]["validation"]>
 
 export type ValidationSelectScalar = {
@@ -841,24 +1212,31 @@ export type ValidationSelectScalar = {
   decision?: boolean
   reason?: boolean
   comment?: boolean
+  noteVersion?: boolean
+  policyVersion?: boolean
+  findingSnapshot?: boolean
+  aiRunId?: boolean
   createdAt?: boolean
 }
 
-export type ValidationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "noteId" | "findingId" | "validatorId" | "decision" | "reason" | "comment" | "createdAt", ExtArgs["result"]["validation"]>
+export type ValidationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "noteId" | "findingId" | "validatorId" | "decision" | "reason" | "comment" | "noteVersion" | "policyVersion" | "findingSnapshot" | "aiRunId" | "createdAt", ExtArgs["result"]["validation"]>
 export type ValidationInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   finding?: boolean | Prisma.Validation$findingArgs<ExtArgs>
   validator?: boolean | Prisma.ProfileDefaultArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Validation$aiRunArgs<ExtArgs>
 }
 export type ValidationIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   finding?: boolean | Prisma.Validation$findingArgs<ExtArgs>
   validator?: boolean | Prisma.ProfileDefaultArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Validation$aiRunArgs<ExtArgs>
 }
 export type ValidationIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   finding?: boolean | Prisma.Validation$findingArgs<ExtArgs>
   validator?: boolean | Prisma.ProfileDefaultArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Validation$aiRunArgs<ExtArgs>
 }
 
 export type $ValidationPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -867,6 +1245,7 @@ export type $ValidationPayload<ExtArgs extends runtime.Types.Extensions.Internal
     note: Prisma.$NotePayload<ExtArgs>
     finding: Prisma.$FindingPayload<ExtArgs> | null
     validator: Prisma.$ProfilePayload<ExtArgs>
+    aiRun: Prisma.$AiRunPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -876,6 +1255,10 @@ export type $ValidationPayload<ExtArgs extends runtime.Types.Extensions.Internal
     decision: $Enums.ValidationDecision
     reason: string
     comment: string | null
+    noteVersion: number
+    policyVersion: string | null
+    findingSnapshot: runtime.JsonValue | null
+    aiRunId: string | null
     createdAt: Date
   }, ExtArgs["result"]["validation"]>
   composites: {}
@@ -1274,6 +1657,7 @@ export interface Prisma__ValidationClient<T, Null = never, ExtArgs extends runti
   note<T extends Prisma.NoteDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.NoteDefaultArgs<ExtArgs>>): Prisma.Prisma__NoteClient<runtime.Types.Result.GetResult<Prisma.$NotePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   finding<T extends Prisma.Validation$findingArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Validation$findingArgs<ExtArgs>>): Prisma.Prisma__FindingClient<runtime.Types.Result.GetResult<Prisma.$FindingPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   validator<T extends Prisma.ProfileDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProfileDefaultArgs<ExtArgs>>): Prisma.Prisma__ProfileClient<runtime.Types.Result.GetResult<Prisma.$ProfilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  aiRun<T extends Prisma.Validation$aiRunArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Validation$aiRunArgs<ExtArgs>>): Prisma.Prisma__AiRunClient<runtime.Types.Result.GetResult<Prisma.$AiRunPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1310,6 +1694,10 @@ export interface ValidationFieldRefs {
   readonly decision: Prisma.FieldRef<"Validation", 'ValidationDecision'>
   readonly reason: Prisma.FieldRef<"Validation", 'String'>
   readonly comment: Prisma.FieldRef<"Validation", 'String'>
+  readonly noteVersion: Prisma.FieldRef<"Validation", 'Int'>
+  readonly policyVersion: Prisma.FieldRef<"Validation", 'String'>
+  readonly findingSnapshot: Prisma.FieldRef<"Validation", 'Json'>
+  readonly aiRunId: Prisma.FieldRef<"Validation", 'String'>
   readonly createdAt: Prisma.FieldRef<"Validation", 'DateTime'>
 }
     
@@ -1728,6 +2116,25 @@ export type Validation$findingArgs<ExtArgs extends runtime.Types.Extensions.Inte
    */
   include?: Prisma.FindingInclude<ExtArgs> | null
   where?: Prisma.FindingWhereInput
+}
+
+/**
+ * Validation.aiRun
+ */
+export type Validation$aiRunArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AiRun
+   */
+  select?: Prisma.AiRunSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AiRun
+   */
+  omit?: Prisma.AiRunOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AiRunInclude<ExtArgs> | null
+  where?: Prisma.AiRunWhereInput
 }
 
 /**

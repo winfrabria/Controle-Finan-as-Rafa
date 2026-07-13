@@ -1,7 +1,16 @@
 import "server-only";
 
-import { NoteStatus, ProcessingStage } from "@/generated/prisma/enums";
+import { createHash } from "node:crypto";
+
+import {
+  AiRunKind,
+  AiRunStatus,
+  NoteStatus,
+  ProcessingStage,
+  ReasoningEffort,
+} from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
+import { HARNESS_MODEL, HARNESS_VERSIONS } from "@/lib/audit-harness";
 import type { InvoiceExtraction } from "@/lib/integrations/openrouter/extraction-contract";
 import { prisma } from "@/server/db/prisma";
 import {
@@ -180,12 +189,20 @@ function toJsonValue(value: unknown) {
 }
 
 async function persistExtraction(input: {
+  aiRunId: string;
   attempts: number;
   claimedVersion: number;
   extraction: InvoiceExtraction;
   model: string;
   noteId: string;
   provider?: string;
+  usage?: {
+    completionTokens?: number;
+    costUsd?: number;
+    promptTokens?: number;
+    totalTokens?: number;
+  };
+  latencyMs: number;
 }) {
   return prisma.$transaction(async (transaction) => {
     const updated = await transaction.note.updateMany({
@@ -252,6 +269,28 @@ async function persistExtraction(input: {
       },
     });
 
+    await transaction.aiRun.update({
+      where: { id: input.aiRunId },
+      data: {
+        attempts: input.attempts,
+        completionTokens: input.usage?.completionTokens,
+        completedAt: new Date(),
+        costUsd: input.usage?.costUsd,
+        latencyMs: input.latencyMs,
+        model: input.model,
+        promptTokens: input.usage?.promptTokens,
+        provider: input.provider,
+        status: AiRunStatus.SUCCEEDED,
+        structuredResponse: toJsonValue({
+          documentNumber: input.extraction.documentNumber,
+          itemCount: input.extraction.items.length,
+          readConfidence: input.extraction.readConfidence,
+          warnings: input.extraction.warnings,
+        }),
+        totalTokens: input.usage?.totalTokens,
+      },
+    });
+
     return {
       id: input.noteId,
       itemCount: input.extraction.items.length,
@@ -264,9 +303,28 @@ async function persistExtraction(input: {
 
 export async function processNoteExtraction(
   noteId: string,
-  dependencies: { client?: InvoiceExtractionClient } = {},
+  dependencies: { client?: InvoiceExtractionClient; processingJobId?: string } = {},
 ) {
   const note = await claimNote(noteId);
+  const idempotencyKey = `extract:${dependencies.processingJobId ?? note.id}:${note.claimedVersion}`;
+  const aiRun = await prisma.aiRun.create({
+    data: {
+      idempotencyKey,
+      kind: AiRunKind.EXTRACTION,
+      model: HARNESS_MODEL,
+      noteId: note.id,
+      policyVersion: HARNESS_VERSIONS.policy,
+      processingJobId: dependencies.processingJobId,
+      promptVersion: HARNESS_VERSIONS.prompt,
+      reasoningEffort: ReasoningEffort.HIGH,
+      requestFingerprint: createHash("sha256")
+        .update(`${note.id}:${note.claimedVersion}:${note.originalFileName}`)
+        .digest("hex"),
+      schemaVersion: HARNESS_VERSIONS.schema,
+      status: AiRunStatus.RUNNING,
+    },
+    select: { id: true },
+  });
 
   try {
     if (!SUPPORTED_MIME_TYPES.has(note.originalMimeType)) {
@@ -292,12 +350,15 @@ export async function processNoteExtraction(
     });
 
     return await persistExtraction({
+      aiRunId: aiRun.id,
       attempts: result.attempts,
       claimedVersion: note.claimedVersion,
       extraction: result.data,
       model: result.model,
       noteId: note.id,
       provider: result.provider,
+      usage: result.usage,
+      latencyMs: result.latencyMs,
     });
   } catch (error) {
     if (error instanceof ExtractionPipelineError && error.code === "EXTRACTION_CONFLICT") {
@@ -310,6 +371,15 @@ export async function processNoteExtraction(
         : getFailureDetails(error);
 
     await recordExtractionFailure(note.id, note.claimedVersion, failure);
+    await prisma.aiRun.update({
+      where: { id: aiRun.id },
+      data: {
+        completedAt: new Date(),
+        errorCode: failure.code,
+        errorMessage: failure.message,
+        status: AiRunStatus.FAILED,
+      },
+    });
 
     throw new ExtractionPipelineError(failure.code, failure.message, {
       cause: error,

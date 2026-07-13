@@ -31,6 +31,7 @@ const responseSchema = z
     usage: z
       .object({
         completion_tokens: z.number().optional(),
+        cost: z.number().nonnegative().optional(),
         prompt_tokens: z.number().optional(),
         total_tokens: z.number().optional(),
       })
@@ -72,7 +73,9 @@ export type InvoiceExtractionResult = {
     completionTokens?: number;
     promptTokens?: number;
     totalTokens?: number;
+    costUsd?: number;
   };
+  latencyMs: number;
 };
 
 export interface InvoiceExtractionClient {
@@ -183,6 +186,7 @@ export class OpenRouterInvoiceExtractionClient
   }
 
   private async performRequest(request: InvoiceExtractionRequest) {
+    const startedAt = Date.now();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs);
     const payload = {
@@ -210,6 +214,7 @@ export class OpenRouterInvoiceExtractionClient
       },
       stream: false,
       temperature: 0,
+      reasoning: { effort: "high", exclude: true },
       ...(request.mimeType === "application/pdf"
         ? {
             plugins: [
@@ -310,12 +315,14 @@ export class OpenRouterInvoiceExtractionClient
 
       return {
         data: extraction.data,
+        latencyMs: Date.now() - startedAt,
         model: envelope.data.model,
         provider: envelope.data.provider,
         ...(usage
           ? {
               usage: {
                 completionTokens: usage.completion_tokens,
+                costUsd: usage.cost,
                 promptTokens: usage.prompt_tokens,
                 totalTokens: usage.total_tokens,
               },

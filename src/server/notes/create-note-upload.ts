@@ -2,13 +2,18 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { NoteStatus, ProcessingStage } from "@/generated/prisma/enums";
+import {
+  NoteStatus,
+  ProcessingJobStatus,
+  ProcessingStage,
+} from "@/generated/prisma/enums";
 import {
   InvoiceFileValidationError,
   validateInvoiceFile,
 } from "@/lib/storage";
 import { prisma } from "@/server/db/prisma";
 import { NoteUploadError } from "@/server/notes/note-upload-error";
+import { createInitialProcessingJob } from "@/server/notes/processing-jobs";
 import {
   createInvoiceObjectPath,
   removeInvoiceFile,
@@ -67,6 +72,25 @@ async function markNoteAsFailed(noteId: string, failureCode: string) {
         data: { failureCode },
       },
     });
+
+    await transaction.processingJob.updateMany({
+      where: {
+        noteId,
+        status: {
+          in: [
+            ProcessingJobStatus.PENDING,
+            ProcessingJobStatus.RUNNING,
+            ProcessingJobStatus.FAILED,
+          ],
+        },
+      },
+      data: {
+        completedAt: new Date(),
+        lastError: "O upload associado ao job falhou.",
+        lastErrorCode: failureCode,
+        status: ProcessingJobStatus.CANCELLED,
+      },
+    });
   });
 }
 
@@ -106,7 +130,7 @@ export async function createNoteUpload(input: {
     noteId,
     workId: input.workId,
   });
-  const { work } = await prisma.$transaction(async (transaction) => {
+  const { job, work } = await prisma.$transaction(async (transaction) => {
     const work = await transaction.work.findFirst({
       where: { id: input.workId, active: true },
       select: { id: true, name: true },
@@ -147,7 +171,9 @@ export async function createNoteUpload(input: {
       },
     });
 
-    return { note, work };
+    const job = await createInitialProcessingJob(transaction, noteId);
+
+    return { job, note, work };
   });
 
   try {
@@ -209,10 +235,15 @@ export async function createNoteUpload(input: {
         },
       });
 
+      await transaction.processingJob.update({
+        where: { id: job.id },
+        data: { availableAt: new Date() },
+      });
+
       return updatedNote;
     });
 
-    return note;
+    return { ...note, processingJobId: job.id };
   } catch (error) {
     try {
       await removeInvoiceFile(path);

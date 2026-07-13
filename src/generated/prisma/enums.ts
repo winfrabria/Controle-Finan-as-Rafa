@@ -46,10 +46,63 @@ export type ProcessingStage = (typeof ProcessingStage)[keyof typeof ProcessingSt
 export const NoteClassification = {
   OK: 'OK',
   SUSPICIOUS: 'SUSPICIOUS',
-  INCOMPATIBLE: 'INCOMPATIBLE'
+  INCOMPATIBLE: 'INCOMPATIBLE',
+  NO_PARAMETER: 'NO_PARAMETER'
 } as const
 
 export type NoteClassification = (typeof NoteClassification)[keyof typeof NoteClassification]
+
+
+export const AiRunKind = {
+  EXTRACTION: 'EXTRACTION',
+  AUDIT: 'AUDIT'
+} as const
+
+export type AiRunKind = (typeof AiRunKind)[keyof typeof AiRunKind]
+
+
+export const AiRunStatus = {
+  RUNNING: 'RUNNING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED'
+} as const
+
+export type AiRunStatus = (typeof AiRunStatus)[keyof typeof AiRunStatus]
+
+
+export const ReasoningEffort = {
+  HIGH: 'HIGH',
+  XHIGH: 'XHIGH'
+} as const
+
+export type ReasoningEffort = (typeof ReasoningEffort)[keyof typeof ReasoningEffort]
+
+
+export const ProcessingJobType = {
+  FULL_AUDIT: 'FULL_AUDIT'
+} as const
+
+export type ProcessingJobType = (typeof ProcessingJobType)[keyof typeof ProcessingJobType]
+
+
+export const ProcessingJobStatus = {
+  PENDING: 'PENDING',
+  RUNNING: 'RUNNING',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED'
+} as const
+
+export type ProcessingJobStatus = (typeof ProcessingJobStatus)[keyof typeof ProcessingJobStatus]
+
+
+export const FindingSource = {
+  UNIVERSAL_RULE: 'UNIVERSAL_RULE',
+  WORK_RULE: 'WORK_RULE',
+  AI_DISCOVERY: 'AI_DISCOVERY'
+} as const
+
+export type FindingSource = (typeof FindingSource)[keyof typeof FindingSource]
 
 
 export const FindingSeverity = {

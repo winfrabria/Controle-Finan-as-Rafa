@@ -1,0 +1,22 @@
+[
+  {
+    "id": "alcohol-always-suspicious",
+    "expected": "SUSPICIOUS",
+    "item": "Cerveja lata 350ml"
+  },
+  {
+    "id": "hygiene-always-suspicious",
+    "expected": "SUSPICIOUS",
+    "item": "Shampoo 400ml"
+  },
+  {
+    "id": "insufficient-reading",
+    "expected": "READ_FAILED",
+    "readConfidence": 0.42
+  },
+  {
+    "id": "no-finding-no-coverage",
+    "expected": "NO_PARAMETER"
+  }
+]
+

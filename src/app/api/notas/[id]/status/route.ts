@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import type { NoteStatusResponse } from "@/lib/notes/upload-contract";
 import { prisma } from "@/server/db/prisma";
 
 export const runtime = "nodejs";
@@ -24,11 +23,18 @@ export async function GET(
   const note = await prisma.note.findUnique({
     where: { id },
     select: {
+      classification: true,
       failureCode: true,
       failureMessage: true,
       id: true,
       processingStage: true,
       status: true,
+      _count: { select: { findings: { where: { needsValidation: true } } } },
+      processingJobs: {
+        orderBy: { createdAt: "desc" },
+        select: { attempt: true, id: true, status: true },
+        take: 1,
+      },
     },
   });
 
@@ -39,10 +45,27 @@ export async function GET(
     );
   }
 
-  const response: NoteStatusResponse = {
+  const response = {
     nota: {
       etapa: note.processingStage,
       id: note.id,
+      ...(note.status === "READ_FAILED"
+        ? { classificacao: "READ_FAILED" }
+        : note.classification
+          ? {
+              classificacao: note.classification,
+            }
+          : {}),
+      achados: note._count.findings,
+      ...(note.processingJobs[0]
+        ? {
+            job: {
+              id: note.processingJobs[0].id,
+              status: note.processingJobs[0].status,
+              tentativa: note.processingJobs[0].attempt,
+            },
+          }
+        : {}),
       status: note.status,
       ...(note.failureCode && note.failureMessage
         ? {

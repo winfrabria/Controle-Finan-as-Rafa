@@ -103,7 +103,13 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { nota: { id: note.id, status: note.status } },
+      {
+        nota: {
+          id: note.id,
+          jobId: note.processingJobId,
+          status: note.status,
+        },
+      },
       {
         status: 201,
         headers: {

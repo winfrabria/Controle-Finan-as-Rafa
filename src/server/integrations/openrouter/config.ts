@@ -1,5 +1,7 @@
 import "server-only";
 
+import { HARNESS_MODEL } from "@/lib/audit-harness/versions";
+
 export type OpenRouterPdfEngine = "cloudflare-ai" | "mistral-ocr" | "native";
 
 const PDF_ENGINES = new Set<OpenRouterPdfEngine>([
@@ -8,11 +10,11 @@ const PDF_ENGINES = new Set<OpenRouterPdfEngine>([
   "native",
 ]);
 
-function requireSecret(name: string, environment: NodeJS.ProcessEnv) {
-  const value = environment[name];
+function requireApiKey(environment: NodeJS.ProcessEnv) {
+  const value = environment.OPENROUTER_API_KEY ?? environment.OpenRouter_API_Key;
 
   if (!value || value.startsWith("replace-with")) {
-    throw new Error(`${name} is required for OpenRouter extraction.`);
+    throw new Error("OPENROUTER_API_KEY is required for OpenRouter.");
   }
 
   return value;
@@ -55,7 +57,7 @@ export function getOpenRouterConfig(
   }
 
   return {
-    apiKey: requireSecret("OPENROUTER_API_KEY", environment),
+    apiKey: requireApiKey(environment),
     appUrl: environment.NEXT_PUBLIC_APP_URL,
     maxAttempts: parseInteger(
       environment.OPENROUTER_MAX_ATTEMPTS,
@@ -64,7 +66,7 @@ export function getOpenRouterConfig(
       5,
       "OPENROUTER_MAX_ATTEMPTS",
     ),
-    model: requireSecret("OPENROUTER_MODEL", environment),
+    model: HARNESS_MODEL,
     pdfEngine,
     timeoutMs: parseInteger(
       environment.OPENROUTER_TIMEOUT_MS,

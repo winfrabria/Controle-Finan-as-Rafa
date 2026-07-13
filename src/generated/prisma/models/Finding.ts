@@ -20,8 +20,18 @@ export type FindingModel = runtime.Types.Result.DefaultSelection<Prisma.$Finding
 
 export type AggregateFinding = {
   _count: FindingCountAggregateOutputType | null
+  _avg: FindingAvgAggregateOutputType | null
+  _sum: FindingSumAggregateOutputType | null
   _min: FindingMinAggregateOutputType | null
   _max: FindingMaxAggregateOutputType | null
+}
+
+export type FindingAvgAggregateOutputType = {
+  confidence: runtime.Decimal | null
+}
+
+export type FindingSumAggregateOutputType = {
+  confidence: runtime.Decimal | null
 }
 
 export type FindingMinAggregateOutputType = {
@@ -36,6 +46,13 @@ export type FindingMinAggregateOutputType = {
   severity: $Enums.FindingSeverity | null
   status: $Enums.FindingStatus | null
   needsValidation: boolean | null
+  source: $Enums.FindingSource | null
+  confidence: runtime.Decimal | null
+  justification: string | null
+  ruleVersion: string | null
+  isNovel: boolean | null
+  policyVersion: string | null
+  aiRunId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -52,6 +69,13 @@ export type FindingMaxAggregateOutputType = {
   severity: $Enums.FindingSeverity | null
   status: $Enums.FindingStatus | null
   needsValidation: boolean | null
+  source: $Enums.FindingSource | null
+  confidence: runtime.Decimal | null
+  justification: string | null
+  ruleVersion: string | null
+  isNovel: boolean | null
+  policyVersion: string | null
+  aiRunId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -68,6 +92,14 @@ export type FindingCountAggregateOutputType = {
   severity: number
   status: number
   needsValidation: number
+  source: number
+  confidence: number
+  justification: number
+  references: number
+  ruleVersion: number
+  isNovel: number
+  policyVersion: number
+  aiRunId: number
   evidence: number
   expectedValue: number
   actualValue: number
@@ -76,6 +108,14 @@ export type FindingCountAggregateOutputType = {
   _all: number
 }
 
+
+export type FindingAvgAggregateInputType = {
+  confidence?: true
+}
+
+export type FindingSumAggregateInputType = {
+  confidence?: true
+}
 
 export type FindingMinAggregateInputType = {
   id?: true
@@ -89,6 +129,13 @@ export type FindingMinAggregateInputType = {
   severity?: true
   status?: true
   needsValidation?: true
+  source?: true
+  confidence?: true
+  justification?: true
+  ruleVersion?: true
+  isNovel?: true
+  policyVersion?: true
+  aiRunId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -105,6 +152,13 @@ export type FindingMaxAggregateInputType = {
   severity?: true
   status?: true
   needsValidation?: true
+  source?: true
+  confidence?: true
+  justification?: true
+  ruleVersion?: true
+  isNovel?: true
+  policyVersion?: true
+  aiRunId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -121,6 +175,14 @@ export type FindingCountAggregateInputType = {
   severity?: true
   status?: true
   needsValidation?: true
+  source?: true
+  confidence?: true
+  justification?: true
+  references?: true
+  ruleVersion?: true
+  isNovel?: true
+  policyVersion?: true
+  aiRunId?: true
   evidence?: true
   expectedValue?: true
   actualValue?: true
@@ -167,6 +229,18 @@ export type FindingAggregateArgs<ExtArgs extends runtime.Types.Extensions.Intern
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: FindingAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: FindingSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: FindingMinAggregateInputType
@@ -197,6 +271,8 @@ export type FindingGroupByArgs<ExtArgs extends runtime.Types.Extensions.Internal
   take?: number
   skip?: number
   _count?: FindingCountAggregateInputType | true
+  _avg?: FindingAvgAggregateInputType
+  _sum?: FindingSumAggregateInputType
   _min?: FindingMinAggregateInputType
   _max?: FindingMaxAggregateInputType
 }
@@ -213,12 +289,22 @@ export type FindingGroupByOutputType = {
   severity: $Enums.FindingSeverity
   status: $Enums.FindingStatus
   needsValidation: boolean
+  source: $Enums.FindingSource
+  confidence: runtime.Decimal
+  justification: string
+  references: runtime.JsonValue | null
+  ruleVersion: string | null
+  isNovel: boolean
+  policyVersion: string
+  aiRunId: string | null
   evidence: runtime.JsonValue | null
   expectedValue: runtime.JsonValue | null
   actualValue: runtime.JsonValue | null
   createdAt: Date
   updatedAt: Date
   _count: FindingCountAggregateOutputType | null
+  _avg: FindingAvgAggregateOutputType | null
+  _sum: FindingSumAggregateOutputType | null
   _min: FindingMinAggregateOutputType | null
   _max: FindingMaxAggregateOutputType | null
 }
@@ -253,6 +339,14 @@ export type FindingWhereInput = {
   severity?: Prisma.EnumFindingSeverityFilter<"Finding"> | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFilter<"Finding"> | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFilter<"Finding"> | boolean
+  source?: Prisma.EnumFindingSourceFilter<"Finding"> | $Enums.FindingSource
+  confidence?: Prisma.DecimalFilter<"Finding"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFilter<"Finding"> | string
+  references?: Prisma.JsonNullableFilter<"Finding">
+  ruleVersion?: Prisma.StringNullableFilter<"Finding"> | string | null
+  isNovel?: Prisma.BoolFilter<"Finding"> | boolean
+  policyVersion?: Prisma.StringFilter<"Finding"> | string
+  aiRunId?: Prisma.UuidNullableFilter<"Finding"> | string | null
   evidence?: Prisma.JsonNullableFilter<"Finding">
   expectedValue?: Prisma.JsonNullableFilter<"Finding">
   actualValue?: Prisma.JsonNullableFilter<"Finding">
@@ -263,6 +357,7 @@ export type FindingWhereInput = {
   rule?: Prisma.XOR<Prisma.AuditRuleNullableScalarRelationFilter, Prisma.AuditRuleWhereInput> | null
   validations?: Prisma.ValidationListRelationFilter
   notifications?: Prisma.NotificationListRelationFilter
+  aiRun?: Prisma.XOR<Prisma.AiRunNullableScalarRelationFilter, Prisma.AiRunWhereInput> | null
 }
 
 export type FindingOrderByWithRelationInput = {
@@ -277,6 +372,14 @@ export type FindingOrderByWithRelationInput = {
   severity?: Prisma.SortOrder
   status?: Prisma.SortOrder
   needsValidation?: Prisma.SortOrder
+  source?: Prisma.SortOrder
+  confidence?: Prisma.SortOrder
+  justification?: Prisma.SortOrder
+  references?: Prisma.SortOrderInput | Prisma.SortOrder
+  ruleVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  isNovel?: Prisma.SortOrder
+  policyVersion?: Prisma.SortOrder
+  aiRunId?: Prisma.SortOrderInput | Prisma.SortOrder
   evidence?: Prisma.SortOrderInput | Prisma.SortOrder
   expectedValue?: Prisma.SortOrderInput | Prisma.SortOrder
   actualValue?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -287,6 +390,7 @@ export type FindingOrderByWithRelationInput = {
   rule?: Prisma.AuditRuleOrderByWithRelationInput
   validations?: Prisma.ValidationOrderByRelationAggregateInput
   notifications?: Prisma.NotificationOrderByRelationAggregateInput
+  aiRun?: Prisma.AiRunOrderByWithRelationInput
 }
 
 export type FindingWhereUniqueInput = Prisma.AtLeast<{
@@ -304,6 +408,14 @@ export type FindingWhereUniqueInput = Prisma.AtLeast<{
   severity?: Prisma.EnumFindingSeverityFilter<"Finding"> | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFilter<"Finding"> | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFilter<"Finding"> | boolean
+  source?: Prisma.EnumFindingSourceFilter<"Finding"> | $Enums.FindingSource
+  confidence?: Prisma.DecimalFilter<"Finding"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFilter<"Finding"> | string
+  references?: Prisma.JsonNullableFilter<"Finding">
+  ruleVersion?: Prisma.StringNullableFilter<"Finding"> | string | null
+  isNovel?: Prisma.BoolFilter<"Finding"> | boolean
+  policyVersion?: Prisma.StringFilter<"Finding"> | string
+  aiRunId?: Prisma.UuidNullableFilter<"Finding"> | string | null
   evidence?: Prisma.JsonNullableFilter<"Finding">
   expectedValue?: Prisma.JsonNullableFilter<"Finding">
   actualValue?: Prisma.JsonNullableFilter<"Finding">
@@ -314,6 +426,7 @@ export type FindingWhereUniqueInput = Prisma.AtLeast<{
   rule?: Prisma.XOR<Prisma.AuditRuleNullableScalarRelationFilter, Prisma.AuditRuleWhereInput> | null
   validations?: Prisma.ValidationListRelationFilter
   notifications?: Prisma.NotificationListRelationFilter
+  aiRun?: Prisma.XOR<Prisma.AiRunNullableScalarRelationFilter, Prisma.AiRunWhereInput> | null
 }, "id">
 
 export type FindingOrderByWithAggregationInput = {
@@ -328,14 +441,24 @@ export type FindingOrderByWithAggregationInput = {
   severity?: Prisma.SortOrder
   status?: Prisma.SortOrder
   needsValidation?: Prisma.SortOrder
+  source?: Prisma.SortOrder
+  confidence?: Prisma.SortOrder
+  justification?: Prisma.SortOrder
+  references?: Prisma.SortOrderInput | Prisma.SortOrder
+  ruleVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  isNovel?: Prisma.SortOrder
+  policyVersion?: Prisma.SortOrder
+  aiRunId?: Prisma.SortOrderInput | Prisma.SortOrder
   evidence?: Prisma.SortOrderInput | Prisma.SortOrder
   expectedValue?: Prisma.SortOrderInput | Prisma.SortOrder
   actualValue?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.FindingCountOrderByAggregateInput
+  _avg?: Prisma.FindingAvgOrderByAggregateInput
   _max?: Prisma.FindingMaxOrderByAggregateInput
   _min?: Prisma.FindingMinOrderByAggregateInput
+  _sum?: Prisma.FindingSumOrderByAggregateInput
 }
 
 export type FindingScalarWhereWithAggregatesInput = {
@@ -353,6 +476,14 @@ export type FindingScalarWhereWithAggregatesInput = {
   severity?: Prisma.EnumFindingSeverityWithAggregatesFilter<"Finding"> | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusWithAggregatesFilter<"Finding"> | $Enums.FindingStatus
   needsValidation?: Prisma.BoolWithAggregatesFilter<"Finding"> | boolean
+  source?: Prisma.EnumFindingSourceWithAggregatesFilter<"Finding"> | $Enums.FindingSource
+  confidence?: Prisma.DecimalWithAggregatesFilter<"Finding"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringWithAggregatesFilter<"Finding"> | string
+  references?: Prisma.JsonNullableWithAggregatesFilter<"Finding">
+  ruleVersion?: Prisma.StringNullableWithAggregatesFilter<"Finding"> | string | null
+  isNovel?: Prisma.BoolWithAggregatesFilter<"Finding"> | boolean
+  policyVersion?: Prisma.StringWithAggregatesFilter<"Finding"> | string
+  aiRunId?: Prisma.UuidNullableWithAggregatesFilter<"Finding"> | string | null
   evidence?: Prisma.JsonNullableWithAggregatesFilter<"Finding">
   expectedValue?: Prisma.JsonNullableWithAggregatesFilter<"Finding">
   actualValue?: Prisma.JsonNullableWithAggregatesFilter<"Finding">
@@ -369,6 +500,13 @@ export type FindingCreateInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -379,6 +517,7 @@ export type FindingCreateInput = {
   rule?: Prisma.AuditRuleCreateNestedOneWithoutFindingsInput
   validations?: Prisma.ValidationCreateNestedManyWithoutFindingInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutFindingInput
+  aiRun?: Prisma.AiRunCreateNestedOneWithoutFindingsInput
 }
 
 export type FindingUncheckedCreateInput = {
@@ -393,6 +532,14 @@ export type FindingUncheckedCreateInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  aiRunId?: string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -411,6 +558,13 @@ export type FindingUpdateInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -421,6 +575,7 @@ export type FindingUpdateInput = {
   rule?: Prisma.AuditRuleUpdateOneWithoutFindingsNestedInput
   validations?: Prisma.ValidationUpdateManyWithoutFindingNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutFindingNestedInput
+  aiRun?: Prisma.AiRunUpdateOneWithoutFindingsNestedInput
 }
 
 export type FindingUncheckedUpdateInput = {
@@ -435,6 +590,14 @@ export type FindingUncheckedUpdateInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -456,6 +619,14 @@ export type FindingCreateManyInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  aiRunId?: string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -472,6 +643,13 @@ export type FindingUpdateManyMutationInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -491,6 +669,14 @@ export type FindingUncheckedUpdateManyInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -520,11 +706,23 @@ export type FindingCountOrderByAggregateInput = {
   severity?: Prisma.SortOrder
   status?: Prisma.SortOrder
   needsValidation?: Prisma.SortOrder
+  source?: Prisma.SortOrder
+  confidence?: Prisma.SortOrder
+  justification?: Prisma.SortOrder
+  references?: Prisma.SortOrder
+  ruleVersion?: Prisma.SortOrder
+  isNovel?: Prisma.SortOrder
+  policyVersion?: Prisma.SortOrder
+  aiRunId?: Prisma.SortOrder
   evidence?: Prisma.SortOrder
   expectedValue?: Prisma.SortOrder
   actualValue?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type FindingAvgOrderByAggregateInput = {
+  confidence?: Prisma.SortOrder
 }
 
 export type FindingMaxOrderByAggregateInput = {
@@ -539,6 +737,13 @@ export type FindingMaxOrderByAggregateInput = {
   severity?: Prisma.SortOrder
   status?: Prisma.SortOrder
   needsValidation?: Prisma.SortOrder
+  source?: Prisma.SortOrder
+  confidence?: Prisma.SortOrder
+  justification?: Prisma.SortOrder
+  ruleVersion?: Prisma.SortOrder
+  isNovel?: Prisma.SortOrder
+  policyVersion?: Prisma.SortOrder
+  aiRunId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -555,8 +760,19 @@ export type FindingMinOrderByAggregateInput = {
   severity?: Prisma.SortOrder
   status?: Prisma.SortOrder
   needsValidation?: Prisma.SortOrder
+  source?: Prisma.SortOrder
+  confidence?: Prisma.SortOrder
+  justification?: Prisma.SortOrder
+  ruleVersion?: Prisma.SortOrder
+  isNovel?: Prisma.SortOrder
+  policyVersion?: Prisma.SortOrder
+  aiRunId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type FindingSumOrderByAggregateInput = {
+  confidence?: Prisma.SortOrder
 }
 
 export type FindingNullableScalarRelationFilter = {
@@ -694,6 +910,18 @@ export type EnumFindingStatusFieldUpdateOperationsInput = {
   set?: $Enums.FindingStatus
 }
 
+export type EnumFindingSourceFieldUpdateOperationsInput = {
+  set?: $Enums.FindingSource
+}
+
+export type DecimalFieldUpdateOperationsInput = {
+  set?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  increment?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  decrement?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  multiply?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  divide?: runtime.Decimal | runtime.DecimalJsLike | number | string
+}
+
 export type FindingCreateNestedOneWithoutValidationsInput = {
   create?: Prisma.XOR<Prisma.FindingCreateWithoutValidationsInput, Prisma.FindingUncheckedCreateWithoutValidationsInput>
   connectOrCreate?: Prisma.FindingCreateOrConnectWithoutValidationsInput
@@ -708,6 +936,48 @@ export type FindingUpdateOneWithoutValidationsNestedInput = {
   delete?: Prisma.FindingWhereInput | boolean
   connect?: Prisma.FindingWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.FindingUpdateToOneWithWhereWithoutValidationsInput, Prisma.FindingUpdateWithoutValidationsInput>, Prisma.FindingUncheckedUpdateWithoutValidationsInput>
+}
+
+export type FindingCreateNestedManyWithoutAiRunInput = {
+  create?: Prisma.XOR<Prisma.FindingCreateWithoutAiRunInput, Prisma.FindingUncheckedCreateWithoutAiRunInput> | Prisma.FindingCreateWithoutAiRunInput[] | Prisma.FindingUncheckedCreateWithoutAiRunInput[]
+  connectOrCreate?: Prisma.FindingCreateOrConnectWithoutAiRunInput | Prisma.FindingCreateOrConnectWithoutAiRunInput[]
+  createMany?: Prisma.FindingCreateManyAiRunInputEnvelope
+  connect?: Prisma.FindingWhereUniqueInput | Prisma.FindingWhereUniqueInput[]
+}
+
+export type FindingUncheckedCreateNestedManyWithoutAiRunInput = {
+  create?: Prisma.XOR<Prisma.FindingCreateWithoutAiRunInput, Prisma.FindingUncheckedCreateWithoutAiRunInput> | Prisma.FindingCreateWithoutAiRunInput[] | Prisma.FindingUncheckedCreateWithoutAiRunInput[]
+  connectOrCreate?: Prisma.FindingCreateOrConnectWithoutAiRunInput | Prisma.FindingCreateOrConnectWithoutAiRunInput[]
+  createMany?: Prisma.FindingCreateManyAiRunInputEnvelope
+  connect?: Prisma.FindingWhereUniqueInput | Prisma.FindingWhereUniqueInput[]
+}
+
+export type FindingUpdateManyWithoutAiRunNestedInput = {
+  create?: Prisma.XOR<Prisma.FindingCreateWithoutAiRunInput, Prisma.FindingUncheckedCreateWithoutAiRunInput> | Prisma.FindingCreateWithoutAiRunInput[] | Prisma.FindingUncheckedCreateWithoutAiRunInput[]
+  connectOrCreate?: Prisma.FindingCreateOrConnectWithoutAiRunInput | Prisma.FindingCreateOrConnectWithoutAiRunInput[]
+  upsert?: Prisma.FindingUpsertWithWhereUniqueWithoutAiRunInput | Prisma.FindingUpsertWithWhereUniqueWithoutAiRunInput[]
+  createMany?: Prisma.FindingCreateManyAiRunInputEnvelope
+  set?: Prisma.FindingWhereUniqueInput | Prisma.FindingWhereUniqueInput[]
+  disconnect?: Prisma.FindingWhereUniqueInput | Prisma.FindingWhereUniqueInput[]
+  delete?: Prisma.FindingWhereUniqueInput | Prisma.FindingWhereUniqueInput[]
+  connect?: Prisma.FindingWhereUniqueInput | Prisma.FindingWhereUniqueInput[]
+  update?: Prisma.FindingUpdateWithWhereUniqueWithoutAiRunInput | Prisma.FindingUpdateWithWhereUniqueWithoutAiRunInput[]
+  updateMany?: Prisma.FindingUpdateManyWithWhereWithoutAiRunInput | Prisma.FindingUpdateManyWithWhereWithoutAiRunInput[]
+  deleteMany?: Prisma.FindingScalarWhereInput | Prisma.FindingScalarWhereInput[]
+}
+
+export type FindingUncheckedUpdateManyWithoutAiRunNestedInput = {
+  create?: Prisma.XOR<Prisma.FindingCreateWithoutAiRunInput, Prisma.FindingUncheckedCreateWithoutAiRunInput> | Prisma.FindingCreateWithoutAiRunInput[] | Prisma.FindingUncheckedCreateWithoutAiRunInput[]
+  connectOrCreate?: Prisma.FindingCreateOrConnectWithoutAiRunInput | Prisma.FindingCreateOrConnectWithoutAiRunInput[]
+  upsert?: Prisma.FindingUpsertWithWhereUniqueWithoutAiRunInput | Prisma.FindingUpsertWithWhereUniqueWithoutAiRunInput[]
+  createMany?: Prisma.FindingCreateManyAiRunInputEnvelope
+  set?: Prisma.FindingWhereUniqueInput | Prisma.FindingWhereUniqueInput[]
+  disconnect?: Prisma.FindingWhereUniqueInput | Prisma.FindingWhereUniqueInput[]
+  delete?: Prisma.FindingWhereUniqueInput | Prisma.FindingWhereUniqueInput[]
+  connect?: Prisma.FindingWhereUniqueInput | Prisma.FindingWhereUniqueInput[]
+  update?: Prisma.FindingUpdateWithWhereUniqueWithoutAiRunInput | Prisma.FindingUpdateWithWhereUniqueWithoutAiRunInput[]
+  updateMany?: Prisma.FindingUpdateManyWithWhereWithoutAiRunInput | Prisma.FindingUpdateManyWithWhereWithoutAiRunInput[]
+  deleteMany?: Prisma.FindingScalarWhereInput | Prisma.FindingScalarWhereInput[]
 }
 
 export type FindingCreateNestedOneWithoutNotificationsInput = {
@@ -735,6 +1005,13 @@ export type FindingCreateWithoutNoteInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -744,6 +1021,7 @@ export type FindingCreateWithoutNoteInput = {
   rule?: Prisma.AuditRuleCreateNestedOneWithoutFindingsInput
   validations?: Prisma.ValidationCreateNestedManyWithoutFindingInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutFindingInput
+  aiRun?: Prisma.AiRunCreateNestedOneWithoutFindingsInput
 }
 
 export type FindingUncheckedCreateWithoutNoteInput = {
@@ -757,6 +1035,14 @@ export type FindingUncheckedCreateWithoutNoteInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  aiRunId?: string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -807,6 +1093,14 @@ export type FindingScalarWhereInput = {
   severity?: Prisma.EnumFindingSeverityFilter<"Finding"> | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFilter<"Finding"> | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFilter<"Finding"> | boolean
+  source?: Prisma.EnumFindingSourceFilter<"Finding"> | $Enums.FindingSource
+  confidence?: Prisma.DecimalFilter<"Finding"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFilter<"Finding"> | string
+  references?: Prisma.JsonNullableFilter<"Finding">
+  ruleVersion?: Prisma.StringNullableFilter<"Finding"> | string | null
+  isNovel?: Prisma.BoolFilter<"Finding"> | boolean
+  policyVersion?: Prisma.StringFilter<"Finding"> | string
+  aiRunId?: Prisma.UuidNullableFilter<"Finding"> | string | null
   evidence?: Prisma.JsonNullableFilter<"Finding">
   expectedValue?: Prisma.JsonNullableFilter<"Finding">
   actualValue?: Prisma.JsonNullableFilter<"Finding">
@@ -823,6 +1117,13 @@ export type FindingCreateWithoutNoteItemInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -832,6 +1133,7 @@ export type FindingCreateWithoutNoteItemInput = {
   rule?: Prisma.AuditRuleCreateNestedOneWithoutFindingsInput
   validations?: Prisma.ValidationCreateNestedManyWithoutFindingInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutFindingInput
+  aiRun?: Prisma.AiRunCreateNestedOneWithoutFindingsInput
 }
 
 export type FindingUncheckedCreateWithoutNoteItemInput = {
@@ -845,6 +1147,14 @@ export type FindingUncheckedCreateWithoutNoteItemInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  aiRunId?: string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -889,6 +1199,13 @@ export type FindingCreateWithoutRuleInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -898,6 +1215,7 @@ export type FindingCreateWithoutRuleInput = {
   noteItem?: Prisma.NoteItemCreateNestedOneWithoutFindingsInput
   validations?: Prisma.ValidationCreateNestedManyWithoutFindingInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutFindingInput
+  aiRun?: Prisma.AiRunCreateNestedOneWithoutFindingsInput
 }
 
 export type FindingUncheckedCreateWithoutRuleInput = {
@@ -911,6 +1229,14 @@ export type FindingUncheckedCreateWithoutRuleInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  aiRunId?: string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -955,6 +1281,13 @@ export type FindingCreateWithoutValidationsInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -964,6 +1297,7 @@ export type FindingCreateWithoutValidationsInput = {
   noteItem?: Prisma.NoteItemCreateNestedOneWithoutFindingsInput
   rule?: Prisma.AuditRuleCreateNestedOneWithoutFindingsInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutFindingInput
+  aiRun?: Prisma.AiRunCreateNestedOneWithoutFindingsInput
 }
 
 export type FindingUncheckedCreateWithoutValidationsInput = {
@@ -978,6 +1312,14 @@ export type FindingUncheckedCreateWithoutValidationsInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  aiRunId?: string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1011,6 +1353,13 @@ export type FindingUpdateWithoutValidationsInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1020,6 +1369,7 @@ export type FindingUpdateWithoutValidationsInput = {
   noteItem?: Prisma.NoteItemUpdateOneWithoutFindingsNestedInput
   rule?: Prisma.AuditRuleUpdateOneWithoutFindingsNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutFindingNestedInput
+  aiRun?: Prisma.AiRunUpdateOneWithoutFindingsNestedInput
 }
 
 export type FindingUncheckedUpdateWithoutValidationsInput = {
@@ -1034,12 +1384,102 @@ export type FindingUncheckedUpdateWithoutValidationsInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutFindingNestedInput
+}
+
+export type FindingCreateWithoutAiRunInput = {
+  id?: string
+  code: string
+  title: string
+  description: string
+  category: string
+  severity?: $Enums.FindingSeverity
+  status?: $Enums.FindingStatus
+  needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  note: Prisma.NoteCreateNestedOneWithoutFindingsInput
+  noteItem?: Prisma.NoteItemCreateNestedOneWithoutFindingsInput
+  rule?: Prisma.AuditRuleCreateNestedOneWithoutFindingsInput
+  validations?: Prisma.ValidationCreateNestedManyWithoutFindingInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutFindingInput
+}
+
+export type FindingUncheckedCreateWithoutAiRunInput = {
+  id?: string
+  noteId: string
+  noteItemId?: string | null
+  ruleId?: string | null
+  code: string
+  title: string
+  description: string
+  category: string
+  severity?: $Enums.FindingSeverity
+  status?: $Enums.FindingStatus
+  needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  validations?: Prisma.ValidationUncheckedCreateNestedManyWithoutFindingInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutFindingInput
+}
+
+export type FindingCreateOrConnectWithoutAiRunInput = {
+  where: Prisma.FindingWhereUniqueInput
+  create: Prisma.XOR<Prisma.FindingCreateWithoutAiRunInput, Prisma.FindingUncheckedCreateWithoutAiRunInput>
+}
+
+export type FindingCreateManyAiRunInputEnvelope = {
+  data: Prisma.FindingCreateManyAiRunInput | Prisma.FindingCreateManyAiRunInput[]
+  skipDuplicates?: boolean
+}
+
+export type FindingUpsertWithWhereUniqueWithoutAiRunInput = {
+  where: Prisma.FindingWhereUniqueInput
+  update: Prisma.XOR<Prisma.FindingUpdateWithoutAiRunInput, Prisma.FindingUncheckedUpdateWithoutAiRunInput>
+  create: Prisma.XOR<Prisma.FindingCreateWithoutAiRunInput, Prisma.FindingUncheckedCreateWithoutAiRunInput>
+}
+
+export type FindingUpdateWithWhereUniqueWithoutAiRunInput = {
+  where: Prisma.FindingWhereUniqueInput
+  data: Prisma.XOR<Prisma.FindingUpdateWithoutAiRunInput, Prisma.FindingUncheckedUpdateWithoutAiRunInput>
+}
+
+export type FindingUpdateManyWithWhereWithoutAiRunInput = {
+  where: Prisma.FindingScalarWhereInput
+  data: Prisma.XOR<Prisma.FindingUpdateManyMutationInput, Prisma.FindingUncheckedUpdateManyWithoutAiRunInput>
 }
 
 export type FindingCreateWithoutNotificationsInput = {
@@ -1051,6 +1491,13 @@ export type FindingCreateWithoutNotificationsInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1060,6 +1507,7 @@ export type FindingCreateWithoutNotificationsInput = {
   noteItem?: Prisma.NoteItemCreateNestedOneWithoutFindingsInput
   rule?: Prisma.AuditRuleCreateNestedOneWithoutFindingsInput
   validations?: Prisma.ValidationCreateNestedManyWithoutFindingInput
+  aiRun?: Prisma.AiRunCreateNestedOneWithoutFindingsInput
 }
 
 export type FindingUncheckedCreateWithoutNotificationsInput = {
@@ -1074,6 +1522,14 @@ export type FindingUncheckedCreateWithoutNotificationsInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  aiRunId?: string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1107,6 +1563,13 @@ export type FindingUpdateWithoutNotificationsInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1116,6 +1579,7 @@ export type FindingUpdateWithoutNotificationsInput = {
   noteItem?: Prisma.NoteItemUpdateOneWithoutFindingsNestedInput
   rule?: Prisma.AuditRuleUpdateOneWithoutFindingsNestedInput
   validations?: Prisma.ValidationUpdateManyWithoutFindingNestedInput
+  aiRun?: Prisma.AiRunUpdateOneWithoutFindingsNestedInput
 }
 
 export type FindingUncheckedUpdateWithoutNotificationsInput = {
@@ -1130,6 +1594,14 @@ export type FindingUncheckedUpdateWithoutNotificationsInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1149,6 +1621,14 @@ export type FindingCreateManyNoteInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  aiRunId?: string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1165,6 +1645,13 @@ export type FindingUpdateWithoutNoteInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1174,6 +1661,7 @@ export type FindingUpdateWithoutNoteInput = {
   rule?: Prisma.AuditRuleUpdateOneWithoutFindingsNestedInput
   validations?: Prisma.ValidationUpdateManyWithoutFindingNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutFindingNestedInput
+  aiRun?: Prisma.AiRunUpdateOneWithoutFindingsNestedInput
 }
 
 export type FindingUncheckedUpdateWithoutNoteInput = {
@@ -1187,6 +1675,14 @@ export type FindingUncheckedUpdateWithoutNoteInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1207,6 +1703,14 @@ export type FindingUncheckedUpdateManyWithoutNoteInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1225,6 +1729,14 @@ export type FindingCreateManyNoteItemInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  aiRunId?: string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1241,6 +1753,13 @@ export type FindingUpdateWithoutNoteItemInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1250,6 +1769,7 @@ export type FindingUpdateWithoutNoteItemInput = {
   rule?: Prisma.AuditRuleUpdateOneWithoutFindingsNestedInput
   validations?: Prisma.ValidationUpdateManyWithoutFindingNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutFindingNestedInput
+  aiRun?: Prisma.AiRunUpdateOneWithoutFindingsNestedInput
 }
 
 export type FindingUncheckedUpdateWithoutNoteItemInput = {
@@ -1263,6 +1783,14 @@ export type FindingUncheckedUpdateWithoutNoteItemInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1283,6 +1811,14 @@ export type FindingUncheckedUpdateManyWithoutNoteItemInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1301,6 +1837,14 @@ export type FindingCreateManyRuleInput = {
   severity?: $Enums.FindingSeverity
   status?: $Enums.FindingStatus
   needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  aiRunId?: string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1317,6 +1861,13 @@ export type FindingUpdateWithoutRuleInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1326,6 +1877,7 @@ export type FindingUpdateWithoutRuleInput = {
   noteItem?: Prisma.NoteItemUpdateOneWithoutFindingsNestedInput
   validations?: Prisma.ValidationUpdateManyWithoutFindingNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutFindingNestedInput
+  aiRun?: Prisma.AiRunUpdateOneWithoutFindingsNestedInput
 }
 
 export type FindingUncheckedUpdateWithoutRuleInput = {
@@ -1339,6 +1891,14 @@ export type FindingUncheckedUpdateWithoutRuleInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1359,6 +1919,122 @@ export type FindingUncheckedUpdateManyWithoutRuleInput = {
   severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
   status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
   needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  aiRunId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type FindingCreateManyAiRunInput = {
+  id?: string
+  noteId: string
+  noteItemId?: string | null
+  ruleId?: string | null
+  code: string
+  title: string
+  description: string
+  category: string
+  severity?: $Enums.FindingSeverity
+  status?: $Enums.FindingStatus
+  needsValidation?: boolean
+  source?: $Enums.FindingSource
+  confidence?: runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification: string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: string | null
+  isNovel?: boolean
+  policyVersion: string
+  evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type FindingUpdateWithoutAiRunInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  code?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
+  status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
+  needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  note?: Prisma.NoteUpdateOneRequiredWithoutFindingsNestedInput
+  noteItem?: Prisma.NoteItemUpdateOneWithoutFindingsNestedInput
+  rule?: Prisma.AuditRuleUpdateOneWithoutFindingsNestedInput
+  validations?: Prisma.ValidationUpdateManyWithoutFindingNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutFindingNestedInput
+}
+
+export type FindingUncheckedUpdateWithoutAiRunInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  noteId?: Prisma.StringFieldUpdateOperationsInput | string
+  noteItemId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ruleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  code?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
+  status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
+  needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  validations?: Prisma.ValidationUncheckedUpdateManyWithoutFindingNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutFindingNestedInput
+}
+
+export type FindingUncheckedUpdateManyWithoutAiRunInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  noteId?: Prisma.StringFieldUpdateOperationsInput | string
+  noteItemId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ruleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  code?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  category?: Prisma.StringFieldUpdateOperationsInput | string
+  severity?: Prisma.EnumFindingSeverityFieldUpdateOperationsInput | $Enums.FindingSeverity
+  status?: Prisma.EnumFindingStatusFieldUpdateOperationsInput | $Enums.FindingStatus
+  needsValidation?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  source?: Prisma.EnumFindingSourceFieldUpdateOperationsInput | $Enums.FindingSource
+  confidence?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  justification?: Prisma.StringFieldUpdateOperationsInput | string
+  references?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ruleVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isNovel?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
   evidence?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   expectedValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   actualValue?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -1418,6 +2094,14 @@ export type FindingSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   severity?: boolean
   status?: boolean
   needsValidation?: boolean
+  source?: boolean
+  confidence?: boolean
+  justification?: boolean
+  references?: boolean
+  ruleVersion?: boolean
+  isNovel?: boolean
+  policyVersion?: boolean
+  aiRunId?: boolean
   evidence?: boolean
   expectedValue?: boolean
   actualValue?: boolean
@@ -1428,6 +2112,7 @@ export type FindingSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   rule?: boolean | Prisma.Finding$ruleArgs<ExtArgs>
   validations?: boolean | Prisma.Finding$validationsArgs<ExtArgs>
   notifications?: boolean | Prisma.Finding$notificationsArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Finding$aiRunArgs<ExtArgs>
   _count?: boolean | Prisma.FindingCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["finding"]>
 
@@ -1443,6 +2128,14 @@ export type FindingSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   severity?: boolean
   status?: boolean
   needsValidation?: boolean
+  source?: boolean
+  confidence?: boolean
+  justification?: boolean
+  references?: boolean
+  ruleVersion?: boolean
+  isNovel?: boolean
+  policyVersion?: boolean
+  aiRunId?: boolean
   evidence?: boolean
   expectedValue?: boolean
   actualValue?: boolean
@@ -1451,6 +2144,7 @@ export type FindingSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   noteItem?: boolean | Prisma.Finding$noteItemArgs<ExtArgs>
   rule?: boolean | Prisma.Finding$ruleArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Finding$aiRunArgs<ExtArgs>
 }, ExtArgs["result"]["finding"]>
 
 export type FindingSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1465,6 +2159,14 @@ export type FindingSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   severity?: boolean
   status?: boolean
   needsValidation?: boolean
+  source?: boolean
+  confidence?: boolean
+  justification?: boolean
+  references?: boolean
+  ruleVersion?: boolean
+  isNovel?: boolean
+  policyVersion?: boolean
+  aiRunId?: boolean
   evidence?: boolean
   expectedValue?: boolean
   actualValue?: boolean
@@ -1473,6 +2175,7 @@ export type FindingSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   noteItem?: boolean | Prisma.Finding$noteItemArgs<ExtArgs>
   rule?: boolean | Prisma.Finding$ruleArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Finding$aiRunArgs<ExtArgs>
 }, ExtArgs["result"]["finding"]>
 
 export type FindingSelectScalar = {
@@ -1487,6 +2190,14 @@ export type FindingSelectScalar = {
   severity?: boolean
   status?: boolean
   needsValidation?: boolean
+  source?: boolean
+  confidence?: boolean
+  justification?: boolean
+  references?: boolean
+  ruleVersion?: boolean
+  isNovel?: boolean
+  policyVersion?: boolean
+  aiRunId?: boolean
   evidence?: boolean
   expectedValue?: boolean
   actualValue?: boolean
@@ -1494,24 +2205,27 @@ export type FindingSelectScalar = {
   updatedAt?: boolean
 }
 
-export type FindingOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "noteId" | "noteItemId" | "ruleId" | "code" | "title" | "description" | "category" | "severity" | "status" | "needsValidation" | "evidence" | "expectedValue" | "actualValue" | "createdAt" | "updatedAt", ExtArgs["result"]["finding"]>
+export type FindingOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "noteId" | "noteItemId" | "ruleId" | "code" | "title" | "description" | "category" | "severity" | "status" | "needsValidation" | "source" | "confidence" | "justification" | "references" | "ruleVersion" | "isNovel" | "policyVersion" | "aiRunId" | "evidence" | "expectedValue" | "actualValue" | "createdAt" | "updatedAt", ExtArgs["result"]["finding"]>
 export type FindingInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   noteItem?: boolean | Prisma.Finding$noteItemArgs<ExtArgs>
   rule?: boolean | Prisma.Finding$ruleArgs<ExtArgs>
   validations?: boolean | Prisma.Finding$validationsArgs<ExtArgs>
   notifications?: boolean | Prisma.Finding$notificationsArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Finding$aiRunArgs<ExtArgs>
   _count?: boolean | Prisma.FindingCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type FindingIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   noteItem?: boolean | Prisma.Finding$noteItemArgs<ExtArgs>
   rule?: boolean | Prisma.Finding$ruleArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Finding$aiRunArgs<ExtArgs>
 }
 export type FindingIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
   noteItem?: boolean | Prisma.Finding$noteItemArgs<ExtArgs>
   rule?: boolean | Prisma.Finding$ruleArgs<ExtArgs>
+  aiRun?: boolean | Prisma.Finding$aiRunArgs<ExtArgs>
 }
 
 export type $FindingPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1522,6 +2236,7 @@ export type $FindingPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     rule: Prisma.$AuditRulePayload<ExtArgs> | null
     validations: Prisma.$ValidationPayload<ExtArgs>[]
     notifications: Prisma.$NotificationPayload<ExtArgs>[]
+    aiRun: Prisma.$AiRunPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1535,6 +2250,14 @@ export type $FindingPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     severity: $Enums.FindingSeverity
     status: $Enums.FindingStatus
     needsValidation: boolean
+    source: $Enums.FindingSource
+    confidence: runtime.Decimal
+    justification: string
+    references: runtime.JsonValue | null
+    ruleVersion: string | null
+    isNovel: boolean
+    policyVersion: string
+    aiRunId: string | null
     evidence: runtime.JsonValue | null
     expectedValue: runtime.JsonValue | null
     actualValue: runtime.JsonValue | null
@@ -1939,6 +2662,7 @@ export interface Prisma__FindingClient<T, Null = never, ExtArgs extends runtime.
   rule<T extends Prisma.Finding$ruleArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Finding$ruleArgs<ExtArgs>>): Prisma.Prisma__AuditRuleClient<runtime.Types.Result.GetResult<Prisma.$AuditRulePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   validations<T extends Prisma.Finding$validationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Finding$validationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ValidationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   notifications<T extends Prisma.Finding$notificationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Finding$notificationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  aiRun<T extends Prisma.Finding$aiRunArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Finding$aiRunArgs<ExtArgs>>): Prisma.Prisma__AiRunClient<runtime.Types.Result.GetResult<Prisma.$AiRunPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1979,6 +2703,14 @@ export interface FindingFieldRefs {
   readonly severity: Prisma.FieldRef<"Finding", 'FindingSeverity'>
   readonly status: Prisma.FieldRef<"Finding", 'FindingStatus'>
   readonly needsValidation: Prisma.FieldRef<"Finding", 'Boolean'>
+  readonly source: Prisma.FieldRef<"Finding", 'FindingSource'>
+  readonly confidence: Prisma.FieldRef<"Finding", 'Decimal'>
+  readonly justification: Prisma.FieldRef<"Finding", 'String'>
+  readonly references: Prisma.FieldRef<"Finding", 'Json'>
+  readonly ruleVersion: Prisma.FieldRef<"Finding", 'String'>
+  readonly isNovel: Prisma.FieldRef<"Finding", 'Boolean'>
+  readonly policyVersion: Prisma.FieldRef<"Finding", 'String'>
+  readonly aiRunId: Prisma.FieldRef<"Finding", 'String'>
   readonly evidence: Prisma.FieldRef<"Finding", 'Json'>
   readonly expectedValue: Prisma.FieldRef<"Finding", 'Json'>
   readonly actualValue: Prisma.FieldRef<"Finding", 'Json'>
@@ -2468,6 +3200,25 @@ export type Finding$notificationsArgs<ExtArgs extends runtime.Types.Extensions.I
   take?: number
   skip?: number
   distinct?: Prisma.NotificationScalarFieldEnum | Prisma.NotificationScalarFieldEnum[]
+}
+
+/**
+ * Finding.aiRun
+ */
+export type Finding$aiRunArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AiRun
+   */
+  select?: Prisma.AiRunSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AiRun
+   */
+  omit?: Prisma.AiRunOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AiRunInclude<ExtArgs> | null
+  where?: Prisma.AiRunWhereInput
 }
 
 /**
