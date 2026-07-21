@@ -5,18 +5,15 @@ const REQUIRED_HEADERS = [
   "nome",
   "cidade",
   "uf",
-  "responsavel_email",
   "status",
 ] as const;
-
-const PLACEHOLDER_PROFILE_ID = "00000000-0000-4000-8000-000000000000";
 
 export type AdminWorkImportRow = {
   linha: number;
   codigo: string;
   nome: string;
   local: string;
-  responsavelEmail: string;
+  responsavel: string;
   ativa: boolean;
 };
 
@@ -130,6 +127,24 @@ export function parseAdminWorksCsv(csv: string): {
     };
   }
 
+  const responsibleHeader = normalizedHeaders.includes("responsavel")
+    ? "responsavel"
+    : normalizedHeaders.includes("responsavel_email")
+      ? "responsavel_email"
+      : null;
+  if (!responsibleHeader) {
+    return {
+      rows: [],
+      issues: [
+        {
+          linha: header.line,
+          campo: "cabecalho",
+          mensagem: "Coluna obrigatória ausente: responsavel.",
+        },
+      ],
+    };
+  }
+
   const indexes = Object.fromEntries(
     REQUIRED_HEADERS.map((name) => [name, normalizedHeaders.indexOf(name)]),
   ) as Record<(typeof REQUIRED_HEADERS)[number], number>;
@@ -142,12 +157,14 @@ export function parseAdminWorksCsv(csv: string): {
     const uf = get("uf").toUpperCase();
     const cidade = get("cidade");
     const status = parseStatus(get("status"));
+    const responsavel =
+      record.values[normalizedHeaders.indexOf(responsibleHeader)]?.trim() ?? "";
     const local = cidade && /^[A-Z]{2}$/.test(uf) ? `${cidade} - ${uf}` : "";
     const candidate = createAdminWorkSchema.safeParse({
       codigo: get("codigo"),
       nome: get("nome"),
       local,
-      responsavelId: PLACEHOLDER_PROFILE_ID,
+      responsavel,
       ativa: status ?? true,
     });
 
@@ -157,8 +174,8 @@ export function parseAdminWorksCsv(csv: string): {
     if (!/^[A-Z]{2}$/.test(uf)) {
       issues.push({ linha: record.line, campo: "uf", mensagem: "Use uma UF com duas letras." });
     }
-    if (!get("responsavel_email") || !/^\S+@\S+\.\S+$/.test(get("responsavel_email"))) {
-      issues.push({ linha: record.line, campo: "responsavel_email", mensagem: "Informe um e-mail válido." });
+    if (responsavel.length < 2) {
+      issues.push({ linha: record.line, campo: "responsavel", mensagem: "Informe o nome do responsável." });
     }
     if (status === null) {
       issues.push({ linha: record.line, campo: "status", mensagem: "Use Ativa ou Inativa." });
@@ -175,15 +192,14 @@ export function parseAdminWorksCsv(csv: string): {
       cidade &&
       /^[A-Z]{2}$/.test(uf) &&
       status !== null &&
-      candidate.success &&
-      /^\S+@\S+\.\S+$/.test(get("responsavel_email"))
+      candidate.success
     ) {
       rows.push({
         linha: record.line,
         codigo: candidate.data.codigo,
         nome: candidate.data.nome,
         local,
-        responsavelEmail: get("responsavel_email").toLowerCase(),
+        responsavel: candidate.data.responsavel,
         ativa: status,
       });
     }

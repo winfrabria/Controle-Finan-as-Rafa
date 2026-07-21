@@ -23,21 +23,12 @@ test(
   async (context) => {
     const suffix = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     const code = `TEST-${suffix}`.toUpperCase();
-    const responsible = await prisma.profile.findFirst({
-      where: { active: true },
-      select: { id: true },
-    });
-    if (!responsible) {
-      context.skip("A integração exige ao menos um perfil ativo.");
-      return;
-    }
     try {
-      await prisma.$queryRaw`SELECT responsible_profile_id FROM works LIMIT 1`;
+      await prisma.$queryRaw`SELECT responsible_name FROM works LIMIT 1`;
     } catch {
       context.skip("A migration de responsável por obra ainda não foi aplicada.");
       return;
     }
-    const profileId = responsible.id;
     let id: string | undefined;
 
     try {
@@ -46,13 +37,13 @@ test(
           codigo: code,
           nome: `Obra integração ${suffix}`,
           local: "São Paulo - SP",
-          responsavelId: profileId,
+          responsavel: "Carlos Menezes",
         }),
       );
       id = created.id;
       assert.equal(created.ativa, true);
       assert.equal(created.totalNotas, 0);
-      assert.equal(created.responsavel?.id, profileId);
+      assert.equal(created.responsavel, "Carlos Menezes");
 
       await assert.rejects(
         () =>
@@ -60,7 +51,8 @@ test(
             createAdminWorkSchema.parse({
               codigo: code.toLowerCase(),
               nome: "Código repetido",
-              responsavelId: profileId,
+              local: "São Paulo - SP",
+              responsavel: "Carlos Menezes",
             }),
           ),
         WorkCodeConflictError,

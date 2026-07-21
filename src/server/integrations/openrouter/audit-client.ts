@@ -54,7 +54,13 @@ export interface AuditDiscoveryClient {
   discover(request: AuditDiscoveryRequest): Promise<AuditDiscoveryResult>;
 }
 
-type Options = ReturnType<typeof getOpenRouterConfig> & {
+type Options = Omit<
+  ReturnType<typeof getOpenRouterConfig>,
+  "pdfModel" | "pdfReasoningEffort" | "reasoningEffort"
+> & {
+  pdfModel?: string;
+  pdfReasoningEffort?: string;
+  reasoningEffort?: string;
   fetchImplementation?: typeof fetch;
   sleep?: (milliseconds: number) => Promise<void>;
 };
@@ -187,4 +193,3 @@ export function getOpenRouterAuditDiscoveryClient() {
   defaultAuditClient ??= new OpenRouterAuditDiscoveryClient(getOpenRouterConfig());
   return defaultAuditClient;
 }
-

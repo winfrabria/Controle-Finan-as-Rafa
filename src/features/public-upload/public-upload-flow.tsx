@@ -637,8 +637,8 @@ export function PublicUploadFlow() {
           ? {
               badge: "Análise em andamento",
               description:
-                "O arquivo foi recebido. A análise está demorando mais que o esperado, mas continuará em segundo plano.",
-              title: "Nota recebida com sucesso",
+                "A nota já está no sistema e continuará sendo analisada em segundo plano. Você não precisa manter esta tela aberta.",
+              title: "Nota enviada ao sistema",
             }
           : {
               badge: "Análise concluída",
@@ -833,10 +833,10 @@ export function PublicUploadFlow() {
                 <Status
                   icon={<IconCloudUpload />}
                   title="Arquivo recebido"
-                  text="Estamos preparando a nota para análise."
+                  text="A nota já está no sistema e o Harness iniciou a análise."
                 >
                   <p className={styles.ok}>✓ Upload concluído</p>
-                  <p className={styles.pulsing}>● Preparando processamento</p>
+                  <p className={styles.pulsing}>● Análise em andamento</p>
                 </Status>
               ) : null}
             </section>
@@ -983,7 +983,7 @@ export function PublicUploadFlow() {
               <div className={styles.resultButtons}>
                 {resultKind === "PENDING" ? (
                   <button className={styles.submitBtn} onClick={() => void retryProcessing()}>
-                    <IconFocus /> Atualizar análise
+                    <IconFocus /> Consultar andamento
                   </button>
                 ) : null}
                 <button className={styles.submitBtn} onClick={startAgain}>

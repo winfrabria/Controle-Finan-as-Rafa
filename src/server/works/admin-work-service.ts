@@ -39,6 +39,7 @@ const adminWorkSelect = {
   name: true,
   location: true,
   active: true,
+  responsibleName: true,
   createdAt: true,
   updatedAt: true,
   responsibleProfile: {
@@ -56,14 +57,11 @@ function serializeWork(work: SelectedAdminWork) {
     nome: work.name,
     local: work.location,
     ativa: work.active,
-    responsavel: work.responsibleProfile
-      ? {
-          id: work.responsibleProfile.id,
-          nome: work.responsibleProfile.fullName,
-          email: work.responsibleProfile.email,
-          papel: work.responsibleProfile.role,
-        }
-      : null,
+    responsavel:
+      work.responsibleName ??
+      work.responsibleProfile?.fullName ??
+      work.responsibleProfile?.email ??
+      null,
     totalNotas: work._count.notes,
     criadaEm: work.createdAt.toISOString(),
     atualizadaEm: work.updatedAt.toISOString(),
@@ -100,14 +98,6 @@ async function ensureUniqueWorkCode(code: string, exceptId?: string) {
   if (existing) throw new WorkCodeConflictError();
 }
 
-async function ensureActiveResponsible(profileId: string) {
-  const responsible = await prisma.profile.findFirst({
-    where: { id: profileId, active: true },
-    select: { id: true },
-  });
-  if (!responsible) throw new WorkResponsibleNotFoundError();
-}
-
 export async function listResponsibleProfiles() {
   const profiles = await prisma.profile.findMany({
     where: { active: true },
@@ -137,6 +127,12 @@ export async function listAdminWorks(query: ListAdminWorksQuery) {
             { name: { contains: query.busca, mode: "insensitive" } },
             { location: { contains: query.busca, mode: "insensitive" } },
             {
+              responsibleName: {
+                contains: query.busca,
+                mode: "insensitive",
+              },
+            },
+            {
               responsibleProfile: {
                 is: {
                   OR: [
@@ -152,16 +148,17 @@ export async function listAdminWorks(query: ListAdminWorksQuery) {
   };
   const skip = (query.pagina - 1) * query.porPagina;
 
-  const [works, total] = await prisma.$transaction([
-    prisma.work.findMany({
+  const { works, total } = await prisma.$transaction(async (transaction) => {
+    const works = await transaction.work.findMany({
       where,
       orderBy: [{ active: "desc" }, { name: "asc" }, { id: "asc" }],
       skip,
       take: query.porPagina,
       select: adminWorkSelect,
-    }),
-    prisma.work.count({ where }),
-  ]);
+    });
+    const total = await transaction.work.count({ where });
+    return { total, works };
+  });
 
   return {
     obras: works.map(serializeWork),
@@ -187,7 +184,6 @@ export async function getAdminWork(id: string) {
 
 export async function createAdminWork(input: CreateAdminWorkInput) {
   await ensureUniqueWorkCode(input.codigo);
-  await ensureActiveResponsible(input.responsavelId);
 
   try {
     const work = await prisma.work.create({
@@ -196,7 +192,7 @@ export async function createAdminWork(input: CreateAdminWorkInput) {
         name: input.nome,
         location: input.local,
         active: input.ativa,
-        responsibleProfileId: input.responsavelId,
+        responsibleName: input.responsavel,
       },
       select: adminWorkSelect,
     });
@@ -211,10 +207,6 @@ export async function updateAdminWork(id: string, input: UpdateAdminWorkInput) {
   if (input.codigo !== undefined) {
     await ensureUniqueWorkCode(input.codigo, id);
   }
-  if (input.responsavelId) {
-    await ensureActiveResponsible(input.responsavelId);
-  }
-
   try {
     const work = await prisma.work.update({
       where: { id },
@@ -222,8 +214,8 @@ export async function updateAdminWork(id: string, input: UpdateAdminWorkInput) {
         ...(input.codigo !== undefined ? { code: input.codigo } : {}),
         ...(input.nome !== undefined ? { name: input.nome } : {}),
         ...(input.local !== undefined ? { location: input.local } : {}),
-        ...(input.responsavelId !== undefined
-          ? { responsibleProfileId: input.responsavelId }
+        ...(input.responsavel !== undefined
+          ? { responsibleName: input.responsavel }
           : {}),
         ...(input.ativa !== undefined ? { active: input.ativa } : {}),
       },
@@ -257,31 +249,14 @@ export async function importAdminWorks(csv: string, apply: boolean) {
       }
     }
 
-    const emails = [...new Set(parsed.rows.map((row) => row.responsavelEmail))];
     const codes = [...new Set(parsed.rows.map((row) => row.codigo))];
-    const [profiles, existingWorks] = await Promise.all([
-      transaction.profile.findMany({
-        where: { active: true, email: { in: emails, mode: "insensitive" } },
-        select: { id: true, email: true, fullName: true },
-      }),
-      transaction.work.findMany({
-        where: { code: { in: codes, mode: "insensitive" } },
-        select: { code: true },
-      }),
-    ]);
-    const profileByEmail = new Map(
-      profiles.map((profile) => [profile.email.toLowerCase(), profile]),
-    );
+    const existingWorks = await transaction.work.findMany({
+      where: { code: { in: codes, mode: "insensitive" } },
+      select: { code: true },
+    });
     const existingCodes = new Set(existingWorks.map((work) => work.code.toUpperCase()));
 
     for (const row of parsed.rows) {
-      if (!profileByEmail.has(row.responsavelEmail)) {
-        issues.push({
-          linha: row.linha,
-          campo: "responsavel_email",
-          mensagem: "Responsável não encontrado ou inativo.",
-        });
-      }
       if (existingCodes.has(row.codigo)) {
         issues.push({
           linha: row.linha,
@@ -298,7 +273,7 @@ export async function importAdminWorks(csv: string, apply: boolean) {
           name: row.nome,
           location: row.local,
           active: row.ativa,
-          responsibleProfileId: profileByEmail.get(row.responsavelEmail)!.id,
+          responsibleName: row.responsavel,
         })),
       });
     }
@@ -313,9 +288,7 @@ export async function importAdminWorks(csv: string, apply: boolean) {
         codigo: row.codigo,
         nome: row.nome,
         local: row.local,
-        responsavelEmail: row.responsavelEmail,
-        responsavelNome:
-          profileByEmail.get(row.responsavelEmail)?.fullName ?? null,
+        responsavel: row.responsavel,
         ativa: row.ativa,
       })),
     };

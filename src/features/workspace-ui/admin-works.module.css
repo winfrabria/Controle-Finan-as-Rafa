@@ -98,8 +98,8 @@
 
 .desktopGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(286px, 318px);
+  gap: 24px;
   align-items: start;
 }
 
@@ -386,8 +386,8 @@
 }
 
 .editButton {
-  width: auto;
-  padding: 0 9px;
+  width: 34px;
+  padding: 0;
   color: var(--blue);
   font: inherit;
   font-size: 0.72rem;
@@ -482,7 +482,7 @@
 }
 
 .workForm {
-  padding: 24px;
+  padding: 21px;
 }
 
 .formHeader {
@@ -522,6 +522,23 @@
   color: #273b61;
   font-size: 0.82rem;
   font-weight: 600;
+}
+
+.locationFields {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.locationFields label {
+  min-width: 0;
+}
+
+.fieldHint {
+  margin: 7px 0 0;
+  color: #6d7d99;
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 
 .workForm label b {
@@ -696,7 +713,7 @@
 
 .importActions {
   display: grid;
-  grid-template-columns: 1fr 1.5fr;
+  grid-template-columns: 1.15fr 0.9fr 1.35fr;
   gap: 10px;
   margin-top: 18px;
 }
@@ -708,7 +725,7 @@
 
 @media (max-width: 1180px) {
   .desktopGrid {
-    grid-template-columns: minmax(0, 1fr) 270px;
+    grid-template-columns: minmax(0, 1fr) 286px;
     gap: 18px;
   }
 
@@ -725,6 +742,16 @@
   .table td {
     padding-right: 10px;
     padding-left: 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  .importActions {
+    grid-template-columns: 1fr;
+  }
+
+  .locationFields {
+    grid-template-columns: 78px minmax(0, 1fr);
   }
 }
 

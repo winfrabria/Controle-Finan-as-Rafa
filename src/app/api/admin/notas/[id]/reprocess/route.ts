@@ -1,11 +1,15 @@
 import { randomUUID } from "node:crypto";
 
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { persistAdminAudit } from "@/server/notes/admin-audit-log";
 import { ADMIN_ONLY_ROLES } from "@/server/auth/access-policy";
 import { requireApiRoles } from "@/server/auth/authorization";
-import { ProcessingJobError, scheduleNoteReprocess } from "@/server/notes/processing-jobs";
+import {
+  processProcessingJob,
+  ProcessingJobError,
+  scheduleNoteReprocess,
+} from "@/server/notes/processing-jobs";
 
 export const runtime = "nodejs";
 
@@ -27,6 +31,20 @@ export async function POST(
       entityType: "note",
       requestId,
       changes: { jobId: job.id },
+    });
+    after(async () => {
+      try {
+        await processProcessingJob(job.id, {
+          workerId: `reprocess:${requestId}`,
+        });
+      } catch (error) {
+        console.error("Background note reprocessing failed", {
+          jobId: job.id,
+          message: error instanceof Error ? error.message : "unknown error",
+          noteId: id,
+          requestId,
+        });
+      }
     });
     return NextResponse.json({ job }, { status: 202 });
   } catch (error) {

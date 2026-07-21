@@ -10,7 +10,7 @@ import {
   ReasoningEffort,
 } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
-import { HARNESS_MODEL, HARNESS_VERSIONS } from "@/lib/audit-harness";
+import { HARNESS_VERSIONS } from "@/lib/audit-harness";
 import type { InvoiceExtraction } from "@/lib/integrations/openrouter/extraction-contract";
 import { prisma } from "@/server/db/prisma";
 import {
@@ -306,17 +306,22 @@ export async function processNoteExtraction(
   dependencies: { client?: InvoiceExtractionClient; processingJobId?: string } = {},
 ) {
   const note = await claimNote(noteId);
+  const extractingPdf = note.originalMimeType === "application/pdf";
   const idempotencyKey = `extract:${dependencies.processingJobId ?? note.id}:${note.claimedVersion}`;
   const aiRun = await prisma.aiRun.create({
     data: {
       idempotencyKey,
       kind: AiRunKind.EXTRACTION,
-      model: HARNESS_MODEL,
+      model: extractingPdf
+        ? process.env.OPENROUTER_PDF_MODEL ?? "openai/gpt-5.6-sol"
+        : process.env.OPENROUTER_EXTRACTION_MODEL ?? "openai/gpt-5.6-luna",
       noteId: note.id,
       policyVersion: HARNESS_VERSIONS.policy,
       processingJobId: dependencies.processingJobId,
       promptVersion: HARNESS_VERSIONS.prompt,
-      reasoningEffort: ReasoningEffort.HIGH,
+      reasoningEffort: extractingPdf
+        ? ReasoningEffort.HIGH
+        : ReasoningEffort.MAX,
       requestFingerprint: createHash("sha256")
         .update(`${note.id}:${note.claimedVersion}:${note.originalFileName}`)
         .digest("hex"),

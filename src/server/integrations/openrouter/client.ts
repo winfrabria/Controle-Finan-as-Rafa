@@ -39,6 +39,15 @@ const responseSchema = z
   })
   .passthrough();
 
+const providerErrorEnvelopeSchema = z
+  .object({
+    error: z.object({
+      code: z.union([z.string(), z.number()]).optional(),
+      message: z.string().optional(),
+    }),
+  })
+  .passthrough();
+
 export type OpenRouterClientErrorKind =
   | "invalid-response"
   | "provider"
@@ -90,7 +99,10 @@ type OpenRouterClientOptions = {
   fetchImplementation?: typeof fetch;
   maxAttempts: number;
   model: string;
+  pdfModel?: string;
   pdfEngine: OpenRouterPdfEngine;
+  pdfReasoningEffort?: string;
+  reasoningEffort: string;
   sleep?: (milliseconds: number) => Promise<void>;
   timeoutMs: number;
 };
@@ -189,8 +201,9 @@ export class OpenRouterInvoiceExtractionClient
     const startedAt = Date.now();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs);
+    const isPdf = request.mimeType === "application/pdf";
     const payload = {
-      model: this.options.model,
+      model: isPdf ? this.options.pdfModel ?? this.options.model : this.options.model,
       messages: [
         { role: "system", content: INVOICE_EXTRACTION_SYSTEM_PROMPT },
         {
@@ -214,7 +227,12 @@ export class OpenRouterInvoiceExtractionClient
       },
       stream: false,
       temperature: 0,
-      reasoning: { effort: "high", exclude: true },
+      reasoning: {
+        effort: isPdf
+          ? this.options.pdfReasoningEffort ?? this.options.reasoningEffort
+          : this.options.reasoningEffort,
+        exclude: true,
+      },
       ...(request.mimeType === "application/pdf"
         ? {
             plugins: [
@@ -273,6 +291,15 @@ export class OpenRouterInvoiceExtractionClient
       const envelope = responseSchema.safeParse(responseBody);
 
       if (!envelope.success) {
+        const providerError = providerErrorEnvelopeSchema.safeParse(responseBody);
+        if (providerError.success) {
+          throw new OpenRouterClientError(
+            "provider",
+            providerError.data.error.message?.slice(0, 300) ??
+              "OpenRouter returned a provider error.",
+            true,
+          );
+        }
         throw new OpenRouterClientError(
           "invalid-response",
           "OpenRouter returned an invalid response envelope.",
@@ -366,7 +393,7 @@ let defaultClient: OpenRouterInvoiceExtractionClient | undefined;
 export function getOpenRouterInvoiceExtractionClient() {
   if (!defaultClient) {
     try {
-      const config = getOpenRouterConfig();
+      const config = getOpenRouterConfig(process.env, "extraction");
       defaultClient = new OpenRouterInvoiceExtractionClient(config);
     } catch (error) {
       throw new OpenRouterClientError(

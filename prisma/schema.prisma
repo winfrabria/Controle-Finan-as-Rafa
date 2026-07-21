@@ -51,6 +51,7 @@ enum AiRunStatus {
 }
 
 enum ReasoningEffort {
+  MAX
   HIGH
   XHIGH
 }
@@ -126,6 +127,7 @@ model Work {
   name                 String
   location             String?
   active               Boolean          @default(true)
+  responsibleName      String?          @map("responsible_name")
   responsibleProfileId String?          @map("responsible_profile_id") @db.Uuid
   createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)

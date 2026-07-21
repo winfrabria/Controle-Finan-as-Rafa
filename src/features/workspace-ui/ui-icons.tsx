@@ -12,6 +12,7 @@ export type IconName =
   | "close"
   | "document"
   | "download"
+  | "edit"
   | "eye"
   | "filter"
   | "help"
@@ -75,6 +76,12 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <path d="M12 3v12m0 0 4-4m-4 4-4-4" />
       <path d="M4 17v4h16v-4" />
+    </>
+  ),
+  edit: (
+    <>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
     </>
   ),
   eye: (

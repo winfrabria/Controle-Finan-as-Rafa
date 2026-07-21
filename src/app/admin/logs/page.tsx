@@ -21,6 +21,73 @@ function safeJson(value: unknown) {
   return serialized.length > 1_500 ? `${serialized.slice(0, 1_500)}…` : serialized;
 }
 
+function asRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function eventCopy(type: string, dataValue: unknown) {
+  const data = asRecord(dataValue);
+  const fileName = typeof data.fileName === "string" ? data.fileName : "arquivo enviado";
+  const findingCount = typeof data.findingCount === "number" ? data.findingCount : null;
+  const map: Record<string, { action: string; comment: string; status: string }> = {
+    UPLOAD_RECEIVED: {
+      action: "Nota recebida pelo sistema",
+      comment: `${fileName} entrou na fila de processamento.`,
+      status: "Recebida",
+    },
+    FILE_STORED: {
+      action: "Arquivo armazenado com segurança",
+      comment: "O documento original foi salvo e liberado para leitura.",
+      status: "Arquivo pronto",
+    },
+    EXTRACTION_STARTED: {
+      action: "Leitura da nota iniciada",
+      comment: "O Harness iniciou a extração estruturada dos campos e itens da nota.",
+      status: "Extraindo dados",
+    },
+    EXTRACTION_COMPLETED: {
+      action: "Leitura da nota concluída",
+      comment: "Os dados e itens identificados foram normalizados para a auditoria.",
+      status: "Extração concluída",
+    },
+    AUDIT_COMPLETED: {
+      action: "Auditoria da nota concluída",
+      comment:
+        findingCount === null
+          ? "As regras e a análise da IA foram concluídas."
+          : `${findingCount} apontamento(s) sustentado(s) foram identificados.`,
+      status: "Auditoria concluída",
+    },
+    READ_FAILED: {
+      action: "Leitura da nota não concluída",
+      comment: "O sistema não obteve dados suficientes para auditar o documento.",
+      status: "Falha de leitura",
+    },
+    EXTRACTION_FAILED: {
+      action: "Falha temporária na leitura",
+      comment: "A tentativa de extração falhou e ficou registrada para diagnóstico ou reprocessamento.",
+      status: "Falha na extração",
+    },
+    UPLOAD_FAILED: {
+      action: "Falha no recebimento do arquivo",
+      comment: "O upload não pôde ser finalizado e o sistema registrou a compensação.",
+      status: "Falha no upload",
+    },
+    REPROCESS_SCHEDULED: {
+      action: "Reprocessamento solicitado",
+      comment: "Uma nova leitura e auditoria foram colocadas na fila.",
+      status: "Reprocessando",
+    },
+  };
+  return map[type] ?? {
+    action: "Evento do processamento",
+    comment: "O sistema registrou uma nova etapa da nota.",
+    status: type.replaceAll("_", " ").toLocaleLowerCase("pt-BR"),
+  };
+}
+
 type PageProps = {
   searchParams?: Promise<{ noteId?: string }>;
 };
@@ -34,8 +101,9 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
     )
       ? requestedNoteId
       : undefined;
-  const [runs, validations, administrative] = await prisma.$transaction([
-    prisma.aiRun.findMany({
+  const { runs, validations, administrative, events } = await prisma.$transaction(
+    async (transaction) => {
+      const runs = await transaction.aiRun.findMany({
       where: noteId ? { noteId } : undefined,
       orderBy: { createdAt: "desc" },
       take: 50,
@@ -50,8 +118,8 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
           },
         },
       },
-    }),
-    prisma.validation.findMany({
+      });
+      const validations = await transaction.validation.findMany({
       where: noteId ? { noteId } : undefined,
       orderBy: { createdAt: "desc" },
       take: 50,
@@ -66,15 +134,33 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
         },
         validator: { select: { email: true, fullName: true } },
       },
-    }),
-    prisma.adminAuditLog.findMany({
+      });
+      const administrative = await transaction.adminAuditLog.findMany({
       where: noteId
         ? { entityId: noteId, entityType: "note" }
         : undefined,
       orderBy: { createdAt: "desc" },
       take: 50,
-    }),
-  ]);
+      });
+      const events = await transaction.noteEvent.findMany({
+        where: noteId ? { noteId } : undefined,
+        orderBy: { createdAt: "desc" },
+        take: 100,
+        include: {
+          actor: { select: { email: true, fullName: true } },
+          note: {
+            select: {
+              classification: true,
+              documentNumber: true,
+              id: true,
+              work: { select: { name: true } },
+            },
+          },
+        },
+      });
+      return { administrative, events, runs, validations };
+    },
+  );
 
   const runLogs: AuditLog[] = runs.map((run) => ({
     action: run.kind === "EXTRACTION" ? "Extração estruturada da nota" : "Auditoria da IA",
@@ -135,7 +221,25 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
     work: "Administração",
   }));
 
-  const logs = [...runLogs, ...validationLogs, ...adminLogs]
+  const eventLogs: AuditLog[] = events.map((event) => {
+    const copy = eventCopy(event.type, event.data);
+    return {
+      action: copy.action,
+      at: dateTime.format(event.createdAt),
+      classification: classification(event.note.classification),
+      comment: copy.comment,
+      dateIso: event.createdAt.toISOString().slice(0, 10),
+      id: `EVENT-${event.id}`,
+      noteId: event.note.id,
+      noteNumber: event.note.documentNumber ?? "Aguardando leitura",
+      reason: "Linha do tempo do processamento",
+      status: copy.status,
+      user: event.actor?.fullName ?? event.actor?.email ?? "Sistema",
+      work: event.note.work.name,
+    } satisfies AuditLog;
+  });
+
+  const logs = [...eventLogs, ...runLogs, ...validationLogs, ...adminLogs]
     .sort((a, b) => b.dateIso.localeCompare(a.dateIso) || b.at.localeCompare(a.at))
     .slice(0, 100);
 

@@ -19,17 +19,10 @@ type AdminWork = {
   nome: string;
   local: string | null;
   ativa: boolean;
-  responsavel: ResponsibleProfile | null;
+  responsavel: string | null;
   totalNotas: number;
   criadaEm: string;
   atualizadaEm: string;
-};
-
-type ResponsibleProfile = {
-  id: string;
-  nome: string | null;
-  email: string;
-  papel: "ADMIN" | "REVIEWER";
 };
 
 type WorksResponse = {
@@ -45,8 +38,9 @@ type WorksResponse = {
 type WorkFormState = {
   codigo: string;
   nome: string;
-  local: string;
-  responsavelId: string;
+  cidade: string;
+  uf: string;
+  responsavel: string;
   ativa: boolean;
 };
 
@@ -60,11 +54,27 @@ type ImportResult = {
 const emptyForm: WorkFormState = {
   codigo: "",
   nome: "",
-  local: "",
-  responsavelId: "",
+  cidade: "",
+  uf: "",
+  responsavel: "",
   ativa: true,
 };
 const PAGE_SIZE = 10;
+const UFS = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT",
+  "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO",
+  "RR", "SC", "SP", "SE", "TO",
+] as const;
+
+function splitLocation(location: string | null) {
+  if (!location) return { cidade: "", uf: "" };
+  const separator = location.lastIndexOf(" - ");
+  if (separator < 0) return { cidade: location, uf: "" };
+  return {
+    cidade: location.slice(0, separator),
+    uf: location.slice(separator + 3).toUpperCase(),
+  };
+}
 
 function getApiError(payload: unknown, fallback: string) {
   if (!payload || typeof payload !== "object") return fallback;
@@ -119,7 +129,9 @@ export function AdminWorksClient() {
   const [form, setForm] = useState<WorkFormState>(emptyForm);
   const [formOpen, setFormOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState<string | null>(null);
-  const [responsibles, setResponsibles] = useState<ResponsibleProfile[]>([]);
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityWarning, setCityWarning] = useState<string | null>(null);
   const [importCsv, setImportCsv] = useState("");
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importing, setImporting] = useState(false);
@@ -206,21 +218,37 @@ export function AdminWorksClient() {
   }, [loadMetrics]);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      void requestJson<{ responsaveis: ResponsibleProfile[] }>(
-        "/api/admin/usuarios/responsaveis",
-      )
-        .then((result) => setResponsibles(result.responsaveis))
-        .catch((caught) =>
-          setError(
-            caught instanceof Error
-              ? caught.message
-              : "Não foi possível carregar os responsáveis.",
-          ),
-        );
-    }, 0);
-    return () => window.clearTimeout(timeout);
-  }, []);
+    if (!form.uf) return;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setCityLoading(true);
+      try {
+        const params = new URLSearchParams({ uf: form.uf });
+        if (form.cidade.trim()) params.set("busca", form.cidade.trim());
+        const response = await fetch(`/api/localidades/municipios?${params}`, {
+          cache: "force-cache",
+          signal: controller.signal,
+        });
+        const payload = (await response.json()) as {
+          cidades?: string[];
+          aviso?: string;
+        };
+        setCitySuggestions(payload.cidades ?? []);
+        setCityWarning(payload.aviso ?? null);
+      } catch (caught) {
+        if (!(caught instanceof DOMException && caught.name === "AbortError")) {
+          setCitySuggestions([]);
+          setCityWarning("Digite a cidade manualmente.");
+        }
+      } finally {
+        if (!controller.signal.aborted) setCityLoading(false);
+      }
+    }, 250);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [form.cidade, form.uf]);
 
   useEffect(() => {
     if (!formOpen) return;
@@ -241,27 +269,35 @@ export function AdminWorksClient() {
     setError(null);
     setSuccess(null);
     setActionsOpen(null);
+    setCitySuggestions([]);
+    setCityWarning(null);
     setFormOpen(true);
   }
 
   function startEdit(work: AdminWork) {
+    const location = splitLocation(work.local);
     setEditing(work);
     setForm({
       codigo: work.codigo,
       nome: work.nome,
-      local: work.local ?? "",
-      responsavelId: work.responsavel?.id ?? "",
+      cidade: location.cidade,
+      uf: location.uf,
+      responsavel: work.responsavel ?? "",
       ativa: work.ativa,
     });
     setError(null);
     setSuccess(null);
     setActionsOpen(null);
+    setCitySuggestions([]);
+    setCityWarning(null);
     setFormOpen(true);
   }
 
   function clearForm() {
     setEditing(null);
     setForm(emptyForm);
+    setCitySuggestions([]);
+    setCityWarning(null);
   }
 
   function closeForm() {
@@ -278,8 +314,8 @@ export function AdminWorksClient() {
       const payload = {
         codigo: form.codigo.trim(),
         nome: form.nome.trim(),
-        local: form.local.trim() || null,
-        responsavelId: form.responsavelId,
+        local: `${form.cidade.trim()} - ${form.uf}`,
+        responsavel: form.responsavel.trim(),
         ativa: form.ativa,
       };
       if (editing) {
@@ -312,6 +348,10 @@ export function AdminWorksClient() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    if (!file.name.toLocaleLowerCase("pt-BR").endsWith(".csv")) {
+      setError("Selecione um arquivo no formato CSV.");
+      return;
+    }
     setImporting(true);
     setError(null);
     try {
@@ -329,6 +369,21 @@ export function AdminWorksClient() {
     } finally {
       setImporting(false);
     }
+  }
+
+  function downloadCsvTemplate() {
+    const content = [
+      "codigo,nome,cidade,uf,responsavel,status",
+      "OBR-0001,Residencial Parque das Águas,Goiânia,GO,Carlos Menezes,Ativa",
+    ].join("\n");
+    const url = URL.createObjectURL(
+      new Blob([content], { type: "text/csv;charset=utf-8" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "modelo-importacao-obras.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   async function applyImport() {
@@ -413,7 +468,7 @@ export function AdminWorksClient() {
           aria-label={`Editar ${work.nome}`}
           onClick={() => startEdit(work)}
         >
-          Editar
+          <Icon name="edit" />
         </button>
         <button
           type="button"
@@ -481,7 +536,6 @@ export function AdminWorksClient() {
           required
           minLength={2}
           maxLength={32}
-          pattern="[A-Za-z0-9][A-Za-z0-9_-]*"
           placeholder="Ex.: OBR-0001"
           value={form.codigo}
           onChange={(event) =>
@@ -492,37 +546,63 @@ export function AdminWorksClient() {
           }
         />
       </label>
-      <label>
-        Cidade / Estado <b>*</b>
-        <input
-          required
-          maxLength={240}
-          placeholder="Ex.: Goiânia - GO"
-          value={form.local}
-          onChange={(event) =>
-            setForm((current) => ({ ...current, local: event.target.value }))
-          }
-        />
-      </label>
+      <div className={styles.locationFields}>
+        <label>
+          Estado <b>*</b>
+          <select
+            required
+            value={form.uf}
+            onChange={(event) => {
+              setCitySuggestions([]);
+              setCityWarning(null);
+              setForm((current) => ({
+                ...current,
+                uf: event.target.value,
+                cidade: "",
+              }));
+            }}
+          >
+            <option value="">UF</option>
+            {UFS.map((uf) => (
+              <option key={uf} value={uf}>{uf}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Cidade <b>*</b>
+          <input
+            required
+            maxLength={200}
+            list="work-city-options"
+            disabled={!form.uf}
+            placeholder={form.uf ? "Busque ou digite a cidade" : "Selecione a UF"}
+            value={form.cidade}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, cidade: event.target.value }))
+            }
+          />
+          <datalist id="work-city-options">
+            {citySuggestions.map((city) => <option key={city} value={city} />)}
+          </datalist>
+        </label>
+      </div>
+      {cityLoading ? <p className={styles.fieldHint}>Buscando cidades no IBGE…</p> : null}
+      {cityWarning ? <p className={styles.fieldHint}>{cityWarning}</p> : null}
       <label>
         Responsável <b>*</b>
-        <select
+        <input
           required
-          value={form.responsavelId}
+          minLength={2}
+          maxLength={120}
+          placeholder="Nome do responsável pela obra"
+          value={form.responsavel}
           onChange={(event) =>
             setForm((current) => ({
               ...current,
-              responsavelId: event.target.value,
+              responsavel: event.target.value,
             }))
           }
-        >
-          <option value="">Selecione o responsável</option>
-          {responsibles.map((responsible) => (
-            <option key={responsible.id} value={responsible.id}>
-              {responsible.nome || responsible.email}
-            </option>
-          ))}
-        </select>
+        />
       </label>
       <label>
         Status <b>*</b>
@@ -574,6 +654,7 @@ export function AdminWorksClient() {
             className={styles.importButton}
             disabled={importing}
             onClick={() => importInputRef.current?.click()}
+            title="Selecione um CSV com código, nome, cidade, UF, responsável e status"
           >
             <Icon name="upload" /> {importing ? "Validando..." : "Importar"}
           </button>
@@ -697,9 +778,7 @@ export function AdminWorksClient() {
                           <td>{work.codigo}</td>
                           <td>{work.local || "Não informado"}</td>
                           <td>
-                            {work.responsavel?.nome ||
-                              work.responsavel?.email ||
-                              "Não definido"}
+                            {work.responsavel || "Não definido"}
                           </td>
                           <td>{renderStatus(work)}</td>
                           <td>{renderActions(work)}</td>
@@ -721,7 +800,7 @@ export function AdminWorksClient() {
                           {work.codigo} <i>•</i> {work.local || "Não informado"}
                         </p>
                         <small>
-                          Responsável: {work.responsavel?.nome || work.responsavel?.email || "Não definido"}
+                          Responsável: {work.responsavel || "Não definido"}
                         </small>
                         {renderStatus(work)}
                       </div>
@@ -825,6 +904,13 @@ export function AdminWorksClient() {
               </p>
             )}
             <div className={styles.importActions}>
+              <button
+                className={styles.clearButton}
+                type="button"
+                onClick={downloadCsvTemplate}
+              >
+                Baixar modelo CSV
+              </button>
               <button
                 className={styles.clearButton}
                 type="button"

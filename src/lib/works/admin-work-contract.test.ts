@@ -7,19 +7,19 @@ import {
   updateAdminWorkSchema,
 } from "./admin-work-contract";
 
-test("normaliza o código da obra e limpa local vazio", () => {
+test("normaliza o código, a UF e o responsável da obra", () => {
   const result = createAdminWorkSchema.parse({
     codigo: "  obra-sp_01 ",
     nome: "  Edifício Central ",
-    local: "   ",
-    responsavelId: "00000000-0000-4000-8000-000000000001",
+    local: " São Paulo - sp ",
+    responsavel: "  Carlos Menezes ",
   });
 
   assert.deepEqual(result, {
     codigo: "OBRA-SP_01",
     nome: "Edifício Central",
-    local: null,
-    responsavelId: "00000000-0000-4000-8000-000000000001",
+    local: "São Paulo - SP",
+    responsavel: "Carlos Menezes",
     ativa: true,
   });
 });
@@ -30,20 +30,25 @@ test("rejeita edição vazia e código com caracteres inseguros", () => {
     createAdminWorkSchema.safeParse({
       codigo: "obra com espaço",
       nome: "Obra válida",
-      responsavelId: "00000000-0000-4000-8000-000000000001",
+      local: "São Paulo - SP",
+      responsavel: "Carlos Menezes",
     }).success,
     false,
   );
 });
 
-test("exige responsável em novas obras e permite atribuí-lo em obras antigas", () => {
+test("exige responsável em novas obras e permite atualizá-lo", () => {
   assert.equal(
-    createAdminWorkSchema.safeParse({ codigo: "OBR-1", nome: "Obra sem responsável" }).success,
+    createAdminWorkSchema.safeParse({
+      codigo: "OBR-1",
+      nome: "Obra sem responsável",
+      local: "São Paulo - SP",
+    }).success,
     false,
   );
   assert.equal(
     updateAdminWorkSchema.safeParse({
-      responsavelId: "00000000-0000-4000-8000-000000000001",
+      responsavel: "Carlos Menezes",
     }).success,
     true,
   );
@@ -54,7 +59,7 @@ test("normaliza a UF e exige local no formato Cidade - UF", () => {
     codigo: "OBR-2",
     nome: "Obra Goiânia",
     local: "Goiânia - go",
-    responsavelId: "00000000-0000-4000-8000-000000000001",
+    responsavel: "Carlos Menezes",
   });
   assert.equal(valid.local, "Goiânia - GO");
   assert.equal(
@@ -62,7 +67,7 @@ test("normaliza a UF e exige local no formato Cidade - UF", () => {
       codigo: "OBR-3",
       nome: "Local inválido",
       local: "Goiânia/GO",
-      responsavelId: "00000000-0000-4000-8000-000000000001",
+      responsavel: "Carlos Menezes",
     }).success,
     false,
   );

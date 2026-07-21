@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { NOTE_UPLOAD_FIELDS } from "@/lib/notes/upload-contract";
 import { getInvoiceStorageConfig } from "@/lib/storage";
 import { createNoteUpload } from "@/server/notes/create-note-upload";
 import { NoteUploadError } from "@/server/notes/note-upload-error";
+import { processProcessingJob } from "@/server/notes/processing-jobs";
 
 export const runtime = "nodejs";
 
@@ -100,6 +101,21 @@ export async function POST(request: Request) {
       contentType: file.type,
       fileName: file.name,
       workId: workId.trim(),
+    });
+
+    after(async () => {
+      try {
+        await processProcessingJob(note.processingJobId, {
+          workerId: `upload:${requestId}`,
+        });
+      } catch (error) {
+        console.error("Background note processing failed", {
+          jobId: note.processingJobId,
+          message: error instanceof Error ? error.message : "unknown error",
+          noteId: note.id,
+          requestId,
+        });
+      }
     });
 
     return NextResponse.json(

@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 
 import { WinfraBrand } from "@/components/brand/winfra-brand";
 import { createClient } from "@/lib/supabase/browser";
@@ -75,15 +75,66 @@ function IconCheckCircle() {
 }
 
 export default function AtualizarSenhaPage() {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [linkStatus, setLinkStatus] = useState<"checking" | "ready" | "invalid">(
+    "checking",
+  );
 
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
   >("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    let active = true;
+
+    async function initializeRecoverySession() {
+      try {
+        const url = new URL(window.location.href);
+        const code = url.searchParams.get("code");
+        const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+        const accessToken = hash.get("access_token");
+        const refreshToken = hash.get("refresh_token");
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        } else if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) throw error;
+        }
+
+        const { data } = await supabase.auth.getSession();
+        if (!active) return;
+        setLinkStatus(data.session ? "ready" : "invalid");
+        if (data.session && (url.search || url.hash)) {
+          window.history.replaceState({}, "", "/atualizar-senha");
+        }
+      } catch {
+        if (active) setLinkStatus("invalid");
+      }
+    }
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (active && event === "PASSWORD_RECOVERY" && session) {
+          setLinkStatus("ready");
+        }
+      },
+    );
+    void initializeRecoverySession();
+
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -145,7 +196,25 @@ export default function AtualizarSenhaPage() {
         {/* Conteúdo */}
         <div className={styles.formContainer}>
           <div className={styles.card}>
-            {status === "success" ? (
+            {linkStatus === "checking" ? (
+              <div style={{ textAlign: "center", padding: "24px 0" }}>
+                <span className={styles.spinner} />
+                <h1 className={styles.title} style={{ marginTop: "18px" }}>
+                  Validando link seguro
+                </h1>
+                <p className={styles.subtitle}>Aguarde só um instante.</p>
+              </div>
+            ) : linkStatus === "invalid" ? (
+              <div style={{ textAlign: "center", padding: "12px 0" }}>
+                <h1 className={styles.title}>Link inválido ou expirado</h1>
+                <p className={styles.subtitle} style={{ marginBottom: "24px" }}>
+                  Solicite um novo link de recuperação para alterar sua senha.
+                </p>
+                <Link href="/recuperar-senha" className={styles.btnPrimary}>
+                  Solicitar novo link
+                </Link>
+              </div>
+            ) : status === "success" ? (
               <div style={{ textAlign: "center", padding: "12px 0" }}>
                 <div style={{ display: "flex", justifyContent: "center", marginBottom: "18px" }}>
                   <IconCheckCircle />
@@ -159,8 +228,7 @@ export default function AtualizarSenhaPage() {
                 </p>
                 <button
                   onClick={() => {
-                    router.replace("/notas");
-                    router.refresh();
+                    window.location.assign("/auth/landing");
                   }}
                   className={styles.btnPrimary}
                 >

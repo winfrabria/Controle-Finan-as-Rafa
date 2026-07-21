@@ -6,9 +6,9 @@ import { parseAdminWorksCsv } from "./admin-work-import";
 test("normaliza CSV de obras e preserva local como Cidade - UF", () => {
   const result = parseAdminWorksCsv(
     [
-      "codigo,nome,cidade,uf,responsavel_email,status",
-      'obr-001,"Residencial, Horizonte",Goiânia,go,rafael@example.com,Ativa',
-      "obr-002,Centro Empresarial,Rio Branco,AC,admin@example.com,Inativa",
+      "codigo,nome,cidade,uf,responsavel,status",
+      'obr-001,"Residencial, Horizonte",Goiânia,go,Carlos Menezes,Ativa',
+      "obr-002,Centro Empresarial,Rio Branco,AC,Fernanda Lima,Inativa",
     ].join("\n"),
   );
 
@@ -18,7 +18,7 @@ test("normaliza CSV de obras e preserva local como Cidade - UF", () => {
     codigo: "OBR-001",
     nome: "Residencial, Horizonte",
     local: "Goiânia - GO",
-    responsavelEmail: "rafael@example.com",
+    responsavel: "Carlos Menezes",
     ativa: true,
   });
   assert.equal(result.rows[1]?.local, "Rio Branco - AC");
@@ -30,10 +30,10 @@ test("rejeita cabeçalho incompleto, UF e status inválidos", () => {
   assert.equal(missing.issues[0]?.campo, "cabecalho");
 
   const invalid = parseAdminWorksCsv(
-    "codigo,nome,cidade,uf,responsavel_email,status\nOBR-1,Obra,São Paulo,SPO,email-invalido,pausada",
+    "codigo,nome,cidade,uf,responsavel,status\nOBR-1,Obra,São Paulo,SPO,,pausada",
   );
   assert.deepEqual(
     new Set(invalid.issues.map((issue) => issue.campo)),
-    new Set(["uf", "responsavel_email", "status"]),
+    new Set(["uf", "responsavel", "status"]),
   );
 });

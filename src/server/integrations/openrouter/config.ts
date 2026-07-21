@@ -3,6 +3,7 @@ import "server-only";
 import { HARNESS_MODEL } from "@/lib/audit-harness/versions";
 
 export type OpenRouterPdfEngine = "cloudflare-ai" | "mistral-ocr" | "native";
+export type OpenRouterWorkload = "audit" | "extraction";
 
 const PDF_ENGINES = new Set<OpenRouterPdfEngine>([
   "cloudflare-ai",
@@ -46,6 +47,7 @@ function parseInteger(
 
 export function getOpenRouterConfig(
   environment: NodeJS.ProcessEnv = process.env,
+  workload: OpenRouterWorkload = "audit",
 ) {
   const pdfEngine = (environment.OPENROUTER_PDF_ENGINE ||
     "cloudflare-ai") as OpenRouterPdfEngine;
@@ -66,7 +68,24 @@ export function getOpenRouterConfig(
       5,
       "OPENROUTER_MAX_ATTEMPTS",
     ),
-    model: HARNESS_MODEL,
+    model:
+      workload === "extraction"
+        ? environment.OPENROUTER_EXTRACTION_MODEL ?? "openai/gpt-5.6-luna"
+        : environment.OPENROUTER_AUDIT_MODEL ??
+          environment.OPENROUTER_MODEL ??
+          HARNESS_MODEL,
+    pdfModel:
+      workload === "extraction"
+        ? environment.OPENROUTER_PDF_MODEL ?? HARNESS_MODEL
+        : undefined,
+    pdfReasoningEffort:
+      workload === "extraction"
+        ? environment.OPENROUTER_PDF_REASONING_EFFORT ?? "high"
+        : undefined,
+    reasoningEffort:
+      workload === "extraction"
+        ? environment.OPENROUTER_EXTRACTION_REASONING_EFFORT ?? "max"
+        : environment.OPENROUTER_REASONING_EFFORT ?? "high",
     pdfEngine,
     timeoutMs: parseInteger(
       environment.OPENROUTER_TIMEOUT_MS,

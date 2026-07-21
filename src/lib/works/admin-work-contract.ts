@@ -20,26 +20,27 @@ const workNameSchema = z
 const workLocationSchema = z
   .string()
   .trim()
+  .min(4, "Informe a cidade e o estado.")
   .max(240, "O local deve ter no máximo 240 caracteres.")
-  .nullable()
-  .refine((value) => !value || /^.+\s-\s[A-Za-z]{2}$/.test(value), {
+  .refine((value) => /^.+\s-\s[A-Za-z]{2}$/.test(value), {
     message: "Informe o local no formato Cidade - UF.",
   })
   .transform((value) => {
-    if (!value) return null;
     const separator = value.lastIndexOf(" - ");
     return `${value.slice(0, separator)} - ${value.slice(separator + 3).toUpperCase()}`;
   });
 
-const responsibleProfileIdSchema = z.uuid(
-  "Selecione um responsável válido.",
-);
+const responsibleNameSchema = z
+  .string()
+  .trim()
+  .min(2, "Informe o nome do responsável pela obra.")
+  .max(120, "O responsável deve ter no máximo 120 caracteres.");
 
 export const createAdminWorkSchema = z.strictObject({
   codigo: workCodeSchema,
   nome: workNameSchema,
-  local: workLocationSchema.optional(),
-  responsavelId: responsibleProfileIdSchema,
+  local: workLocationSchema,
+  responsavel: responsibleNameSchema,
   ativa: z.boolean().optional().default(true),
 });
 
@@ -48,7 +49,7 @@ export const updateAdminWorkSchema = z
     codigo: workCodeSchema.optional(),
     nome: workNameSchema.optional(),
     local: workLocationSchema.optional(),
-    responsavelId: responsibleProfileIdSchema.nullable().optional(),
+    responsavel: responsibleNameSchema.optional(),
     ativa: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {

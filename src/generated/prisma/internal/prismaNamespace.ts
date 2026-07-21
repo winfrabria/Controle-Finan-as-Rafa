@@ -1586,6 +1586,7 @@ export const WorkScalarFieldEnum = {
   name: 'name',
   location: 'location',
   active: 'active',
+  responsibleName: 'responsibleName',
   responsibleProfileId: 'responsibleProfileId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
