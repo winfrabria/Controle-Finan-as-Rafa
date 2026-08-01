@@ -86,6 +86,15 @@ Não há diferenças P0, P1 ou P2 pendentes. O uso de dados de demonstração e 
 
 final result: passed
 
+## QA adicional — leitura e períodos
+
+- `Marcar como lida` remove o anexo selecionado da lista e atualiza o contador e o resumo de suspeitas.
+- Notas e Dashboard agora oferecem filtro mensal e intervalo personalizado com calendário (data inicial e final).
+- O intervalo personalizado substitui o mês selecionado para evitar filtros conflitantes.
+- Dashboard mobile validado em 390 px: `scrollWidth` permaneceu igual à largura da viewport, sem rolagem horizontal.
+
+final result: passed
+
 ## QA adicional — Dashboard do REVIEWER (opção 1 aprovada)
 
 - **Fonte visual:** `C:/Users/PdrArth/.codex/generated_images/019f5255-6e10-77b3-a062-5fa2b64743c6/exec-e954535e-dd68-4f16-b81f-6bc8a11b8029.png`

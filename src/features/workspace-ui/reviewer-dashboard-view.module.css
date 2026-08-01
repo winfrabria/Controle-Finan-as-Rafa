@@ -34,7 +34,7 @@
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(190px, 1fr) minmax(210px, 1.1fr) minmax(190px, 1fr) auto;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(210px, 1fr) minmax(190px, 0.9fr) minmax(240px, 1.15fr) auto;
   margin-bottom: 16px;
 }
 
@@ -102,6 +102,24 @@
 
 .control input::placeholder {
   color: #8694aa;
+}
+
+.dateRangeControl {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 17px minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.dateRangeControl input[type="date"] {
+  color: var(--navy);
+  font-size: 11px;
+  min-width: 0;
+}
+
+.dateRangeControl > span {
+  color: #7b8aa3;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .clearButton {
@@ -471,6 +489,14 @@
   .control,
   .clearButton {
     min-height: 44px;
+  }
+
+  .dateRangeControl {
+    gap: 5px;
+  }
+
+  .dateRangeControl input[type="date"] {
+    font-size: 10px;
   }
 
   .metric {

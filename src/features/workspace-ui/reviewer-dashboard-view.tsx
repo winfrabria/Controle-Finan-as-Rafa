@@ -80,6 +80,12 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
+function dateInputKey(value: string) {
+  const parts = value.split("/");
+  if (parts.length !== 3) return "";
+  return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+}
+
 function statusClass(classification: DashboardNote["classification"]) {
   if (classification === "Suspeita") return styles.statusSuspicious;
   if (classification === "Em análise") return styles.statusProcessing;
@@ -93,6 +99,8 @@ export function ReviewerDashboardView({
 }: ReviewerDashboardViewProps) {
   const [work, setWork] = useState("");
   const [period, setPeriod] = useState("maio");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [query, setQuery] = useState("");
 
   const workOptions = useMemo(
@@ -111,14 +119,20 @@ export function ReviewerDashboardView({
         !normalizedQuery ||
         note.number.toLocaleLowerCase("pt-BR").includes(normalizedQuery) ||
         note.supplier.toLocaleLowerCase("pt-BR").includes(normalizedQuery);
+      const hasCustomRange = Boolean(dateFrom || dateTo);
+      const noteDate = dateInputKey(note.date);
       const matchesPeriod =
+        hasCustomRange ||
         period === "todos" ||
         (period === "maio" && note.date.includes("/05/")) ||
         (period === "abril" && note.date.includes("/04/")) ||
         (period === "marco" && note.date.includes("/03/"));
-      return matchesWork && matchesQuery && matchesPeriod;
+      const matchesDateRange =
+        (!dateFrom || (noteDate && noteDate >= dateFrom)) &&
+        (!dateTo || (noteDate && noteDate <= dateTo));
+      return matchesWork && matchesQuery && matchesPeriod && matchesDateRange;
     });
-  }, [period, query, work]);
+  }, [dateFrom, dateTo, period, query, work]);
 
   const metrics = useMemo(() => {
     const received = filteredNotes.length;
@@ -151,6 +165,8 @@ export function ReviewerDashboardView({
   function clearFilters() {
     setWork("");
     setPeriod("maio");
+    setDateFrom("");
+    setDateTo("");
     setQuery("");
   }
 
@@ -208,7 +224,33 @@ export function ReviewerDashboardView({
             </span>
           </label>
 
-          {(work || query || period !== "maio") && (
+          <label className={styles.filterField}>
+            <span>Datas</span>
+            <span className={`${styles.control} ${styles.dateRangeControl}`}>
+              <Icon name="calendar" />
+              <input
+                aria-label="Data inicial"
+                onChange={(event) => {
+                  setDateFrom(event.target.value);
+                  setPeriod("todos");
+                }}
+                type="date"
+                value={dateFrom}
+              />
+              <span aria-hidden="true">até</span>
+              <input
+                aria-label="Data final"
+                onChange={(event) => {
+                  setDateTo(event.target.value);
+                  setPeriod("todos");
+                }}
+                type="date"
+                value={dateTo}
+              />
+            </span>
+          </label>
+
+          {(work || query || period !== "maio" || dateFrom || dateTo) && (
             <button className={styles.clearButton} onClick={clearFilters} type="button">
               Limpar
             </button>

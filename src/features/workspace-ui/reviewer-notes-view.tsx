@@ -50,10 +50,18 @@ function dateSortKey(value: string) {
   ).getTime();
 }
 
+function dateInputKey(value: string) {
+  const parts = value.split("/");
+  if (parts.length !== 3) return "";
+  return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+}
+
 export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
   const [query, setQuery] = useState("");
   const [period, setPeriod] = useState("");
   const [status, setStatus] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id ?? null);
   const [readIds, setReadIds] = useState<Set<string>>(() => new Set());
 
@@ -82,22 +90,30 @@ export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
     return items.filter((item) => {
       const parts = item.date.split("/");
       const itemPeriod = parts.length === 3 ? `${parts[1]}/${parts[2]}` : "";
+      const itemDate = dateInputKey(item.date);
       const matchesQuery =
         !normalizedQuery ||
         item.number.toLocaleLowerCase("pt-BR").includes(normalizedQuery) ||
         item.supplier.toLocaleLowerCase("pt-BR").includes(normalizedQuery);
+      const hasCustomRange = Boolean(dateFrom || dateTo);
       return (
         matchesQuery &&
-        (!period || period === itemPeriod) &&
+        (hasCustomRange || !period || period === itemPeriod) &&
+        (!dateFrom || (itemDate && itemDate >= dateFrom)) &&
+        (!dateTo || (itemDate && itemDate <= dateTo)) &&
         (!status || status === statusLabel(item))
       );
     });
-  }, [items, period, query, status]);
+  }, [dateFrom, dateTo, items, period, query, status]);
+
+  const visibleItems = useMemo(
+    () => filteredItems.filter((item) => !readIds.has(item.id)),
+    [filteredItems, readIds],
+  );
 
   const selected =
-    filteredItems.find((item) => item.id === selectedId) ??
-    filteredItems[0] ??
-    items.find((item) => item.id === selectedId) ??
+    visibleItems.find((item) => item.id === selectedId) ??
+    visibleItems[0] ??
     null;
   const selectedFindings = selected ? findingFor(selected) : [];
   const isRead = selected ? readIds.has(selected.id) : false;
@@ -113,6 +129,7 @@ export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
       next.add(selected.id);
       return next;
     });
+    setSelectedId(null);
   }
 
   return (
@@ -128,12 +145,12 @@ export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
           </div>
           <div className={styles.headerStats} aria-label="Resumo das notas">
             <span>
-              <strong>{items.length}</strong> anexos
+              <strong>{visibleItems.length}</strong> anexos
             </span>
             <span className={styles.statDot} />
             <span>
               <strong>
-                {items.filter((item) => statusLabel(item) === "Suspeita").length}
+                {visibleItems.filter((item) => statusLabel(item) === "Suspeita").length}
               </strong>{" "}
               suspeitos
             </span>
@@ -170,9 +187,29 @@ export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
               <option value="Suspeita">Suspeitas</option>
               <option value="OK">OK</option>
               <option value="Em análise">Em análise</option>
-            </select>
+              </select>
           </label>
-          {(query || period || status) && (
+          <label className={styles.dateField}>
+            <Icon name="calendar" />
+            <span className={styles.visuallyHidden}>Data inicial</span>
+            <input
+              aria-label="Data inicial"
+              onChange={(event) => setDateFrom(event.target.value)}
+              type="date"
+              value={dateFrom}
+            />
+          </label>
+          <label className={styles.dateField}>
+            <Icon name="calendar" />
+            <span className={styles.visuallyHidden}>Data final</span>
+            <input
+              aria-label="Data final"
+              onChange={(event) => setDateTo(event.target.value)}
+              type="date"
+              value={dateTo}
+            />
+          </label>
+          {(query || period || status || dateFrom || dateTo) && (
             <button
               className={styles.clearButton}
               type="button"
@@ -180,6 +217,8 @@ export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
                 setQuery("");
                 setPeriod("");
                 setStatus("");
+                setDateFrom("");
+                setDateTo("");
               }}
             >
               Limpar
@@ -192,19 +231,19 @@ export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
             <div className={styles.panelHeader}>
               <div>
                 <h2 id="attachments-title">Anexos recebidos</h2>
-                <p>{filteredItems.length} itens para acompanhar</p>
+                <p>{visibleItems.length} itens para acompanhar</p>
               </div>
-              <span className={styles.countPill}>{filteredItems.length}</span>
+              <span className={styles.countPill}>{visibleItems.length}</span>
             </div>
             <div className={styles.attachmentList}>
-              {filteredItems.length === 0 ? (
+              {visibleItems.length === 0 ? (
                 <div className={styles.emptyState}>
                   <Icon name="document" />
                   <strong>Nenhum anexo encontrado</strong>
                   <span>Ajuste a busca ou os filtros para continuar.</span>
                 </div>
               ) : (
-                filteredItems
+                visibleItems
                   .slice()
                   .sort((a, b) => dateSortKey(b.date) - dateSortKey(a.date))
                   .map((item) => {

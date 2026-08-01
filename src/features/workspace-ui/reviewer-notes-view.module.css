@@ -64,6 +64,7 @@
   gap: 10px;
   margin-bottom: 14px;
   padding: 9px;
+  flex-wrap: wrap;
 }
 
 .searchField,
@@ -86,6 +87,36 @@
 .selectField {
   flex: 0 1 230px;
   padding: 0 10px;
+}
+
+.dateField {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d8e1ed;
+  border-radius: 8px;
+  color: #6a7d9e;
+  display: flex;
+  flex: 0 1 170px;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 10px;
+}
+
+.dateField svg {
+  flex: 0 0 auto;
+  height: 17px;
+  width: 17px;
+}
+
+.dateField input {
+  background: transparent;
+  border: 0;
+  color: #142d5e;
+  font: inherit;
+  font-size: 11px;
+  min-width: 0;
+  outline: 0;
+  width: 100%;
 }
 
 .searchField svg,
@@ -798,6 +829,15 @@
 
   .selectField {
     min-width: 0;
+  }
+
+  .dateField {
+    min-width: 0;
+    padding-inline: 7px;
+  }
+
+  .dateField input {
+    font-size: 10px;
   }
 
   .selectField select {
