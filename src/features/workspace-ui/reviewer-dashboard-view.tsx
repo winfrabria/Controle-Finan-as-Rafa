@@ -60,7 +60,11 @@ function previousPeriod(value: string) {
 
 function statusClass(classification: DashboardNote["classification"]) {
   if (classification === "Suspeita") return styles.statusSuspicious;
-  if (classification === "Em análise" || classification === "Sem parâmetro") {
+  if (
+    classification === "Aguardando processamento" ||
+    classification === "Em análise" ||
+    classification === "Sem parâmetro"
+  ) {
     return styles.statusProcessing;
   }
   if (classification === "Falha de leitura" || classification === "Falha de processamento") {
@@ -165,6 +169,7 @@ export function ReviewerDashboardView({
     ).length;
     const processing = filteredNotes.filter(
       (note) =>
+        note.classification === "Aguardando processamento" ||
         note.classification === "Em análise" ||
         note.classification === "Falha de processamento",
     ).length;
@@ -175,6 +180,7 @@ export function ReviewerDashboardView({
     ).length;
     const previousProcessing = periodComparisonNotes.filter(
       (note) =>
+        note.classification === "Aguardando processamento" ||
         note.classification === "Em análise" ||
         note.classification === "Falha de processamento",
     ).length;
@@ -324,7 +330,7 @@ export function ReviewerDashboardView({
         <section className={styles.metrics} aria-label="Resumo das notas">
           <Metric icon="document" label="Notas recebidas" value={String(metrics.received)} delta={metrics.deltas.received} />
           <Metric icon="warning" label="Suspeitas" value={String(metrics.suspicious)} delta={metrics.deltas.suspicious} tone="orange" />
-          <Metric icon="clock" label="Em análise" value={String(metrics.processing)} delta={metrics.deltas.processing} tone="blue" />
+          <Metric icon="clock" label="Em processamento" value={String(metrics.processing)} delta={metrics.deltas.processing} tone="blue" />
           <Metric icon="money" label="Valor total" value={formatMoney(metrics.total)} delta={metrics.deltas.total} tone="green" />
         </section>
 

@@ -15,6 +15,7 @@ type ReviewerNotesViewProps = {
 };
 
 const statusClass: Record<string, string> = {
+  "Aguardando processamento": styles.statusProcessing,
   "Em análise": styles.statusProcessing,
   "Falha de processamento": styles.statusFailed,
   "Falha de leitura": styles.statusFailed,
@@ -205,6 +206,7 @@ export function ReviewerNotesView({ initialQuery = "", items, role }: ReviewerNo
               <option value="Sem parâmetro">Sem parâmetro</option>
               <option value="Falha de leitura">Falha de leitura</option>
               <option value="Falha de processamento">Falha de processamento</option>
+              <option value="Aguardando processamento">Aguardando processamento</option>
               <option value="Em análise">Em análise</option>
             </select>
           </label>

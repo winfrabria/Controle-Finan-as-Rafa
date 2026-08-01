@@ -27,7 +27,9 @@ export async function createInitialProcessingJob(
 ) {
   return transaction.processingJob.create({
     data: {
-      availableAt: new Date(Date.now() + 10 * 60 * 1_000),
+      // O upload chama o worker logo após criar o job. Atrasos só devem ser
+      // aplicados em retries, nunca no primeiro processamento.
+      availableAt: new Date(),
       idempotencyKey: `upload:${noteId}`,
       noteId,
       type: ProcessingJobType.FULL_AUDIT,

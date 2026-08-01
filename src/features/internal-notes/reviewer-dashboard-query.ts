@@ -32,6 +32,9 @@ function classificationValue(note: {
 }): ReviewerDashboardNote["classification"] {
   if (note.status === NoteStatus.READ_FAILED) return "Falha de leitura";
   if (note.status === NoteStatus.FAILED) return "Falha de processamento";
+  if (note.status === NoteStatus.RECEIVED) return "Aguardando processamento";
+  if (note.status === NoteStatus.APPROVED) return "OK";
+  if (note.status === NoteStatus.REJECTED) return "Suspeita";
   if (note.classification === "OK") return "OK";
   if (note.classification === "SUSPICIOUS") return "Suspeita";
   if (note.classification === "NO_PARAMETER") return "Sem parâmetro";

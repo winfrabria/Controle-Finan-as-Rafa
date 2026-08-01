@@ -1,5 +1,6 @@
 export type ReviewerDashboardNote = {
   classification:
+    | "Aguardando processamento"
     | "Em análise"
     | "Falha de leitura"
     | "Falha de processamento"

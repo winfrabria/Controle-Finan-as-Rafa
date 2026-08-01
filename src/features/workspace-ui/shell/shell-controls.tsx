@@ -30,6 +30,7 @@ type Notification = {
   detail: string;
   id: string;
   path: string;
+  readAt: string | null;
   time: string;
   title: string;
   tone: "warning" | "info" | "danger";
@@ -53,18 +54,31 @@ export function ShellControls({
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [readNotifications, setReadNotifications] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsMounted(true);
-      try {
-        const saved = sessionStorage.getItem("winfrabr-read-notifications");
-        if (saved) setReadNotifications(JSON.parse(saved));
-      } catch {}
-    }, 0);
-    return () => window.clearTimeout(timer);
+    let active = true;
+    const timer = window.setTimeout(() => setIsMounted(true), 0);
+    void fetch("/api/notificacoes?limit=20", {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const payload = (await response.json()) as { notificacoes?: Notification[] };
+        return Array.isArray(payload.notificacoes) ? payload.notificacoes : [];
+      })
+      .then((next) => {
+        if (active && next) setNotifications(next);
+      })
+      .catch(() => {
+        if (active) setNotifications([]);
+      });
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
   }, []);
   const isAdmin = role === "admin";
   const displayName = isAdmin ? "Administrador WinfraBR" : "Rafael";
@@ -108,64 +122,6 @@ export function ShellControls({
     [basePath, isAdmin],
   );
 
-  const notifications = useMemo<Notification[]>(
-    () =>
-      isAdmin
-        ? [
-            {
-              detail: "3 notas aguardam análise do Rafael.",
-              id: "admin-pending",
-              path: `${basePath}/validacoes`,
-              time: "Há 5 min",
-              title: "Validações pendentes",
-              tone: "warning",
-            },
-            {
-              detail: "Uma nota não pôde ser lida automaticamente.",
-              id: "admin-processing",
-              path: `${basePath}/logs`,
-              time: "Há 18 min",
-              title: "Falha de processamento",
-              tone: "danger",
-            },
-            {
-              detail: "A nota NF-12548 foi classificada como suspeita.",
-              id: "admin-note",
-              path: `${basePath}/notas`,
-              time: "Hoje, 09:42",
-              title: "Nova inconsistência detectada",
-              tone: "info",
-            },
-          ]
-        : [
-            {
-              detail: "A NF-12548 tem um diagnóstico para você consultar.",
-              id: "review-pending",
-              path: `${basePath}/notas`,
-              time: "Há 5 min",
-              title: "Novo diagnóstico disponível",
-              tone: "warning",
-            },
-            {
-              detail: "Uma nova nota da Obra Alphaville entrou no painel.",
-              id: "review-queue",
-              path: `${basePath}/notas`,
-              time: "Há 22 min",
-              title: "Nova nota recebida",
-              tone: "info",
-            },
-            {
-              detail: "Sua decisão da NF-12491 foi registrada.",
-              id: "review-saved",
-              path: `${basePath}/notas`,
-              time: "Ontem, 16:30",
-              title: "Validação salva",
-              tone: "info",
-            },
-          ],
-    [basePath, isAdmin],
-  );
-
   const visibleTargets = useMemo(() => {
     const normalizedQuery = normalize(query);
     if (!normalizedQuery) return searchTargets;
@@ -175,7 +131,7 @@ export function ShellControls({
   }, [query, searchTargets]);
 
   const unreadCount = notifications.filter(
-    (notification) => !readNotifications.includes(notification.id),
+    (notification) => !notification.readAt,
   ).length;
 
   useEffect(() => {
@@ -230,26 +186,32 @@ export function ShellControls({
   };
 
   const openNotification = (notification: Notification) => {
-    setReadNotifications((current) => {
-      const next = current.includes(notification.id)
-        ? current
-        : [...current, notification.id];
-      sessionStorage.setItem(
-        "winfrabr-read-notifications",
-        JSON.stringify(next),
+    if (!notification.readAt) {
+      const readAt = new Date().toISOString();
+      setNotifications((current) =>
+        current.map((item) =>
+          item.id === notification.id ? { ...item, readAt } : item,
+        ),
       );
-      return next;
-    });
+      void fetch("/api/notificacoes", {
+        body: JSON.stringify({ id: notification.id }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+    }
     setOpenPanel(null);
   };
 
   const markAllRead = () => {
-    const allIds = notifications.map((n) => n.id);
-    setReadNotifications(allIds);
-    sessionStorage.setItem(
-      "winfrabr-read-notifications",
-      JSON.stringify(allIds),
+    const readAt = new Date().toISOString();
+    setNotifications((current) =>
+      current.map((notification) => ({ ...notification, readAt })),
     );
+    void fetch("/api/notificacoes", {
+      body: JSON.stringify({ all: true }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
   };
 
   return (
@@ -328,26 +290,30 @@ export function ShellControls({
                 </button>
               </header>
               <div className={styles.notificationList}>
-                {notifications.map((notification) => {
-                  const isUnread = !readNotifications.includes(notification.id);
-                  return (
-                    <Link
-                      className={isUnread ? styles.unread : undefined}
-                      href={notification.path}
-                      key={notification.id}
-                      onClick={() => openNotification(notification)}
-                    >
-                      <span
-                        className={`${styles.notificationDot} ${styles[notification.tone]}`}
-                      />
-                      <span>
-                        <b>{notification.title}</b>
-                        <small>{notification.detail}</small>
-                        <time>{notification.time}</time>
-                      </span>
-                    </Link>
-                  );
-                })}
+                {notifications.length ? (
+                  notifications.map((notification) => {
+                    const isUnread = !notification.readAt;
+                    return (
+                      <Link
+                        className={isUnread ? styles.unread : undefined}
+                        href={notification.path}
+                        key={notification.id}
+                        onClick={() => openNotification(notification)}
+                      >
+                        <span
+                          className={`${styles.notificationDot} ${styles[notification.tone]}`}
+                        />
+                        <span>
+                          <b>{notification.title}</b>
+                          <small>{notification.detail}</small>
+                          <time>{notification.time}</time>
+                        </span>
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <p className={styles.notificationEmpty}>Nenhuma notificação nova.</p>
+                )}
               </div>
             </section>
           ) : null}

@@ -337,6 +337,14 @@
   display: grid;
 }
 
+.notificationEmpty {
+  color: #64748b;
+  font-size: 13px;
+  margin: 0;
+  padding: 24px 16px;
+  text-align: center;
+}
+
 .notificationList > a {
   align-items: flex-start;
   border-bottom: 1px solid #edf1f6;

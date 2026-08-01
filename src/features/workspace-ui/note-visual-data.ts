@@ -12,22 +12,23 @@ const moneyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
 });
 
+function visualClassification(item: NoteListItem) {
+  if (item.status === "READ_FAILED" || item.classification === "INCOMPATIBLE") {
+    return "Falha de leitura";
+  }
+  if (item.status === "FAILED") return "Falha de processamento";
+  if (item.status === "RECEIVED") return "Aguardando processamento";
+  if (item.status === "APPROVED" || item.classification === "OK") return "OK";
+  if (item.status === "REJECTED" || item.classification === "SUSPICIOUS") {
+    return "Suspeita";
+  }
+  if (item.classification === "NO_PARAMETER") return "Sem parâmetro";
+  return "Em análise";
+}
+
 export function toNoteVisualItems(items: NoteListItem[]): NoteVisualItem[] {
   return items.map((item) => ({
-    classification:
-      item.status === "READ_FAILED"
-        ? "Falha de leitura"
-        : item.status === "FAILED"
-          ? "Falha de processamento"
-          : item.classification === "OK"
-        ? "OK"
-        : item.classification === "SUSPICIOUS"
-          ? "Suspeita"
-          : item.classification === "NO_PARAMETER"
-            ? "Sem parâmetro"
-            : item.classification === "INCOMPATIBLE"
-              ? "Falha de leitura"
-          : "Em análise",
+    classification: visualClassification(item),
     date: dateFormatter.format(item.issuedAt ?? item.createdAt),
     finding: item.primaryFinding ?? undefined,
     findings: item.findings,
