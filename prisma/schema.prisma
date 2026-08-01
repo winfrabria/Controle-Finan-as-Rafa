@@ -117,6 +117,7 @@ model Profile {
   pushSubscriptions PushSubscription[]
   adminAuditLogs    AdminAuditLog[]
   responsibleWorks  Work[]             @relation("WorkResponsible")
+  noteReads         NoteRead[]
 
   @@map("profiles")
 }
@@ -176,6 +177,7 @@ model Note {
   notifications      Notification[]
   aiRuns             AiRun[]
   processingJobs     ProcessingJob[]
+  noteReads          NoteRead[]
 
   @@index([workId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
@@ -439,6 +441,18 @@ model Notification {
   @@index([recipientId, readAt, createdAt(sort: Desc)])
   @@index([noteId])
   @@map("notifications")
+}
+
+model NoteRead {
+  profileId String   @map("profile_id") @db.Uuid
+  noteId    String   @map("note_id") @db.Uuid
+  readAt    DateTime @default(now()) @map("read_at") @db.Timestamptz(6)
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, noteId])
+  @@index([noteId, readAt])
+  @@map("note_reads")
 }
 
 model PushSubscription {

@@ -9,12 +9,15 @@ import type { NoteFindingVisual, NoteVisualItem } from "./note-types";
 import styles from "./reviewer-notes-view.module.css";
 
 type ReviewerNotesViewProps = {
+  initialQuery?: string;
   items: NoteVisualItem[];
   role: PortalRole;
 };
 
 const statusClass: Record<string, string> = {
   "Em análise": styles.statusProcessing,
+  "Falha de processamento": styles.statusFailed,
+  "Falha de leitura": styles.statusFailed,
   OK: styles.statusOk,
   Suspeita: styles.statusSuspicious,
   "Sem parâmetro": styles.statusProcessing,
@@ -56,14 +59,17 @@ function dateInputKey(value: string) {
   return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
 }
 
-export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
-  const [query, setQuery] = useState("");
+export function ReviewerNotesView({ initialQuery = "", items, role }: ReviewerNotesViewProps) {
+  const [query, setQuery] = useState(initialQuery);
   const [period, setPeriod] = useState("");
   const [status, setStatus] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id ?? null);
-  const [readIds, setReadIds] = useState<Set<string>>(() => new Set());
+  const [readIds, setReadIds] = useState<Set<string>>(
+    () => new Set(items.filter((item) => item.isRead).map((item) => item.id)),
+  );
+  const [readError, setReadError] = useState<string | null>(null);
 
   const periods = useMemo(() => {
     const unique = new Set(
@@ -122,14 +128,24 @@ export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
     setSelectedId(id);
   }
 
-  function markAsRead() {
+  async function markAsRead() {
     if (!selected) return;
-    setReadIds((current) => {
-      const next = new Set(current);
-      next.add(selected.id);
-      return next;
-    });
-    setSelectedId(null);
+    setReadError(null);
+    try {
+      const response = await fetch(`/api/notas/${selected.id}/read`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error();
+      setReadIds((current) => {
+        const next = new Set(current);
+        next.add(selected.id);
+        return next;
+      });
+      setSelectedId(null);
+    } catch {
+      setReadError("Não foi possível marcar este anexo como lido.");
+    }
   }
 
   return (
@@ -186,8 +202,11 @@ export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
               <option value="">Todos os status</option>
               <option value="Suspeita">Suspeitas</option>
               <option value="OK">OK</option>
+              <option value="Sem parâmetro">Sem parâmetro</option>
+              <option value="Falha de leitura">Falha de leitura</option>
+              <option value="Falha de processamento">Falha de processamento</option>
               <option value="Em análise">Em análise</option>
-              </select>
+            </select>
           </label>
           <label className={styles.dateField}>
             <Icon name="calendar" />
@@ -404,6 +423,7 @@ export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
                     {isRead ? "Marcada como lida" : "Marcar como lida"}
                   </button>
                 </div>
+                {readError ? <p className={styles.readError}>{readError}</p> : null}
               </>
             ) : (
               <div className={styles.emptyDiagnosis}>

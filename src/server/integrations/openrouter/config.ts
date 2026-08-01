@@ -85,7 +85,7 @@ export function getOpenRouterConfig(
     reasoningEffort:
       workload === "extraction"
         ? environment.OPENROUTER_EXTRACTION_REASONING_EFFORT ?? "max"
-        : environment.OPENROUTER_REASONING_EFFORT ?? "high",
+        : environment.OPENROUTER_REASONING_EFFORT ?? "max",
     pdfEngine,
     timeoutMs: parseInteger(
       environment.OPENROUTER_TIMEOUT_MS,

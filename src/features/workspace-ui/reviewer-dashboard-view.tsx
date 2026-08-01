@@ -3,64 +3,19 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { noteRows } from "./mock-data";
 import { Icon } from "./ui-icons";
 import { PortalShell, type PortalRole } from "./portal-shell";
+import type { ReviewerDashboardNote } from "./reviewer-dashboard-types";
 import styles from "./reviewer-dashboard-view.module.css";
 
 type ReviewerDashboardViewProps = {
   role: PortalRole;
   userEmail?: string;
   works?: { id: string; name: string }[];
+  notes?: ReviewerDashboardNote[];
 };
 
-type DashboardNote = {
-  classification: "OK" | "Suspeita" | "Em análise";
-  date: string;
-  id: string;
-  number: string;
-  reason: string;
-  supplier: string;
-  value: string;
-  work: string;
-};
-
-const reasonLabels = [
-  "Diferença de preço",
-  "Data divergente",
-  "Documento incompleto",
-  "Quantidade acima do previsto",
-  "Item não previsto no contrato",
-];
-
-const reasonByRow = [
-  "Diferença de preço",
-  "Data divergente",
-  "Documento incompleto",
-  "Quantidade acima do previsto",
-  "Item não previsto no contrato",
-  "Diferença de preço",
-  "Documento incompleto",
-  "Quantidade acima do previsto",
-];
-
-const demoNotes: DashboardNote[] = noteRows.map((row, index) => ({
-  classification: index === 1 || index === 4 || index === 6 ? "Suspeita" : index === 7 ? "Em análise" : "OK",
-  date: row[2],
-  id: row[5],
-  number: row[0],
-  reason: reasonByRow[index] ?? reasonLabels[0],
-  supplier: row[1],
-  value: row[3],
-  work: row[6],
-}));
-
-const deltaByMetric = {
-  received: { label: "12,8%", tone: "positive" as const, arrow: "↑" },
-  suspicious: { label: "7,7%", tone: "negative" as const, arrow: "↓" },
-  processing: { label: "33,3%", tone: "positive" as const, arrow: "↑" },
-  value: { label: "4,2%", tone: "negative" as const, arrow: "↓" },
-};
+type DashboardNote = ReviewerDashboardNote;
 
 function parseMoney(value: string) {
   const normalized = value
@@ -86,34 +41,87 @@ function dateInputKey(value: string) {
   return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
 }
 
+function periodLabel(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  if (!year || !month) return value;
+  const label = new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, 1));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function previousPeriod(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  if (!year || !month) return null;
+  const date = new Date(year, month - 2, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function statusClass(classification: DashboardNote["classification"]) {
   if (classification === "Suspeita") return styles.statusSuspicious;
-  if (classification === "Em análise") return styles.statusProcessing;
+  if (classification === "Em análise" || classification === "Sem parâmetro") {
+    return styles.statusProcessing;
+  }
+  if (classification === "Falha de leitura" || classification === "Falha de processamento") {
+    return styles.statusFailed;
+  }
   return styles.statusOk;
 }
 
+function comparison(current: number, previous: number) {
+  if (previous === 0 && current > 0) {
+    return {
+      arrow: "↑",
+      label: "Novo",
+      tone: "positive" as const,
+    };
+  }
+  const value =
+    previous === 0
+      ? current === 0
+        ? 0
+        : 100
+      : ((current - previous) / previous) * 100;
+  const rounded = Math.abs(value).toFixed(1).replace(".", ",");
+  return {
+    arrow: value >= 0 ? "↑" : "↓",
+    label: `${rounded}%`,
+    tone: value >= 0 ? ("positive" as const) : ("negative" as const),
+  };
+}
+
 export function ReviewerDashboardView({
+  notes = [],
   role,
   userEmail,
   works = [],
 }: ReviewerDashboardViewProps) {
   const [work, setWork] = useState("");
-  const [period, setPeriod] = useState("maio");
+  const periodOptions = useMemo(
+    () =>
+      [...new Set(notes.map((note) => note.dateKey))]
+        .filter(Boolean)
+        .sort((a, b) => b.localeCompare(a)),
+    [notes],
+  );
+  const defaultPeriod = periodOptions[0] ?? "todos";
+  const [period, setPeriod] = useState(defaultPeriod);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [query, setQuery] = useState("");
 
   const workOptions = useMemo(
     () =>
-      [...new Set([...works.map((item) => item.name), ...demoNotes.map((item) => item.work)])].sort(
+      [...new Set([...works.map((item) => item.name), ...notes.map((item) => item.work)])].sort(
         (a, b) => a.localeCompare(b, "pt-BR"),
       ),
-    [works],
+    [notes, works],
   );
 
   const filteredNotes = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
-    return demoNotes.filter((note) => {
+    return notes.filter((note) => {
       const matchesWork = !work || note.work === work;
       const matchesQuery =
         !normalizedQuery ||
@@ -124,15 +132,31 @@ export function ReviewerDashboardView({
       const matchesPeriod =
         hasCustomRange ||
         period === "todos" ||
-        (period === "maio" && note.date.includes("/05/")) ||
-        (period === "abril" && note.date.includes("/04/")) ||
-        (period === "marco" && note.date.includes("/03/"));
+        note.dateKey === period;
       const matchesDateRange =
         (!dateFrom || (noteDate && noteDate >= dateFrom)) &&
         (!dateTo || (noteDate && noteDate <= dateTo));
       return matchesWork && matchesQuery && matchesPeriod && matchesDateRange;
     });
-  }, [dateFrom, dateTo, period, query, work]);
+  }, [dateFrom, dateTo, notes, period, query, work]);
+
+  const comparisonNotes = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
+    return notes.filter((note) => {
+      const matchesWork = !work || note.work === work;
+      const matchesQuery =
+        !normalizedQuery ||
+        note.number.toLocaleLowerCase("pt-BR").includes(normalizedQuery) ||
+        note.supplier.toLocaleLowerCase("pt-BR").includes(normalizedQuery);
+      return matchesWork && matchesQuery;
+    });
+  }, [notes, query, work]);
+
+  const periodComparisonNotes = useMemo(() => {
+    const previous = previousPeriod(period);
+    if (!previous || period === "todos" || dateFrom || dateTo) return [];
+    return comparisonNotes.filter((note) => note.dateKey === previous);
+  }, [comparisonNotes, dateFrom, dateTo, period]);
 
   const metrics = useMemo(() => {
     const received = filteredNotes.length;
@@ -140,23 +164,54 @@ export function ReviewerDashboardView({
       (note) => note.classification === "Suspeita",
     ).length;
     const processing = filteredNotes.filter(
-      (note) => note.classification === "Em análise",
+      (note) =>
+        note.classification === "Em análise" ||
+        note.classification === "Falha de processamento",
     ).length;
     const total = filteredNotes.reduce((sum, note) => sum + parseMoney(note.value), 0);
-    return { processing, received, suspicious, total };
-  }, [filteredNotes]);
+    const previousReceived = periodComparisonNotes.length;
+    const previousSuspicious = periodComparisonNotes.filter(
+      (note) => note.classification === "Suspeita",
+    ).length;
+    const previousProcessing = periodComparisonNotes.filter(
+      (note) =>
+        note.classification === "Em análise" ||
+        note.classification === "Falha de processamento",
+    ).length;
+    const previousTotal = periodComparisonNotes.reduce(
+      (sum, note) => sum + parseMoney(note.value),
+      0,
+    );
+    return {
+      deltas: {
+        processing: comparison(processing, previousProcessing),
+        received: comparison(received, previousReceived),
+        suspicious: comparison(suspicious, previousSuspicious),
+        total: comparison(total, previousTotal),
+      },
+      processing,
+      received,
+      suspicious,
+      total,
+    };
+  }, [filteredNotes, periodComparisonNotes]);
 
   const causes = useMemo(() => {
     const counts = new Map<string, number>();
     filteredNotes.forEach((note) => {
-      counts.set(note.reason, (counts.get(note.reason) ?? 0) + 1);
+      note.reasons.forEach((reason) => {
+        counts.set(reason, (counts.get(reason) ?? 0) + 1);
+      });
     });
-    const total = Math.max(1, filteredNotes.length);
-    return reasonLabels
-      .map((label) => ({
-        count: counts.get(label) ?? 0,
+    const total = Math.max(
+      1,
+      [...counts.values()].reduce((sum, count) => sum + count, 0),
+    );
+    return [...counts.entries()]
+      .map(([label, count]) => ({
+        count,
         label,
-        percentage: Math.round(((counts.get(label) ?? 0) / total) * 100),
+        percentage: Math.round((count / total) * 100),
       }))
       .filter((cause) => cause.count > 0)
       .sort((a, b) => b.count - a.count);
@@ -164,7 +219,7 @@ export function ReviewerDashboardView({
 
   function clearFilters() {
     setWork("");
-    setPeriod("maio");
+    setPeriod(defaultPeriod);
     setDateFrom("");
     setDateTo("");
     setQuery("");
@@ -202,9 +257,11 @@ export function ReviewerDashboardView({
             <span className={styles.control}>
               <Icon name="calendar" />
               <select value={period} onChange={(event) => setPeriod(event.target.value)}>
-                <option value="maio">Maio 2024</option>
-                <option value="abril">Abril 2024</option>
-                <option value="marco">Março 2024</option>
+                {periodOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {periodLabel(value)}
+                  </option>
+                ))}
                 <option value="todos">Todos os meses</option>
               </select>
               <Icon name="chevron" />
@@ -257,7 +314,7 @@ export function ReviewerDashboardView({
             </span>
           </label>
 
-          {(work || query || period !== "maio" || dateFrom || dateTo) && (
+          {(work || query || period !== defaultPeriod || dateFrom || dateTo) && (
             <button className={styles.clearButton} onClick={clearFilters} type="button">
               Limpar
             </button>
@@ -265,10 +322,10 @@ export function ReviewerDashboardView({
         </form>
 
         <section className={styles.metrics} aria-label="Resumo das notas">
-          <Metric icon="document" label="Notas recebidas" value={String(metrics.received)} delta={deltaByMetric.received} />
-          <Metric icon="warning" label="Suspeitas" value={String(metrics.suspicious)} delta={deltaByMetric.suspicious} tone="orange" />
-          <Metric icon="clock" label="Em análise" value={String(metrics.processing)} delta={deltaByMetric.processing} tone="blue" />
-          <Metric icon="money" label="Valor total" value={formatMoney(metrics.total)} delta={deltaByMetric.value} tone="green" />
+          <Metric icon="document" label="Notas recebidas" value={String(metrics.received)} delta={metrics.deltas.received} />
+          <Metric icon="warning" label="Suspeitas" value={String(metrics.suspicious)} delta={metrics.deltas.suspicious} tone="orange" />
+          <Metric icon="clock" label="Em análise" value={String(metrics.processing)} delta={metrics.deltas.processing} tone="blue" />
+          <Metric icon="money" label="Valor total" value={formatMoney(metrics.total)} delta={metrics.deltas.total} tone="green" />
         </section>
 
         <section className={styles.contentGrid}>

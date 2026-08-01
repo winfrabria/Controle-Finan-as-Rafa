@@ -65,6 +65,7 @@ export const ModelName = {
   AdminAuditLog: 'AdminAuditLog',
   NoteEvent: 'NoteEvent',
   Notification: 'Notification',
+  NoteRead: 'NoteRead',
   PushSubscription: 'PushSubscription'
 } as const
 
@@ -349,6 +350,15 @@ export const NotificationScalarFieldEnum = {
 } as const
 
 export type NotificationScalarFieldEnum = (typeof NotificationScalarFieldEnum)[keyof typeof NotificationScalarFieldEnum]
+
+
+export const NoteReadScalarFieldEnum = {
+  profileId: 'profileId',
+  noteId: 'noteId',
+  readAt: 'readAt'
+} as const
+
+export type NoteReadScalarFieldEnum = (typeof NoteReadScalarFieldEnum)[keyof typeof NoteReadScalarFieldEnum]
 
 
 export const PushSubscriptionScalarFieldEnum = {

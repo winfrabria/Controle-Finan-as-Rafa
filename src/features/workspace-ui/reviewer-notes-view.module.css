@@ -352,6 +352,12 @@
   color: #597091;
 }
 
+.statusFailed {
+  color: #b42318;
+  background: #fff0ee;
+  border-color: #f7b4ad;
+}
+
 .readDot {
   background: #ff9b25;
   border: 2px solid #fff;
@@ -651,6 +657,12 @@
   justify-content: space-between;
   margin-top: 16px;
   padding-top: 14px;
+}
+
+.readError {
+  color: #b42318;
+  font-size: 0.8rem;
+  margin: 0.55rem 0 0;
 }
 
 .detailLink {

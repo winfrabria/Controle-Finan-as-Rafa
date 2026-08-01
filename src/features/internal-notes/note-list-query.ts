@@ -27,6 +27,7 @@ export type NoteListFilters = {
   classificacao?: NoteClassification;
   dataAte?: string;
   dataDe?: string;
+  documentNumber?: string;
   fornecedor?: string;
   obra?: string;
   pagina: number;
@@ -51,6 +52,7 @@ export type NoteListItem = {
     title: string;
   }[];
   id: string;
+  isRead: boolean;
   issuedAt: Date | null;
   primaryFinding: string | null;
   status: NoteStatus;
@@ -86,6 +88,7 @@ function parseMoney(value: string | undefined) {
 export function parseNoteListFilters(params: SearchParams): NoteListFilters {
   const page = Number.parseInt(firstValue(params.pagina) ?? "1", 10);
   const fornecedor = firstValue(params.fornecedor)?.trim().slice(0, 120);
+  const documentNumber = firstValue(params.busca)?.trim().slice(0, 80);
   const obra = firstValue(params.obra);
 
   return {
@@ -95,6 +98,7 @@ export function parseNoteListFilters(params: SearchParams): NoteListFilters {
     ),
     dataAte: firstValue(params.dataAte),
     dataDe: firstValue(params.dataDe),
+    documentNumber: documentNumber || undefined,
     fornecedor: fornecedor || undefined,
     obra: obra && /^[0-9a-f-]{36}$/i.test(obra) ? obra : undefined,
     pagina: Number.isFinite(page) && page > 0 ? page : 1,
@@ -134,6 +138,14 @@ function buildWhere(filters: NoteListFilters, validationOnly: boolean) {
           },
         }
       : {}),
+    ...(filters.documentNumber
+      ? {
+          documentNumber: {
+            contains: filters.documentNumber,
+            mode: "insensitive" as const,
+          },
+        }
+      : {}),
     ...(createdAt.gte || createdAt.lte ? { createdAt } : {}),
     ...(totalAmount.gte !== undefined || totalAmount.lte !== undefined
       ? { totalAmount }
@@ -143,7 +155,7 @@ function buildWhere(filters: NoteListFilters, validationOnly: boolean) {
 
 export async function listNotes(
   filters: NoteListFilters,
-  options: { validationOnly?: boolean } = {},
+  options: { profileId?: string; validationOnly?: boolean } = {},
 ) {
   const validationOnly = options.validationOnly ?? false;
   const where = buildWhere(filters, validationOnly);
@@ -194,6 +206,20 @@ export async function listNotes(
     }),
   ]);
 
+  const readIds = options.profileId
+    ? new Set(
+        (
+          await prisma.noteRead.findMany({
+            where: {
+              noteId: { in: notes.map((note) => note.id) },
+              profileId: options.profileId,
+            },
+            select: { noteId: true },
+          })
+        ).map((entry) => entry.noteId),
+      )
+    : new Set<string>();
+
   const items: NoteListItem[] = notes.map((note) => ({
     classification: note.classification,
     createdAt: note.createdAt,
@@ -210,6 +236,7 @@ export async function listNotes(
       title: finding.title,
     })),
     id: note.id,
+    isRead: readIds.has(note.id),
     issuedAt: note.issuedAt,
     primaryFinding: note.findings[0]?.title ?? null,
     status: note.status,

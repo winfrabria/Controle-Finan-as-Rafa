@@ -20,6 +20,7 @@ import noteStyles from "./notes-view.module.css";
 import { ValidationDecisionForm } from "./validation-decision-form";
 import { ReviewerNotesView } from "./reviewer-notes-view";
 import { ReviewerDashboardView } from "./reviewer-dashboard-view";
+import type { ReviewerDashboardNote } from "./reviewer-dashboard-types";
 import type { NoteVisualItem } from "./note-types";
 
 function NotesFilterBar({
@@ -101,12 +102,14 @@ function NotesFilterBar({
 
 export function DashboardView({
   role,
+  reviewerNotes,
   userEmail,
   works = [],
 }: {
   role: PortalRole;
   userEmail?: string;
   works?: { id: string; name: string }[];
+  reviewerNotes?: ReviewerDashboardNote[];
 }) {
   const admin = role === "admin";
   if (!admin) {
@@ -115,6 +118,7 @@ export function DashboardView({
         role={role}
         userEmail={userEmail}
         works={works}
+        notes={reviewerNotes}
       />
     );
   }
@@ -413,9 +417,11 @@ function AdminDashboardPanels() {
 }
 
 export function NotesView({
+  initialQuery,
   role,
   items,
 }: {
+  initialQuery?: string;
   role: PortalRole;
   items?: NoteVisualItem[];
 }) {
@@ -511,7 +517,7 @@ export function NotesView({
     setPage(1);
   };
   if (role === "reviewer") {
-    return <ReviewerNotesView items={rows} role={role} />;
+    return <ReviewerNotesView initialQuery={initialQuery} items={rows} role={role} />;
   }
   return (
     <PortalShell active="notas" role={role}>

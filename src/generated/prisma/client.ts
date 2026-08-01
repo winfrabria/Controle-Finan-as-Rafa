@@ -112,6 +112,11 @@ export type NoteEvent = Prisma.NoteEventModel
  */
 export type Notification = Prisma.NotificationModel
 /**
+ * Model NoteRead
+ * 
+ */
+export type NoteRead = Prisma.NoteReadModel
+/**
  * Model PushSubscription
  * 
  */

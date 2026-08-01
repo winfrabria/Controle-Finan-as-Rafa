@@ -1,0 +1,125 @@
+{
+  "generatedAt": "2026-08-01T18:17:05.830Z",
+  "results": [
+    {
+      "audit": {
+        "attempts": 1,
+        "classification": "SUSPICIOUS",
+        "costUsd": 0.008197900000000001,
+        "findings": 1,
+        "latencyMs": 98699,
+        "model": "openai/gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "totalTokens": 15268
+      },
+      "extraction": {
+        "attempts": 1,
+        "completenessPercent": 80,
+        "costUsd": 0.208132,
+        "itemCount": 22,
+        "latencyMs": 55471,
+        "model": "openai/gpt-5.6-sol",
+        "totalTokens": 69615,
+        "warningCount": 5
+      },
+      "fileName": "Reembolso Roger  Costa - 551,90.pdf",
+      "totalLatencyMs": 154897
+    },
+    {
+      "audit": {
+        "attempts": 1,
+        "classification": "SUSPICIOUS",
+        "costUsd": 0.0008743750000000002,
+        "findings": 2,
+        "latencyMs": 10826,
+        "model": "openai/gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "totalTokens": 2409
+      },
+      "extraction": {
+        "attempts": 1,
+        "completenessPercent": 100,
+        "costUsd": 0.045382,
+        "itemCount": 2,
+        "latencyMs": 13243,
+        "model": "openai/gpt-5.6-sol",
+        "totalTokens": 21186,
+        "warningCount": 2
+      },
+      "fileName": "NF 5249 VEREDAS DA SERRA COMBUSTIVEL LTDA.pdf",
+      "totalLatencyMs": 24652
+    },
+    {
+      "audit": {
+        "attempts": 1,
+        "classification": "SUSPICIOUS",
+        "costUsd": 0.005956525000000001,
+        "findings": 2,
+        "latencyMs": 72948,
+        "model": "openai/gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "totalTokens": 10846
+      },
+      "extraction": {
+        "attempts": 1,
+        "completenessPercent": 100,
+        "costUsd": 0.0548375,
+        "itemCount": 4,
+        "latencyMs": 16965,
+        "model": "openai/gpt-5.6-sol",
+        "totalTokens": 20581,
+        "warningCount": 1
+      },
+      "fileName": "NF 5361 VEREDAS DA SERRA COMBUSTIVEL.pdf",
+      "totalLatencyMs": 90294
+    },
+    {
+      "audit": {
+        "attempts": 1,
+        "classification": "SUSPICIOUS",
+        "costUsd": 0.008525125000000001,
+        "findings": 1,
+        "latencyMs": 99949,
+        "model": "openai/gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "totalTokens": 17027
+      },
+      "extraction": {
+        "attempts": 1,
+        "completenessPercent": 100,
+        "costUsd": 0.161935,
+        "itemCount": 53,
+        "latencyMs": 52045,
+        "model": "openai/gpt-5.6-sol",
+        "totalTokens": 20466,
+        "warningCount": 2
+      },
+      "fileName": "NF 352080 MEDEIROS E MOURA LTDA.pdf",
+      "totalLatencyMs": 152329
+    },
+    {
+      "audit": {
+        "attempts": 1,
+        "classification": "SUSPICIOUS",
+        "costUsd": 0.0076843000000000015,
+        "findings": 3,
+        "latencyMs": 97635,
+        "model": "openai/gpt-5.6-luna",
+        "reasoningEffort": "max",
+        "totalTokens": 13588
+      },
+      "extraction": {
+        "attempts": 1,
+        "completenessPercent": 100,
+        "costUsd": 0.049338,
+        "itemCount": 3,
+        "latencyMs": 20779,
+        "model": "openai/gpt-5.6-sol",
+        "totalTokens": 11921,
+        "warningCount": 3
+      },
+      "fileName": "NFS-4 PABLA ALVES GOMES MARQUES.pdf",
+      "totalLatencyMs": 118740
+    }
+  ]
+}

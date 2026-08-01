@@ -29,11 +29,41 @@ const responseSchema = z.object({
   }).optional(),
 }).passthrough();
 
+async function readProviderError(response: Response) {
+  try {
+    const body = (await response.json()) as {
+      error?: { message?: unknown; code?: unknown; metadata?: Record<string, unknown> };
+      message?: unknown;
+    };
+    const message =
+      typeof body.error?.message === "string"
+        ? body.error.message
+        : typeof body.message === "string"
+          ? body.message
+          : undefined;
+    const code = typeof body.error?.code === "string" ? ` (${body.error.code})` : "";
+    const metadata = body.error?.metadata;
+    const metadataParts = metadata
+      ? [metadata.error_type, metadata.provider_code, metadata.provider_name]
+          .filter((value): value is string => typeof value === "string")
+          .join(", ")
+      : "";
+    const raw = typeof metadata?.raw === "string" ? `: ${metadata.raw}` : "";
+    if (message) {
+      const details = metadataParts ? ` [${metadataParts}]` : "";
+      return `OpenRouter audit request failed with status ${response.status}${code}: ${message}${details}${raw}`.slice(0, 900);
+    }
+  } catch {
+    // Keep the generic status when the provider body is not JSON.
+  }
+  return `OpenRouter audit request failed with status ${response.status}.`;
+}
+
 export type AuditDiscoveryRequest = {
   invoice: HarnessInvoice;
   deterministicFindings: HarnessFinding[];
   workRules: WorkRuleInput[];
-  reasoningEffort: "high" | "xhigh";
+  reasoningEffort: "high" | "max" | "xhigh";
 };
 
 export type AuditDiscoveryResult = {
@@ -132,7 +162,7 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
       if (!response.ok) {
         throw new OpenRouterClientError(
           "provider",
-          `OpenRouter audit request failed with status ${response.status}.`,
+          await readProviderError(response),
           RETRYABLE_STATUS_CODES.has(response.status),
           response.status,
         );

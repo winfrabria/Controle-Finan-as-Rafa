@@ -206,7 +206,12 @@ export async function processNoteAudit(
       policyVersion: HARNESS_VERSIONS.policy,
       processingJobId: dependencies.processingJobId,
       promptVersion: HARNESS_VERSIONS.prompt,
-      reasoningEffort: reasoning.effort === "xhigh" ? ReasoningEffort.XHIGH : ReasoningEffort.HIGH,
+      reasoningEffort:
+        reasoning.effort === "max"
+          ? ReasoningEffort.MAX
+          : reasoning.effort === "xhigh"
+            ? ReasoningEffort.XHIGH
+            : ReasoningEffort.HIGH,
       requestFingerprint,
       schemaVersion: HARNESS_VERSIONS.schema,
       status: AiRunStatus.RUNNING,

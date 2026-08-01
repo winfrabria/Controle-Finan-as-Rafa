@@ -4,7 +4,7 @@ import { HARNESS_MODEL, HARNESS_VERSIONS } from "./versions";
 export const AUDIT_POLICY = {
   version: HARNESS_VERSIONS.policy,
   model: HARNESS_MODEL,
-  defaultReasoningEffort: "high",
+  defaultReasoningEffort: "max",
   readFailureThreshold: 0.6,
   supportedFindingThreshold: 0.65,
   xhighTriggers: {
@@ -15,7 +15,7 @@ export const AUDIT_POLICY = {
 } as const;
 
 export type ReasoningSelection = {
-  effort: "high" | "xhigh";
+  effort: "high" | "max" | "xhigh";
   triggers: string[];
 };
 
@@ -42,7 +42,7 @@ export function selectReasoningEffort(
     triggers.push("MULTIPLE_EXTRACTION_WARNINGS");
   }
 
-  return { effort: triggers.length > 0 ? "xhigh" : "high", triggers };
+  return { effort: AUDIT_POLICY.defaultReasoningEffort, triggers };
 }
 
 export function isReadFailure(invoice: HarnessInvoice) {
@@ -54,4 +54,3 @@ export function isReadFailure(invoice: HarnessInvoice) {
   const hasFinancialContent = Boolean(invoice.totalAmount || invoice.items.length);
   return !hasMinimumIdentity || !hasFinancialContent;
 }
-

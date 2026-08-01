@@ -15,6 +15,7 @@ export type NoteVisualItem = {
   finding?: string;
   findings?: NoteFindingVisual[];
   id: string;
+  isRead?: boolean;
   number: string;
   supplier: string;
   value: string;

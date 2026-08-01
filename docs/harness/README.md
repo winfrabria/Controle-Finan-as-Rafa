@@ -15,12 +15,13 @@ versão ativa.
 
 ## Garantias
 
-- `openai/gpt-5.6-sol`, `high` por padrão e `xhigh` apenas pelos gatilhos da política;
+- `openai/gpt-5.6-luna`, `max` por padrão para a avaliação; os gatilhos permanecem registrados para auditoria;
 - `reasoning.exclude=true`; chain-of-thought nunca é solicitado ou persistido;
 - resposta de IA validada com Zod e JSON Schema estrito;
 - URL assinada, chave, autorização e reasoning são removidos de dados persistidos;
 - falha de leitura termina em `READ_FAILED`, sem achado e sem notificação ao Rafael;
-- toda nota `SUSPICIOUS` termina em `PENDING_VALIDATION`;
+- toda nota `SUSPICIOUS` termina em `PENDING_VALIDATION` e aparece no diagnóstico unificado do Rafael;
+- no MVP, cada `Note` representa um anexo recebido e o Rafael apenas marca o diagnóstico como lido;
 - upload agenda `ProcessingJob`; claim otimista impede dois workers de executar o mesmo job;
 - reprocessamento preserva execuções e validações anteriores, encerra achados abertos e cria novo job.
 
@@ -31,7 +32,7 @@ versão ativa.
 - `GET /api/admin/logs`: trilha administrativa, execuções da IA e decisões humanas;
 - `POST /api/internal/ai/jobs/:id/run`: execução autenticada de um job;
 - `POST /api/admin/notas/:id/reprocess`: agenda reprocessamento autenticado.
-- `POST /api/validacoes`: decisão exclusiva do REVIEWER com trava otimista por versão da nota.
+- `POST /api/validacoes`: endpoint legado de decisão, mantido para histórico; o workspace do REVIEWER não expõe aprovação, rejeição ou perguntas no MVP.
 
 O alias legado `OpenRouter_API_Key` é aceito em memória e normalizado para o
 contrato canônico `OPENROUTER_API_KEY`. O valor nunca é registrado.

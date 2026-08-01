@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { ValidationDecisionForm } from "@/features/workspace-ui/validation-decision-form";
 import {
   PortalShell,
   StatusBadge,
@@ -213,21 +212,15 @@ export function NoteDetailView({
               </Link>
             </section>
 
-            <section className={`${styles.card} ${styles.validationCard}`}>
+        <section className={`${styles.card} ${styles.validationCard}`}>
               <header className={styles.cardHeader}>
                 <div>
-                  <h2>{role === "reviewer" ? "Sua validação" : "Validação humana"}</h2>
-                  <p>
-                    {role === "reviewer"
-                      ? "Revise a análise da IA e registre sua decisão."
-                      : "Acompanhe a decisão registrada pelo revisor."}
-                  </p>
+                  <h2>Leitura do diagnóstico</h2>
+                  <p>Consulte o resultado da IA nesta tela. Decisões humanas ficam fora do MVP.</p>
                 </div>
               </header>
               <div className={styles.validationBody}>
-                {role === "reviewer" && data.status === "PENDING_VALIDATION" ? (
-                  <ValidationDecisionForm isDemo={data.isDemo} noteId={data.id} showCancel={false} />
-                ) : latestValidation ? (
+                {latestValidation ? (
                   <dl className={styles.validationResult}>
                     <div>
                       <dt>Decisão</dt>
@@ -248,9 +241,7 @@ export function NoteDetailView({
                       </div>
                     ) : null}
                   </dl>
-                ) : (
-                  <p className={styles.pendingMessage}>Nenhuma decisão humana registrada.</p>
-                )}
+                ) : <p className={styles.pendingMessage}>Nenhuma decisão humana registrada.</p>}
               </div>
             </section>
           </aside>

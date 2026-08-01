@@ -456,6 +456,11 @@
   color: var(--blue);
 }
 
+.statusFailed {
+  background: #fff0ee;
+  color: #b42318;
+}
+
 .panelLink {
   align-items: center;
   color: var(--blue);

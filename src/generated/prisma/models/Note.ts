@@ -393,6 +393,7 @@ export type NoteWhereInput = {
   notifications?: Prisma.NotificationListRelationFilter
   aiRuns?: Prisma.AiRunListRelationFilter
   processingJobs?: Prisma.ProcessingJobListRelationFilter
+  noteReads?: Prisma.NoteReadListRelationFilter
 }
 
 export type NoteOrderByWithRelationInput = {
@@ -430,6 +431,7 @@ export type NoteOrderByWithRelationInput = {
   notifications?: Prisma.NotificationOrderByRelationAggregateInput
   aiRuns?: Prisma.AiRunOrderByRelationAggregateInput
   processingJobs?: Prisma.ProcessingJobOrderByRelationAggregateInput
+  noteReads?: Prisma.NoteReadOrderByRelationAggregateInput
 }
 
 export type NoteWhereUniqueInput = Prisma.AtLeast<{
@@ -470,6 +472,7 @@ export type NoteWhereUniqueInput = Prisma.AtLeast<{
   notifications?: Prisma.NotificationListRelationFilter
   aiRuns?: Prisma.AiRunListRelationFilter
   processingJobs?: Prisma.ProcessingJobListRelationFilter
+  noteReads?: Prisma.NoteReadListRelationFilter
 }, "id">
 
 export type NoteOrderByWithAggregationInput = {
@@ -569,6 +572,7 @@ export type NoteCreateInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateInput = {
@@ -604,6 +608,7 @@ export type NoteUncheckedCreateInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUpdateInput = {
@@ -639,6 +644,7 @@ export type NoteUpdateInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateInput = {
@@ -674,6 +680,7 @@ export type NoteUncheckedUpdateInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateManyInput = {
@@ -1098,6 +1105,20 @@ export type NoteUpdateOneWithoutNotificationsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.NoteUpdateToOneWithWhereWithoutNotificationsInput, Prisma.NoteUpdateWithoutNotificationsInput>, Prisma.NoteUncheckedUpdateWithoutNotificationsInput>
 }
 
+export type NoteCreateNestedOneWithoutNoteReadsInput = {
+  create?: Prisma.XOR<Prisma.NoteCreateWithoutNoteReadsInput, Prisma.NoteUncheckedCreateWithoutNoteReadsInput>
+  connectOrCreate?: Prisma.NoteCreateOrConnectWithoutNoteReadsInput
+  connect?: Prisma.NoteWhereUniqueInput
+}
+
+export type NoteUpdateOneRequiredWithoutNoteReadsNestedInput = {
+  create?: Prisma.XOR<Prisma.NoteCreateWithoutNoteReadsInput, Prisma.NoteUncheckedCreateWithoutNoteReadsInput>
+  connectOrCreate?: Prisma.NoteCreateOrConnectWithoutNoteReadsInput
+  upsert?: Prisma.NoteUpsertWithoutNoteReadsInput
+  connect?: Prisma.NoteWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.NoteUpdateToOneWithWhereWithoutNoteReadsInput, Prisma.NoteUpdateWithoutNoteReadsInput>, Prisma.NoteUncheckedUpdateWithoutNoteReadsInput>
+}
+
 export type NoteCreateWithoutSubmittedByInput = {
   id?: string
   originalFilePath: string
@@ -1130,6 +1151,7 @@ export type NoteCreateWithoutSubmittedByInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutSubmittedByInput = {
@@ -1164,6 +1186,7 @@ export type NoteUncheckedCreateWithoutSubmittedByInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutSubmittedByInput = {
@@ -1255,6 +1278,7 @@ export type NoteCreateWithoutWorkInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutWorkInput = {
@@ -1289,6 +1313,7 @@ export type NoteUncheckedCreateWithoutWorkInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutWorkInput = {
@@ -1349,6 +1374,7 @@ export type NoteCreateWithoutItemsInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutItemsInput = {
@@ -1383,6 +1409,7 @@ export type NoteUncheckedCreateWithoutItemsInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutItemsInput = {
@@ -1433,6 +1460,7 @@ export type NoteUpdateWithoutItemsInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutItemsInput = {
@@ -1467,6 +1495,7 @@ export type NoteUncheckedUpdateWithoutItemsInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutFindingsInput = {
@@ -1501,6 +1530,7 @@ export type NoteCreateWithoutFindingsInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutFindingsInput = {
@@ -1535,6 +1565,7 @@ export type NoteUncheckedCreateWithoutFindingsInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutFindingsInput = {
@@ -1585,6 +1616,7 @@ export type NoteUpdateWithoutFindingsInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutFindingsInput = {
@@ -1619,6 +1651,7 @@ export type NoteUncheckedUpdateWithoutFindingsInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutValidationsInput = {
@@ -1653,6 +1686,7 @@ export type NoteCreateWithoutValidationsInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutValidationsInput = {
@@ -1687,6 +1721,7 @@ export type NoteUncheckedCreateWithoutValidationsInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutValidationsInput = {
@@ -1737,6 +1772,7 @@ export type NoteUpdateWithoutValidationsInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutValidationsInput = {
@@ -1771,6 +1807,7 @@ export type NoteUncheckedUpdateWithoutValidationsInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutProcessingJobsInput = {
@@ -1805,6 +1842,7 @@ export type NoteCreateWithoutProcessingJobsInput = {
   events?: Prisma.NoteEventCreateNestedManyWithoutNoteInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutProcessingJobsInput = {
@@ -1839,6 +1877,7 @@ export type NoteUncheckedCreateWithoutProcessingJobsInput = {
   events?: Prisma.NoteEventUncheckedCreateNestedManyWithoutNoteInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutProcessingJobsInput = {
@@ -1889,6 +1928,7 @@ export type NoteUpdateWithoutProcessingJobsInput = {
   events?: Prisma.NoteEventUpdateManyWithoutNoteNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutProcessingJobsInput = {
@@ -1923,6 +1963,7 @@ export type NoteUncheckedUpdateWithoutProcessingJobsInput = {
   events?: Prisma.NoteEventUncheckedUpdateManyWithoutNoteNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutAiRunsInput = {
@@ -1957,6 +1998,7 @@ export type NoteCreateWithoutAiRunsInput = {
   events?: Prisma.NoteEventCreateNestedManyWithoutNoteInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutAiRunsInput = {
@@ -1991,6 +2033,7 @@ export type NoteUncheckedCreateWithoutAiRunsInput = {
   events?: Prisma.NoteEventUncheckedCreateNestedManyWithoutNoteInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutAiRunsInput = {
@@ -2041,6 +2084,7 @@ export type NoteUpdateWithoutAiRunsInput = {
   events?: Prisma.NoteEventUpdateManyWithoutNoteNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutAiRunsInput = {
@@ -2075,6 +2119,7 @@ export type NoteUncheckedUpdateWithoutAiRunsInput = {
   events?: Prisma.NoteEventUncheckedUpdateManyWithoutNoteNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutEventsInput = {
@@ -2109,6 +2154,7 @@ export type NoteCreateWithoutEventsInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutEventsInput = {
@@ -2143,6 +2189,7 @@ export type NoteUncheckedCreateWithoutEventsInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutEventsInput = {
@@ -2193,6 +2240,7 @@ export type NoteUpdateWithoutEventsInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutEventsInput = {
@@ -2227,6 +2275,7 @@ export type NoteUncheckedUpdateWithoutEventsInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutNotificationsInput = {
@@ -2261,6 +2310,7 @@ export type NoteCreateWithoutNotificationsInput = {
   events?: Prisma.NoteEventCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutNotificationsInput = {
@@ -2295,6 +2345,7 @@ export type NoteUncheckedCreateWithoutNotificationsInput = {
   events?: Prisma.NoteEventUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutNotificationsInput = {
@@ -2345,6 +2396,7 @@ export type NoteUpdateWithoutNotificationsInput = {
   events?: Prisma.NoteEventUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutNotificationsInput = {
@@ -2377,6 +2429,163 @@ export type NoteUncheckedUpdateWithoutNotificationsInput = {
   findings?: Prisma.FindingUncheckedUpdateManyWithoutNoteNestedInput
   validations?: Prisma.ValidationUncheckedUpdateManyWithoutNoteNestedInput
   events?: Prisma.NoteEventUncheckedUpdateManyWithoutNoteNestedInput
+  aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
+  processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+}
+
+export type NoteCreateWithoutNoteReadsInput = {
+  id?: string
+  originalFilePath: string
+  originalFileName: string
+  originalMimeType: string
+  originalSizeBytes: bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: string | null
+  documentNumber?: string | null
+  supplierName?: string | null
+  supplierTaxId?: string | null
+  issuedAt?: Date | string | null
+  totalAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: $Enums.NoteStatus
+  processingStage?: $Enums.ProcessingStage
+  classification?: $Enums.NoteClassification | null
+  readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: string | null
+  failureMessage?: string | null
+  version?: number
+  receivedAt?: Date | string
+  processedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  work: Prisma.WorkCreateNestedOneWithoutNotesInput
+  submittedBy?: Prisma.ProfileCreateNestedOneWithoutSubmittedNotesInput
+  items?: Prisma.NoteItemCreateNestedManyWithoutNoteInput
+  findings?: Prisma.FindingCreateNestedManyWithoutNoteInput
+  validations?: Prisma.ValidationCreateNestedManyWithoutNoteInput
+  events?: Prisma.NoteEventCreateNestedManyWithoutNoteInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
+  aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
+  processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+}
+
+export type NoteUncheckedCreateWithoutNoteReadsInput = {
+  id?: string
+  workId: string
+  submittedById?: string | null
+  originalFilePath: string
+  originalFileName: string
+  originalMimeType: string
+  originalSizeBytes: bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: string | null
+  documentNumber?: string | null
+  supplierName?: string | null
+  supplierTaxId?: string | null
+  issuedAt?: Date | string | null
+  totalAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: $Enums.NoteStatus
+  processingStage?: $Enums.ProcessingStage
+  classification?: $Enums.NoteClassification | null
+  readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: string | null
+  failureMessage?: string | null
+  version?: number
+  receivedAt?: Date | string
+  processedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  items?: Prisma.NoteItemUncheckedCreateNestedManyWithoutNoteInput
+  findings?: Prisma.FindingUncheckedCreateNestedManyWithoutNoteInput
+  validations?: Prisma.ValidationUncheckedCreateNestedManyWithoutNoteInput
+  events?: Prisma.NoteEventUncheckedCreateNestedManyWithoutNoteInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
+  aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
+  processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+}
+
+export type NoteCreateOrConnectWithoutNoteReadsInput = {
+  where: Prisma.NoteWhereUniqueInput
+  create: Prisma.XOR<Prisma.NoteCreateWithoutNoteReadsInput, Prisma.NoteUncheckedCreateWithoutNoteReadsInput>
+}
+
+export type NoteUpsertWithoutNoteReadsInput = {
+  update: Prisma.XOR<Prisma.NoteUpdateWithoutNoteReadsInput, Prisma.NoteUncheckedUpdateWithoutNoteReadsInput>
+  create: Prisma.XOR<Prisma.NoteCreateWithoutNoteReadsInput, Prisma.NoteUncheckedCreateWithoutNoteReadsInput>
+  where?: Prisma.NoteWhereInput
+}
+
+export type NoteUpdateToOneWithWhereWithoutNoteReadsInput = {
+  where?: Prisma.NoteWhereInput
+  data: Prisma.XOR<Prisma.NoteUpdateWithoutNoteReadsInput, Prisma.NoteUncheckedUpdateWithoutNoteReadsInput>
+}
+
+export type NoteUpdateWithoutNoteReadsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
+  originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
+  originalSizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  documentNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierTaxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  issuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
+  processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
+  classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  work?: Prisma.WorkUpdateOneRequiredWithoutNotesNestedInput
+  submittedBy?: Prisma.ProfileUpdateOneWithoutSubmittedNotesNestedInput
+  items?: Prisma.NoteItemUpdateManyWithoutNoteNestedInput
+  findings?: Prisma.FindingUpdateManyWithoutNoteNestedInput
+  validations?: Prisma.ValidationUpdateManyWithoutNoteNestedInput
+  events?: Prisma.NoteEventUpdateManyWithoutNoteNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
+  aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
+  processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+}
+
+export type NoteUncheckedUpdateWithoutNoteReadsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  workId?: Prisma.StringFieldUpdateOperationsInput | string
+  submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
+  originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
+  originalSizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  documentNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierTaxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  issuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
+  processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
+  classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  items?: Prisma.NoteItemUncheckedUpdateManyWithoutNoteNestedInput
+  findings?: Prisma.FindingUncheckedUpdateManyWithoutNoteNestedInput
+  validations?: Prisma.ValidationUncheckedUpdateManyWithoutNoteNestedInput
+  events?: Prisma.NoteEventUncheckedUpdateManyWithoutNoteNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
 }
@@ -2440,6 +2649,7 @@ export type NoteUpdateWithoutSubmittedByInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutSubmittedByInput = {
@@ -2474,6 +2684,7 @@ export type NoteUncheckedUpdateWithoutSubmittedByInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateManyWithoutSubmittedByInput = {
@@ -2562,6 +2773,7 @@ export type NoteUpdateWithoutWorkInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutWorkInput = {
@@ -2596,6 +2808,7 @@ export type NoteUncheckedUpdateWithoutWorkInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateManyWithoutWorkInput = {
@@ -2638,6 +2851,7 @@ export type NoteCountOutputType = {
   notifications: number
   aiRuns: number
   processingJobs: number
+  noteReads: number
 }
 
 export type NoteCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2648,6 +2862,7 @@ export type NoteCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   notifications?: boolean | NoteCountOutputTypeCountNotificationsArgs
   aiRuns?: boolean | NoteCountOutputTypeCountAiRunsArgs
   processingJobs?: boolean | NoteCountOutputTypeCountProcessingJobsArgs
+  noteReads?: boolean | NoteCountOutputTypeCountNoteReadsArgs
 }
 
 /**
@@ -2709,6 +2924,13 @@ export type NoteCountOutputTypeCountProcessingJobsArgs<ExtArgs extends runtime.T
   where?: Prisma.ProcessingJobWhereInput
 }
 
+/**
+ * NoteCountOutputType without action
+ */
+export type NoteCountOutputTypeCountNoteReadsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.NoteReadWhereInput
+}
+
 
 export type NoteSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -2745,6 +2967,7 @@ export type NoteSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   notifications?: boolean | Prisma.Note$notificationsArgs<ExtArgs>
   aiRuns?: boolean | Prisma.Note$aiRunsArgs<ExtArgs>
   processingJobs?: boolean | Prisma.Note$processingJobsArgs<ExtArgs>
+  noteReads?: boolean | Prisma.Note$noteReadsArgs<ExtArgs>
   _count?: boolean | Prisma.NoteCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["note"]>
 
@@ -2847,6 +3070,7 @@ export type NoteInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   notifications?: boolean | Prisma.Note$notificationsArgs<ExtArgs>
   aiRuns?: boolean | Prisma.Note$aiRunsArgs<ExtArgs>
   processingJobs?: boolean | Prisma.Note$processingJobsArgs<ExtArgs>
+  noteReads?: boolean | Prisma.Note$noteReadsArgs<ExtArgs>
   _count?: boolean | Prisma.NoteCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type NoteIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2870,6 +3094,7 @@ export type $NotePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     notifications: Prisma.$NotificationPayload<ExtArgs>[]
     aiRuns: Prisma.$AiRunPayload<ExtArgs>[]
     processingJobs: Prisma.$ProcessingJobPayload<ExtArgs>[]
+    noteReads: Prisma.$NoteReadPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -3300,6 +3525,7 @@ export interface Prisma__NoteClient<T, Null = never, ExtArgs extends runtime.Typ
   notifications<T extends Prisma.Note$notificationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$notificationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   aiRuns<T extends Prisma.Note$aiRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$aiRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AiRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   processingJobs<T extends Prisma.Note$processingJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$processingJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProcessingJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  noteReads<T extends Prisma.Note$noteReadsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$noteReadsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NoteReadPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3939,6 +4165,30 @@ export type Note$processingJobsArgs<ExtArgs extends runtime.Types.Extensions.Int
   take?: number
   skip?: number
   distinct?: Prisma.ProcessingJobScalarFieldEnum | Prisma.ProcessingJobScalarFieldEnum[]
+}
+
+/**
+ * Note.noteReads
+ */
+export type Note$noteReadsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NoteRead
+   */
+  select?: Prisma.NoteReadSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NoteRead
+   */
+  omit?: Prisma.NoteReadOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NoteReadInclude<ExtArgs> | null
+  where?: Prisma.NoteReadWhereInput
+  orderBy?: Prisma.NoteReadOrderByWithRelationInput | Prisma.NoteReadOrderByWithRelationInput[]
+  cursor?: Prisma.NoteReadWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NoteReadScalarFieldEnum | Prisma.NoteReadScalarFieldEnum[]
 }
 
 /**

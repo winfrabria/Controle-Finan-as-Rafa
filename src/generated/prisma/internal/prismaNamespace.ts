@@ -398,6 +398,7 @@ export const ModelName = {
   AdminAuditLog: 'AdminAuditLog',
   NoteEvent: 'NoteEvent',
   Notification: 'Notification',
+  NoteRead: 'NoteRead',
   PushSubscription: 'PushSubscription'
 } as const
 
@@ -414,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "profile" | "work" | "note" | "noteItem" | "auditParameter" | "auditRule" | "ruleParameter" | "finding" | "validation" | "processingJob" | "aiRun" | "adminAuditLog" | "noteEvent" | "notification" | "pushSubscription"
+    modelProps: "profile" | "work" | "note" | "noteItem" | "auditParameter" | "auditRule" | "ruleParameter" | "finding" | "validation" | "processingJob" | "aiRun" | "adminAuditLog" | "noteEvent" | "notification" | "noteRead" | "pushSubscription"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1454,6 +1455,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    NoteRead: {
+      payload: Prisma.$NoteReadPayload<ExtArgs>
+      fields: Prisma.NoteReadFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.NoteReadFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.NoteReadFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload>
+        }
+        findFirst: {
+          args: Prisma.NoteReadFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.NoteReadFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload>
+        }
+        findMany: {
+          args: Prisma.NoteReadFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload>[]
+        }
+        create: {
+          args: Prisma.NoteReadCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload>
+        }
+        createMany: {
+          args: Prisma.NoteReadCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.NoteReadCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload>[]
+        }
+        delete: {
+          args: Prisma.NoteReadDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload>
+        }
+        update: {
+          args: Prisma.NoteReadUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload>
+        }
+        deleteMany: {
+          args: Prisma.NoteReadDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.NoteReadUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.NoteReadUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload>[]
+        }
+        upsert: {
+          args: Prisma.NoteReadUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteReadPayload>
+        }
+        aggregate: {
+          args: Prisma.NoteReadAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateNoteRead>
+        }
+        groupBy: {
+          args: Prisma.NoteReadGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.NoteReadGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.NoteReadCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.NoteReadCountAggregateOutputType> | number
+        }
+      }
+    }
     PushSubscription: {
       payload: Prisma.$PushSubscriptionPayload<ExtArgs>
       fields: Prisma.PushSubscriptionFieldRefs
@@ -1832,6 +1907,15 @@ export const NotificationScalarFieldEnum = {
 } as const
 
 export type NotificationScalarFieldEnum = (typeof NotificationScalarFieldEnum)[keyof typeof NotificationScalarFieldEnum]
+
+
+export const NoteReadScalarFieldEnum = {
+  profileId: 'profileId',
+  noteId: 'noteId',
+  readAt: 'readAt'
+} as const
+
+export type NoteReadScalarFieldEnum = (typeof NoteReadScalarFieldEnum)[keyof typeof NoteReadScalarFieldEnum]
 
 
 export const PushSubscriptionScalarFieldEnum = {
@@ -2327,6 +2411,7 @@ export type GlobalOmitConfig = {
   adminAuditLog?: Prisma.AdminAuditLogOmit
   noteEvent?: Prisma.NoteEventOmit
   notification?: Prisma.NotificationOmit
+  noteRead?: Prisma.NoteReadOmit
   pushSubscription?: Prisma.PushSubscriptionOmit
 }
 
