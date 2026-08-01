@@ -202,10 +202,10 @@ export function ReviewerDashboardView({
             <span className={styles.control}>
               <Icon name="calendar" />
               <select value={period} onChange={(event) => setPeriod(event.target.value)}>
-                <option value="maio">01/05/2024 – 31/05/2024</option>
-                <option value="abril">01/04/2024 – 30/04/2024</option>
-                <option value="marco">01/03/2024 – 31/03/2024</option>
-                <option value="todos">Todos os períodos</option>
+                <option value="maio">Maio 2024</option>
+                <option value="abril">Abril 2024</option>
+                <option value="marco">Março 2024</option>
+                <option value="todos">Todos os meses</option>
               </select>
               <Icon name="chevron" />
             </span>

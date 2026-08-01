@@ -171,7 +171,7 @@ export function ReviewerNotesView({ items, role }: ReviewerNotesViewProps) {
             <Icon name="calendar" />
             <span className={styles.visuallyHidden}>Período</span>
             <select value={period} onChange={(event) => setPeriod(event.target.value)}>
-              <option value="">Todos os períodos</option>
+              <option value="">Todos os meses</option>
               {periods.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
