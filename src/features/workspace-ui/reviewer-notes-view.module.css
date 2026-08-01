@@ -764,6 +764,10 @@
     min-height: 0;
   }
 
+  .diagnosisPanel {
+    order: -1;
+  }
+
   .attachmentsPanel {
     max-height: 410px;
   }

@@ -51,6 +51,7 @@ Branch: `NewDesingPc`
 - **Estado:** reviewer, tela unificada `Notas`, anexo suspeito selecionado, diagnóstico da IA aberto.
 - **Desktop:** fonte e captura em 1440 × 1024 px, CSS 1440 × 1024, `deviceScaleFactor` 1.
 - **Mobile:** captura em 390 × 844 px CSS, sem moldura de dispositivo.
+- **Fluxo mobile:** o diagnóstico da IA aparece antes da lista de anexos, para que o primeiro conteúdo relevante seja a leitura do anexo selecionado.
 
 ### Evidência visual
 
