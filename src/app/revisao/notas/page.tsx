@@ -19,6 +19,9 @@ export default async function ReviewerNotesPage({ searchParams }: PageProps) {
   return (
     <NotesView
       initialQuery={filters.documentNumber}
+      initialPage={result.page}
+      initialPageCount={result.pageCount}
+      total={result.total}
       role="reviewer"
       items={toNoteVisualItems(result.items)}
     />

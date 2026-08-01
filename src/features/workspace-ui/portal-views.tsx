@@ -418,11 +418,17 @@ function AdminDashboardPanels() {
 
 export function NotesView({
   initialQuery,
+  initialPage,
+  initialPageCount,
   role,
+  total,
   items,
 }: {
   initialQuery?: string;
+  initialPage?: number;
+  initialPageCount?: number;
   role: PortalRole;
+  total?: number;
   items?: NoteVisualItem[];
 }) {
   const rows: NoteVisualItem[] =
@@ -517,7 +523,16 @@ export function NotesView({
     setPage(1);
   };
   if (role === "reviewer") {
-    return <ReviewerNotesView initialQuery={initialQuery} items={rows} role={role} />;
+    return (
+      <ReviewerNotesView
+        initialQuery={initialQuery}
+        items={rows}
+        page={initialPage}
+        pageCount={initialPageCount}
+        role={role}
+        total={total}
+      />
+    );
   }
   return (
     <PortalShell active="notas" role={role}>

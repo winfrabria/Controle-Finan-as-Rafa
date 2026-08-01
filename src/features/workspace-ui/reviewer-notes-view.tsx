@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { Icon } from "./ui-icons";
@@ -11,7 +12,10 @@ import styles from "./reviewer-notes-view.module.css";
 type ReviewerNotesViewProps = {
   initialQuery?: string;
   items: NoteVisualItem[];
+  page?: number;
+  pageCount?: number;
   role: PortalRole;
+  total?: number;
 };
 
 const statusClass: Record<string, string> = {
@@ -60,7 +64,16 @@ function dateInputKey(value: string) {
   return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
 }
 
-export function ReviewerNotesView({ initialQuery = "", items, role }: ReviewerNotesViewProps) {
+export function ReviewerNotesView({
+  initialQuery = "",
+  items,
+  page = 1,
+  pageCount = 1,
+  role,
+  total = items.length,
+}: ReviewerNotesViewProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [query, setQuery] = useState(initialQuery);
   const [period, setPeriod] = useState("");
   const [status, setStatus] = useState("");
@@ -147,6 +160,15 @@ export function ReviewerNotesView({ initialQuery = "", items, role }: ReviewerNo
     } catch {
       setReadError("Não foi possível marcar este anexo como lido.");
     }
+  }
+
+  function goToPage(nextPage: number) {
+    if (nextPage < 1 || nextPage > pageCount || nextPage === page) return;
+    const params = new URLSearchParams(window.location.search);
+    if (nextPage === 1) params.delete("pagina");
+    else params.set("pagina", String(nextPage));
+    const queryString = params.toString();
+    router.push(queryString ? `${pathname}?${queryString}` : pathname);
   }
 
   return (
@@ -303,8 +325,30 @@ export function ReviewerNotesView({ initialQuery = "", items, role }: ReviewerNo
               )}
             </div>
             <footer className={styles.panelFooter}>
-              <span>Unidade de acompanhamento: 1 anexo</span>
-              <span>Atualização automática</span>
+              <span>
+                {total === 0
+                  ? "Nenhum anexo"
+                  : `Página ${page} de ${pageCount} • ${total} anexos`}
+              </span>
+              <span className={styles.pagination}>
+                <button
+                  aria-label="Página anterior"
+                  disabled={page <= 1}
+                  onClick={() => goToPage(page - 1)}
+                  type="button"
+                >
+                  ‹
+                </button>
+                <strong>{page}</strong>
+                <button
+                  aria-label="Próxima página"
+                  disabled={page >= pageCount}
+                  onClick={() => goToPage(page + 1)}
+                  type="button"
+                >
+                  ›
+                </button>
+              </span>
             </footer>
           </section>
 

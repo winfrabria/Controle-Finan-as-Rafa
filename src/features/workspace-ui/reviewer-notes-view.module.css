@@ -382,6 +382,41 @@
   padding: 12px 15px;
 }
 
+.pagination {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.pagination button,
+.pagination strong {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d7e0ec;
+  border-radius: 6px;
+  color: #315174;
+  display: inline-flex;
+  font-size: 12px;
+  height: 26px;
+  justify-content: center;
+  min-width: 26px;
+}
+
+.pagination button {
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.pagination strong {
+  background: #edf4ff;
+  border-color: #bcd3ff;
+  color: #075cff;
+}
+
 .diagnosisPanel {
   display: flex;
   flex-direction: column;
