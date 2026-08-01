@@ -1,0 +1,529 @@
+.page {
+  --blue: #075cff;
+  --navy: #07163b;
+  --muted: #536486;
+  --line: #dfe6f0;
+  --soft: #f5f8fc;
+  margin: 0 auto;
+  max-width: 1540px;
+  width: 100%;
+}
+
+.pageHeader {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.pageHeader h1 {
+  color: var(--navy);
+  font-size: clamp(24px, 2vw, 30px);
+  letter-spacing: -0.65px;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.pageHeader p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 7px 0 0;
+}
+
+.filters {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(190px, 1fr) minmax(210px, 1.1fr) minmax(190px, 1fr) auto;
+  margin-bottom: 16px;
+}
+
+.filterField {
+  color: var(--muted);
+  display: grid;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 6px;
+  min-width: 0;
+}
+
+.control {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #ccd8e8;
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  height: 42px;
+  min-width: 0;
+  padding: 0 11px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.control:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgb(7 92 255 / 10%);
+}
+
+.control > svg:first-child {
+  color: var(--blue);
+  flex: 0 0 auto;
+  height: 17px;
+  width: 17px;
+}
+
+.control > svg:last-child {
+  color: #6e7e9a;
+  flex: 0 0 auto;
+  height: 15px;
+  margin-left: auto;
+  pointer-events: none;
+  transform: rotate(90deg);
+  width: 15px;
+}
+
+.control select,
+.control input {
+  background: transparent;
+  border: 0;
+  color: var(--navy);
+  font: inherit;
+  font-size: 12px;
+  min-width: 0;
+  outline: 0;
+  width: 100%;
+}
+
+.control select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.control input::placeholder {
+  color: #8694aa;
+}
+
+.clearButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--blue);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  height: 42px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.clearButton:hover {
+  text-decoration: underline;
+}
+
+.metrics {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.metric {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  gap: 12px;
+  min-height: 112px;
+  padding: 16px;
+}
+
+.metricIcon {
+  align-items: center;
+  background: #eaf2ff;
+  border-radius: 10px;
+  color: var(--blue);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.metricIcon svg {
+  height: 20px;
+  width: 20px;
+}
+
+.metricOrange {
+  background: #fff3df;
+  color: #f08b00;
+}
+
+.metricGreen {
+  background: #e5f8ef;
+  color: #0aa764;
+}
+
+.metricBlue {
+  background: #eaf2ff;
+  color: var(--blue);
+}
+
+.metricLabel,
+.metricValue,
+.metricDelta {
+  display: block;
+}
+
+.metricLabel {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.metricValue {
+  color: var(--navy);
+  font-size: clamp(19px, 2vw, 26px);
+  letter-spacing: -0.45px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.metricDelta {
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 7px;
+}
+
+.metricDelta span {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.positive {
+  color: #08a461;
+}
+
+.negative {
+  color: #e24c4c;
+}
+
+.contentGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(310px, 0.8fr);
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.panelHeader {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 16px;
+}
+
+.panelHeader h2 {
+  color: var(--navy);
+  font-size: 15px;
+  letter-spacing: -0.2px;
+  margin: 0;
+}
+
+.causesTable {
+  min-width: 0;
+  padding: 0 16px;
+}
+
+.tableHeader,
+.causeRow {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.5fr) 82px minmax(130px, 1fr);
+}
+
+.tableHeader {
+  color: #7888a3;
+  font-size: 10px;
+  font-weight: 700;
+  min-height: 38px;
+  text-transform: uppercase;
+}
+
+.causeRow {
+  border-top: 1px solid #edf1f6;
+  color: #2c4269;
+  font-size: 12px;
+  min-height: 49px;
+}
+
+.causeRow strong {
+  color: var(--navy);
+  font-size: 13px;
+}
+
+.progressCell {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.progressTrack {
+  background: #e7edf6;
+  border-radius: 999px;
+  display: block;
+  height: 6px;
+  min-width: 44px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.progressTrack span {
+  background: var(--blue);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+.progressCell small {
+  color: var(--muted);
+  flex: 0 0 39px;
+  font-size: 10px;
+  text-align: right;
+}
+
+.latestList {
+  display: grid;
+  padding: 4px 16px 8px;
+}
+
+.latestRow {
+  align-items: center;
+  border-bottom: 1px solid #edf1f6;
+  color: inherit;
+  display: flex;
+  gap: 10px;
+  min-height: 67px;
+  text-decoration: none;
+}
+
+.latestRow:last-child {
+  border-bottom: 0;
+}
+
+.latestRow:hover .latestCopy strong {
+  color: var(--blue);
+}
+
+.latestIcon {
+  align-items: center;
+  background: #eaf2ff;
+  border-radius: 9px;
+  color: var(--blue);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.latestIcon svg {
+  height: 17px;
+  width: 17px;
+}
+
+.latestCopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.latestCopy strong,
+.latestCopy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.latestCopy strong {
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.latestCopy small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.latestCopy em {
+  color: #a0acc0;
+  font-style: normal;
+  padding: 0 2px;
+}
+
+.statusBadge {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: auto;
+  padding: 6px 8px;
+}
+
+.statusOk {
+  background: #e4f8ee;
+  color: #078d56;
+}
+
+.statusSuspicious {
+  background: #fff2da;
+  color: #d87900;
+}
+
+.statusProcessing {
+  background: #eaf2ff;
+  color: var(--blue);
+}
+
+.panelLink {
+  align-items: center;
+  color: var(--blue);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 5px;
+  margin: 8px 16px 14px;
+  text-decoration: none;
+}
+
+.panelLink:hover {
+  text-decoration: underline;
+}
+
+.panelLink svg {
+  height: 13px;
+  transform: rotate(180deg);
+  width: 13px;
+}
+
+.emptyState {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+@media (max-width: 1200px) {
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .clearButton {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 900px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .pageHeader {
+    margin-bottom: 14px;
+  }
+
+  .pageHeader h1 {
+    font-size: 24px;
+  }
+
+  .pageHeader p {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .filters,
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .control,
+  .clearButton {
+    min-height: 44px;
+  }
+
+  .metric {
+    min-height: 96px;
+  }
+
+  .panelHeader {
+    min-height: 52px;
+    padding: 0 13px;
+  }
+
+  .causesTable {
+    padding: 0 13px;
+  }
+
+  .tableHeader,
+  .causeRow {
+    gap: 8px;
+    grid-template-columns: minmax(0, 1.4fr) 52px minmax(90px, 1fr);
+  }
+
+  .tableHeader {
+    font-size: 9px;
+  }
+
+  .causeRow {
+    font-size: 11px;
+    min-height: 45px;
+  }
+
+  .progressCell {
+    gap: 5px;
+  }
+
+  .progressCell small {
+    flex-basis: 32px;
+    font-size: 9px;
+  }
+
+  .latestList {
+    padding-inline: 13px;
+  }
+
+  .latestRow {
+    min-height: 62px;
+  }
+
+  .statusBadge {
+    font-size: 9px;
+    padding: 5px 6px;
+  }
+
+  .panelLink {
+    margin-inline: 13px;
+  }
+}

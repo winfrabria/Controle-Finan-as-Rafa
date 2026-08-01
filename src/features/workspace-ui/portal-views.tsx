@@ -19,6 +19,7 @@ import styles from "./workspace-ui.module.css";
 import noteStyles from "./notes-view.module.css";
 import { ValidationDecisionForm } from "./validation-decision-form";
 import { ReviewerNotesView } from "./reviewer-notes-view";
+import { ReviewerDashboardView } from "./reviewer-dashboard-view";
 import type { NoteVisualItem } from "./note-types";
 
 function NotesFilterBar({
@@ -108,6 +109,16 @@ export function DashboardView({
   works?: { id: string; name: string }[];
 }) {
   const admin = role === "admin";
+  if (!admin) {
+    return (
+      <ReviewerDashboardView
+        role={role}
+        userEmail={userEmail}
+        works={works}
+      />
+    );
+  }
+
   return (
     <PortalShell active="dashboard" role={role} userEmail={userEmail}>
       <PageIntro
@@ -158,94 +169,8 @@ export function DashboardView({
         />
       </section>
       <DashboardFilters role={role} works={works} />
-      {admin ? <AdminDashboardPanels /> : <ReviewerDashboardPanels />}
+      {admin ? <AdminDashboardPanels /> : null}
     </PortalShell>
-  );
-}
-
-function ReviewerDashboardPanels() {
-  return (
-    <section className={styles.dashboardGrid}>
-      {/* Status das notas */}
-      <article className={`${styles.panel} ${styles.chartPanel}`}>
-        <div className={styles.panelHeader}>
-          <h2>Status das notas</h2>
-        </div>
-        <div className={styles.donutWrap}>
-          <div className={styles.donut}>
-            <span>
-              <strong>1.248</strong>
-              <small>Total</small>
-            </span>
-          </div>
-          <div className={styles.legend}>
-            <p>
-              <i className={styles.greenDot} /> OK <b>1.106 (88,7%)</b>
-            </p>
-            <p>
-              <i className={styles.orangeDot} /> Suspeita <b>142 (11,3%)</b>
-            </p>
-            <Link href="/revisao/notas">Ver todas as notas →</Link>
-          </div>
-        </div>
-      </article>
-
-      {/* Notas suspeitas recentes */}
-      <article className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <h2>Notas suspeitas recentes</h2>
-          <Link href="/revisao/notas">Ver todas</Link>
-        </div>
-        <ul className={styles.compactList}>
-          {noteRows.slice(0, 5).map((n) => (
-            <li key={n[5]}>
-              <span>{n[0]}</span>
-              <b>{n[1]}</b>
-              <span>{n[2]}</span>
-              <strong style={{ color: "#ff9000" }}>{n[3]}</strong>
-              <Icon name="more" />
-            </li>
-          ))}
-        </ul>
-      </article>
-
-      <article className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <h2>Validações pendentes</h2>
-        </div>
-        <div className={styles.pendingLinks}>
-          <Link href="/revisao/notas" className={styles.pendingBox}>
-            <span className={styles.pendingLabel}>
-              <span className={styles.pendingIconGreen}>
-                <Icon name="check" />
-              </span>
-              Notas aguardando validação
-            </span>
-            <span className={styles.pendingRight}>
-              <strong className={styles.blueNumber}>198</strong>
-              <Icon name="chevron" />
-            </span>
-          </Link>
-          <Link href="/revisao/notas" className={styles.pendingBox}>
-            <span className={styles.pendingLabel}>
-              <span className={styles.pendingIconOrange}>
-                <Icon name="warning" />
-              </span>
-              Suspeitas aguardando análise
-            </span>
-            <span className={styles.pendingRight}>
-              <strong className={styles.orangeNumber}>142</strong>
-              <Icon name="chevron" />
-            </span>
-          </Link>
-        </div>
-        <div style={{ padding: "0 16px 16px" }}>
-          <Link className={styles.primaryActionBlue} href="/revisao/notas">
-            <Icon name="document" /> Ir para Notas
-          </Link>
-        </div>
-      </article>
-    </section>
   );
 }
 

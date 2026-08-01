@@ -84,3 +84,24 @@ Não há diferenças P0, P1 ou P2 pendentes. O uso de dados de demonstração e 
 - Ajustar a densidade da lista quando o volume real de anexos estiver disponível.
 
 final result: passed
+
+## QA adicional — Dashboard do REVIEWER (opção 1 aprovada)
+
+- **Fonte visual:** `C:/Users/PdrArth/.codex/generated_images/019f5255-6e10-77b3-a062-5fa2b64743c6/exec-e954535e-dd68-4f16-b81f-6bc8a11b8029.png`
+- **Implementação desktop:** captura local `reviewer-dashboard-option1-desktop.png`, 1440 × 900.
+- **Implementação mobile:** captura local `reviewer-dashboard-option1-mobile.png`, 390 × 844.
+- **Estado:** dashboard do REVIEWER com filtros de obra, período e número da nota; métricas, causas de desvio e últimos anexos.
+
+### Evidência visual
+
+A hierarquia da opção aprovada foi preservada: sidebar compacta com Dashboard e Notas, busca e perfil no topo, filtros antes das métricas, quatro cards de resumo e os painéis de causas e anexos. O layout usa grids flexíveis, quebra segura de conteúdo e empilhamento no mobile; não houve rolagem horizontal.
+
+### Interações verificadas
+
+- Filtro de obra, período e número da nota atualiza métricas, causas e últimos anexos.
+- Limpeza dos filtros restaura o período padrão.
+- Links de anexo abrem a tela unificada de Notas com o número pesquisado.
+- Captura em 1440 × 900 e 390 × 844 sem erro de console da aplicação.
+- Os cards exibem dados de demonstração derivados de `noteRows`; a próxima etapa é substituir os agregados por métricas da API quando o contrato do dashboard estiver fechado.
+
+final result: passed
