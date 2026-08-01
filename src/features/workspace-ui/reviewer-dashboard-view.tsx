@@ -224,29 +224,36 @@ export function ReviewerDashboardView({
             </span>
           </label>
 
-          <label className={styles.filterField}>
+          <label className={`${styles.filterField} ${styles.dateFilterField}`}>
             <span>Datas</span>
-            <span className={`${styles.control} ${styles.dateRangeControl}`}>
-              <Icon name="calendar" />
-              <input
-                aria-label="Data inicial"
-                onChange={(event) => {
-                  setDateFrom(event.target.value);
-                  setPeriod("todos");
-                }}
-                type="date"
-                value={dateFrom}
-              />
-              <span aria-hidden="true">até</span>
-              <input
-                aria-label="Data final"
-                onChange={(event) => {
-                  setDateTo(event.target.value);
-                  setPeriod("todos");
-                }}
-                type="date"
-                value={dateTo}
-              />
+            <span className={styles.dateRangeGroup} aria-label="Intervalo de datas">
+              <span className={styles.dateControl}>
+                <Icon name="calendar" />
+                <input
+                  aria-label="Data inicial"
+                  onChange={(event) => {
+                    setDateFrom(event.target.value);
+                    setPeriod("todos");
+                  }}
+                  type="date"
+                  value={dateFrom}
+                />
+              </span>
+              <span aria-hidden="true" className={styles.rangeSeparator}>
+                até
+              </span>
+              <span className={styles.dateControl}>
+                <Icon name="calendar" />
+                <input
+                  aria-label="Data final"
+                  onChange={(event) => {
+                    setDateTo(event.target.value);
+                    setPeriod("todos");
+                  }}
+                  type="date"
+                  value={dateTo}
+                />
+              </span>
             </span>
           </label>
 

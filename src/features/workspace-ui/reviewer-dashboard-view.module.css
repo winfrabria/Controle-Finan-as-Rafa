@@ -104,19 +104,56 @@
   color: #8694aa;
 }
 
-.dateRangeControl {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: 17px minmax(0, 1fr) auto minmax(0, 1fr);
-}
-
-.dateRangeControl input[type="date"] {
-  color: var(--navy);
-  font-size: 11px;
+.dateFilterField {
   min-width: 0;
 }
 
-.dateRangeControl > span {
+.dateRangeGroup {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  min-width: 0;
+}
+
+.dateControl {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #ccd8e8;
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  gap: 7px;
+  height: 42px;
+  min-width: 0;
+  padding: 0 10px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dateControl:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgb(7 92 255 / 10%);
+}
+
+.dateControl > svg {
+  color: var(--blue);
+  flex: 0 0 auto;
+  height: 17px;
+  width: 17px;
+}
+
+.dateControl input[type="date"] {
+  background: transparent;
+  border: 0;
+  color: var(--navy);
+  font: inherit;
+  font-size: 11px;
+  min-width: 0;
+  outline: 0;
+  width: 100%;
+}
+
+.rangeSeparator {
   color: #7b8aa3;
   font-size: 10px;
   font-weight: 600;
@@ -491,11 +528,16 @@
     min-height: 44px;
   }
 
-  .dateRangeControl {
+  .dateRangeGroup {
     gap: 5px;
   }
 
-  .dateRangeControl input[type="date"] {
+  .dateControl {
+    gap: 5px;
+    padding-inline: 8px;
+  }
+
+  .dateControl input[type="date"] {
     font-size: 10px;
   }
 
