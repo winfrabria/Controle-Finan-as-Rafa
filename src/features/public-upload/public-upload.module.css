@@ -547,6 +547,7 @@
 /* ── RESULTADOS (SUCESSO E ERRO) ── */
 
 .resultContainer {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -557,6 +558,7 @@
   z-index: 2;
   min-height: 0;
   overflow: visible;
+  width: 100%;
 }
 
 .resultBackground {
@@ -571,6 +573,7 @@
 }
 
 .errorContentWrapper {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -580,6 +583,7 @@
 }
 
 .resultCard {
+  box-sizing: border-box;
   background: #ffffff;
   border-radius: 16px;
   padding: clamp(24px, 4vh, 40px) clamp(24px, 4vw, 40px); /* Padding dinâmico, bem menor */
@@ -837,6 +841,7 @@
 
 /* Dicas de Erro (O card inferior) */
 .tipsCard {
+  box-sizing: border-box;
   background: #ffffff;
   border: 1px solid var(--border-color);
   border-radius: 12px;
