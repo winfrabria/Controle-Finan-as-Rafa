@@ -79,17 +79,15 @@ export function ShellControls({
         label: "Notas fiscais",
         path: `${basePath}/notas`,
       },
-      {
-        description: isAdmin
-          ? "Acompanhar as decisões do revisor"
-          : "Analisar notas que precisam de decisão",
-        icon: "shield",
-        keywords: "validacao validacoes suspeita pendente revisar",
-        label: "Validações",
-        path: `${basePath}/validacoes`,
-      },
       ...(isAdmin
         ? [
+            {
+              description: "Acompanhar as decisões do revisor",
+              icon: "shield" as const,
+              keywords: "validacao validacoes suspeita pendente revisar",
+              label: "Validações",
+              path: `${basePath}/validacoes`,
+            },
             {
               description: "Cadastrar, editar e desativar obras",
               icon: "building" as const,
@@ -141,19 +139,19 @@ export function ShellControls({
           ]
         : [
             {
-              detail: "A NF-12548 precisa da sua decisão.",
+              detail: "A NF-12548 tem um diagnóstico para você consultar.",
               id: "review-pending",
-              path: `${basePath}/validacoes`,
+              path: `${basePath}/notas`,
               time: "Há 5 min",
-              title: "Nota suspeita para revisar",
+              title: "Novo diagnóstico disponível",
               tone: "warning",
             },
             {
-              detail: "Uma nova nota da Obra Alphaville entrou na fila.",
+              detail: "Uma nova nota da Obra Alphaville entrou no painel.",
               id: "review-queue",
-              path: `${basePath}/validacoes`,
+              path: `${basePath}/notas`,
               time: "Há 22 min",
-              title: "Nova validação",
+              title: "Nova nota recebida",
               tone: "info",
             },
             {
@@ -378,12 +376,14 @@ export function ShellControls({
               >
                 Consultar notas <Icon name="chevron" />
               </Link>
-              <Link
-                href={`${basePath}/validacoes`}
-                onClick={() => setOpenPanel(null)}
-              >
-                Abrir validações <Icon name="chevron" />
-              </Link>
+              {isAdmin ? (
+                <Link
+                  href={`${basePath}/validacoes`}
+                  onClick={() => setOpenPanel(null)}
+                >
+                  Abrir validações <Icon name="chevron" />
+                </Link>
+              ) : null}
               <small>
                 Para suporte técnico, contate o administrador da WinfraBR.
               </small>

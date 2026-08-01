@@ -1,0 +1,909 @@
+.page {
+  margin: 0 auto;
+  max-width: 1540px;
+}
+
+.pageHeader {
+  align-items: flex-end;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.eyebrow,
+.kicker {
+  color: #6c7e9f;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  margin: 0 0 5px;
+  text-transform: uppercase;
+}
+
+.pageHeader h1 {
+  color: #07163b;
+  font-size: clamp(26px, 3vw, 36px);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 0;
+}
+
+.subtitle {
+  color: #637596;
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+.headerStats {
+  align-items: center;
+  color: #6d7d9b;
+  display: flex;
+  font-size: 12px;
+  gap: 9px;
+  padding-bottom: 3px;
+}
+
+.headerStats strong {
+  color: #09245a;
+  font-size: 15px;
+}
+
+.statDot {
+  background: #c9d4e5;
+  border-radius: 50%;
+  height: 4px;
+  width: 4px;
+}
+
+.filters {
+  align-items: center;
+  background: #f6f8fc;
+  border: 1px solid #e1e8f2;
+  border-radius: 12px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 9px;
+}
+
+.searchField,
+.selectField {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d8e1ed;
+  border-radius: 8px;
+  color: #6a7d9e;
+  display: flex;
+  min-height: 38px;
+}
+
+.searchField {
+  flex: 1 1 420px;
+  max-width: 540px;
+  padding: 0 11px;
+}
+
+.selectField {
+  flex: 0 1 230px;
+  padding: 0 10px;
+}
+
+.searchField svg,
+.selectField svg {
+  flex: 0 0 auto;
+  height: 17px;
+  width: 17px;
+}
+
+.searchField input,
+.selectField select {
+  background: transparent;
+  border: 0;
+  color: #142d5e;
+  font: inherit;
+  font-size: 12px;
+  min-width: 0;
+  outline: 0;
+  padding: 0 0 0 8px;
+  width: 100%;
+}
+
+.selectField select {
+  cursor: pointer;
+}
+
+.clearButton {
+  background: transparent;
+  border: 0;
+  color: #075cff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 8px 7px;
+}
+
+.workspaceGrid {
+  align-items: stretch;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(330px, 0.72fr) minmax(0, 1.28fr);
+  height: calc(100vh - 350px);
+  max-height: 760px;
+  min-height: 620px;
+}
+
+.attachmentsPanel,
+.diagnosisPanel {
+  background: #fff;
+  border: 1px solid #dfe7f2;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgb(19 49 99 / 5%);
+  min-width: 0;
+}
+
+.attachmentsPanel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panelHeader {
+  align-items: flex-start;
+  border-bottom: 1px solid #e8edf4;
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 19px 15px;
+}
+
+.panelHeader h2,
+.diagnosisHeading h2,
+.selectedTitle h2 {
+  color: #081b46;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+
+.panelHeader h2 {
+  font-size: 16px;
+}
+
+.panelHeader p,
+.diagnosisHeading p,
+.selectedTitle p {
+  color: #70809e;
+  font-size: 11px;
+  margin: 5px 0 0;
+}
+
+.countPill,
+.findingCount {
+  align-items: center;
+  background: #eaf2ff;
+  border-radius: 999px;
+  color: #075cff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 24px;
+  min-width: 28px;
+  padding: 0 8px;
+}
+
+.attachmentList {
+  align-content: start;
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.attachmentRow {
+  align-items: center;
+  background: #fff;
+  border: 0;
+  border-bottom: 1px solid #edf1f6;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 11px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  min-height: 78px;
+  padding: 10px 14px;
+  text-align: left;
+  transition: background 140ms ease, border-color 140ms ease;
+  width: 100%;
+}
+
+.attachmentRow:hover {
+  background: #f7faff;
+}
+
+.attachmentSelected {
+  background: #edf4ff;
+  box-shadow: inset 3px 0 0 #075cff;
+}
+
+.attachmentIcon,
+.selectedIcon,
+.noFindingIcon {
+  align-items: center;
+  border-radius: 10px;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.attachmentIcon {
+  background: #eef4ff;
+  height: 30px;
+  width: 30px;
+}
+
+.attachmentIcon svg {
+  height: 16px;
+  width: 16px;
+}
+
+.attachmentCopy,
+.attachmentMeta {
+  display: grid;
+  min-width: 0;
+}
+
+.attachmentCopy {
+  gap: 3px;
+}
+
+.attachmentCopy strong {
+  color: #102b5b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.attachmentCopy span {
+  color: #315078;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachmentCopy small {
+  color: #8190a9;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachmentMeta {
+  align-items: end;
+  gap: 4px;
+  justify-items: end;
+}
+
+.attachmentMeta > strong {
+  color: #112d60;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.statusBadge,
+.largeStatus {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.statusBadge {
+  padding: 4px 7px;
+}
+
+.largeStatus {
+  padding: 7px 11px;
+}
+
+.statusOk {
+  background: #e8f8ef;
+  color: #09844b;
+}
+
+.statusSuspicious {
+  background: #fff2dd;
+  color: #bd6a00;
+}
+
+.statusProcessing {
+  background: #edf2fa;
+  color: #597091;
+}
+
+.readDot {
+  background: #ff9b25;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #ffc77c;
+  height: 7px;
+  width: 7px;
+}
+
+.readDotRead {
+  background: #b9c6d8;
+  box-shadow: none;
+}
+
+.panelFooter {
+  align-items: center;
+  border-top: 1px solid #e8edf4;
+  color: #7b8ca8;
+  display: flex;
+  font-size: 10px;
+  justify-content: space-between;
+  padding: 12px 15px;
+}
+
+.diagnosisPanel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0 22px 19px;
+}
+
+.selectedHeader {
+  align-items: center;
+  border-bottom: 1px solid #e8edf4;
+  display: flex;
+  justify-content: space-between;
+  min-height: 90px;
+  padding: 15px 0;
+}
+
+.selectedTitle {
+  align-items: center;
+  display: flex;
+  gap: 11px;
+  min-width: 0;
+}
+
+.selectedTitle > div {
+  min-width: 0;
+}
+
+.selectedIcon {
+  background: #edf4ff;
+  color: #075cff;
+  height: 38px;
+  width: 38px;
+}
+
+.selectedIcon svg {
+  height: 19px;
+  width: 19px;
+}
+
+.selectedTitle h2 {
+  font-size: 17px;
+}
+
+.selectedTitle p:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnosisHeading {
+  align-items: end;
+  display: flex;
+  justify-content: space-between;
+  padding: 21px 0 13px;
+}
+
+.diagnosisHeading h2 {
+  font-size: 21px;
+}
+
+.diagnosisHeading p {
+  line-height: 1.45;
+}
+
+.findingsList {
+  display: grid;
+  flex: 1;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 3px 2px 0;
+}
+
+.findingCard {
+  background: #fffaf2;
+  border: 1px solid #f0c77b;
+  border-radius: 10px;
+  padding: 14px 15px;
+}
+
+.findingTopline {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+}
+
+.findingNumber {
+  align-items: center;
+  background: #ff9f1c;
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 850;
+  height: 25px;
+  justify-content: center;
+  width: 25px;
+}
+
+.findingTopline h3 {
+  color: #142f60;
+  font-size: 13px;
+  line-height: 1.3;
+  margin: 2px 0 0;
+}
+
+.findingMeta {
+  color: #ad6e16;
+  display: inline-block;
+  font-size: 10px;
+  margin-top: 4px;
+  text-transform: capitalize;
+}
+
+.findingDescription,
+.evidenceBlock p,
+.justificationBlock p {
+  color: #3d557a;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+
+.evidenceBlock,
+.justificationBlock {
+  border-top: 1px solid #f4dfb7;
+  margin-top: 11px;
+  padding-top: 9px;
+}
+
+.evidenceBlock span,
+.justificationBlock span,
+.comparisonGrid span {
+  color: #a36b18;
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.evidenceBlock p,
+.justificationBlock p {
+  color: #142f60;
+  margin-top: 4px;
+}
+
+.comparisonGrid {
+  border-top: 1px solid #f4dfb7;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 11px;
+  padding-top: 9px;
+}
+
+.comparisonGrid strong {
+  color: #142f60;
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.noFinding {
+  align-items: center;
+  background: #effaf4;
+  border: 1px solid #bfe8d0;
+  border-radius: 10px;
+  display: flex;
+  gap: 11px;
+  padding: 15px;
+}
+
+.noFindingIcon {
+  background: #d7f5e3;
+  color: #09844b;
+  flex: 0 0 auto;
+  height: 33px;
+  width: 33px;
+}
+
+.noFindingIcon svg {
+  height: 17px;
+  width: 17px;
+}
+
+.noFinding strong {
+  color: #125437;
+  font-size: 12px;
+}
+
+.noFinding p {
+  color: #48725d;
+  font-size: 11px;
+  margin: 4px 0 0;
+}
+
+.extractedDetails {
+  border: 1px solid #e1e8f2;
+  border-radius: 9px;
+  margin-top: 15px;
+}
+
+.extractedDetails summary {
+  align-items: center;
+  color: #173465;
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 750;
+  justify-content: space-between;
+  list-style: none;
+  min-height: 43px;
+  padding: 0 12px;
+}
+
+.extractedDetails summary::-webkit-details-marker {
+  display: none;
+}
+
+.extractedDetails summary > span:first-child,
+.summaryHint {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.extractedDetails summary svg {
+  height: 16px;
+  width: 16px;
+}
+
+.summaryHint {
+  color: #075cff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.summaryHint svg {
+  height: 12px !important;
+  transform: rotate(90deg);
+  width: 12px !important;
+}
+
+.extractedContent {
+  border-top: 1px solid #e8edf4;
+  display: grid;
+  gap: 9px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 12px;
+}
+
+.extractedContent span {
+  color: #29466f;
+  display: grid;
+  font-size: 11px;
+  gap: 3px;
+}
+
+.extractedContent strong {
+  color: #7a8aa5;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.diagnosisActions {
+  align-items: center;
+  border-top: 1px solid #e8edf4;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.detailLink {
+  align-items: center;
+  color: #075cff;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.detailLink svg {
+  height: 13px;
+  transform: rotate(0deg);
+  width: 13px;
+}
+
+.readButton {
+  align-items: center;
+  background: #075cff;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 8px;
+  justify-content: center;
+  min-height: 39px;
+  padding: 0 16px;
+}
+
+.readButton:hover {
+  background: #0049d6;
+}
+
+.readButton:disabled {
+  cursor: default;
+}
+
+.readButtonDone {
+  background: #e8f8ef;
+  color: #09844b;
+}
+
+.readButton svg {
+  height: 16px;
+  width: 16px;
+}
+
+.emptyState,
+.emptyDiagnosis {
+  align-items: center;
+  color: #6f819e;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 280px;
+  padding: 30px;
+  text-align: center;
+}
+
+.emptyState svg,
+.emptyDiagnosis > svg {
+  color: #9eb0ca;
+  height: 28px;
+  width: 28px;
+}
+
+.emptyState strong,
+.emptyDiagnosis h2 {
+  color: #173465;
+  font-size: 14px;
+  margin: 0;
+}
+
+.emptyState span,
+.emptyDiagnosis p {
+  font-size: 12px;
+  margin: 0;
+}
+
+.visuallyHidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (max-width: 1180px) {
+  .workspaceGrid {
+    grid-template-columns: minmax(290px, 0.78fr) minmax(0, 1.22fr);
+  }
+
+  .diagnosisPanel {
+    padding-left: 17px;
+    padding-right: 17px;
+  }
+
+  .attachmentRow {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .attachmentMeta {
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .pageHeader {
+    align-items: flex-start;
+    display: grid;
+    gap: 11px;
+  }
+
+  .headerStats {
+    padding: 0;
+  }
+
+  .filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 0.6fr);
+  }
+
+  .searchField {
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+
+  .clearButton {
+    justify-self: start;
+  }
+
+  .workspaceGrid {
+    height: auto;
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .attachmentsPanel {
+    max-height: 410px;
+  }
+
+  .diagnosisPanel {
+    min-height: 560px;
+  }
+}
+
+@media (max-width: 560px) {
+  .pageHeader h1 {
+    font-size: 29px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .filters {
+    background: transparent;
+    border: 0;
+    gap: 8px;
+    margin-left: -1px;
+    margin-right: -1px;
+    padding: 0;
+  }
+
+  .selectField {
+    min-width: 0;
+  }
+
+  .selectField select {
+    font-size: 11px;
+    padding-left: 5px;
+  }
+
+  .selectField svg {
+    height: 15px;
+    width: 15px;
+  }
+
+  .attachmentsPanel,
+  .diagnosisPanel {
+    border-radius: 11px;
+  }
+
+  .panelHeader,
+  .selectedHeader {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .attachmentRow {
+    gap: 8px;
+    grid-template-columns: 28px minmax(0, 1fr);
+    min-height: 70px;
+    padding: 9px 11px;
+  }
+
+  .attachmentIcon {
+    height: 27px;
+    width: 27px;
+  }
+
+  .attachmentCopy strong,
+  .attachmentCopy span {
+    font-size: 11px;
+  }
+
+  .attachmentCopy small {
+    font-size: 9px;
+  }
+
+  .panelFooter {
+    display: grid;
+    gap: 3px;
+    padding: 10px 12px;
+  }
+
+  .diagnosisPanel {
+    padding: 0 13px 15px;
+  }
+
+  .selectedHeader {
+    align-items: flex-start;
+    display: grid;
+    gap: 10px;
+    padding-top: 14px;
+  }
+
+  .selectedTitle h2 {
+    font-size: 15px;
+  }
+
+  .selectedTitle p {
+    font-size: 10px;
+  }
+
+  .largeStatus {
+    justify-self: start;
+  }
+
+  .diagnosisHeading {
+    align-items: flex-start;
+    display: grid;
+    gap: 9px;
+    padding: 16px 0 11px;
+  }
+
+  .diagnosisHeading h2 {
+    font-size: 19px;
+  }
+
+  .findingCard {
+    padding: 12px;
+  }
+
+  .findingTopline h3 {
+    font-size: 12px;
+  }
+
+  .findingDescription,
+  .evidenceBlock p,
+  .justificationBlock p {
+    font-size: 11px;
+  }
+
+  .extractedContent {
+    grid-template-columns: 1fr;
+  }
+
+  .diagnosisActions {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .detailLink,
+  .readButton {
+    justify-content: center;
+    min-height: 42px;
+  }
+}

@@ -8,6 +8,19 @@ import {
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
 
+function stringifyJson(value: unknown) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+}
+
 export const NOTES_PAGE_SIZE = 10;
 
 export type NoteListFilters = {
@@ -27,6 +40,16 @@ export type NoteListItem = {
   createdAt: Date;
   documentNumber: string | null;
   findingCount: number;
+  findings: {
+    actualValue: string | null;
+    category: string;
+    description: string;
+    evidence: string | null;
+    expectedValue: string | null;
+    justification: string;
+    severity: string;
+    title: string;
+  }[];
   id: string;
   issuedAt: Date | null;
   primaryFinding: string | null;
@@ -143,7 +166,17 @@ export async function listNotes(
             status: FindingStatus.OPEN,
           },
           orderBy: [{ severity: "desc" }, { createdAt: "asc" }],
-          select: { title: true },
+          take: 3,
+          select: {
+            actualValue: true,
+            category: true,
+            description: true,
+            evidence: true,
+            expectedValue: true,
+            justification: true,
+            severity: true,
+            title: true,
+          },
         },
         id: true,
         issuedAt: true,
@@ -166,6 +199,16 @@ export async function listNotes(
     createdAt: note.createdAt,
     documentNumber: note.documentNumber,
     findingCount: note.findings.length,
+    findings: note.findings.map((finding) => ({
+      actualValue: stringifyJson(finding.actualValue),
+      category: finding.category,
+      description: finding.description,
+      evidence: stringifyJson(finding.evidence),
+      expectedValue: stringifyJson(finding.expectedValue),
+      justification: finding.justification,
+      severity: finding.severity,
+      title: finding.title,
+    })),
     id: note.id,
     issuedAt: note.issuedAt,
     primaryFinding: note.findings[0]?.title ?? null,

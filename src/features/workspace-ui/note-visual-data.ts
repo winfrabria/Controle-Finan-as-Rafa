@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { NoteListItem } from "@/features/internal-notes/note-list-query";
+import type { NoteVisualItem } from "./note-types";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
@@ -11,7 +12,7 @@ const moneyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
 });
 
-export function toNoteVisualItems(items: NoteListItem[]) {
+export function toNoteVisualItems(items: NoteListItem[]): NoteVisualItem[] {
   return items.map((item) => ({
     classification:
       item.classification === "OK"
@@ -23,6 +24,7 @@ export function toNoteVisualItems(items: NoteListItem[]) {
           : "Em análise",
     date: dateFormatter.format(item.issuedAt ?? item.createdAt),
     finding: item.primaryFinding ?? undefined,
+    findings: item.findings,
     id: item.id,
     number: item.documentNumber ?? "Sem número",
     supplier: item.supplierName ?? "Fornecedor não identificado",

@@ -86,6 +86,7 @@ export const validationRows = noteRows.slice(0, 7).map((row, index) => ({
         ? "warning"
         : "ok",
   classification: row[4],
+  version: 1,
   work: row[6],
 }));
 

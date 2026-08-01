@@ -18,16 +18,8 @@ import {
 import styles from "./workspace-ui.module.css";
 import noteStyles from "./notes-view.module.css";
 import { ValidationDecisionForm } from "./validation-decision-form";
-
-type NoteVisualItem = {
-  id: string;
-  number: string;
-  supplier: string;
-  date: string;
-  value: string;
-  classification: string;
-  work?: string;
-};
+import { ReviewerNotesView } from "./reviewer-notes-view";
+import type { NoteVisualItem } from "./note-types";
 
 function NotesFilterBar({
   period,
@@ -222,7 +214,7 @@ function ReviewerDashboardPanels() {
           <h2>Validações pendentes</h2>
         </div>
         <div className={styles.pendingLinks}>
-          <Link href="/revisao/validacoes" className={styles.pendingBox}>
+          <Link href="/revisao/notas" className={styles.pendingBox}>
             <span className={styles.pendingLabel}>
               <span className={styles.pendingIconGreen}>
                 <Icon name="check" />
@@ -234,7 +226,7 @@ function ReviewerDashboardPanels() {
               <Icon name="chevron" />
             </span>
           </Link>
-          <Link href="/revisao/validacoes" className={styles.pendingBox}>
+          <Link href="/revisao/notas" className={styles.pendingBox}>
             <span className={styles.pendingLabel}>
               <span className={styles.pendingIconOrange}>
                 <Icon name="warning" />
@@ -248,8 +240,8 @@ function ReviewerDashboardPanels() {
           </Link>
         </div>
         <div style={{ padding: "0 16px 16px" }}>
-          <Link className={styles.primaryActionBlue} href="/revisao/validacoes">
-            <Icon name="shield" /> Ir para Validações
+          <Link className={styles.primaryActionBlue} href="/revisao/notas">
+            <Icon name="document" /> Ir para Notas
           </Link>
         </div>
       </article>
@@ -512,8 +504,10 @@ export function NotesView({
           date: n[2],
           value: n[3],
           classification: n[4],
+          version: 1,
           work: n[6],
         }));
+
   const [work, setWork] = useState("");
   const [status, setStatus] = useState("");
   const [period, setPeriod] = useState("");
@@ -591,6 +585,9 @@ export function NotesView({
     setPeriod("");
     setPage(1);
   };
+  if (role === "reviewer") {
+    return <ReviewerNotesView items={rows} role={role} />;
+  }
   return (
     <PortalShell active="notas" role={role}>
       <PageIntro

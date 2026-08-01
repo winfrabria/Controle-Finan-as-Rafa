@@ -41,6 +41,8 @@ export default async function NotesPage({ searchParams }: NotesPageProps) {
         : item.classification === "SUSPICIOUS"
           ? "Suspeita"
           : "Em análise",
+    findings: item.findings,
+    version: item.version,
   }));
 
   return <NotesView role="reviewer" items={items} />;

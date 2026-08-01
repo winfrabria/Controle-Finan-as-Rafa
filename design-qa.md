@@ -35,12 +35,52 @@ Branch: `NewDesingPc`
 - Análise completa: grades `minmax(0, ...)`, itens em cards no mobile e breakpoints não conflitantes.
 - Envio público: remoção de `overflow: hidden`, correção do `box-sizing` mobile e rolagem vertical natural.
 
-## Resultado
+## Resultado anterior
 
 - Nenhuma das seis telas apresenta rolagem horizontal nos viewports verificados.
 - Histórico não expõe confiança, custos, prompts ou dados técnicos para ADMIN nem REVIEWER.
 - Confiança, custos, tokens, latência e esforço permanecem apenas na auditoria e nos logs exclusivos de ADMIN.
 - O aviso de hidratação observado no Chrome é causado pela extensão ProtonPass (`data-protonpass-form`) alterando o DOM antes da hidratação; não foram encontrados erros de aplicação nas telas verificadas.
 - As referências foram comparadas lado a lado com as capturas finais após as correções.
+
+## QA adicional — tela unificada de notas
+
+- **Fonte visual:** `C:/Users/PdrArth/.codex/generated_images/019f5255-6e10-77b3-a062-5fa2b64743c6/exec-b3df7e73-64a9-49b9-9864-4383d9330863.png`
+- **Implementação desktop:** `F:/winfra-rafael/.codex/reviewer-notes-desktop.png`
+- **Implementação mobile:** `F:/winfra-rafael/.codex/reviewer-notes-mobile.png`
+- **Estado:** reviewer, tela unificada `Notas`, anexo suspeito selecionado, diagnóstico da IA aberto.
+- **Desktop:** fonte e captura em 1440 × 1024 px, CSS 1440 × 1024, `deviceScaleFactor` 1.
+- **Mobile:** captura em 390 × 844 px CSS, sem moldura de dispositivo.
+
+### Evidência visual
+
+A comparação do quadro completo confirma a mesma hierarquia aprovada: navegação compacta, busca e filtros no topo, lista de anexos à esquerda e diagnóstico da IA à direita. A implementação mantém a leitura da evidência dentro do painel selecionado, com esperado/encontrado, justificativa, dados extraídos e acesso ao detalhe. A diferença de quantidade de anexos e textos é intencional, pois a captura usa os dados disponíveis no ambiente e a fonte é uma composição visual.
+
+No recorte de detalhe, tipografia, espaçamento, estados `Suspeita`/`OK`/`Em análise`, cores semânticas e ações ficam legíveis. O painel de achados tem rolagem interna para preservar as ações e o rodapé no desktop; no mobile os cards empilham sem rolagem horizontal.
+
+### Interações verificadas
+
+- Busca por número/fornecedor e limpeza dos filtros.
+- Filtro por período e status.
+- Seleção de anexos e atualização do diagnóstico exibido.
+- Abertura de `Dados extraídos` e link `Ver nota detalhada`.
+- Layout responsivo em 1440 × 1024 e 390 × 844; no mobile a rolagem é vertical e não há overflow horizontal.
+- O botão `Marcar como lida` está implementado com estado local e troca para `Marcada como lida`; persistência no backend fica para a etapa de notificações.
+- Console sem erro de aplicação durante a captura local; `npm run typecheck`, `npm run lint` e `npm run build` passaram.
+
+### Histórico da comparação
+
+1. **Primeira captura:** o reviewer ainda expunha a navegação antiga de validações/histórico e links para essa área.
+2. **Correção aplicada:** reviewer passou a usar a tela unificada; atalhos, notificações e ajuda foram direcionados para `Notas`, mantendo validações apenas no ADMIN.
+3. **Captura final:** desktop e mobile sem P0/P1/P2 acionáveis; evidência visual registrada nos caminhos acima.
+
+### Findings
+
+Não há diferenças P0, P1 ou P2 pendentes. O uso de dados de demonstração e a persistência futura de “marcar como lida” são limitações de escopo, não desvios visuais desta entrega.
+
+### Follow-up polish
+
+- Conectar `Marcar como lida` ao endpoint de notificações quando a regra de leitura for definida.
+- Ajustar a densidade da lista quando o volume real de anexos estiver disponível.
 
 final result: passed
