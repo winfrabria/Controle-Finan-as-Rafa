@@ -54,7 +54,9 @@ function parseNumber(value: string | number) {
 
   const brazilian = normalized.includes(",")
     ? normalized.replace(/\./g, "").replace(",", ".")
-    : normalized;
+    : /^-?\d{1,3}(?:\.\d{3})+$/.test(normalized)
+      ? normalized.replace(/\./g, "")
+      : normalized;
   const parsed = Number(brazilian);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -77,7 +79,9 @@ function formatScalar(value: unknown, key?: string) {
   if (value === null || value === undefined) return "—";
   if (typeof value === "string") {
     const normalized = value.trim().replace(/R\$\s*/i, "");
-    const looksLikeMoney = /^-?\d+[.,]\d{2}$/.test(normalized);
+    const looksLikeMoney =
+      /^-?\d+[.,]\d{2}$/.test(normalized) ||
+      /^-?\d{1,3}(?:\.\d{3})+$/.test(normalized);
     return ((key && moneyKeyPattern.test(key)) || (!key && looksLikeMoney)) &&
       parseNumber(value) !== null
       ? formatMoney(value)

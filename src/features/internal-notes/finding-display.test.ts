@@ -12,6 +12,7 @@ test("formata valores monetários dos achados sem perder a fonte", () => {
   assert.match(value, /R\$\u00a018\.900,00/);
   assert.match(value, /Fonte: Histórico da Obra 02/);
   assert.equal(formatFindingValue("18900.00"), "R$\u00a018.900,00");
+  assert.equal(formatFindingValue({ amount: "1.500" }), "Valor: R$\u00a01.500,00");
 });
 
 test("mostra evidência textual sem expor as chaves do JSON", () => {
