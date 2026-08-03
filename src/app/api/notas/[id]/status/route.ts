@@ -1,8 +1,14 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
-import { ContextSubmissionStatus } from "@/generated/prisma/enums";
+import {
+  ContextSubmissionStatus,
+  NoteStatus,
+  ProcessingJobStatus,
+  ProcessingStage,
+} from "@/generated/prisma/enums";
 import { prisma } from "@/server/db/prisma";
 import { toPublicContextQuestion } from "@/server/notes/context-questions";
+import { processProcessingJob } from "@/server/notes/processing-jobs";
 import { statusFor } from "@/server/notes/public-status";
 import {
   getPublicCapabilityCookieName,
@@ -10,10 +16,12 @@ import {
   readPublicCapabilityCookie,
   PUBLIC_CONTEXT_CAPABILITY_TTL_SECONDS,
   revokedPublicCapabilityFields,
+  terminalPublicCapabilityFields,
 } from "@/server/notes/public-capability";
 import { hashPublicCapability, matchesPublicCapability } from "@/server/notes/public-capability";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -65,6 +73,17 @@ export async function GET(
         select: { round: true, status: true },
       },
       id: true,
+      processingJobs: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          attempt: true,
+          availableAt: true,
+          id: true,
+          maxAttempts: true,
+          status: true,
+        },
+      },
       processingStage: true,
       publicProtocol: true,
       publicTokenHash: true,
@@ -78,13 +97,89 @@ export async function GET(
     return publicError("NOTA_NAO_ENCONTRADA", "Anexo não encontrado.", 404);
   }
 
+  // Keep the status endpoint compatible with older records/mocks that do not
+  // have a processing-job relation yet.
+  const latestJob = note.processingJobs?.[0];
+  const now = new Date();
+  const jobIsDue =
+    latestJob &&
+    latestJob.attempt < latestJob.maxAttempts &&
+    latestJob.availableAt <= now &&
+    (latestJob.status === ProcessingJobStatus.PENDING ||
+      latestJob.status === ProcessingJobStatus.FAILED);
+
+  // The upload request starts the first attempt with `after()`. If it fails,
+  // the public polling request becomes the recovery signal, so a Vercel cron
+  // is not required for the next attempt to begin.
+  if (jobIsDue) {
+    after(async () => {
+      try {
+        await processProcessingJob(latestJob.id, {
+          workerId: `public-status:${id}`,
+        });
+      } catch (error) {
+        console.error("Public status processing recovery failed", {
+          jobId: latestJob.id,
+          message: error instanceof Error ? error.message : "unknown error",
+          noteId: id,
+        });
+      }
+    });
+  }
+
+  const jobExhausted =
+    latestJob?.status === ProcessingJobStatus.FAILED &&
+    latestJob.attempt >= latestJob.maxAttempts;
+  if (
+    jobExhausted &&
+    note.status !== NoteStatus.FAILED &&
+    note.status !== NoteStatus.READ_FAILED
+  ) {
+    const finalized = await prisma.$transaction(async (transaction) => {
+      const updated = await transaction.note.updateMany({
+        where: {
+          id: note.id,
+          version: note.version,
+          status: { in: [NoteStatus.RECEIVED, NoteStatus.PROCESSING] },
+        },
+        data: {
+          failureCode: "PROCESSING_ATTEMPTS_EXHAUSTED",
+          failureMessage:
+            "O anexo não pôde ser processado após as tentativas automáticas.",
+          ...terminalPublicCapabilityFields(),
+          processingStage: ProcessingStage.FAILED,
+          status: NoteStatus.FAILED,
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count === 1) {
+        await transaction.noteEvent.create({
+          data: {
+            noteId: note.id,
+            type: "PROCESSING_ATTEMPTS_EXHAUSTED",
+            fromStatus: note.status,
+            toStatus: NoteStatus.FAILED,
+            data: { jobId: latestJob.id },
+          },
+        });
+      }
+      return updated.count === 1;
+    });
+    if (finalized) {
+      note.status = NoteStatus.FAILED;
+      note.processingStage = ProcessingStage.FAILED;
+    }
+  }
+
   const submissionStatus = note.contextSubmissions.find(
     (submission) => submission.round === note.contextRound,
   )?.status;
   const contextQuestions = note.contextQuestions.filter(
     (question) => question.round === note.contextRound,
   );
-  const publicStatus = statusFor({
+  const publicStatus = jobExhausted
+    ? ("FAILED" as const)
+    : statusFor({
     auditResult: note.auditResult,
     hasActiveQuestions: contextQuestions.length > 0,
     processingStage: note.processingStage,

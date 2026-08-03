@@ -136,6 +136,11 @@ function dateInputKey(value: string) {
   return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
 }
 
+function currentPeriodValue() {
+  const now = new Date();
+  return `${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
+}
+
 export function ReviewerNotesView({
   initialQuery = "",
   items,
@@ -146,8 +151,9 @@ export function ReviewerNotesView({
 }: ReviewerNotesViewProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const currentPeriod = useMemo(() => currentPeriodValue(), []);
   const [query, setQuery] = useState(initialQuery);
-  const [period, setPeriod] = useState("");
+  const [period, setPeriod] = useState(currentPeriod);
   const [status, setStatus] = useState("");
   const [responsible, setResponsible] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -161,10 +167,10 @@ export function ReviewerNotesView({
 
   const periods = useMemo(() => {
     const unique = new Set(
-      items.map((item) => {
+      [currentPeriod, ...items.map((item) => {
         const parts = item.date.split("/");
         return parts.length === 3 ? `${parts[1]}/${parts[2]}` : "";
-      }),
+      })],
     );
     return [...unique]
       .filter(Boolean)
@@ -177,7 +183,7 @@ export function ReviewerNotesView({
         }).format(new Date(year, month - 1, 1));
         return { label: label.charAt(0).toUpperCase() + label.slice(1), value };
       });
-  }, [items]);
+  }, [currentPeriod, items]);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");

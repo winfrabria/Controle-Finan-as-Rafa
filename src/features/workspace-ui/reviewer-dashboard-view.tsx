@@ -44,6 +44,11 @@ function previousPeriod(value: string) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function currentPeriodValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function statusClass(classification: DashboardNote["classification"]) {
   if (classification === "Suspeita") return styles.statusSuspicious;
   if (classification === "Precisa de informação" || classification === "Sem parâmetro") {
@@ -103,14 +108,15 @@ export function ReviewerDashboardView({
   const notesPath = role === "admin" ? "/admin/notas" : "/revisao/notas";
   const [work, setWork] = useState("");
   const [responsible, setResponsible] = useState("");
+  const currentPeriod = useMemo(() => currentPeriodValue(), []);
   const periodOptions = useMemo(
     () =>
-      [...new Set(notes.map((note) => note.dateKey))]
+      [...new Set([currentPeriod, ...notes.map((note) => note.dateKey)])]
         .filter(Boolean)
         .sort((a, b) => b.localeCompare(a)),
-    [notes],
+    [currentPeriod, notes],
   );
-  const defaultPeriod = periodOptions[0] ?? "todos";
+  const defaultPeriod = currentPeriod;
   const [period, setPeriod] = useState(defaultPeriod);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");

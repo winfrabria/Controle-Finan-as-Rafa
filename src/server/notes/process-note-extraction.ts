@@ -10,7 +10,12 @@ import {
   ReasoningEffort,
 } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
-import { HARNESS_PDF_MODEL, HARNESS_VERSIONS } from "@/lib/audit-harness";
+import {
+  HARNESS_MODEL,
+  HARNESS_VERSIONS,
+  resolveHarnessModel,
+  resolvePdfModel,
+} from "@/lib/audit-harness";
 import type { InvoiceExtraction } from "@/lib/integrations/openrouter/extraction-contract";
 import { prisma } from "@/server/db/prisma";
 import {
@@ -317,8 +322,8 @@ export async function processNoteExtraction(
       idempotencyKey,
       kind: AiRunKind.EXTRACTION,
       model: extractingPdf
-        ? process.env.OPENROUTER_PDF_MODEL ?? HARNESS_PDF_MODEL
-        : process.env.OPENROUTER_EXTRACTION_MODEL ?? "openai/gpt-5.6-luna",
+        ? resolvePdfModel(process.env.OPENROUTER_PDF_MODEL)
+        : resolveHarnessModel(process.env.OPENROUTER_EXTRACTION_MODEL, HARNESS_MODEL),
       noteId: note.id,
       policyVersion: HARNESS_VERSIONS.policy,
       processingJobId: dependencies.processingJobId,

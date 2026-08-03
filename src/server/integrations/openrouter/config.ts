@@ -2,7 +2,8 @@ import "server-only";
 
 import {
   HARNESS_MODEL,
-  HARNESS_PDF_MODEL,
+  resolveHarnessModel,
+  resolvePdfModel,
 } from "@/lib/audit-harness/versions";
 
 export type OpenRouterPdfEngine = "cloudflare-ai" | "mistral-ocr" | "native";
@@ -73,13 +74,17 @@ export function getOpenRouterConfig(
     ),
     model:
       workload === "extraction"
-        ? environment.OPENROUTER_EXTRACTION_MODEL ?? "openai/gpt-5.6-luna"
-        : environment.OPENROUTER_AUDIT_MODEL ??
-          environment.OPENROUTER_MODEL ??
-          HARNESS_MODEL,
+        ? resolveHarnessModel(
+            environment.OPENROUTER_EXTRACTION_MODEL,
+            HARNESS_MODEL,
+          )
+        : resolveHarnessModel(
+            environment.OPENROUTER_AUDIT_MODEL ?? environment.OPENROUTER_MODEL,
+            HARNESS_MODEL,
+          ),
     pdfModel:
       workload === "extraction"
-        ? environment.OPENROUTER_PDF_MODEL ?? HARNESS_PDF_MODEL
+        ? resolvePdfModel(environment.OPENROUTER_PDF_MODEL)
         : undefined,
     pdfReasoningEffort:
       workload === "extraction"
@@ -90,12 +95,15 @@ export function getOpenRouterConfig(
         ? environment.OPENROUTER_EXTRACTION_REASONING_EFFORT ?? "max"
         : environment.OPENROUTER_REASONING_EFFORT ?? "max",
     pdfEngine,
-    timeoutMs: parseInteger(
+    // A request must fail fast enough for the public flow to surface a
+    // recoverable error. Older Vercel environments used 120s; cap that stale
+    // value at 60s instead of allowing several minutes of apparent silence.
+    timeoutMs: Math.min(parseInteger(
       environment.OPENROUTER_TIMEOUT_MS,
       60_000,
       1_000,
       120_000,
       "OPENROUTER_TIMEOUT_MS",
-    ),
+    ), 60_000),
   } as const;
 }

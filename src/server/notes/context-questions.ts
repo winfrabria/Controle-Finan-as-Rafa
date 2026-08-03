@@ -319,6 +319,7 @@ export async function submitContextAnswers(input: {
           availableAt: new Date(),
           contextSubmissionId: submission.id,
           idempotencyKey: `context-reanalysis:${current.id}:${current.contextRound}`,
+          maxAttempts: 2,
           noteId: current.id,
           type: ProcessingJobType.CONTEXT_REANALYSIS,
         },

@@ -69,6 +69,10 @@ export async function createInitialProcessingJob(
       // aplicados em retries, nunca no primeiro processamento.
       availableAt: new Date(),
       idempotencyKey: `upload:${noteId}`,
+      // A public upload gets one automatic retry. If both attempts fail, the
+      // caller receives a terminal error and can submit the file again; it
+      // must never remain in an endless "em análise" state.
+      maxAttempts: 2,
       noteId,
       type: ProcessingJobType.FULL_AUDIT,
     },
@@ -377,6 +381,7 @@ export async function scheduleNoteReprocess(noteId: string) {
     const job = await tx.processingJob.create({
       data: {
         idempotencyKey: `reprocess:${noteId}:${note.version + 1}`,
+        maxAttempts: 2,
         noteId,
         type: ProcessingJobType.FULL_AUDIT,
       },
