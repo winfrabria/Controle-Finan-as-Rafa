@@ -4,6 +4,7 @@ import test from "node:test";
 import type { HarnessInvoice } from "./contracts";
 import { decideClassification } from "./decision-matrix";
 import { evaluateHarness } from "./engine";
+import { isReadFailure } from "./policy";
 
 const sparseInvoice: HarnessInvoice = {
   documentNumber: null,
@@ -21,6 +22,29 @@ test("prioriza READ_FAILED e pede contexto sem achado nem cobertura", () => {
   assert.equal(decideClassification({ readFailed: true, deterministicCoverage: true, aiCoverage: true, findings: [] }), "READ_FAILED");
   assert.equal(evaluateHarness({ invoice: sparseInvoice }).classification, "NEEDS_CONTEXT");
   assert.equal(evaluateHarness({ invoice: { ...sparseInvoice, readConfidence: 0.3 } }).classification, "READ_FAILED");
+});
+
+test("reembolso composto legível segue para auditoria mesmo sem identidade única", () => {
+  const reimbursement: HarnessInvoice = {
+    documentNumber: null,
+    supplierName: null,
+    supplierTaxId: null,
+    issuedAt: null,
+    totalAmount: "551.90",
+    readConfidence: 0.97,
+    warnings: ["Documento é uma ficha de reembolso com múltiplos fornecedores e comprovantes."],
+    markdown: "Ficha de reembolso com 22 comprovantes.",
+    items: Array.from({ length: 22 }, (_, index) => ({
+      lineNumber: index + 1,
+      description: `Despesa ${index + 1}`,
+      quantity: "1",
+      unitPrice: "25.00",
+      totalAmount: "25.00",
+    })),
+  };
+
+  assert.equal(isReadFailure(reimbursement), false);
+  assert.notEqual(evaluateHarness({ invoice: reimbursement }).classification, "READ_FAILED");
 });
 
 test("qualquer achado sustentado exige classificação suspeita", () => {

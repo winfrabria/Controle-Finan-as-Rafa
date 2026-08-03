@@ -79,7 +79,10 @@ function auditResultValue(value: HarnessClassification) {
 }
 
 function noteStatus(value: HarnessClassification) {
-  return value === "READ_FAILED" ? NoteStatus.READ_FAILED : NoteStatus.OK;
+  if (value === "READ_FAILED") return NoteStatus.READ_FAILED;
+  if (value === "SUSPICIOUS") return NoteStatus.PENDING_VALIDATION;
+  if (value === "NEEDS_CONTEXT") return NoteStatus.PROCESSING;
+  return NoteStatus.OK;
 }
 
 type ContextSubmissionForAudit = {

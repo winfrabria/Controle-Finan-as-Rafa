@@ -51,6 +51,15 @@ export function isReadFailure(invoice: HarnessInvoice) {
   const hasMinimumIdentity = Boolean(
     invoice.supplierName || invoice.supplierTaxId || invoice.documentNumber,
   );
-  const hasFinancialContent = Boolean(invoice.totalAmount || invoice.items.length);
-  return !hasMinimumIdentity || !hasFinancialContent;
+  const hasFinancialContent = invoice.totalAmount !== null || invoice.items.length > 0;
+  if (!hasFinancialContent) return true;
+  if (hasMinimumIdentity) return false;
+
+  // Reimbursements and other composite submissions legitimately contain
+  // several receipts/suppliers instead of one invoice identity. They must be
+  // audited as a whole when the extraction is otherwise readable.
+  const compositeDocument = [...invoice.warnings, invoice.markdown].some((value) =>
+    /reembolso|reimbursement|múltiplos? fornecedores|vários fornecedores|multiple suppliers|comprovantes?|prestação de contas|expense report/i.test(value),
+  );
+  return !compositeDocument;
 }

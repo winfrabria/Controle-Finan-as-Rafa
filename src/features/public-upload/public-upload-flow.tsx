@@ -811,6 +811,9 @@ export function PublicUploadFlow() {
   function startAgain() {
     pollingControllerRef.current?.abort();
     clearStoredSubmission();
+    // Reset the native input as well. Without this, choosing the same PDF
+    // after a failed attempt does not fire `change` again in the browser.
+    if (inputRef.current) inputRef.current.value = "";
     contextSubmissionStartedRef.current = false;
     setSelectedProject(null);
     setFile(null);
@@ -1417,7 +1420,7 @@ export function PublicUploadFlow() {
               </div>
 
               <div className={styles.resultButtons}>
-                <button className={styles.submitBtn} onClick={startAgain}>
+                <button className={styles.submitBtn} onClick={startAgain} type="button">
                   <IconFilePlus /> Enviar nova nota
                 </button>
                 <Link href="/" className={styles.btnOutline}>
@@ -1509,15 +1512,14 @@ export function PublicUploadFlow() {
                     >
                       <IconFocus /> Tentar novamente
                     </button>
-                  ) : (
-                    <button
-                      className={styles.submitBtn}
-                      onClick={startAgain}
-                      type="button"
-                    >
-                      <IconUpload /> Enviar nova nota
-                    </button>
-                  )}
+                  ) : null}
+                  <button
+                    className={canRetryProcessing ? styles.btnOutline : styles.submitBtn}
+                    onClick={startAgain}
+                    type="button"
+                  >
+                    <IconUpload /> Enviar nova nota
+                  </button>
                   <Link href="/" className={styles.btnOutline}>
                     <IconArrowLeft /> Voltar ao início
                   </Link>
