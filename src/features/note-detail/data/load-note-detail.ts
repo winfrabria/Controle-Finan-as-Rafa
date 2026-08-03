@@ -130,6 +130,7 @@ const noteDetailSelect = {
   originalFilePath: true,
   originalMimeType: true,
   originalSizeBytes: true,
+  publicProtocol: true,
   processedAt: true,
   processingStage: true,
   readConfidence: true,
@@ -281,6 +282,7 @@ export async function loadNoteDetail(
       left.id.localeCompare(right.id),
   );
   const rawExtraction = safeJson(note.extractedData);
+  const isDemo = note.publicProtocol.startsWith("DEMO-");
   const warnings = extractionWarnings(rawExtraction).map(safeText);
   const sources = deduplicateSources([
     documentSource,
@@ -300,7 +302,7 @@ export async function loadNoteDetail(
       warnings,
     },
     createdAt: note.createdAt,
-    demoLabel: null,
+    demoLabel: isDemo ? "DADOS DE DEMONSTRAÇÃO" : null,
     document: {
       fileName: note.originalFileName,
       mimeType: note.originalMimeType,
@@ -313,7 +315,7 @@ export async function loadNoteDetail(
     },
     history,
     id: note.id,
-    isDemo: false,
+    isDemo,
     issuedAt: note.issuedAt,
     items: note.items.map((item) => ({
       code: item.code,
