@@ -7,7 +7,13 @@ import { Icon } from "./ui-icons";
 import { StatusBadge } from "./portal-shell";
 import styles from "./workspace-ui.module.css";
 
-export type LogClassification = "OK" | "Suspeita" | "Incompatível" | "Processamento";
+export type LogClassification =
+  | "Falha de leitura"
+  | "Falha de processamento"
+  | "OK"
+  | "Precisa de informação"
+  | "Processamento"
+  | "Suspeita";
 
 export type AuditLog = {
   id: string;
@@ -37,8 +43,18 @@ export type AuditLog = {
 
 function tone(classification: LogClassification) {
   if (classification === "OK") return "ok" as const;
-  if (classification === "Incompatível") return "danger" as const;
-  if (classification === "Processamento") return "info" as const;
+  if (
+    classification === "Falha de leitura" ||
+    classification === "Falha de processamento"
+  ) {
+    return "danger" as const;
+  }
+  if (
+    classification === "Precisa de informação" ||
+    classification === "Processamento"
+  ) {
+    return "info" as const;
+  }
   return "warning" as const;
 }
 
@@ -77,16 +93,6 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
   function selectLog(id: string) {
     setSelectedId(id);
     setMobileDetailOpen(true);
-  }
-
-  if (!selected) {
-    return (
-      <section className={styles.emptyState}>
-        <Icon name="document" />
-        <h2>Nenhum log encontrado</h2>
-        <p>Os eventos reais de processamento, IA e validação aparecerão aqui.</p>
-      </section>
-    );
   }
 
   return (
@@ -138,7 +144,9 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
               <option value="">Todas</option>
               <option>OK</option>
               <option>Suspeita</option>
-              <option>Incompatível</option>
+              <option>Precisa de informação</option>
+              <option>Falha de leitura</option>
+              <option>Falha de processamento</option>
               <option>Processamento</option>
             </select>
           </label>
@@ -164,9 +172,18 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
               {filtered.map((log) => (
                 <tr
                   key={log.id}
+                  aria-selected={selected?.id === log.id}
                   className={
-                    selected.id === log.id ? styles.selectedTableRow : undefined
+                    selected?.id === log.id ? styles.selectedTableRow : undefined
                   }
+                  onClick={() => selectLog(log.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectLog(log.id);
+                    }
+                  }}
+                  tabIndex={0}
                 >
                   <td>{log.at}</td>
                   <td>
@@ -209,7 +226,7 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
               <button
                 type="button"
                 onClick={() => selectLog(log.id)}
-                className={`${styles.logMobileCard} ${selected.id === log.id ? styles.selectedLog : ""}`}
+                className={`${styles.logMobileCard} ${selected?.id === log.id ? styles.selectedLog : ""}`}
                 key={log.id}
               >
                 <strong>{log.at}</strong>
@@ -225,15 +242,22 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
               </button>
             ))}
           </div>
+          {filtered.length === 0 ? (
+            <section className={styles.emptyState}>
+              <Icon name="document" />
+              <h2>Nenhum log encontrado</h2>
+              <p>Ajuste ou limpe os filtros para voltar a visualizar os eventos.</p>
+            </section>
+          ) : null}
           <footer className={styles.pagination}>
             <span>
-              1-{filtered.length} de {logs.length}
+              {filtered.length === 0 ? "0" : `1-${filtered.length}`} de {logs.length}
             </span>
             <span>Mostrando resultados filtrados</span>
           </footer>
         </div>
       </article>
-      <aside
+      {selected ? <aside
         className={`${styles.panel} ${styles.logDetail}`}
         data-mobile-open={mobileDetailOpen}
       >
@@ -293,9 +317,6 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
             <b>{selected.at}</b>
             {selected.action}
           </li>
-          <li>
-            <b>Etapa anterior</b>Nota recebida pelo sistema
-          </li>
         </ol>
         {selected.technical ? (
           <>
@@ -316,7 +337,7 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
           </>
         ) : null}
         <small className={styles.logId}>ID do log: {selected.id}</small>
-      </aside>
+      </aside> : null}
     </section>
   );
 }

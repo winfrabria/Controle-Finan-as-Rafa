@@ -11,6 +11,12 @@ type PageProps = {
 
 export default async function AdminNotesPage({ searchParams }: PageProps) {
   const filters = parseNoteListFilters(await searchParams);
-  const result = await listNotes(filters);
-  return <NotesView role="admin" items={toNoteVisualItems(result.items)} />;
+  const result = await listNotes(filters, { all: true });
+  return (
+    <NotesView
+      role="admin"
+      total={result.total}
+      items={toNoteVisualItems(result.items)}
+    />
+  );
 }

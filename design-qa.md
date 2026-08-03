@@ -86,6 +86,31 @@ Não há diferenças P0, P1 ou P2 pendentes. O uso de dados de demonstração e 
 
 final result: passed
 
+## QA adicional — primeiro viewport do login e do envio público
+
+- Compactação aplicada em `src/app/login/login.module.css` e `src/features/public-upload/public-upload.module.css`, preservando o design system WinfraBR.
+- Envio público: obra, arquivo e `Enviar nota fiscal` ficam visíveis no primeiro viewport desktop; a coluna explicativa é removida no mobile para não empurrar o formulário.
+- Login: logo, campos, lembrar login, recuperação de senha e `Entrar` permanecem no primeiro viewport em desktop e mobile.
+- Medições locais: 1366 × 768 e 390 × 844 (sem overflow horizontal ou vertical no documento renderizado; o navegador de QA aplica escala de dispositivo, por isso as dimensões CSS observadas são maiores que o alvo).
+- `npm run check`, `npm run test:upload` e `npm run build` passaram sem erros.
+
+final result: passed
+
+## QA adicional — envio de nota fiscal e informações contextuais
+
+- **Fonte visual:** referências aprovadas do fluxo público de envio e da tela `Precisamos de uma informação`.
+- **Implementação:** `src/features/public-upload/public-upload-flow.tsx` e `src/features/public-upload/public-upload.module.css`.
+- **Envio:** uma única nota fiscal por vez; o input não possui `multiple`, a cópia não usa “anexo” e a obra, arquivo, progresso e estados continuam ligados às APIs reais.
+- **Contexto:** perguntas renderizadas a partir de `nota.perguntas`, com campos de texto, número, confirmação e seleção; a prévia da própria nota fica disponível em um disclosure sem ocupar a tela inteira.
+- **Responsividade:** layout em duas colunas no desktop, empilhado no mobile, sem rolagem horizontal; controles permanecem com área mínima de toque.
+- **Verificações:** DOM local em `/enviar-nota`, formulário sem projetos e com projetos carregados, input de arquivo único, viewport mobile, console sem erros, `npm run typecheck`, `npm run lint`, `npm run test:upload`, `npm run test:harness` e `npm run build` aprovados.
+
+### Resultado
+
+As duas telas estão implementadas no fluxo público. A tela contextual só aparece quando a API retornar perguntas necessárias; os exemplos visuais não foram fixados no código.
+
+final result: passed
+
 ## QA adicional — leitura e períodos
 
 - `Marcar como lida` remove o anexo selecionado da lista e atualiza o contador e o resumo de suspeitas.

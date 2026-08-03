@@ -61,6 +61,9 @@ export const ModelName = {
   Finding: 'Finding',
   Validation: 'Validation',
   ProcessingJob: 'ProcessingJob',
+  NoteContextQuestion: 'NoteContextQuestion',
+  NoteContextSubmission: 'NoteContextSubmission',
+  NoteContextAnswer: 'NoteContextAnswer',
   AiRun: 'AiRun',
   AdminAuditLog: 'AdminAuditLog',
   NoteEvent: 'NoteEvent',
@@ -117,6 +120,9 @@ export const NoteScalarFieldEnum = {
   id: 'id',
   workId: 'workId',
   submittedById: 'submittedById',
+  publicProtocol: 'publicProtocol',
+  publicTokenHash: 'publicTokenHash',
+  publicTokenExpiresAt: 'publicTokenExpiresAt',
   originalFilePath: 'originalFilePath',
   originalFileName: 'originalFileName',
   originalMimeType: 'originalMimeType',
@@ -131,10 +137,14 @@ export const NoteScalarFieldEnum = {
   status: 'status',
   processingStage: 'processingStage',
   classification: 'classification',
+  auditResult: 'auditResult',
   readConfidence: 'readConfidence',
   failureCode: 'failureCode',
   failureMessage: 'failureMessage',
   version: 'version',
+  contextRound: 'contextRound',
+  contextSubmittedAt: 'contextSubmittedAt',
+  contextSummary: 'contextSummary',
   receivedAt: 'receivedAt',
   processedAt: 'processedAt',
   createdAt: 'createdAt',
@@ -257,6 +267,7 @@ export type ValidationScalarFieldEnum = (typeof ValidationScalarFieldEnum)[keyof
 export const ProcessingJobScalarFieldEnum = {
   id: 'id',
   noteId: 'noteId',
+  contextSubmissionId: 'contextSubmissionId',
   type: 'type',
   status: 'status',
   idempotencyKey: 'idempotencyKey',
@@ -274,6 +285,51 @@ export const ProcessingJobScalarFieldEnum = {
 } as const
 
 export type ProcessingJobScalarFieldEnum = (typeof ProcessingJobScalarFieldEnum)[keyof typeof ProcessingJobScalarFieldEnum]
+
+
+export const NoteContextQuestionScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  aiRunId: 'aiRunId',
+  round: 'round',
+  position: 'position',
+  code: 'code',
+  prompt: 'prompt',
+  type: 'type',
+  options: 'options',
+  required: 'required',
+  rationale: 'rationale',
+  createdAt: 'createdAt'
+} as const
+
+export type NoteContextQuestionScalarFieldEnum = (typeof NoteContextQuestionScalarFieldEnum)[keyof typeof NoteContextQuestionScalarFieldEnum]
+
+
+export const NoteContextSubmissionScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  round: 'round',
+  idempotencyKey: 'idempotencyKey',
+  answerFingerprint: 'answerFingerprint',
+  requestId: 'requestId',
+  status: 'status',
+  submittedAt: 'submittedAt',
+  reanalysisQueuedAt: 'reanalysisQueuedAt',
+  reanalysisCompletedAt: 'reanalysisCompletedAt'
+} as const
+
+export type NoteContextSubmissionScalarFieldEnum = (typeof NoteContextSubmissionScalarFieldEnum)[keyof typeof NoteContextSubmissionScalarFieldEnum]
+
+
+export const NoteContextAnswerScalarFieldEnum = {
+  id: 'id',
+  submissionId: 'submissionId',
+  questionId: 'questionId',
+  value: 'value',
+  createdAt: 'createdAt'
+} as const
+
+export type NoteContextAnswerScalarFieldEnum = (typeof NoteContextAnswerScalarFieldEnum)[keyof typeof NoteContextAnswerScalarFieldEnum]
 
 
 export const AiRunScalarFieldEnum = {

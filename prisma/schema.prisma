@@ -23,6 +23,13 @@ enum NoteStatus {
   FAILED
 }
 
+enum AuditResult {
+  OK
+  SUSPICIOUS
+  NEEDS_CONTEXT
+  READ_FAILED
+}
+
 enum ProcessingStage {
   RECEIVED
   EXTRACTING
@@ -58,6 +65,7 @@ enum ReasoningEffort {
 
 enum ProcessingJobType {
   FULL_AUDIT
+  CONTEXT_REANALYSIS
 }
 
 enum ProcessingJobStatus {
@@ -102,6 +110,20 @@ enum NotificationType {
   PROCESSING_FAILED
 }
 
+enum ContextQuestionType {
+  TEXT
+  NUMBER
+  SINGLE_SELECT
+  BOOLEAN
+}
+
+enum ContextSubmissionStatus {
+  SUBMITTED
+  REANALYSIS_QUEUED
+  REANALYSIS_COMPLETED
+  REANALYSIS_FAILED
+}
+
 model Profile {
   id                String             @id @db.Uuid
   email             String             @unique
@@ -143,47 +165,57 @@ model Work {
 }
 
 model Note {
-  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workId             String              @map("work_id") @db.Uuid
-  submittedById      String?             @map("submitted_by_id") @db.Uuid
-  originalFilePath   String              @map("original_file_path")
-  originalFileName   String              @map("original_file_name")
-  originalMimeType   String              @map("original_mime_type")
-  originalSizeBytes  BigInt              @map("original_size_bytes")
-  extractedData      Json?               @map("extracted_data") @db.JsonB
-  extractionMarkdown String?             @map("extraction_markdown")
-  documentNumber     String?             @map("document_number")
-  supplierName       String?             @map("supplier_name")
-  supplierTaxId      String?             @map("supplier_tax_id")
-  issuedAt           DateTime?           @map("issued_at") @db.Date
-  totalAmount        Decimal?            @map("total_amount") @db.Decimal(14, 2)
-  status             NoteStatus          @default(RECEIVED)
-  processingStage    ProcessingStage     @default(RECEIVED) @map("processing_stage")
-  classification     NoteClassification?
-  readConfidence     Decimal?            @map("read_confidence") @db.Decimal(5, 4)
-  failureCode        String?             @map("failure_code")
-  failureMessage     String?             @map("failure_message")
-  version            Int                 @default(1)
-  receivedAt         DateTime            @default(now()) @map("received_at") @db.Timestamptz(6)
-  processedAt        DateTime?           @map("processed_at") @db.Timestamptz(6)
-  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  work               Work                @relation(fields: [workId], references: [id], onDelete: Restrict)
-  submittedBy        Profile?            @relation("SubmittedNotes", fields: [submittedById], references: [id], onDelete: SetNull)
-  items              NoteItem[]
-  findings           Finding[]
-  validations        Validation[]
-  events             NoteEvent[]
-  notifications      Notification[]
-  aiRuns             AiRun[]
-  processingJobs     ProcessingJob[]
-  noteReads          NoteRead[]
+  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workId               String                  @map("work_id") @db.Uuid
+  submittedById        String?                 @map("submitted_by_id") @db.Uuid
+  publicProtocol       String                  @unique @map("public_protocol")
+  publicTokenHash      String                  @map("public_token_hash")
+  publicTokenExpiresAt DateTime                @map("public_token_expires_at") @db.Timestamptz(6)
+  originalFilePath     String                  @map("original_file_path")
+  originalFileName     String                  @map("original_file_name")
+  originalMimeType     String                  @map("original_mime_type")
+  originalSizeBytes    BigInt                  @map("original_size_bytes")
+  extractedData        Json?                   @map("extracted_data") @db.JsonB
+  extractionMarkdown   String?                 @map("extraction_markdown")
+  documentNumber       String?                 @map("document_number")
+  supplierName         String?                 @map("supplier_name")
+  supplierTaxId        String?                 @map("supplier_tax_id")
+  issuedAt             DateTime?               @map("issued_at") @db.Date
+  totalAmount          Decimal?                @map("total_amount") @db.Decimal(14, 2)
+  status               NoteStatus              @default(RECEIVED)
+  processingStage      ProcessingStage         @default(RECEIVED) @map("processing_stage")
+  classification       NoteClassification?
+  auditResult          AuditResult?            @map("audit_result")
+  readConfidence       Decimal?                @map("read_confidence") @db.Decimal(5, 4)
+  failureCode          String?                 @map("failure_code")
+  failureMessage       String?                 @map("failure_message")
+  version              Int                     @default(1)
+  contextRound         Int                     @default(0) @map("context_round")
+  contextSubmittedAt   DateTime?               @map("context_submitted_at") @db.Timestamptz(6)
+  contextSummary       String?                 @map("context_summary")
+  receivedAt           DateTime                @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt          DateTime?               @map("processed_at") @db.Timestamptz(6)
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+  work                 Work                    @relation(fields: [workId], references: [id], onDelete: Restrict)
+  submittedBy          Profile?                @relation("SubmittedNotes", fields: [submittedById], references: [id], onDelete: SetNull)
+  items                NoteItem[]
+  findings             Finding[]
+  validations          Validation[]
+  events               NoteEvent[]
+  notifications        Notification[]
+  aiRuns               AiRun[]
+  processingJobs       ProcessingJob[]
+  noteReads            NoteRead[]
+  contextQuestions     NoteContextQuestion[]
+  contextSubmissions   NoteContextSubmission[]
 
   @@index([workId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
   @@index([classification])
   @@index([supplierTaxId])
   @@index([documentNumber])
+  @@index([auditResult, createdAt(sort: Desc)])
   @@map("notes")
 }
 
@@ -328,60 +360,120 @@ model Validation {
 }
 
 model ProcessingJob {
-  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  noteId         String              @map("note_id") @db.Uuid
-  type           ProcessingJobType   @default(FULL_AUDIT)
-  status         ProcessingJobStatus @default(PENDING)
-  idempotencyKey String              @unique @map("idempotency_key")
-  attempt        Int                 @default(0)
-  maxAttempts    Int                 @default(3) @map("max_attempts")
-  availableAt    DateTime            @default(now()) @map("available_at") @db.Timestamptz(6)
-  lockedAt       DateTime?           @map("locked_at") @db.Timestamptz(6)
-  lockedBy       String?             @map("locked_by")
-  lastErrorCode  String?             @map("last_error_code")
-  lastError      String?             @map("last_error")
-  startedAt      DateTime?           @map("started_at") @db.Timestamptz(6)
-  completedAt    DateTime?           @map("completed_at") @db.Timestamptz(6)
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
-  note           Note                @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  aiRuns         AiRun[]
+  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId              String                 @map("note_id") @db.Uuid
+  contextSubmissionId String?                @unique @map("context_submission_id") @db.Uuid
+  type                ProcessingJobType      @default(FULL_AUDIT)
+  status              ProcessingJobStatus    @default(PENDING)
+  idempotencyKey      String                 @unique @map("idempotency_key")
+  attempt             Int                    @default(0)
+  maxAttempts         Int                    @default(3) @map("max_attempts")
+  availableAt         DateTime               @default(now()) @map("available_at") @db.Timestamptz(6)
+  lockedAt            DateTime?              @map("locked_at") @db.Timestamptz(6)
+  lockedBy            String?                @map("locked_by")
+  lastErrorCode       String?                @map("last_error_code")
+  lastError           String?                @map("last_error")
+  startedAt           DateTime?              @map("started_at") @db.Timestamptz(6)
+  completedAt         DateTime?              @map("completed_at") @db.Timestamptz(6)
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  note                Note                   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  contextSubmission   NoteContextSubmission? @relation(fields: [contextSubmissionId], references: [id], onDelete: SetNull)
+  aiRuns              AiRun[]
 
   @@index([status, availableAt, createdAt])
   @@index([noteId, createdAt(sort: Desc)])
   @@map("processing_jobs")
 }
 
+model NoteContextQuestion {
+  id        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId    String              @map("note_id") @db.Uuid
+  aiRunId   String?             @map("ai_run_id") @db.Uuid
+  round     Int                 @default(1)
+  position  Int
+  code      String
+  prompt    String
+  type      ContextQuestionType
+  options   Json                @db.JsonB
+  required  Boolean             @default(true)
+  rationale String?
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  note      Note                @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  aiRun     AiRun?              @relation("AiRunContextQuestions", fields: [aiRunId], references: [id], onDelete: SetNull)
+  answers   NoteContextAnswer[]
+
+  @@unique([noteId, round, position])
+  @@unique([noteId, round, code])
+  @@index([noteId, round])
+  @@map("note_context_questions")
+}
+
+model NoteContextSubmission {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId                String                  @map("note_id") @db.Uuid
+  round                 Int
+  idempotencyKey        String                  @unique @map("idempotency_key")
+  answerFingerprint     String                  @map("answer_fingerprint")
+  requestId             String?                 @map("request_id")
+  status                ContextSubmissionStatus @default(SUBMITTED)
+  submittedAt           DateTime                @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  reanalysisQueuedAt    DateTime?               @map("reanalysis_queued_at") @db.Timestamptz(6)
+  reanalysisCompletedAt DateTime?               @map("reanalysis_completed_at") @db.Timestamptz(6)
+  note                  Note                    @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  answers               NoteContextAnswer[]
+  processingJob         ProcessingJob?
+
+  @@unique([noteId, round])
+  @@index([noteId, submittedAt(sort: Desc)])
+  @@map("note_context_submissions")
+}
+
+model NoteContextAnswer {
+  id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submissionId String                @map("submission_id") @db.Uuid
+  questionId   String                @map("question_id") @db.Uuid
+  value        Json                  @db.JsonB
+  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  submission   NoteContextSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question     NoteContextQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, questionId])
+  @@index([questionId])
+  @@map("note_context_answers")
+}
+
 model AiRun {
-  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  noteId             String          @map("note_id") @db.Uuid
-  processingJobId    String?         @map("processing_job_id") @db.Uuid
+  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId             String                @map("note_id") @db.Uuid
+  processingJobId    String?               @map("processing_job_id") @db.Uuid
   kind               AiRunKind
-  status             AiRunStatus     @default(RUNNING)
-  idempotencyKey     String          @unique @map("idempotency_key")
-  requestFingerprint String          @map("request_fingerprint")
-  policyVersion      String          @map("policy_version")
-  promptVersion      String          @map("prompt_version")
-  schemaVersion      String          @map("schema_version")
+  status             AiRunStatus           @default(RUNNING)
+  idempotencyKey     String                @unique @map("idempotency_key")
+  requestFingerprint String                @map("request_fingerprint")
+  policyVersion      String                @map("policy_version")
+  promptVersion      String                @map("prompt_version")
+  schemaVersion      String                @map("schema_version")
   model              String
   provider           String?
-  reasoningEffort    ReasoningEffort @default(HIGH) @map("reasoning_effort")
-  attempts           Int             @default(1)
-  promptTokens       Int?            @map("prompt_tokens")
-  completionTokens   Int?            @map("completion_tokens")
-  totalTokens        Int?            @map("total_tokens")
-  costUsd            Decimal?        @map("cost_usd") @db.Decimal(14, 8)
-  latencyMs          Int?            @map("latency_ms")
-  structuredResponse Json?           @map("structured_response") @db.JsonB
-  errorCode          String?         @map("error_code")
-  errorMessage       String?         @map("error_message")
-  startedAt          DateTime        @default(now()) @map("started_at") @db.Timestamptz(6)
-  completedAt        DateTime?       @map("completed_at") @db.Timestamptz(6)
-  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  note               Note            @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  processingJob      ProcessingJob?  @relation(fields: [processingJobId], references: [id], onDelete: SetNull)
+  reasoningEffort    ReasoningEffort       @default(HIGH) @map("reasoning_effort")
+  attempts           Int                   @default(1)
+  promptTokens       Int?                  @map("prompt_tokens")
+  completionTokens   Int?                  @map("completion_tokens")
+  totalTokens        Int?                  @map("total_tokens")
+  costUsd            Decimal?              @map("cost_usd") @db.Decimal(14, 8)
+  latencyMs          Int?                  @map("latency_ms")
+  structuredResponse Json?                 @map("structured_response") @db.JsonB
+  errorCode          String?               @map("error_code")
+  errorMessage       String?               @map("error_message")
+  startedAt          DateTime              @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt        DateTime?             @map("completed_at") @db.Timestamptz(6)
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  note               Note                  @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  processingJob      ProcessingJob?        @relation(fields: [processingJobId], references: [id], onDelete: SetNull)
   findings           Finding[]
   validations        Validation[]
+  contextQuestions   NoteContextQuestion[] @relation("AiRunContextQuestions")
 
   @@index([noteId, createdAt(sort: Desc)])
   @@index([processingJobId])

@@ -4,7 +4,9 @@ export type ReviewerDashboardNote = {
     | "Em análise"
     | "Falha de leitura"
     | "Falha de processamento"
+    | "Não processado"
     | "OK"
+    | "Precisa de informação"
     | "Sem parâmetro"
     | "Suspeita";
   date: string;
@@ -12,6 +14,7 @@ export type ReviewerDashboardNote = {
   id: string;
   number: string;
   reasons: string[];
+  responsible: string;
   supplier: string;
   value: string;
   work: string;

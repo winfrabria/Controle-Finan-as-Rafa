@@ -68,6 +68,21 @@ export type Validation = Prisma.ValidationModel
  */
 export type ProcessingJob = Prisma.ProcessingJobModel
 /**
+ * Model NoteContextQuestion
+ * 
+ */
+export type NoteContextQuestion = Prisma.NoteContextQuestionModel
+/**
+ * Model NoteContextSubmission
+ * 
+ */
+export type NoteContextSubmission = Prisma.NoteContextSubmissionModel
+/**
+ * Model NoteContextAnswer
+ * 
+ */
+export type NoteContextAnswer = Prisma.NoteContextAnswerModel
+/**
  * Model AiRun
  * 
  */

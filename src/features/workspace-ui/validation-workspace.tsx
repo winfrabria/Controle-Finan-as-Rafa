@@ -60,64 +60,6 @@ function visiblePages(page: number, pageCount: number) {
     .sort((a, b) => a - b);
 }
 
-const demoWorks = [
-  { id: "00000000-0000-4000-8000-000000000001", name: "Projeto Piloto" },
-  { id: "00000000-0000-4000-8000-000000000002", name: "Edifício Aurora" },
-  { id: "00000000-0000-4000-8000-000000000003", name: "Hospital Central" },
-  { id: "00000000-0000-4000-8000-000000000004", name: "Viaduto Norte" },
-];
-
-function createDemoItems(
-  works: ValidationMeta["works"],
-): ValidationQueueItem[] {
-  const availableWorks = works.length > 0 ? works : demoWorks;
-  const suppliers = [
-    "Construtora Silva Ltda.",
-    "Transportes Ideal",
-    "MegaParafusos",
-    "Locação Equip. Sul",
-    "Hidráulica Prime",
-    "Ferragens Brasil",
-    "Serviços Gerais Ltda.",
-    "Concretos Certos",
-    "Elétrica Forte Ltda.",
-    "Luz & Cia Materiais",
-  ];
-  const findings = [
-    "Divergência de quantidade entre a nota e a medição acumulada da obra.",
-    "Item não previsto no contrato vigente da obra.",
-    "Preço unitário acima da referência cadastrada.",
-    "Valor total do cupom diferente do valor informado na nota.",
-    "Data de emissão incompatível com o período de execução.",
-  ];
-
-  return Array.from({ length: 198 }, (_, index) => {
-    const work = availableWorks[index % availableWorks.length];
-    const day = 28 - (index % 6);
-    const amount = 249200 - index * 913.47;
-    return {
-      classification: "Suspeita",
-      date: `${String(day).padStart(2, "0")}/05/2024`,
-      finding: findings[index % findings.length],
-      id: `demo-validation-${String(index + 1).padStart(4, "0")}`,
-      number: String(12589 - index).padStart(8, "0"),
-      supplier: suppliers[index % suppliers.length],
-      value: amount.toLocaleString("pt-BR", {
-        currency: "BRL",
-        style: "currency",
-      }),
-      version: 1,
-      work: work.name,
-      workId: work.id,
-    };
-  });
-}
-
-function toIsoDate(value: string) {
-  const [day, month, year] = value.split("/");
-  return `${year}-${month}-${day}`;
-}
-
 export function ValidationWorkspace({
   items,
   meta,
@@ -129,36 +71,15 @@ export function ValidationWorkspace({
 }) {
   const isReviewer = role === "reviewer";
   const basePath = role === "admin" ? "/admin" : "/revisao";
-  const isDemo = meta.total === 0 && items.length === 0;
-  const availableWorks = meta.works.length > 0 ? meta.works : demoWorks;
-  const demoItems = useMemo(
-    () => createDemoItems(availableWorks),
-    [availableWorks],
-  );
-  const demoFiltered = useMemo(
-    () =>
-      demoItems.filter((item) => {
-        const date = toIsoDate(item.date);
-        return (
-          (!meta.filters.obra || item.workId === meta.filters.obra) &&
-          (!meta.filters.dataDe || date >= meta.filters.dataDe) &&
-          (!meta.filters.dataAte || date <= meta.filters.dataAte)
-        );
-      }),
-    [demoItems, meta.filters.dataAte, meta.filters.dataDe, meta.filters.obra],
-  );
-  const displayTotal = isDemo ? demoFiltered.length : meta.total;
-  const displayPageCount = Math.max(1, Math.ceil(displayTotal / 10));
-  const displayPage = Math.min(meta.page, displayPageCount);
+  const availableWorks = meta.works;
+  const displayTotal = meta.total;
+  const displayPageCount = meta.pageCount;
+  const displayPage = meta.page;
   const queueItems = useMemo(() => {
-    if (isDemo) {
-      const start = (displayPage - 1) * 10;
-      return demoFiltered.slice(start, start + 10);
-    }
     return isReviewer
       ? items.filter((item) => item.classification === "Suspeita")
       : items;
-  }, [demoFiltered, displayPage, isDemo, isReviewer, items]);
+  }, [isReviewer, items]);
   const [selectedId, setSelectedId] = useState<string | null>(
     queueItems[0]?.id ?? null,
   );
@@ -188,9 +109,6 @@ export function ValidationWorkspace({
                 ? "Notas aguardando validação"
                 : "Validações em acompanhamento"}
               <span>{displayTotal}</span>
-              {isDemo ? (
-                <small className={styles.demoBadge}>Demonstração</small>
-              ) : null}
             </h2>
             <button
               type="button"
@@ -445,7 +363,7 @@ export function ValidationWorkspace({
               {isReviewer ? (
                 <ValidationDecisionForm
                   key={selected.id}
-                  isDemo={isDemo}
+                  isDemo={false}
                   noteId={selected.id}
                   noteVersion={selected.version}
                   onCancel={() => {

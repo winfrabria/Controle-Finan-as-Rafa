@@ -12,17 +12,36 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   const staleBefore = new Date(Date.now() - 15 * 60 * 1_000);
-  const [pending, failed, stale, recentRuns, lastRun, recentErrors] = await prisma.$transaction([
-    prisma.processingJob.count({ where: { status: "PENDING" } }),
-    prisma.processingJob.count({ where: { status: "FAILED" } }),
-    prisma.processingJob.count({ where: { status: "RUNNING", lockedAt: { lt: staleBefore } } }),
-    prisma.aiRun.aggregate({
+  const [pending, failed, stale, orphaned, due, recentRuns, lastRun, recentErrors] =
+    await Promise.all([
+      prisma.processingJob.count({
+        where: { status: "PENDING" },
+      }),
+      prisma.processingJob.count({
+        where: { status: "FAILED" },
+      }),
+      prisma.processingJob.count({
+        where: { status: "RUNNING", lockedAt: { lt: staleBefore } },
+      }),
+      prisma.note.count({
+        where: {
+          processingJobs: { none: {} },
+          status: "RECEIVED",
+        },
+      }),
+      prisma.processingJob.count({
+        where: {
+          availableAt: { lte: new Date() },
+          status: { in: ["PENDING", "FAILED"] },
+        },
+      }),
+      prisma.aiRun.aggregate({
       where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1_000) } },
       _count: true,
       _sum: { costUsd: true, totalTokens: true },
       _avg: { latencyMs: true },
-    }),
-    prisma.aiRun.findFirst({
+      }),
+      prisma.aiRun.findFirst({
       orderBy: { createdAt: "desc" },
       select: {
         completedAt: true,
@@ -31,14 +50,14 @@ export async function GET() {
         latencyMs: true,
         status: true,
       },
-    }),
-    prisma.aiRun.count({
+      }),
+      prisma.aiRun.count({
       where: {
         createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1_000) },
         status: "FAILED",
       },
-    }),
-  ]);
+      }),
+    ]);
 
   const openRouterConfigured = Boolean(
     process.env.OPENROUTER_API_KEY ?? process.env.OpenRouter_API_Key,
@@ -48,10 +67,17 @@ export async function GET() {
       process.env.SUPABASE_SERVICE_ROLE_KEY &&
       process.env.SUPABASE_STORAGE_BUCKET,
   );
+  const workerSecret =
+    process.env.PROCESSING_WORKER_SECRET ?? process.env.CRON_SECRET;
+  const workerConfigured = Boolean(workerSecret && workerSecret.length >= 16);
 
   return NextResponse.json({
     status:
-      stale > 0 || !openRouterConfigured || !storageConfigured
+      stale > 0 ||
+      orphaned > 0 ||
+      !openRouterConfigured ||
+      !storageConfigured ||
+      !workerConfigured
         ? "degraded"
         : "ok",
     model: HARNESS_MODEL,
@@ -60,8 +86,9 @@ export async function GET() {
       database: { status: "ok" },
       openRouter: { configured: openRouterConfigured },
       storage: { configured: storageConfigured },
+      worker: { configured: workerConfigured },
     },
-    jobs: { pending, failed, stale },
+    jobs: { due, failed, orphaned, pending, stale },
     lastExecution: lastRun,
     last24Hours: {
       runs: recentRuns._count,

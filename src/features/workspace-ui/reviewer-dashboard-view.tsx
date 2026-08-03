@@ -6,6 +6,10 @@ import { useMemo, useState } from "react";
 import { Icon } from "./ui-icons";
 import { PortalShell, type PortalRole } from "./portal-shell";
 import type { ReviewerDashboardNote } from "./reviewer-dashboard-types";
+import {
+  formatDashboardMoney,
+  parseDashboardMoney,
+} from "./dashboard-money";
 import styles from "./reviewer-dashboard-view.module.css";
 
 type ReviewerDashboardViewProps = {
@@ -16,24 +20,6 @@ type ReviewerDashboardViewProps = {
 };
 
 type DashboardNote = ReviewerDashboardNote;
-
-function parseMoney(value: string) {
-  const normalized = value
-    .replace(/R\$\s?/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
-  const amount = Number(normalized);
-  return Number.isFinite(amount) ? amount : 0;
-}
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    currency: "BRL",
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-    style: "currency",
-  }).format(value);
-}
 
 function dateInputKey(value: string) {
   const parts = value.split("/");
@@ -60,10 +46,13 @@ function previousPeriod(value: string) {
 
 function statusClass(classification: DashboardNote["classification"]) {
   if (classification === "Suspeita") return styles.statusSuspicious;
+  if (classification === "Precisa de informação" || classification === "Sem parâmetro") {
+    return styles.statusNeedsContext;
+  }
   if (
     classification === "Aguardando processamento" ||
     classification === "Em análise" ||
-    classification === "Sem parâmetro"
+    classification === "Não processado"
   ) {
     return styles.statusProcessing;
   }
@@ -71,6 +60,16 @@ function statusClass(classification: DashboardNote["classification"]) {
     return styles.statusFailed;
   }
   return styles.statusOk;
+}
+
+function statusIcon(classification: DashboardNote["classification"]): "document" | "help" {
+  return classification === "Precisa de informação" || classification === "Sem parâmetro"
+    ? "help"
+    : "document";
+}
+
+function statusLabel(classification: DashboardNote["classification"]) {
+  return classification === "Sem parâmetro" ? "Precisa de informação" : classification;
 }
 
 function comparison(current: number, previous: number) {
@@ -101,7 +100,9 @@ export function ReviewerDashboardView({
   userEmail,
   works = [],
 }: ReviewerDashboardViewProps) {
+  const notesPath = role === "admin" ? "/admin/notas" : "/revisao/notas";
   const [work, setWork] = useState("");
+  const [responsible, setResponsible] = useState("");
   const periodOptions = useMemo(
     () =>
       [...new Set(notes.map((note) => note.dateKey))]
@@ -122,11 +123,19 @@ export function ReviewerDashboardView({
       ),
     [notes, works],
   );
+  const responsibleOptions = useMemo(
+    () =>
+      [...new Set(notes.map((item) => item.responsible).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [notes],
+  );
 
   const filteredNotes = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
     return notes.filter((note) => {
       const matchesWork = !work || note.work === work;
+      const matchesResponsible = !responsible || note.responsible === responsible;
       const matchesQuery =
         !normalizedQuery ||
         note.number.toLocaleLowerCase("pt-BR").includes(normalizedQuery) ||
@@ -140,21 +149,28 @@ export function ReviewerDashboardView({
       const matchesDateRange =
         (!dateFrom || (noteDate && noteDate >= dateFrom)) &&
         (!dateTo || (noteDate && noteDate <= dateTo));
-      return matchesWork && matchesQuery && matchesPeriod && matchesDateRange;
+      return (
+        matchesWork &&
+        matchesResponsible &&
+        matchesQuery &&
+        matchesPeriod &&
+        matchesDateRange
+      );
     });
-  }, [dateFrom, dateTo, notes, period, query, work]);
+  }, [dateFrom, dateTo, notes, period, query, responsible, work]);
 
   const comparisonNotes = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
     return notes.filter((note) => {
       const matchesWork = !work || note.work === work;
+      const matchesResponsible = !responsible || note.responsible === responsible;
       const matchesQuery =
         !normalizedQuery ||
         note.number.toLocaleLowerCase("pt-BR").includes(normalizedQuery) ||
         note.supplier.toLocaleLowerCase("pt-BR").includes(normalizedQuery);
-      return matchesWork && matchesQuery;
+      return matchesWork && matchesResponsible && matchesQuery;
     });
-  }, [notes, query, work]);
+  }, [notes, query, responsible, work]);
 
   const periodComparisonNotes = useMemo(() => {
     const previous = previousPeriod(period);
@@ -173,7 +189,10 @@ export function ReviewerDashboardView({
         note.classification === "Em análise" ||
         note.classification === "Falha de processamento",
     ).length;
-    const total = filteredNotes.reduce((sum, note) => sum + parseMoney(note.value), 0);
+    const total = filteredNotes.reduce(
+      (sum, note) => sum + parseDashboardMoney(note.value),
+      0,
+    );
     const previousReceived = periodComparisonNotes.length;
     const previousSuspicious = periodComparisonNotes.filter(
       (note) => note.classification === "Suspeita",
@@ -185,7 +204,7 @@ export function ReviewerDashboardView({
         note.classification === "Falha de processamento",
     ).length;
     const previousTotal = periodComparisonNotes.reduce(
-      (sum, note) => sum + parseMoney(note.value),
+      (sum, note) => sum + parseDashboardMoney(note.value),
       0,
     );
     return {
@@ -225,6 +244,7 @@ export function ReviewerDashboardView({
 
   function clearFilters() {
     setWork("");
+    setResponsible("");
     setPeriod(defaultPeriod);
     setDateFrom("");
     setDateTo("");
@@ -237,7 +257,7 @@ export function ReviewerDashboardView({
         <header className={styles.pageHeader}>
           <div>
             <h1>Dashboard</h1>
-            <p>Acompanhe as notas recebidas e os principais desvios.</p>
+            <p>Acompanhe os anexos recebidos e os principais desvios.</p>
           </div>
         </header>
 
@@ -269,6 +289,23 @@ export function ReviewerDashboardView({
                   </option>
                 ))}
                 <option value="todos">Todos os meses</option>
+              </select>
+              <Icon name="chevron" />
+            </span>
+          </label>
+
+          <label className={styles.filterField}>
+            <span>Responsável</span>
+            <span className={styles.control}>
+              <Icon name="building" />
+              <select
+                value={responsible}
+                onChange={(event) => setResponsible(event.target.value)}
+              >
+                <option value="">Todos os responsáveis</option>
+                {responsibleOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
               </select>
               <Icon name="chevron" />
             </span>
@@ -320,18 +357,18 @@ export function ReviewerDashboardView({
             </span>
           </label>
 
-          {(work || query || period !== defaultPeriod || dateFrom || dateTo) && (
+          {(work || responsible || query || period !== defaultPeriod || dateFrom || dateTo) && (
             <button className={styles.clearButton} onClick={clearFilters} type="button">
               Limpar
             </button>
           )}
         </form>
 
-        <section className={styles.metrics} aria-label="Resumo das notas">
-          <Metric icon="document" label="Notas recebidas" value={String(metrics.received)} delta={metrics.deltas.received} />
+        <section className={styles.metrics} aria-label="Resumo dos anexos">
+          <Metric icon="document" label="Anexos recebidos" value={String(metrics.received)} delta={metrics.deltas.received} />
           <Metric icon="warning" label="Suspeitas" value={String(metrics.suspicious)} delta={metrics.deltas.suspicious} tone="orange" />
           <Metric icon="clock" label="Em processamento" value={String(metrics.processing)} delta={metrics.deltas.processing} tone="blue" />
-          <Metric icon="money" label="Valor total" value={formatMoney(metrics.total)} delta={metrics.deltas.total} tone="green" />
+          <Metric icon="money" label="Valor total" value={formatDashboardMoney(metrics.total)} delta={metrics.deltas.total} tone="green" />
         </section>
 
         <section className={styles.contentGrid}>
@@ -362,7 +399,7 @@ export function ReviewerDashboardView({
                 <div className={styles.emptyState}>Nenhum desvio encontrado neste filtro.</div>
               )}
             </div>
-            <Link className={styles.panelLink} href="/revisao/notas">
+            <Link className={styles.panelLink} href={notesPath}>
               Ver todas as causas <Icon name="chevron" />
             </Link>
           </article>
@@ -375,22 +412,23 @@ export function ReviewerDashboardView({
               {filteredNotes.slice(0, 3).map((note) => (
                 <Link
                   className={styles.latestRow}
-                  href={`/revisao/notas?busca=${encodeURIComponent(note.number)}`}
+                  href={`${notesPath}?busca=${encodeURIComponent(note.number)}`}
                   key={note.id}
                 >
                   <span className={`${styles.latestIcon} ${statusClass(note.classification)}`}>
-                    <Icon name="document" />
+                    <Icon name={statusIcon(note.classification)} />
                   </span>
                   <span className={styles.latestCopy}>
                     <strong>
-                      NF {note.number} <em>•</em> {note.supplier}
+                      Anexo {note.number} <em>•</em> {note.supplier}
                     </strong>
                     <small>
-                      {note.date} <em>•</em> {note.value}
+                      {note.date} <em>•</em>{" "}
+                      {formatDashboardMoney(parseDashboardMoney(note.value))}
                     </small>
                   </span>
                   <span className={`${styles.statusBadge} ${statusClass(note.classification)}`}>
-                    {note.classification}
+                    {statusLabel(note.classification)}
                   </span>
                 </Link>
               ))}
@@ -398,7 +436,7 @@ export function ReviewerDashboardView({
                 <div className={styles.emptyState}>Nenhum anexo encontrado.</div>
               ) : null}
             </div>
-            <Link className={styles.panelLink} href="/revisao/notas">
+            <Link className={styles.panelLink} href={notesPath}>
               Ver todos os anexos <Icon name="chevron" />
             </Link>
           </article>

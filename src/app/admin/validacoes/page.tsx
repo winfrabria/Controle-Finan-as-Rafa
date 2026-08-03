@@ -1,34 +1,5 @@
-import {
-  listNotes,
-  parseNoteListFilters,
-} from "@/features/internal-notes/note-list-query";
-import { toNoteVisualItems } from "@/features/workspace-ui/note-visual-data";
-import { ValidationWorkspace } from "@/features/workspace-ui/validation-workspace";
+import { redirect } from "next/navigation";
 
-type PageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function AdminValidationsPage({
-  searchParams,
-}: PageProps) {
-  const filters = parseNoteListFilters(await searchParams);
-  const result = await listNotes(filters, { validationOnly: true });
-  return (
-    <ValidationWorkspace
-      items={toNoteVisualItems(result.items)}
-      role="admin"
-      meta={{
-        filters: {
-          dataAte: filters.dataAte,
-          dataDe: filters.dataDe,
-          obra: filters.obra,
-        },
-        page: result.page,
-        pageCount: result.pageCount,
-        total: result.total,
-        works: result.works,
-      }}
-    />
-  );
+export default function AdminValidationsPage() {
+  redirect("/admin/notas");
 }

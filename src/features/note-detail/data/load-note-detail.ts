@@ -49,6 +49,7 @@ const noteDetailSelect = {
     take: 12,
   },
   classification: true,
+  auditResult: true,
   createdAt: true,
   documentNumber: true,
   events: {
@@ -288,6 +289,7 @@ export async function loadNoteDetail(
   ]);
   const base: NoteDetailBase = {
     analysis: {
+      auditResult: note.auditResult,
       classification: note.classification,
       extractionMarkdown: forReviewer
         ? sanitizeReviewerMarkdown(note.extractionMarkdown)
@@ -442,11 +444,18 @@ function isHttpUrl(value: string) {
 
 function eventLabel(type: string) {
   const labels: Record<string, string> = {
+    AUDIT_COMPLETED: "Auditoria da nota concluída",
     ANALYSIS_COMPLETED: "Análise concluída",
     EXTRACTION_COMPLETED: "Extração concluída",
+    EXTRACTION_STARTED: "Leitura da nota iniciada",
     EXTRACTION_FAILED: "Falha na leitura",
+    FILE_STORED: "Arquivo armazenado com segurança",
     NOTE_RECEIVED: "Nota recebida",
     PROCESSING_STARTED: "Processamento iniciado",
+    READ_FAILED: "Leitura da nota não concluída",
+    REPROCESS_SCHEDULED: "Reprocessamento solicitado",
+    UPLOAD_FAILED: "Falha no recebimento do arquivo",
+    UPLOAD_RECEIVED: "Nota recebida pelo sistema",
     VALIDATION_RECORDED: "Decisão humana registrada",
   };
   return labels[type] ?? type.replaceAll("_", " ").toLocaleLowerCase("pt-BR");

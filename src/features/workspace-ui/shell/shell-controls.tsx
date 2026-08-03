@@ -96,13 +96,6 @@ export function ShellControls({
       ...(isAdmin
         ? [
             {
-              description: "Acompanhar as decisões do revisor",
-              icon: "shield" as const,
-              keywords: "validacao validacoes suspeita pendente revisar",
-              label: "Validações",
-              path: `${basePath}/validacoes`,
-            },
-            {
               description: "Cadastrar, editar e desativar obras",
               icon: "building" as const,
               keywords: "obra obras projeto local",

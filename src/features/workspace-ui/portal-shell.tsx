@@ -20,7 +20,6 @@ export type PortalSection =
 const menu: { id: PortalSection; label: string; icon: IconName }[] = [
   { id: "dashboard", label: "Dashboard", icon: "home" },
   { id: "notas", label: "Notas", icon: "document" },
-  { id: "validacoes", label: "Validações", icon: "shield" },
   { id: "historico", label: "Histórico", icon: "clock" },
   { id: "obras", label: "Obras", icon: "building" },
   { id: "logs", label: "Logs", icon: "clock" },
@@ -52,7 +51,7 @@ export function PortalShell({
         : ["dashboard", "notas"].includes(item.id),
   );
   const adminMoreMenu = visibleMenu.filter((item) =>
-    ["obras", "validacoes", "logs"].includes(item.id),
+    ["obras", "logs"].includes(item.id),
   );
   return (
     <div className={styles.portal}>

@@ -17,6 +17,7 @@ export type NoteVisualItem = {
   id: string;
   isRead?: boolean;
   number: string;
+  responsible?: string;
   supplier: string;
   value: string;
   version: number;

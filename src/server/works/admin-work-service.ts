@@ -148,17 +148,16 @@ export async function listAdminWorks(query: ListAdminWorksQuery) {
   };
   const skip = (query.pagina - 1) * query.porPagina;
 
-  const { works, total } = await prisma.$transaction(async (transaction) => {
-    const works = await transaction.work.findMany({
+  const [works, total] = await Promise.all([
+    prisma.work.findMany({
       where,
       orderBy: [{ active: "desc" }, { name: "asc" }, { id: "asc" }],
       skip,
       take: query.porPagina,
       select: adminWorkSelect,
-    });
-    const total = await transaction.work.count({ where });
-    return { total, works };
-  });
+    }),
+    prisma.work.count({ where }),
+  ]);
 
   return {
     obras: works.map(serializeWork),

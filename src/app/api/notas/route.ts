@@ -6,9 +6,15 @@ import { NOTE_UPLOAD_FIELDS } from "@/lib/notes/upload-contract";
 import { getInvoiceStorageConfig } from "@/lib/storage";
 import { createNoteUpload } from "@/server/notes/create-note-upload";
 import { NoteUploadError } from "@/server/notes/note-upload-error";
+import {
+  getPublicCapabilityCookieName,
+  publicCapabilityCookieOptions,
+  PUBLIC_CAPABILITY_TTL_SECONDS,
+} from "@/server/notes/public-capability";
 import { processProcessingJob } from "@/server/notes/processing-jobs";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const MULTIPART_OVERHEAD_LIMIT_BYTES = 1024 * 1024;
 
@@ -103,6 +109,21 @@ export async function POST(request: Request) {
       workId: workId.trim(),
     });
 
+    const response = NextResponse.json(
+      {
+        nota: {
+          id: note.id,
+          protocolo: note.publicProtocol,
+        },
+      },
+      {
+        status: 201,
+        headers: {
+          Location: `/api/notas/${note.id}/status`,
+          "X-Request-Id": requestId,
+        },
+      },
+    );
     after(async () => {
       try {
         await processProcessingJob(note.processingJobId, {
@@ -117,23 +138,12 @@ export async function POST(request: Request) {
         });
       }
     });
-
-    return NextResponse.json(
-      {
-        nota: {
-          id: note.id,
-          jobId: note.processingJobId,
-          status: note.status,
-        },
-      },
-      {
-        status: 201,
-        headers: {
-          Location: `/api/notas/${note.id}/status`,
-          "X-Request-Id": requestId,
-        },
-      },
+    response.cookies.set(
+      getPublicCapabilityCookieName(note.id),
+      note.publicToken,
+      publicCapabilityCookieOptions(note.id, PUBLIC_CAPABILITY_TTL_SECONDS),
     );
+    return response;
   } catch (error) {
     if (error instanceof NoteUploadError) {
       return errorResponse(

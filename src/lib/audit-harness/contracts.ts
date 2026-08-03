@@ -3,9 +3,51 @@ import { z } from "zod";
 export const harnessClassificationSchema = z.enum([
   "OK",
   "SUSPICIOUS",
-  "NO_PARAMETER",
+  "NEEDS_CONTEXT",
   "READ_FAILED",
 ]);
+
+const contextQuestionOptionSchema = z
+  .object({
+    label: z.string().trim().min(1).max(160),
+    value: z.string().trim().min(1).max(80),
+  })
+  .strict();
+
+export const contextQuestionSchema = z
+  .object({
+    code: z.string().trim().min(1).max(80),
+    options: z.array(contextQuestionOptionSchema).max(10),
+    prompt: z.string().trim().min(1).max(500),
+    rationale: z.string().trim().min(1).max(1_000),
+    required: z.boolean(),
+    type: z.enum(["TEXT", "NUMBER", "SINGLE_SELECT", "BOOLEAN"]),
+  })
+  .strict()
+  .superRefine((question, context) => {
+    const values = question.options.map((option) => option.value);
+    if (new Set(values).size !== values.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Question options must be unique.",
+        path: ["options"],
+      });
+    }
+    if (question.type === "SINGLE_SELECT" && question.options.length < 2) {
+      context.addIssue({
+        code: "custom",
+        message: "Single-select questions need at least two options.",
+        path: ["options"],
+      });
+    }
+    if (question.type !== "SINGLE_SELECT" && question.options.length > 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Only single-select questions may provide options.",
+        path: ["options"],
+      });
+    }
+  });
 
 export const harnessFindingSchema = z
   .object({
@@ -39,14 +81,27 @@ export const aiDiscoveryResponseSchema = z
         limitations: z.array(z.string().trim().min(1)).max(30),
       })
       .strict(),
+    contextQuestions: z.array(contextQuestionSchema).max(3),
+    needsContext: z.boolean(),
     summary: z.string().trim().min(1).max(4_000),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    // A reanalysis may still conclude that context is insufficient after the
+    // single public round. The pipeline enforces questions on the first pass.
+    if (!value.needsContext && value.contextQuestions.length > 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Context questions require needsContext=true.",
+        path: ["contextQuestions"],
+      });
+    }
+  });
 
 export const AI_DISCOVERY_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["findings", "coverage", "summary"],
+  required: ["findings", "coverage", "needsContext", "contextQuestions", "summary"],
   properties: {
     findings: {
       type: "array",
@@ -99,6 +154,36 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
         limitations: { type: "array", items: { type: "string" } },
       },
     },
+    needsContext: { type: "boolean" },
+    contextQuestions: {
+      type: "array",
+      maxItems: 3,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["code", "options", "prompt", "rationale", "required", "type"],
+        properties: {
+          code: { type: "string", minLength: 1, maxLength: 80 },
+          options: {
+            type: "array",
+            maxItems: 10,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["label", "value"],
+              properties: {
+                label: { type: "string", minLength: 1, maxLength: 160 },
+                value: { type: "string", minLength: 1, maxLength: 80 },
+              },
+            },
+          },
+          prompt: { type: "string", minLength: 1, maxLength: 500 },
+          rationale: { type: "string", minLength: 1, maxLength: 1000 },
+          required: { type: "boolean" },
+          type: { type: "string", enum: ["TEXT", "NUMBER", "SINGLE_SELECT", "BOOLEAN"] },
+        },
+      },
+    },
     summary: { type: "string" },
   },
 } as const;
@@ -106,6 +191,14 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
 export type HarnessClassification = z.infer<typeof harnessClassificationSchema>;
 export type HarnessFinding = z.infer<typeof harnessFindingSchema>;
 export type AiDiscoveryResponse = z.infer<typeof aiDiscoveryResponseSchema>;
+export type ContextQuestion = z.infer<typeof contextQuestionSchema>;
+
+export type ContextAnswerForAudit = {
+  code: string;
+  question: string;
+  type: ContextQuestion["type"];
+  value: string | number | boolean;
+};
 
 export type HarnessInvoice = {
   documentNumber: string | null;

@@ -168,25 +168,25 @@ export async function listValidationHistory(filters: ValidationHistoryFilters) {
     decision: { in: [...releasedDecisions] },
   } satisfies Prisma.ValidationWhereInput;
 
-  const { total, validations, confirmed, released, overallTotal, selected, works } =
-    await prisma.$transaction(async (transaction) => {
-      const total = await transaction.validation.count({ where });
-      const validations = await transaction.validation.findMany({
+  const [total, validations, confirmed, released, overallTotal, selected, works] =
+    await Promise.all([
+      prisma.validation.count({ where }),
+      prisma.validation.findMany({
         where,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         skip: (filters.pagina - 1) * VALIDATION_HISTORY_PAGE_SIZE,
         take: VALIDATION_HISTORY_PAGE_SIZE,
         select: validationHistorySelect,
-      });
-      const confirmed = await transaction.validation.count({ where: confirmedWhere });
-      const released = await transaction.validation.count({ where: releasedWhere });
-      const overallTotal = await transaction.validation.count({
+      }),
+      prisma.validation.count({ where: confirmedWhere }),
+      prisma.validation.count({ where: releasedWhere }),
+      prisma.validation.count({
         where: {
           ...base,
           decision: { in: historyDecisions },
         },
-      });
-      const selected = await transaction.validation.findFirst({
+      }),
+      prisma.validation.findFirst({
         where: {
           ...base,
           decision: { in: historyDecisions },
@@ -195,13 +195,12 @@ export async function listValidationHistory(filters: ValidationHistoryFilters) {
             "00000000-0000-4000-8000-000000000000",
         },
         select: validationHistorySelect,
-      });
-      const works = await transaction.work.findMany({
+      }),
+      prisma.work.findMany({
         orderBy: [{ active: "desc" }, { name: "asc" }],
         select: { id: true, name: true },
-      });
-      return { confirmed, overallTotal, released, selected, total, validations, works };
-    });
+      }),
+    ]);
 
   const items = validations.map(toHistoryItem);
 

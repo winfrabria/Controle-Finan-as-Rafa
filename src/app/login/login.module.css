@@ -365,3 +365,159 @@
     gap: 18px;
   }
 }
+
+/* ── Primeiro viewport: login compacto e legível ── */
+@media (min-width: 769px) {
+  .container {
+    padding-block: 20px;
+  }
+
+  .logoContainer {
+    margin-bottom: 18px;
+  }
+
+  .title {
+    font-size: 28px;
+    margin-bottom: 7px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    margin-bottom: 18px;
+  }
+
+  .card {
+    padding: 24px 32px;
+  }
+
+  .form {
+    gap: 14px;
+  }
+
+  .field {
+    gap: 6px;
+  }
+
+  .inputGroup,
+  .btnPrimary,
+  .btnOutline {
+    min-height: 46px;
+    height: 46px;
+  }
+
+  .inputGroup input {
+    font-size: 14px;
+  }
+
+  .uploadSubtitle {
+    font-size: 12px;
+    margin-top: 10px;
+  }
+}
+
+@media (min-width: 769px) and (max-height: 820px) {
+  .container {
+    padding-block: 14px;
+  }
+
+  .logoContainer {
+    margin-bottom: 12px;
+  }
+
+  .card {
+    padding: 20px 28px;
+  }
+
+  .subtitle {
+    margin-bottom: 12px;
+  }
+
+  .form {
+    gap: 11px;
+  }
+
+  .inputGroup,
+  .btnPrimary,
+  .btnOutline {
+    min-height: 44px;
+    height: 44px;
+  }
+
+  .optionsRow {
+    margin-top: -3px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    justify-content: flex-start;
+    padding: 16px 16px 20px;
+  }
+
+  .logoContainer {
+    margin-bottom: 16px;
+  }
+
+  .logoSvg {
+    height: 34px;
+    width: 34px;
+  }
+
+  .logoText {
+    font-size: 26px;
+  }
+
+  .title {
+    font-size: 24px;
+    margin-bottom: 5px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .card {
+    border-radius: 14px;
+    padding: 20px 16px;
+  }
+
+  .form {
+    gap: 14px;
+  }
+
+  .field {
+    gap: 6px;
+  }
+
+  .field label,
+  .rememberLabel,
+  .forgotLink {
+    font-size: 13px;
+  }
+
+  .inputGroup,
+  .btnPrimary,
+  .btnOutline {
+    min-height: 46px;
+    height: 46px;
+  }
+
+  .inputGroup input {
+    font-size: 14px;
+  }
+
+  .btnPrimary,
+  .btnOutline {
+    font-size: 15px;
+  }
+
+  .btnUploadMobile {
+    margin-top: 14px;
+  }
+
+  .uploadSubtitle {
+    font-size: 12px;
+    margin-top: 8px;
+  }
+}

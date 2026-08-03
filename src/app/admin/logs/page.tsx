@@ -1,5 +1,7 @@
 import { LogsView } from "@/features/workspace-ui/portal-views";
+import { auditResultLabel } from "@/features/workspace-ui/audit-result-label";
 import type { AuditLog, LogClassification } from "@/features/workspace-ui/logs-explorer";
+import { attachmentReference } from "@/features/internal-notes/attachment-reference";
 import { prisma } from "@/server/db/prisma";
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", {
@@ -8,11 +10,35 @@ const dateTime = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
 });
 
-function classification(value: string | null): LogClassification {
-  if (value === "OK") return "OK";
-  if (value === "SUSPICIOUS") return "Suspeita";
-  if (value === "NO_PARAMETER" || value === "INCOMPATIBLE") return "Incompatível";
-  return "Processamento";
+function classification(
+  auditResult: string | null,
+  legacyClassification: string | null,
+  noteStatus?: string | null,
+): LogClassification {
+  const label = auditResultLabel(auditResult, legacyClassification, noteStatus);
+  return label === "Em análise" ? "Processamento" : label;
+}
+
+function runStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    FAILED: "Falhou",
+    RUNNING: "Em execução",
+    SUCCEEDED: "Concluída",
+  };
+  return labels[status] ?? status.replaceAll("_", " ").toLocaleLowerCase("pt-BR");
+}
+
+function failureCodeLabel(code: string) {
+  const labels: Record<string, string> = {
+    AUDIT_INVALID_EXTRACTION: "Os dados extraídos não eram suficientes para a auditoria",
+    AUDIT_PROVIDER_ERROR: "O provedor de IA não concluiu a auditoria",
+    EXTRACTION_CONFLICT: "Houve conflito ao salvar os dados extraídos",
+    EXTRACTION_INVALID_RESPONSE: "A resposta de leitura não estava no formato esperado",
+    EXTRACTION_PROVIDER_ERROR: "O provedor de IA não concluiu a leitura",
+    EXTRACTION_SOURCE_UNAVAILABLE: "O arquivo original não estava disponível para leitura",
+    EXTRACTION_TIMEOUT: "A leitura ultrapassou o tempo limite",
+  };
+  return labels[code] ?? code.replaceAll("_", " ").toLocaleLowerCase("pt-BR");
 }
 
 function safeJson(value: unknown) {
@@ -101,15 +127,15 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
     )
       ? requestedNoteId
       : undefined;
-  const { runs, validations, administrative, events } = await prisma.$transaction(
-    async (transaction) => {
-      const runs = await transaction.aiRun.findMany({
+  const [runs, validations, administrative, events] = await Promise.all([
+    prisma.aiRun.findMany({
       where: noteId ? { noteId } : undefined,
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {
         note: {
           select: {
+            auditResult: true,
             classification: true,
             documentNumber: true,
             id: true,
@@ -118,31 +144,33 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
           },
         },
       },
-      });
-      const validations = await transaction.validation.findMany({
+    }),
+    prisma.validation.findMany({
       where: noteId ? { noteId } : undefined,
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {
         note: {
           select: {
+            auditResult: true,
             classification: true,
             documentNumber: true,
             id: true,
+            status: true,
             work: { select: { name: true } },
           },
         },
         validator: { select: { email: true, fullName: true } },
       },
-      });
-      const administrative = await transaction.adminAuditLog.findMany({
+    }),
+    prisma.adminAuditLog.findMany({
       where: noteId
         ? { entityId: noteId, entityType: "note" }
         : undefined,
       orderBy: { createdAt: "desc" },
       take: 50,
-      });
-      const events = await transaction.noteEvent.findMany({
+    }),
+    prisma.noteEvent.findMany({
         where: noteId ? { noteId } : undefined,
         orderBy: { createdAt: "desc" },
         take: 100,
@@ -150,29 +178,36 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
           actor: { select: { email: true, fullName: true } },
           note: {
             select: {
+              auditResult: true,
               classification: true,
               documentNumber: true,
               id: true,
+              status: true,
               work: { select: { name: true } },
             },
           },
         },
-      });
-      return { administrative, events, runs, validations };
-    },
-  );
+    }),
+  ]);
 
   const runLogs: AuditLog[] = runs.map((run) => ({
     action: run.kind === "EXTRACTION" ? "Extração estruturada da nota" : "Auditoria da IA",
     at: dateTime.format(run.createdAt),
-    classification: classification(run.note.classification),
-    comment: run.errorMessage ?? `Execução ${run.status.toLowerCase()} pelo Harness.`,
+    classification: classification(
+      run.note.auditResult,
+      run.note.classification,
+      run.note.status,
+    ),
+    comment:
+      run.status === "FAILED"
+        ? "A execução não foi concluída. Consulte a falha segura e os dados técnicos abaixo."
+        : `Execução ${runStatusLabel(run.status).toLocaleLowerCase("pt-BR")} pelo Harness.`,
     dateIso: run.createdAt.toISOString().slice(0, 10),
     id: `AI-${run.id}`,
     noteId: run.note.id,
-    noteNumber: run.note.documentNumber ?? "Sem número",
-    reason: run.errorCode ?? `Política ${run.policyVersion}`,
-    status: run.status,
+    noteNumber: attachmentReference(run.note.documentNumber, run.note.id),
+    reason: run.errorCode ? failureCodeLabel(run.errorCode) : `Política ${run.policyVersion}`,
+    status: runStatusLabel(run.status),
     technical: {
       costUsd: run.costUsd?.toString(),
       effort: run.reasoningEffort,
@@ -193,12 +228,16 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
     return {
       action: confirmed ? "Revisor confirmou a suspeita" : "Revisor descartou a suspeita",
       at: dateTime.format(validation.createdAt),
-      classification: confirmed ? "Suspeita" : "OK",
+      classification: classification(
+        validation.note.auditResult,
+        validation.note.classification,
+        validation.note.status,
+      ),
       comment: validation.comment ?? "Sem comentário adicional.",
       dateIso: validation.createdAt.toISOString().slice(0, 10),
       id: `VALIDATION-${validation.id}`,
       noteId: validation.note.id,
-      noteNumber: validation.note.documentNumber ?? "Sem número",
+      noteNumber: attachmentReference(validation.note.documentNumber, validation.note.id),
       reason: validation.reason,
       status: "Decisão registrada",
       technical: { policyVersion: validation.policyVersion ?? undefined },
@@ -226,12 +265,16 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
     return {
       action: copy.action,
       at: dateTime.format(event.createdAt),
-      classification: classification(event.note.classification),
+      classification: classification(
+        event.note.auditResult,
+        event.note.classification,
+        event.note.status,
+      ),
       comment: copy.comment,
       dateIso: event.createdAt.toISOString().slice(0, 10),
       id: `EVENT-${event.id}`,
       noteId: event.note.id,
-      noteNumber: event.note.documentNumber ?? "Aguardando leitura",
+      noteNumber: attachmentReference(event.note.documentNumber, event.note.id),
       reason: "Linha do tempo do processamento",
       status: copy.status,
       user: event.actor?.fullName ?? event.actor?.email ?? "Sistema",

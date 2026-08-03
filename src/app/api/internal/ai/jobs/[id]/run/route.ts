@@ -8,6 +8,7 @@ import { requireApiRoles } from "@/server/auth/authorization";
 import { ProcessingJobError, processProcessingJob } from "@/server/notes/processing-jobs";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 export async function POST(
   _request: Request,

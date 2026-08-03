@@ -11,7 +11,9 @@ persistir qualquer dado extraído.
    evento `EXTRACTION_STARTED`.
 2. Uma resposta válida persiste campos, Markdown e itens de forma transacional,
    avança para `PROCESSING/ANALYZING` e registra `EXTRACTION_COMPLETED`.
-3. Timeout, indisponibilidade ou resposta inválida mudam a nota para
+3. Timeout, indisponibilidade ou resposta inválida mantêm a nota em
+   `PROCESSING` enquanto houver tentativas disponíveis e reagendam o job com
+   backoff. Somente depois de esgotar `maxAttempts` a nota muda para
    `FAILED/FAILED`, com código seguro e evento `EXTRACTION_FAILED`. O corpo bruto
    do provedor e a chave nunca são persistidos ou enviados ao cliente.
 

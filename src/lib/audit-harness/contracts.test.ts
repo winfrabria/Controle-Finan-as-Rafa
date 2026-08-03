@@ -23,8 +23,10 @@ test("aceita descoberta explicável e rejeita campos extras", () => {
   assert.equal(harnessFindingSchema.safeParse(finding).success, true);
   assert.equal(harnessFindingSchema.safeParse({ ...finding, chainOfThought: "segredo" }).success, false);
   assert.equal(aiDiscoveryResponseSchema.safeParse({
-    findings: [finding],
-    coverage: { sufficientEvidence: true, checkedAreas: ["PRICE"], limitations: [] },
+  findings: [finding],
+  coverage: { sufficientEvidence: true, checkedAreas: ["PRICE"], limitations: [] },
+    contextQuestions: [],
+    needsContext: false,
     summary: "Um achado adicional.",
   }).success, true);
 });

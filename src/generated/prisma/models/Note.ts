@@ -31,6 +31,7 @@ export type NoteAvgAggregateOutputType = {
   totalAmount: runtime.Decimal | null
   readConfidence: runtime.Decimal | null
   version: number | null
+  contextRound: number | null
 }
 
 export type NoteSumAggregateOutputType = {
@@ -38,12 +39,16 @@ export type NoteSumAggregateOutputType = {
   totalAmount: runtime.Decimal | null
   readConfidence: runtime.Decimal | null
   version: number | null
+  contextRound: number | null
 }
 
 export type NoteMinAggregateOutputType = {
   id: string | null
   workId: string | null
   submittedById: string | null
+  publicProtocol: string | null
+  publicTokenHash: string | null
+  publicTokenExpiresAt: Date | null
   originalFilePath: string | null
   originalFileName: string | null
   originalMimeType: string | null
@@ -57,10 +62,14 @@ export type NoteMinAggregateOutputType = {
   status: $Enums.NoteStatus | null
   processingStage: $Enums.ProcessingStage | null
   classification: $Enums.NoteClassification | null
+  auditResult: $Enums.AuditResult | null
   readConfidence: runtime.Decimal | null
   failureCode: string | null
   failureMessage: string | null
   version: number | null
+  contextRound: number | null
+  contextSubmittedAt: Date | null
+  contextSummary: string | null
   receivedAt: Date | null
   processedAt: Date | null
   createdAt: Date | null
@@ -71,6 +80,9 @@ export type NoteMaxAggregateOutputType = {
   id: string | null
   workId: string | null
   submittedById: string | null
+  publicProtocol: string | null
+  publicTokenHash: string | null
+  publicTokenExpiresAt: Date | null
   originalFilePath: string | null
   originalFileName: string | null
   originalMimeType: string | null
@@ -84,10 +96,14 @@ export type NoteMaxAggregateOutputType = {
   status: $Enums.NoteStatus | null
   processingStage: $Enums.ProcessingStage | null
   classification: $Enums.NoteClassification | null
+  auditResult: $Enums.AuditResult | null
   readConfidence: runtime.Decimal | null
   failureCode: string | null
   failureMessage: string | null
   version: number | null
+  contextRound: number | null
+  contextSubmittedAt: Date | null
+  contextSummary: string | null
   receivedAt: Date | null
   processedAt: Date | null
   createdAt: Date | null
@@ -98,6 +114,9 @@ export type NoteCountAggregateOutputType = {
   id: number
   workId: number
   submittedById: number
+  publicProtocol: number
+  publicTokenHash: number
+  publicTokenExpiresAt: number
   originalFilePath: number
   originalFileName: number
   originalMimeType: number
@@ -112,10 +131,14 @@ export type NoteCountAggregateOutputType = {
   status: number
   processingStage: number
   classification: number
+  auditResult: number
   readConfidence: number
   failureCode: number
   failureMessage: number
   version: number
+  contextRound: number
+  contextSubmittedAt: number
+  contextSummary: number
   receivedAt: number
   processedAt: number
   createdAt: number
@@ -129,6 +152,7 @@ export type NoteAvgAggregateInputType = {
   totalAmount?: true
   readConfidence?: true
   version?: true
+  contextRound?: true
 }
 
 export type NoteSumAggregateInputType = {
@@ -136,12 +160,16 @@ export type NoteSumAggregateInputType = {
   totalAmount?: true
   readConfidence?: true
   version?: true
+  contextRound?: true
 }
 
 export type NoteMinAggregateInputType = {
   id?: true
   workId?: true
   submittedById?: true
+  publicProtocol?: true
+  publicTokenHash?: true
+  publicTokenExpiresAt?: true
   originalFilePath?: true
   originalFileName?: true
   originalMimeType?: true
@@ -155,10 +183,14 @@ export type NoteMinAggregateInputType = {
   status?: true
   processingStage?: true
   classification?: true
+  auditResult?: true
   readConfidence?: true
   failureCode?: true
   failureMessage?: true
   version?: true
+  contextRound?: true
+  contextSubmittedAt?: true
+  contextSummary?: true
   receivedAt?: true
   processedAt?: true
   createdAt?: true
@@ -169,6 +201,9 @@ export type NoteMaxAggregateInputType = {
   id?: true
   workId?: true
   submittedById?: true
+  publicProtocol?: true
+  publicTokenHash?: true
+  publicTokenExpiresAt?: true
   originalFilePath?: true
   originalFileName?: true
   originalMimeType?: true
@@ -182,10 +217,14 @@ export type NoteMaxAggregateInputType = {
   status?: true
   processingStage?: true
   classification?: true
+  auditResult?: true
   readConfidence?: true
   failureCode?: true
   failureMessage?: true
   version?: true
+  contextRound?: true
+  contextSubmittedAt?: true
+  contextSummary?: true
   receivedAt?: true
   processedAt?: true
   createdAt?: true
@@ -196,6 +235,9 @@ export type NoteCountAggregateInputType = {
   id?: true
   workId?: true
   submittedById?: true
+  publicProtocol?: true
+  publicTokenHash?: true
+  publicTokenExpiresAt?: true
   originalFilePath?: true
   originalFileName?: true
   originalMimeType?: true
@@ -210,10 +252,14 @@ export type NoteCountAggregateInputType = {
   status?: true
   processingStage?: true
   classification?: true
+  auditResult?: true
   readConfidence?: true
   failureCode?: true
   failureMessage?: true
   version?: true
+  contextRound?: true
+  contextSubmittedAt?: true
+  contextSummary?: true
   receivedAt?: true
   processedAt?: true
   createdAt?: true
@@ -311,6 +357,9 @@ export type NoteGroupByOutputType = {
   id: string
   workId: string
   submittedById: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -325,10 +374,14 @@ export type NoteGroupByOutputType = {
   status: $Enums.NoteStatus
   processingStage: $Enums.ProcessingStage
   classification: $Enums.NoteClassification | null
+  auditResult: $Enums.AuditResult | null
   readConfidence: runtime.Decimal | null
   failureCode: string | null
   failureMessage: string | null
   version: number
+  contextRound: number
+  contextSubmittedAt: Date | null
+  contextSummary: string | null
   receivedAt: Date
   processedAt: Date | null
   createdAt: Date
@@ -362,6 +415,9 @@ export type NoteWhereInput = {
   id?: Prisma.UuidFilter<"Note"> | string
   workId?: Prisma.UuidFilter<"Note"> | string
   submittedById?: Prisma.UuidNullableFilter<"Note"> | string | null
+  publicProtocol?: Prisma.StringFilter<"Note"> | string
+  publicTokenHash?: Prisma.StringFilter<"Note"> | string
+  publicTokenExpiresAt?: Prisma.DateTimeFilter<"Note"> | Date | string
   originalFilePath?: Prisma.StringFilter<"Note"> | string
   originalFileName?: Prisma.StringFilter<"Note"> | string
   originalMimeType?: Prisma.StringFilter<"Note"> | string
@@ -376,10 +432,14 @@ export type NoteWhereInput = {
   status?: Prisma.EnumNoteStatusFilter<"Note"> | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFilter<"Note"> | $Enums.ProcessingStage
   classification?: Prisma.EnumNoteClassificationNullableFilter<"Note"> | $Enums.NoteClassification | null
+  auditResult?: Prisma.EnumAuditResultNullableFilter<"Note"> | $Enums.AuditResult | null
   readConfidence?: Prisma.DecimalNullableFilter<"Note"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.StringNullableFilter<"Note"> | string | null
   failureMessage?: Prisma.StringNullableFilter<"Note"> | string | null
   version?: Prisma.IntFilter<"Note"> | number
+  contextRound?: Prisma.IntFilter<"Note"> | number
+  contextSubmittedAt?: Prisma.DateTimeNullableFilter<"Note"> | Date | string | null
+  contextSummary?: Prisma.StringNullableFilter<"Note"> | string | null
   receivedAt?: Prisma.DateTimeFilter<"Note"> | Date | string
   processedAt?: Prisma.DateTimeNullableFilter<"Note"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Note"> | Date | string
@@ -394,12 +454,17 @@ export type NoteWhereInput = {
   aiRuns?: Prisma.AiRunListRelationFilter
   processingJobs?: Prisma.ProcessingJobListRelationFilter
   noteReads?: Prisma.NoteReadListRelationFilter
+  contextQuestions?: Prisma.NoteContextQuestionListRelationFilter
+  contextSubmissions?: Prisma.NoteContextSubmissionListRelationFilter
 }
 
 export type NoteOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   workId?: Prisma.SortOrder
   submittedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  publicProtocol?: Prisma.SortOrder
+  publicTokenHash?: Prisma.SortOrder
+  publicTokenExpiresAt?: Prisma.SortOrder
   originalFilePath?: Prisma.SortOrder
   originalFileName?: Prisma.SortOrder
   originalMimeType?: Prisma.SortOrder
@@ -414,10 +479,14 @@ export type NoteOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   processingStage?: Prisma.SortOrder
   classification?: Prisma.SortOrderInput | Prisma.SortOrder
+  auditResult?: Prisma.SortOrderInput | Prisma.SortOrder
   readConfidence?: Prisma.SortOrderInput | Prisma.SortOrder
   failureCode?: Prisma.SortOrderInput | Prisma.SortOrder
   failureMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   version?: Prisma.SortOrder
+  contextRound?: Prisma.SortOrder
+  contextSubmittedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  contextSummary?: Prisma.SortOrderInput | Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   processedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -432,15 +501,20 @@ export type NoteOrderByWithRelationInput = {
   aiRuns?: Prisma.AiRunOrderByRelationAggregateInput
   processingJobs?: Prisma.ProcessingJobOrderByRelationAggregateInput
   noteReads?: Prisma.NoteReadOrderByRelationAggregateInput
+  contextQuestions?: Prisma.NoteContextQuestionOrderByRelationAggregateInput
+  contextSubmissions?: Prisma.NoteContextSubmissionOrderByRelationAggregateInput
 }
 
 export type NoteWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  publicProtocol?: string
   AND?: Prisma.NoteWhereInput | Prisma.NoteWhereInput[]
   OR?: Prisma.NoteWhereInput[]
   NOT?: Prisma.NoteWhereInput | Prisma.NoteWhereInput[]
   workId?: Prisma.UuidFilter<"Note"> | string
   submittedById?: Prisma.UuidNullableFilter<"Note"> | string | null
+  publicTokenHash?: Prisma.StringFilter<"Note"> | string
+  publicTokenExpiresAt?: Prisma.DateTimeFilter<"Note"> | Date | string
   originalFilePath?: Prisma.StringFilter<"Note"> | string
   originalFileName?: Prisma.StringFilter<"Note"> | string
   originalMimeType?: Prisma.StringFilter<"Note"> | string
@@ -455,10 +529,14 @@ export type NoteWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.EnumNoteStatusFilter<"Note"> | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFilter<"Note"> | $Enums.ProcessingStage
   classification?: Prisma.EnumNoteClassificationNullableFilter<"Note"> | $Enums.NoteClassification | null
+  auditResult?: Prisma.EnumAuditResultNullableFilter<"Note"> | $Enums.AuditResult | null
   readConfidence?: Prisma.DecimalNullableFilter<"Note"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.StringNullableFilter<"Note"> | string | null
   failureMessage?: Prisma.StringNullableFilter<"Note"> | string | null
   version?: Prisma.IntFilter<"Note"> | number
+  contextRound?: Prisma.IntFilter<"Note"> | number
+  contextSubmittedAt?: Prisma.DateTimeNullableFilter<"Note"> | Date | string | null
+  contextSummary?: Prisma.StringNullableFilter<"Note"> | string | null
   receivedAt?: Prisma.DateTimeFilter<"Note"> | Date | string
   processedAt?: Prisma.DateTimeNullableFilter<"Note"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Note"> | Date | string
@@ -473,12 +551,17 @@ export type NoteWhereUniqueInput = Prisma.AtLeast<{
   aiRuns?: Prisma.AiRunListRelationFilter
   processingJobs?: Prisma.ProcessingJobListRelationFilter
   noteReads?: Prisma.NoteReadListRelationFilter
-}, "id">
+  contextQuestions?: Prisma.NoteContextQuestionListRelationFilter
+  contextSubmissions?: Prisma.NoteContextSubmissionListRelationFilter
+}, "id" | "publicProtocol">
 
 export type NoteOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   workId?: Prisma.SortOrder
   submittedById?: Prisma.SortOrderInput | Prisma.SortOrder
+  publicProtocol?: Prisma.SortOrder
+  publicTokenHash?: Prisma.SortOrder
+  publicTokenExpiresAt?: Prisma.SortOrder
   originalFilePath?: Prisma.SortOrder
   originalFileName?: Prisma.SortOrder
   originalMimeType?: Prisma.SortOrder
@@ -493,10 +576,14 @@ export type NoteOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   processingStage?: Prisma.SortOrder
   classification?: Prisma.SortOrderInput | Prisma.SortOrder
+  auditResult?: Prisma.SortOrderInput | Prisma.SortOrder
   readConfidence?: Prisma.SortOrderInput | Prisma.SortOrder
   failureCode?: Prisma.SortOrderInput | Prisma.SortOrder
   failureMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   version?: Prisma.SortOrder
+  contextRound?: Prisma.SortOrder
+  contextSubmittedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  contextSummary?: Prisma.SortOrderInput | Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   processedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -515,6 +602,9 @@ export type NoteScalarWhereWithAggregatesInput = {
   id?: Prisma.UuidWithAggregatesFilter<"Note"> | string
   workId?: Prisma.UuidWithAggregatesFilter<"Note"> | string
   submittedById?: Prisma.UuidNullableWithAggregatesFilter<"Note"> | string | null
+  publicProtocol?: Prisma.StringWithAggregatesFilter<"Note"> | string
+  publicTokenHash?: Prisma.StringWithAggregatesFilter<"Note"> | string
+  publicTokenExpiresAt?: Prisma.DateTimeWithAggregatesFilter<"Note"> | Date | string
   originalFilePath?: Prisma.StringWithAggregatesFilter<"Note"> | string
   originalFileName?: Prisma.StringWithAggregatesFilter<"Note"> | string
   originalMimeType?: Prisma.StringWithAggregatesFilter<"Note"> | string
@@ -529,10 +619,14 @@ export type NoteScalarWhereWithAggregatesInput = {
   status?: Prisma.EnumNoteStatusWithAggregatesFilter<"Note"> | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageWithAggregatesFilter<"Note"> | $Enums.ProcessingStage
   classification?: Prisma.EnumNoteClassificationNullableWithAggregatesFilter<"Note"> | $Enums.NoteClassification | null
+  auditResult?: Prisma.EnumAuditResultNullableWithAggregatesFilter<"Note"> | $Enums.AuditResult | null
   readConfidence?: Prisma.DecimalNullableWithAggregatesFilter<"Note"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.StringNullableWithAggregatesFilter<"Note"> | string | null
   failureMessage?: Prisma.StringNullableWithAggregatesFilter<"Note"> | string | null
   version?: Prisma.IntWithAggregatesFilter<"Note"> | number
+  contextRound?: Prisma.IntWithAggregatesFilter<"Note"> | number
+  contextSubmittedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Note"> | Date | string | null
+  contextSummary?: Prisma.StringNullableWithAggregatesFilter<"Note"> | string | null
   receivedAt?: Prisma.DateTimeWithAggregatesFilter<"Note"> | Date | string
   processedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Note"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Note"> | Date | string
@@ -541,6 +635,9 @@ export type NoteScalarWhereWithAggregatesInput = {
 
 export type NoteCreateInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -555,10 +652,14 @@ export type NoteCreateInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -573,12 +674,17 @@ export type NoteCreateInput = {
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateInput = {
   id?: string
   workId: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -593,10 +699,14 @@ export type NoteUncheckedCreateInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -609,10 +719,15 @@ export type NoteUncheckedCreateInput = {
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -627,10 +742,14 @@ export type NoteUpdateInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -645,12 +764,17 @@ export type NoteUpdateInput = {
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -665,10 +789,14 @@ export type NoteUncheckedUpdateInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -681,12 +809,17 @@ export type NoteUncheckedUpdateInput = {
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateManyInput = {
   id?: string
   workId: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -701,10 +834,14 @@ export type NoteCreateManyInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -713,6 +850,9 @@ export type NoteCreateManyInput = {
 
 export type NoteUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -727,10 +867,14 @@ export type NoteUpdateManyMutationInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -741,6 +885,9 @@ export type NoteUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -755,10 +902,14 @@ export type NoteUncheckedUpdateManyInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -779,6 +930,9 @@ export type NoteCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   workId?: Prisma.SortOrder
   submittedById?: Prisma.SortOrder
+  publicProtocol?: Prisma.SortOrder
+  publicTokenHash?: Prisma.SortOrder
+  publicTokenExpiresAt?: Prisma.SortOrder
   originalFilePath?: Prisma.SortOrder
   originalFileName?: Prisma.SortOrder
   originalMimeType?: Prisma.SortOrder
@@ -793,10 +947,14 @@ export type NoteCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   processingStage?: Prisma.SortOrder
   classification?: Prisma.SortOrder
+  auditResult?: Prisma.SortOrder
   readConfidence?: Prisma.SortOrder
   failureCode?: Prisma.SortOrder
   failureMessage?: Prisma.SortOrder
   version?: Prisma.SortOrder
+  contextRound?: Prisma.SortOrder
+  contextSubmittedAt?: Prisma.SortOrder
+  contextSummary?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   processedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -808,12 +966,16 @@ export type NoteAvgOrderByAggregateInput = {
   totalAmount?: Prisma.SortOrder
   readConfidence?: Prisma.SortOrder
   version?: Prisma.SortOrder
+  contextRound?: Prisma.SortOrder
 }
 
 export type NoteMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   workId?: Prisma.SortOrder
   submittedById?: Prisma.SortOrder
+  publicProtocol?: Prisma.SortOrder
+  publicTokenHash?: Prisma.SortOrder
+  publicTokenExpiresAt?: Prisma.SortOrder
   originalFilePath?: Prisma.SortOrder
   originalFileName?: Prisma.SortOrder
   originalMimeType?: Prisma.SortOrder
@@ -827,10 +989,14 @@ export type NoteMaxOrderByAggregateInput = {
   status?: Prisma.SortOrder
   processingStage?: Prisma.SortOrder
   classification?: Prisma.SortOrder
+  auditResult?: Prisma.SortOrder
   readConfidence?: Prisma.SortOrder
   failureCode?: Prisma.SortOrder
   failureMessage?: Prisma.SortOrder
   version?: Prisma.SortOrder
+  contextRound?: Prisma.SortOrder
+  contextSubmittedAt?: Prisma.SortOrder
+  contextSummary?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   processedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -841,6 +1007,9 @@ export type NoteMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   workId?: Prisma.SortOrder
   submittedById?: Prisma.SortOrder
+  publicProtocol?: Prisma.SortOrder
+  publicTokenHash?: Prisma.SortOrder
+  publicTokenExpiresAt?: Prisma.SortOrder
   originalFilePath?: Prisma.SortOrder
   originalFileName?: Prisma.SortOrder
   originalMimeType?: Prisma.SortOrder
@@ -854,10 +1023,14 @@ export type NoteMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   processingStage?: Prisma.SortOrder
   classification?: Prisma.SortOrder
+  auditResult?: Prisma.SortOrder
   readConfidence?: Prisma.SortOrder
   failureCode?: Prisma.SortOrder
   failureMessage?: Prisma.SortOrder
   version?: Prisma.SortOrder
+  contextRound?: Prisma.SortOrder
+  contextSubmittedAt?: Prisma.SortOrder
+  contextSummary?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   processedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -869,6 +1042,7 @@ export type NoteSumOrderByAggregateInput = {
   totalAmount?: Prisma.SortOrder
   readConfidence?: Prisma.SortOrder
   version?: Prisma.SortOrder
+  contextRound?: Prisma.SortOrder
 }
 
 export type NoteScalarRelationFilter = {
@@ -997,6 +1171,10 @@ export type NullableEnumNoteClassificationFieldUpdateOperationsInput = {
   set?: $Enums.NoteClassification | null
 }
 
+export type NullableEnumAuditResultFieldUpdateOperationsInput = {
+  set?: $Enums.AuditResult | null
+}
+
 export type IntFieldUpdateOperationsInput = {
   set?: number
   increment?: number
@@ -1061,6 +1239,34 @@ export type NoteUpdateOneRequiredWithoutProcessingJobsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.NoteUpdateToOneWithWhereWithoutProcessingJobsInput, Prisma.NoteUpdateWithoutProcessingJobsInput>, Prisma.NoteUncheckedUpdateWithoutProcessingJobsInput>
 }
 
+export type NoteCreateNestedOneWithoutContextQuestionsInput = {
+  create?: Prisma.XOR<Prisma.NoteCreateWithoutContextQuestionsInput, Prisma.NoteUncheckedCreateWithoutContextQuestionsInput>
+  connectOrCreate?: Prisma.NoteCreateOrConnectWithoutContextQuestionsInput
+  connect?: Prisma.NoteWhereUniqueInput
+}
+
+export type NoteUpdateOneRequiredWithoutContextQuestionsNestedInput = {
+  create?: Prisma.XOR<Prisma.NoteCreateWithoutContextQuestionsInput, Prisma.NoteUncheckedCreateWithoutContextQuestionsInput>
+  connectOrCreate?: Prisma.NoteCreateOrConnectWithoutContextQuestionsInput
+  upsert?: Prisma.NoteUpsertWithoutContextQuestionsInput
+  connect?: Prisma.NoteWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.NoteUpdateToOneWithWhereWithoutContextQuestionsInput, Prisma.NoteUpdateWithoutContextQuestionsInput>, Prisma.NoteUncheckedUpdateWithoutContextQuestionsInput>
+}
+
+export type NoteCreateNestedOneWithoutContextSubmissionsInput = {
+  create?: Prisma.XOR<Prisma.NoteCreateWithoutContextSubmissionsInput, Prisma.NoteUncheckedCreateWithoutContextSubmissionsInput>
+  connectOrCreate?: Prisma.NoteCreateOrConnectWithoutContextSubmissionsInput
+  connect?: Prisma.NoteWhereUniqueInput
+}
+
+export type NoteUpdateOneRequiredWithoutContextSubmissionsNestedInput = {
+  create?: Prisma.XOR<Prisma.NoteCreateWithoutContextSubmissionsInput, Prisma.NoteUncheckedCreateWithoutContextSubmissionsInput>
+  connectOrCreate?: Prisma.NoteCreateOrConnectWithoutContextSubmissionsInput
+  upsert?: Prisma.NoteUpsertWithoutContextSubmissionsInput
+  connect?: Prisma.NoteWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.NoteUpdateToOneWithWhereWithoutContextSubmissionsInput, Prisma.NoteUpdateWithoutContextSubmissionsInput>, Prisma.NoteUncheckedUpdateWithoutContextSubmissionsInput>
+}
+
 export type NoteCreateNestedOneWithoutAiRunsInput = {
   create?: Prisma.XOR<Prisma.NoteCreateWithoutAiRunsInput, Prisma.NoteUncheckedCreateWithoutAiRunsInput>
   connectOrCreate?: Prisma.NoteCreateOrConnectWithoutAiRunsInput
@@ -1121,6 +1327,9 @@ export type NoteUpdateOneRequiredWithoutNoteReadsNestedInput = {
 
 export type NoteCreateWithoutSubmittedByInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1135,10 +1344,14 @@ export type NoteCreateWithoutSubmittedByInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1152,11 +1365,16 @@ export type NoteCreateWithoutSubmittedByInput = {
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutSubmittedByInput = {
   id?: string
   workId: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1171,10 +1389,14 @@ export type NoteUncheckedCreateWithoutSubmittedByInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1187,6 +1409,8 @@ export type NoteUncheckedCreateWithoutSubmittedByInput = {
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutSubmittedByInput = {
@@ -1222,6 +1446,9 @@ export type NoteScalarWhereInput = {
   id?: Prisma.UuidFilter<"Note"> | string
   workId?: Prisma.UuidFilter<"Note"> | string
   submittedById?: Prisma.UuidNullableFilter<"Note"> | string | null
+  publicProtocol?: Prisma.StringFilter<"Note"> | string
+  publicTokenHash?: Prisma.StringFilter<"Note"> | string
+  publicTokenExpiresAt?: Prisma.DateTimeFilter<"Note"> | Date | string
   originalFilePath?: Prisma.StringFilter<"Note"> | string
   originalFileName?: Prisma.StringFilter<"Note"> | string
   originalMimeType?: Prisma.StringFilter<"Note"> | string
@@ -1236,10 +1463,14 @@ export type NoteScalarWhereInput = {
   status?: Prisma.EnumNoteStatusFilter<"Note"> | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFilter<"Note"> | $Enums.ProcessingStage
   classification?: Prisma.EnumNoteClassificationNullableFilter<"Note"> | $Enums.NoteClassification | null
+  auditResult?: Prisma.EnumAuditResultNullableFilter<"Note"> | $Enums.AuditResult | null
   readConfidence?: Prisma.DecimalNullableFilter<"Note"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.StringNullableFilter<"Note"> | string | null
   failureMessage?: Prisma.StringNullableFilter<"Note"> | string | null
   version?: Prisma.IntFilter<"Note"> | number
+  contextRound?: Prisma.IntFilter<"Note"> | number
+  contextSubmittedAt?: Prisma.DateTimeNullableFilter<"Note"> | Date | string | null
+  contextSummary?: Prisma.StringNullableFilter<"Note"> | string | null
   receivedAt?: Prisma.DateTimeFilter<"Note"> | Date | string
   processedAt?: Prisma.DateTimeNullableFilter<"Note"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"Note"> | Date | string
@@ -1248,6 +1479,9 @@ export type NoteScalarWhereInput = {
 
 export type NoteCreateWithoutWorkInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1262,10 +1496,14 @@ export type NoteCreateWithoutWorkInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1279,11 +1517,16 @@ export type NoteCreateWithoutWorkInput = {
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutWorkInput = {
   id?: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1298,10 +1541,14 @@ export type NoteUncheckedCreateWithoutWorkInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1314,6 +1561,8 @@ export type NoteUncheckedCreateWithoutWorkInput = {
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutWorkInput = {
@@ -1344,6 +1593,9 @@ export type NoteUpdateManyWithWhereWithoutWorkInput = {
 
 export type NoteCreateWithoutItemsInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1358,10 +1610,14 @@ export type NoteCreateWithoutItemsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1375,12 +1631,17 @@ export type NoteCreateWithoutItemsInput = {
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutItemsInput = {
   id?: string
   workId: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1395,10 +1656,14 @@ export type NoteUncheckedCreateWithoutItemsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1410,6 +1675,8 @@ export type NoteUncheckedCreateWithoutItemsInput = {
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutItemsInput = {
@@ -1430,6 +1697,9 @@ export type NoteUpdateToOneWithWhereWithoutItemsInput = {
 
 export type NoteUpdateWithoutItemsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1444,10 +1714,14 @@ export type NoteUpdateWithoutItemsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1461,12 +1735,17 @@ export type NoteUpdateWithoutItemsInput = {
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutItemsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1481,10 +1760,14 @@ export type NoteUncheckedUpdateWithoutItemsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1496,10 +1779,15 @@ export type NoteUncheckedUpdateWithoutItemsInput = {
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutFindingsInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1514,10 +1802,14 @@ export type NoteCreateWithoutFindingsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1531,12 +1823,17 @@ export type NoteCreateWithoutFindingsInput = {
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutFindingsInput = {
   id?: string
   workId: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1551,10 +1848,14 @@ export type NoteUncheckedCreateWithoutFindingsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1566,6 +1867,8 @@ export type NoteUncheckedCreateWithoutFindingsInput = {
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutFindingsInput = {
@@ -1586,6 +1889,9 @@ export type NoteUpdateToOneWithWhereWithoutFindingsInput = {
 
 export type NoteUpdateWithoutFindingsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1600,10 +1906,14 @@ export type NoteUpdateWithoutFindingsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1617,12 +1927,17 @@ export type NoteUpdateWithoutFindingsInput = {
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutFindingsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1637,10 +1952,14 @@ export type NoteUncheckedUpdateWithoutFindingsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1652,10 +1971,15 @@ export type NoteUncheckedUpdateWithoutFindingsInput = {
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutValidationsInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1670,10 +1994,14 @@ export type NoteCreateWithoutValidationsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1687,12 +2015,17 @@ export type NoteCreateWithoutValidationsInput = {
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutValidationsInput = {
   id?: string
   workId: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1707,10 +2040,14 @@ export type NoteUncheckedCreateWithoutValidationsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1722,6 +2059,8 @@ export type NoteUncheckedCreateWithoutValidationsInput = {
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutValidationsInput = {
@@ -1742,6 +2081,9 @@ export type NoteUpdateToOneWithWhereWithoutValidationsInput = {
 
 export type NoteUpdateWithoutValidationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1756,10 +2098,14 @@ export type NoteUpdateWithoutValidationsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1773,12 +2119,17 @@ export type NoteUpdateWithoutValidationsInput = {
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutValidationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1793,10 +2144,14 @@ export type NoteUncheckedUpdateWithoutValidationsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1808,10 +2163,15 @@ export type NoteUncheckedUpdateWithoutValidationsInput = {
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutProcessingJobsInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1826,10 +2186,14 @@ export type NoteCreateWithoutProcessingJobsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1843,12 +2207,17 @@ export type NoteCreateWithoutProcessingJobsInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutProcessingJobsInput = {
   id?: string
   workId: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1863,10 +2232,14 @@ export type NoteUncheckedCreateWithoutProcessingJobsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1878,6 +2251,8 @@ export type NoteUncheckedCreateWithoutProcessingJobsInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutProcessingJobsInput = {
@@ -1898,6 +2273,9 @@ export type NoteUpdateToOneWithWhereWithoutProcessingJobsInput = {
 
 export type NoteUpdateWithoutProcessingJobsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1912,10 +2290,14 @@ export type NoteUpdateWithoutProcessingJobsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1929,12 +2311,17 @@ export type NoteUpdateWithoutProcessingJobsInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutProcessingJobsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1949,10 +2336,14 @@ export type NoteUncheckedUpdateWithoutProcessingJobsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1964,10 +2355,15 @@ export type NoteUncheckedUpdateWithoutProcessingJobsInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
-export type NoteCreateWithoutAiRunsInput = {
+export type NoteCreateWithoutContextQuestionsInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -1982,10 +2378,398 @@ export type NoteCreateWithoutAiRunsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
+  receivedAt?: Date | string
+  processedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  work: Prisma.WorkCreateNestedOneWithoutNotesInput
+  submittedBy?: Prisma.ProfileCreateNestedOneWithoutSubmittedNotesInput
+  items?: Prisma.NoteItemCreateNestedManyWithoutNoteInput
+  findings?: Prisma.FindingCreateNestedManyWithoutNoteInput
+  validations?: Prisma.ValidationCreateNestedManyWithoutNoteInput
+  events?: Prisma.NoteEventCreateNestedManyWithoutNoteInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
+  aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
+  processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
+}
+
+export type NoteUncheckedCreateWithoutContextQuestionsInput = {
+  id?: string
+  workId: string
+  submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
+  originalFilePath: string
+  originalFileName: string
+  originalMimeType: string
+  originalSizeBytes: bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: string | null
+  documentNumber?: string | null
+  supplierName?: string | null
+  supplierTaxId?: string | null
+  issuedAt?: Date | string | null
+  totalAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: $Enums.NoteStatus
+  processingStage?: $Enums.ProcessingStage
+  classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
+  readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: string | null
+  failureMessage?: string | null
+  version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
+  receivedAt?: Date | string
+  processedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  items?: Prisma.NoteItemUncheckedCreateNestedManyWithoutNoteInput
+  findings?: Prisma.FindingUncheckedCreateNestedManyWithoutNoteInput
+  validations?: Prisma.ValidationUncheckedCreateNestedManyWithoutNoteInput
+  events?: Prisma.NoteEventUncheckedCreateNestedManyWithoutNoteInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
+  aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
+  processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
+}
+
+export type NoteCreateOrConnectWithoutContextQuestionsInput = {
+  where: Prisma.NoteWhereUniqueInput
+  create: Prisma.XOR<Prisma.NoteCreateWithoutContextQuestionsInput, Prisma.NoteUncheckedCreateWithoutContextQuestionsInput>
+}
+
+export type NoteUpsertWithoutContextQuestionsInput = {
+  update: Prisma.XOR<Prisma.NoteUpdateWithoutContextQuestionsInput, Prisma.NoteUncheckedUpdateWithoutContextQuestionsInput>
+  create: Prisma.XOR<Prisma.NoteCreateWithoutContextQuestionsInput, Prisma.NoteUncheckedCreateWithoutContextQuestionsInput>
+  where?: Prisma.NoteWhereInput
+}
+
+export type NoteUpdateToOneWithWhereWithoutContextQuestionsInput = {
+  where?: Prisma.NoteWhereInput
+  data: Prisma.XOR<Prisma.NoteUpdateWithoutContextQuestionsInput, Prisma.NoteUncheckedUpdateWithoutContextQuestionsInput>
+}
+
+export type NoteUpdateWithoutContextQuestionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
+  originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
+  originalSizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  documentNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierTaxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  issuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
+  processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
+  classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
+  readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  work?: Prisma.WorkUpdateOneRequiredWithoutNotesNestedInput
+  submittedBy?: Prisma.ProfileUpdateOneWithoutSubmittedNotesNestedInput
+  items?: Prisma.NoteItemUpdateManyWithoutNoteNestedInput
+  findings?: Prisma.FindingUpdateManyWithoutNoteNestedInput
+  validations?: Prisma.ValidationUpdateManyWithoutNoteNestedInput
+  events?: Prisma.NoteEventUpdateManyWithoutNoteNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
+  aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
+  processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
+}
+
+export type NoteUncheckedUpdateWithoutContextQuestionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  workId?: Prisma.StringFieldUpdateOperationsInput | string
+  submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
+  originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
+  originalSizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  documentNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierTaxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  issuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
+  processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
+  classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
+  readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  items?: Prisma.NoteItemUncheckedUpdateManyWithoutNoteNestedInput
+  findings?: Prisma.FindingUncheckedUpdateManyWithoutNoteNestedInput
+  validations?: Prisma.ValidationUncheckedUpdateManyWithoutNoteNestedInput
+  events?: Prisma.NoteEventUncheckedUpdateManyWithoutNoteNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
+  aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
+  processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
+}
+
+export type NoteCreateWithoutContextSubmissionsInput = {
+  id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
+  originalFilePath: string
+  originalFileName: string
+  originalMimeType: string
+  originalSizeBytes: bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: string | null
+  documentNumber?: string | null
+  supplierName?: string | null
+  supplierTaxId?: string | null
+  issuedAt?: Date | string | null
+  totalAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: $Enums.NoteStatus
+  processingStage?: $Enums.ProcessingStage
+  classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
+  readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: string | null
+  failureMessage?: string | null
+  version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
+  receivedAt?: Date | string
+  processedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  work: Prisma.WorkCreateNestedOneWithoutNotesInput
+  submittedBy?: Prisma.ProfileCreateNestedOneWithoutSubmittedNotesInput
+  items?: Prisma.NoteItemCreateNestedManyWithoutNoteInput
+  findings?: Prisma.FindingCreateNestedManyWithoutNoteInput
+  validations?: Prisma.ValidationCreateNestedManyWithoutNoteInput
+  events?: Prisma.NoteEventCreateNestedManyWithoutNoteInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
+  aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
+  processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+}
+
+export type NoteUncheckedCreateWithoutContextSubmissionsInput = {
+  id?: string
+  workId: string
+  submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
+  originalFilePath: string
+  originalFileName: string
+  originalMimeType: string
+  originalSizeBytes: bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: string | null
+  documentNumber?: string | null
+  supplierName?: string | null
+  supplierTaxId?: string | null
+  issuedAt?: Date | string | null
+  totalAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: $Enums.NoteStatus
+  processingStage?: $Enums.ProcessingStage
+  classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
+  readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: string | null
+  failureMessage?: string | null
+  version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
+  receivedAt?: Date | string
+  processedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  items?: Prisma.NoteItemUncheckedCreateNestedManyWithoutNoteInput
+  findings?: Prisma.FindingUncheckedCreateNestedManyWithoutNoteInput
+  validations?: Prisma.ValidationUncheckedCreateNestedManyWithoutNoteInput
+  events?: Prisma.NoteEventUncheckedCreateNestedManyWithoutNoteInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
+  aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
+  processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+}
+
+export type NoteCreateOrConnectWithoutContextSubmissionsInput = {
+  where: Prisma.NoteWhereUniqueInput
+  create: Prisma.XOR<Prisma.NoteCreateWithoutContextSubmissionsInput, Prisma.NoteUncheckedCreateWithoutContextSubmissionsInput>
+}
+
+export type NoteUpsertWithoutContextSubmissionsInput = {
+  update: Prisma.XOR<Prisma.NoteUpdateWithoutContextSubmissionsInput, Prisma.NoteUncheckedUpdateWithoutContextSubmissionsInput>
+  create: Prisma.XOR<Prisma.NoteCreateWithoutContextSubmissionsInput, Prisma.NoteUncheckedCreateWithoutContextSubmissionsInput>
+  where?: Prisma.NoteWhereInput
+}
+
+export type NoteUpdateToOneWithWhereWithoutContextSubmissionsInput = {
+  where?: Prisma.NoteWhereInput
+  data: Prisma.XOR<Prisma.NoteUpdateWithoutContextSubmissionsInput, Prisma.NoteUncheckedUpdateWithoutContextSubmissionsInput>
+}
+
+export type NoteUpdateWithoutContextSubmissionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
+  originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
+  originalSizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  documentNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierTaxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  issuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
+  processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
+  classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
+  readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  work?: Prisma.WorkUpdateOneRequiredWithoutNotesNestedInput
+  submittedBy?: Prisma.ProfileUpdateOneWithoutSubmittedNotesNestedInput
+  items?: Prisma.NoteItemUpdateManyWithoutNoteNestedInput
+  findings?: Prisma.FindingUpdateManyWithoutNoteNestedInput
+  validations?: Prisma.ValidationUpdateManyWithoutNoteNestedInput
+  events?: Prisma.NoteEventUpdateManyWithoutNoteNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
+  aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
+  processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+}
+
+export type NoteUncheckedUpdateWithoutContextSubmissionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  workId?: Prisma.StringFieldUpdateOperationsInput | string
+  submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
+  originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
+  originalSizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  documentNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supplierTaxId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  issuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  totalAmount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
+  processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
+  classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
+  readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  items?: Prisma.NoteItemUncheckedUpdateManyWithoutNoteNestedInput
+  findings?: Prisma.FindingUncheckedUpdateManyWithoutNoteNestedInput
+  validations?: Prisma.ValidationUncheckedUpdateManyWithoutNoteNestedInput
+  events?: Prisma.NoteEventUncheckedUpdateManyWithoutNoteNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
+  aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
+  processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+}
+
+export type NoteCreateWithoutAiRunsInput = {
+  id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
+  originalFilePath: string
+  originalFileName: string
+  originalMimeType: string
+  originalSizeBytes: bigint | number
+  extractedData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  extractionMarkdown?: string | null
+  documentNumber?: string | null
+  supplierName?: string | null
+  supplierTaxId?: string | null
+  issuedAt?: Date | string | null
+  totalAmount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  status?: $Enums.NoteStatus
+  processingStage?: $Enums.ProcessingStage
+  classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
+  readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  failureCode?: string | null
+  failureMessage?: string | null
+  version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -1999,12 +2783,17 @@ export type NoteCreateWithoutAiRunsInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutAiRunsInput = {
   id?: string
   workId: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -2019,10 +2808,14 @@ export type NoteUncheckedCreateWithoutAiRunsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -2034,6 +2827,8 @@ export type NoteUncheckedCreateWithoutAiRunsInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutAiRunsInput = {
@@ -2054,6 +2849,9 @@ export type NoteUpdateToOneWithWhereWithoutAiRunsInput = {
 
 export type NoteUpdateWithoutAiRunsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2068,10 +2866,14 @@ export type NoteUpdateWithoutAiRunsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2085,12 +2887,17 @@ export type NoteUpdateWithoutAiRunsInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutAiRunsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2105,10 +2912,14 @@ export type NoteUncheckedUpdateWithoutAiRunsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2120,10 +2931,15 @@ export type NoteUncheckedUpdateWithoutAiRunsInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutEventsInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -2138,10 +2954,14 @@ export type NoteCreateWithoutEventsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -2155,12 +2975,17 @@ export type NoteCreateWithoutEventsInput = {
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutEventsInput = {
   id?: string
   workId: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -2175,10 +3000,14 @@ export type NoteUncheckedCreateWithoutEventsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -2190,6 +3019,8 @@ export type NoteUncheckedCreateWithoutEventsInput = {
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutEventsInput = {
@@ -2210,6 +3041,9 @@ export type NoteUpdateToOneWithWhereWithoutEventsInput = {
 
 export type NoteUpdateWithoutEventsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2224,10 +3058,14 @@ export type NoteUpdateWithoutEventsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2241,12 +3079,17 @@ export type NoteUpdateWithoutEventsInput = {
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutEventsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2261,10 +3104,14 @@ export type NoteUncheckedUpdateWithoutEventsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2276,10 +3123,15 @@ export type NoteUncheckedUpdateWithoutEventsInput = {
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutNotificationsInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -2294,10 +3146,14 @@ export type NoteCreateWithoutNotificationsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -2311,12 +3167,17 @@ export type NoteCreateWithoutNotificationsInput = {
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutNotificationsInput = {
   id?: string
   workId: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -2331,10 +3192,14 @@ export type NoteUncheckedCreateWithoutNotificationsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -2346,6 +3211,8 @@ export type NoteUncheckedCreateWithoutNotificationsInput = {
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
   noteReads?: Prisma.NoteReadUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutNotificationsInput = {
@@ -2366,6 +3233,9 @@ export type NoteUpdateToOneWithWhereWithoutNotificationsInput = {
 
 export type NoteUpdateWithoutNotificationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2380,10 +3250,14 @@ export type NoteUpdateWithoutNotificationsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2397,12 +3271,17 @@ export type NoteUpdateWithoutNotificationsInput = {
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutNotificationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2417,10 +3296,14 @@ export type NoteUncheckedUpdateWithoutNotificationsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2432,10 +3315,15 @@ export type NoteUncheckedUpdateWithoutNotificationsInput = {
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateWithoutNoteReadsInput = {
   id?: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -2450,10 +3338,14 @@ export type NoteCreateWithoutNoteReadsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -2467,12 +3359,17 @@ export type NoteCreateWithoutNoteReadsInput = {
   notifications?: Prisma.NotificationCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionCreateNestedManyWithoutNoteInput
 }
 
 export type NoteUncheckedCreateWithoutNoteReadsInput = {
   id?: string
   workId: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -2487,10 +3384,14 @@ export type NoteUncheckedCreateWithoutNoteReadsInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -2502,6 +3403,8 @@ export type NoteUncheckedCreateWithoutNoteReadsInput = {
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutNoteInput
   aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutNoteInput
   processingJobs?: Prisma.ProcessingJobUncheckedCreateNestedManyWithoutNoteInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutNoteInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedCreateNestedManyWithoutNoteInput
 }
 
 export type NoteCreateOrConnectWithoutNoteReadsInput = {
@@ -2522,6 +3425,9 @@ export type NoteUpdateToOneWithWhereWithoutNoteReadsInput = {
 
 export type NoteUpdateWithoutNoteReadsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2536,10 +3442,14 @@ export type NoteUpdateWithoutNoteReadsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2553,12 +3463,17 @@ export type NoteUpdateWithoutNoteReadsInput = {
   notifications?: Prisma.NotificationUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutNoteReadsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2573,10 +3488,14 @@ export type NoteUncheckedUpdateWithoutNoteReadsInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2588,11 +3507,16 @@ export type NoteUncheckedUpdateWithoutNoteReadsInput = {
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutNoteNestedInput
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteCreateManySubmittedByInput = {
   id?: string
   workId: string
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -2607,10 +3531,14 @@ export type NoteCreateManySubmittedByInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -2619,6 +3547,9 @@ export type NoteCreateManySubmittedByInput = {
 
 export type NoteUpdateWithoutSubmittedByInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2633,10 +3564,14 @@ export type NoteUpdateWithoutSubmittedByInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2650,11 +3585,16 @@ export type NoteUpdateWithoutSubmittedByInput = {
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutSubmittedByInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2669,10 +3609,14 @@ export type NoteUncheckedUpdateWithoutSubmittedByInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2685,11 +3629,16 @@ export type NoteUncheckedUpdateWithoutSubmittedByInput = {
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateManyWithoutSubmittedByInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   workId?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2704,10 +3653,14 @@ export type NoteUncheckedUpdateManyWithoutSubmittedByInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2717,6 +3670,9 @@ export type NoteUncheckedUpdateManyWithoutSubmittedByInput = {
 export type NoteCreateManyWorkInput = {
   id?: string
   submittedById?: string | null
+  publicProtocol: string
+  publicTokenHash: string
+  publicTokenExpiresAt: Date | string
   originalFilePath: string
   originalFileName: string
   originalMimeType: string
@@ -2731,10 +3687,14 @@ export type NoteCreateManyWorkInput = {
   status?: $Enums.NoteStatus
   processingStage?: $Enums.ProcessingStage
   classification?: $Enums.NoteClassification | null
+  auditResult?: $Enums.AuditResult | null
   readConfidence?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: string | null
   failureMessage?: string | null
   version?: number
+  contextRound?: number
+  contextSubmittedAt?: Date | string | null
+  contextSummary?: string | null
   receivedAt?: Date | string
   processedAt?: Date | string | null
   createdAt?: Date | string
@@ -2743,6 +3703,9 @@ export type NoteCreateManyWorkInput = {
 
 export type NoteUpdateWithoutWorkInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2757,10 +3720,14 @@ export type NoteUpdateWithoutWorkInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2774,11 +3741,16 @@ export type NoteUpdateWithoutWorkInput = {
   aiRuns?: Prisma.AiRunUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutWorkInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2793,10 +3765,14 @@ export type NoteUncheckedUpdateWithoutWorkInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2809,11 +3785,16 @@ export type NoteUncheckedUpdateWithoutWorkInput = {
   aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutNoteNestedInput
   processingJobs?: Prisma.ProcessingJobUncheckedUpdateManyWithoutNoteNestedInput
   noteReads?: Prisma.NoteReadUncheckedUpdateManyWithoutNoteNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutNoteNestedInput
+  contextSubmissions?: Prisma.NoteContextSubmissionUncheckedUpdateManyWithoutNoteNestedInput
 }
 
 export type NoteUncheckedUpdateManyWithoutWorkInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   submittedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  publicProtocol?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  publicTokenExpiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   originalFilePath?: Prisma.StringFieldUpdateOperationsInput | string
   originalFileName?: Prisma.StringFieldUpdateOperationsInput | string
   originalMimeType?: Prisma.StringFieldUpdateOperationsInput | string
@@ -2828,10 +3809,14 @@ export type NoteUncheckedUpdateManyWithoutWorkInput = {
   status?: Prisma.EnumNoteStatusFieldUpdateOperationsInput | $Enums.NoteStatus
   processingStage?: Prisma.EnumProcessingStageFieldUpdateOperationsInput | $Enums.ProcessingStage
   classification?: Prisma.NullableEnumNoteClassificationFieldUpdateOperationsInput | $Enums.NoteClassification | null
+  auditResult?: Prisma.NullableEnumAuditResultFieldUpdateOperationsInput | $Enums.AuditResult | null
   readConfidence?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   failureCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   failureMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
+  contextRound?: Prisma.IntFieldUpdateOperationsInput | number
+  contextSubmittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  contextSummary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   processedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2852,6 +3837,8 @@ export type NoteCountOutputType = {
   aiRuns: number
   processingJobs: number
   noteReads: number
+  contextQuestions: number
+  contextSubmissions: number
 }
 
 export type NoteCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2863,6 +3850,8 @@ export type NoteCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   aiRuns?: boolean | NoteCountOutputTypeCountAiRunsArgs
   processingJobs?: boolean | NoteCountOutputTypeCountProcessingJobsArgs
   noteReads?: boolean | NoteCountOutputTypeCountNoteReadsArgs
+  contextQuestions?: boolean | NoteCountOutputTypeCountContextQuestionsArgs
+  contextSubmissions?: boolean | NoteCountOutputTypeCountContextSubmissionsArgs
 }
 
 /**
@@ -2931,11 +3920,28 @@ export type NoteCountOutputTypeCountNoteReadsArgs<ExtArgs extends runtime.Types.
   where?: Prisma.NoteReadWhereInput
 }
 
+/**
+ * NoteCountOutputType without action
+ */
+export type NoteCountOutputTypeCountContextQuestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.NoteContextQuestionWhereInput
+}
+
+/**
+ * NoteCountOutputType without action
+ */
+export type NoteCountOutputTypeCountContextSubmissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.NoteContextSubmissionWhereInput
+}
+
 
 export type NoteSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   workId?: boolean
   submittedById?: boolean
+  publicProtocol?: boolean
+  publicTokenHash?: boolean
+  publicTokenExpiresAt?: boolean
   originalFilePath?: boolean
   originalFileName?: boolean
   originalMimeType?: boolean
@@ -2950,10 +3956,14 @@ export type NoteSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   status?: boolean
   processingStage?: boolean
   classification?: boolean
+  auditResult?: boolean
   readConfidence?: boolean
   failureCode?: boolean
   failureMessage?: boolean
   version?: boolean
+  contextRound?: boolean
+  contextSubmittedAt?: boolean
+  contextSummary?: boolean
   receivedAt?: boolean
   processedAt?: boolean
   createdAt?: boolean
@@ -2968,6 +3978,8 @@ export type NoteSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   aiRuns?: boolean | Prisma.Note$aiRunsArgs<ExtArgs>
   processingJobs?: boolean | Prisma.Note$processingJobsArgs<ExtArgs>
   noteReads?: boolean | Prisma.Note$noteReadsArgs<ExtArgs>
+  contextQuestions?: boolean | Prisma.Note$contextQuestionsArgs<ExtArgs>
+  contextSubmissions?: boolean | Prisma.Note$contextSubmissionsArgs<ExtArgs>
   _count?: boolean | Prisma.NoteCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["note"]>
 
@@ -2975,6 +3987,9 @@ export type NoteSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   id?: boolean
   workId?: boolean
   submittedById?: boolean
+  publicProtocol?: boolean
+  publicTokenHash?: boolean
+  publicTokenExpiresAt?: boolean
   originalFilePath?: boolean
   originalFileName?: boolean
   originalMimeType?: boolean
@@ -2989,10 +4004,14 @@ export type NoteSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   status?: boolean
   processingStage?: boolean
   classification?: boolean
+  auditResult?: boolean
   readConfidence?: boolean
   failureCode?: boolean
   failureMessage?: boolean
   version?: boolean
+  contextRound?: boolean
+  contextSubmittedAt?: boolean
+  contextSummary?: boolean
   receivedAt?: boolean
   processedAt?: boolean
   createdAt?: boolean
@@ -3005,6 +4024,9 @@ export type NoteSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   id?: boolean
   workId?: boolean
   submittedById?: boolean
+  publicProtocol?: boolean
+  publicTokenHash?: boolean
+  publicTokenExpiresAt?: boolean
   originalFilePath?: boolean
   originalFileName?: boolean
   originalMimeType?: boolean
@@ -3019,10 +4041,14 @@ export type NoteSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   status?: boolean
   processingStage?: boolean
   classification?: boolean
+  auditResult?: boolean
   readConfidence?: boolean
   failureCode?: boolean
   failureMessage?: boolean
   version?: boolean
+  contextRound?: boolean
+  contextSubmittedAt?: boolean
+  contextSummary?: boolean
   receivedAt?: boolean
   processedAt?: boolean
   createdAt?: boolean
@@ -3035,6 +4061,9 @@ export type NoteSelectScalar = {
   id?: boolean
   workId?: boolean
   submittedById?: boolean
+  publicProtocol?: boolean
+  publicTokenHash?: boolean
+  publicTokenExpiresAt?: boolean
   originalFilePath?: boolean
   originalFileName?: boolean
   originalMimeType?: boolean
@@ -3049,17 +4078,21 @@ export type NoteSelectScalar = {
   status?: boolean
   processingStage?: boolean
   classification?: boolean
+  auditResult?: boolean
   readConfidence?: boolean
   failureCode?: boolean
   failureMessage?: boolean
   version?: boolean
+  contextRound?: boolean
+  contextSubmittedAt?: boolean
+  contextSummary?: boolean
   receivedAt?: boolean
   processedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type NoteOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "workId" | "submittedById" | "originalFilePath" | "originalFileName" | "originalMimeType" | "originalSizeBytes" | "extractedData" | "extractionMarkdown" | "documentNumber" | "supplierName" | "supplierTaxId" | "issuedAt" | "totalAmount" | "status" | "processingStage" | "classification" | "readConfidence" | "failureCode" | "failureMessage" | "version" | "receivedAt" | "processedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["note"]>
+export type NoteOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "workId" | "submittedById" | "publicProtocol" | "publicTokenHash" | "publicTokenExpiresAt" | "originalFilePath" | "originalFileName" | "originalMimeType" | "originalSizeBytes" | "extractedData" | "extractionMarkdown" | "documentNumber" | "supplierName" | "supplierTaxId" | "issuedAt" | "totalAmount" | "status" | "processingStage" | "classification" | "auditResult" | "readConfidence" | "failureCode" | "failureMessage" | "version" | "contextRound" | "contextSubmittedAt" | "contextSummary" | "receivedAt" | "processedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["note"]>
 export type NoteInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   work?: boolean | Prisma.WorkDefaultArgs<ExtArgs>
   submittedBy?: boolean | Prisma.Note$submittedByArgs<ExtArgs>
@@ -3071,6 +4104,8 @@ export type NoteInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   aiRuns?: boolean | Prisma.Note$aiRunsArgs<ExtArgs>
   processingJobs?: boolean | Prisma.Note$processingJobsArgs<ExtArgs>
   noteReads?: boolean | Prisma.Note$noteReadsArgs<ExtArgs>
+  contextQuestions?: boolean | Prisma.Note$contextQuestionsArgs<ExtArgs>
+  contextSubmissions?: boolean | Prisma.Note$contextSubmissionsArgs<ExtArgs>
   _count?: boolean | Prisma.NoteCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type NoteIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3095,11 +4130,16 @@ export type $NotePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     aiRuns: Prisma.$AiRunPayload<ExtArgs>[]
     processingJobs: Prisma.$ProcessingJobPayload<ExtArgs>[]
     noteReads: Prisma.$NoteReadPayload<ExtArgs>[]
+    contextQuestions: Prisma.$NoteContextQuestionPayload<ExtArgs>[]
+    contextSubmissions: Prisma.$NoteContextSubmissionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     workId: string
     submittedById: string | null
+    publicProtocol: string
+    publicTokenHash: string
+    publicTokenExpiresAt: Date
     originalFilePath: string
     originalFileName: string
     originalMimeType: string
@@ -3114,10 +4154,14 @@ export type $NotePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     status: $Enums.NoteStatus
     processingStage: $Enums.ProcessingStage
     classification: $Enums.NoteClassification | null
+    auditResult: $Enums.AuditResult | null
     readConfidence: runtime.Decimal | null
     failureCode: string | null
     failureMessage: string | null
     version: number
+    contextRound: number
+    contextSubmittedAt: Date | null
+    contextSummary: string | null
     receivedAt: Date
     processedAt: Date | null
     createdAt: Date
@@ -3526,6 +4570,8 @@ export interface Prisma__NoteClient<T, Null = never, ExtArgs extends runtime.Typ
   aiRuns<T extends Prisma.Note$aiRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$aiRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AiRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   processingJobs<T extends Prisma.Note$processingJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$processingJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProcessingJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   noteReads<T extends Prisma.Note$noteReadsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$noteReadsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NoteReadPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contextQuestions<T extends Prisma.Note$contextQuestionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$contextQuestionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NoteContextQuestionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contextSubmissions<T extends Prisma.Note$contextSubmissionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$contextSubmissionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NoteContextSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3558,6 +4604,9 @@ export interface NoteFieldRefs {
   readonly id: Prisma.FieldRef<"Note", 'String'>
   readonly workId: Prisma.FieldRef<"Note", 'String'>
   readonly submittedById: Prisma.FieldRef<"Note", 'String'>
+  readonly publicProtocol: Prisma.FieldRef<"Note", 'String'>
+  readonly publicTokenHash: Prisma.FieldRef<"Note", 'String'>
+  readonly publicTokenExpiresAt: Prisma.FieldRef<"Note", 'DateTime'>
   readonly originalFilePath: Prisma.FieldRef<"Note", 'String'>
   readonly originalFileName: Prisma.FieldRef<"Note", 'String'>
   readonly originalMimeType: Prisma.FieldRef<"Note", 'String'>
@@ -3572,10 +4621,14 @@ export interface NoteFieldRefs {
   readonly status: Prisma.FieldRef<"Note", 'NoteStatus'>
   readonly processingStage: Prisma.FieldRef<"Note", 'ProcessingStage'>
   readonly classification: Prisma.FieldRef<"Note", 'NoteClassification'>
+  readonly auditResult: Prisma.FieldRef<"Note", 'AuditResult'>
   readonly readConfidence: Prisma.FieldRef<"Note", 'Decimal'>
   readonly failureCode: Prisma.FieldRef<"Note", 'String'>
   readonly failureMessage: Prisma.FieldRef<"Note", 'String'>
   readonly version: Prisma.FieldRef<"Note", 'Int'>
+  readonly contextRound: Prisma.FieldRef<"Note", 'Int'>
+  readonly contextSubmittedAt: Prisma.FieldRef<"Note", 'DateTime'>
+  readonly contextSummary: Prisma.FieldRef<"Note", 'String'>
   readonly receivedAt: Prisma.FieldRef<"Note", 'DateTime'>
   readonly processedAt: Prisma.FieldRef<"Note", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"Note", 'DateTime'>
@@ -4189,6 +5242,54 @@ export type Note$noteReadsArgs<ExtArgs extends runtime.Types.Extensions.Internal
   take?: number
   skip?: number
   distinct?: Prisma.NoteReadScalarFieldEnum | Prisma.NoteReadScalarFieldEnum[]
+}
+
+/**
+ * Note.contextQuestions
+ */
+export type Note$contextQuestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NoteContextQuestion
+   */
+  select?: Prisma.NoteContextQuestionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NoteContextQuestion
+   */
+  omit?: Prisma.NoteContextQuestionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NoteContextQuestionInclude<ExtArgs> | null
+  where?: Prisma.NoteContextQuestionWhereInput
+  orderBy?: Prisma.NoteContextQuestionOrderByWithRelationInput | Prisma.NoteContextQuestionOrderByWithRelationInput[]
+  cursor?: Prisma.NoteContextQuestionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NoteContextQuestionScalarFieldEnum | Prisma.NoteContextQuestionScalarFieldEnum[]
+}
+
+/**
+ * Note.contextSubmissions
+ */
+export type Note$contextSubmissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NoteContextSubmission
+   */
+  select?: Prisma.NoteContextSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NoteContextSubmission
+   */
+  omit?: Prisma.NoteContextSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NoteContextSubmissionInclude<ExtArgs> | null
+  where?: Prisma.NoteContextSubmissionWhereInput
+  orderBy?: Prisma.NoteContextSubmissionOrderByWithRelationInput | Prisma.NoteContextSubmissionOrderByWithRelationInput[]
+  cursor?: Prisma.NoteContextSubmissionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NoteContextSubmissionScalarFieldEnum | Prisma.NoteContextSubmissionScalarFieldEnum[]
 }
 
 /**

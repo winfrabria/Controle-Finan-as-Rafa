@@ -13,6 +13,10 @@ import {
 } from "@/lib/storage";
 import { prisma } from "@/server/db/prisma";
 import { NoteUploadError } from "@/server/notes/note-upload-error";
+import {
+  createPublicCapability,
+  terminalPublicCapabilityFields,
+} from "@/server/notes/public-capability";
 import { createInitialProcessingJob } from "@/server/notes/processing-jobs";
 import {
   createInvoiceObjectPath,
@@ -57,6 +61,7 @@ async function markNoteAsFailed(noteId: string, failureCode: string) {
       data: {
         failureCode,
         failureMessage: "Não foi possível armazenar o arquivo original.",
+        ...terminalPublicCapabilityFields(),
         processingStage: ProcessingStage.FAILED,
         status: NoteStatus.FAILED,
         version: { increment: 1 },
@@ -125,6 +130,7 @@ export async function createNoteUpload(input: {
   }
 
   const noteId = randomUUID();
+  const capability = createPublicCapability(noteId);
   const path = createInvoiceObjectPath({
     extension: file.extension,
     noteId,
@@ -149,6 +155,9 @@ export async function createNoteUpload(input: {
         id: noteId,
         workId: work.id,
         originalFilePath: path,
+        publicProtocol: capability.protocol,
+        publicTokenHash: capability.hash,
+        publicTokenExpiresAt: capability.expiresAt,
         originalFileName: file.originalFileName,
         originalMimeType: file.mimeType,
         originalSizeBytes: BigInt(file.size),
@@ -243,7 +252,12 @@ export async function createNoteUpload(input: {
       return updatedNote;
     });
 
-    return { ...note, processingJobId: job.id };
+    return {
+      ...note,
+      processingJobId: job.id,
+      publicProtocol: capability.protocol,
+      publicToken: capability.token,
+    };
   } catch (error) {
     try {
       await removeInvoiceFile(path);

@@ -6,6 +6,11 @@ import {
   type PortalRole,
 } from "@/features/workspace-ui/portal-shell";
 import { Icon } from "@/features/workspace-ui/ui-icons";
+import { attachmentReference } from "@/features/internal-notes/attachment-reference";
+import {
+  auditResultLabel,
+  auditResultTone,
+} from "@/features/workspace-ui/audit-result-label";
 
 import type { NoteDetailData } from "./data";
 import { NoteAnalysisExplorer } from "./note-analysis-explorer";
@@ -21,8 +26,11 @@ export function NoteAnalysisView({
 }) {
   const role: PortalRole = data.viewerRole === "ADMIN" ? "admin" : "reviewer";
   const basePath = role === "admin" ? "/admin" : "/revisao";
-  const classification =
-    data.analysis.classification === "OK" ? "OK" : "Suspeita";
+  const classification = auditResultLabel(
+    data.analysis.auditResult,
+    data.analysis.classification,
+    data.status,
+  );
 
   return (
     <PortalShell active="notas" role={role} userEmail={userEmail}>
@@ -39,7 +47,7 @@ export function NoteAnalysisView({
           <div>
             <div className={styles.titleRow}>
               <h1>Análise completa da IA</h1>
-              <StatusBadge tone={classification === "OK" ? "ok" : "warning"}>
+              <StatusBadge tone={auditResultTone(classification)}>
                 ● &nbsp;{classification}
               </StatusBadge>
               {data.demoLabel ? (
@@ -66,7 +74,7 @@ export function NoteAnalysisView({
           <MetadataItem
             icon="document"
             label="Número da nota"
-            value={data.number ?? "Sem número"}
+            value={attachmentReference(data.number, data.id)}
           />
           <MetadataItem
             icon="calendar"

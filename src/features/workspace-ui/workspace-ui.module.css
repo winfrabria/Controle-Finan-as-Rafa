@@ -529,6 +529,13 @@
 .selectedTableRow td {
   background: #eaf3ff;
 }
+.logsLayout tbody tr {
+  cursor: pointer;
+}
+.logsLayout tbody tr:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
 .inlineLogButton {
   background: transparent;
   border: 0;
@@ -1600,7 +1607,7 @@
 .logsLayout {
   display: grid;
   gap: 24px;
-  grid-template-columns: minmax(0, 1fr) 325px;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 390px);
 }
 .logsLayout .filterBar {
   grid-template-columns: 1.35fr repeat(3, minmax(130px, 1fr)) auto;
@@ -1618,6 +1625,8 @@
 }
 .logDetail {
   align-self: start;
+  max-height: calc(100vh - 126px);
+  overflow: auto;
   padding-bottom: 20px;
   position: sticky;
   top: 108px;
@@ -1626,12 +1635,13 @@
   display: grid;
   gap: 11px;
   margin: 0;
-  padding: 10px 20px;
+  padding: 16px 20px 8px;
 }
 .logDetail dl div {
   display: grid;
-  font-size: 11px;
-  grid-template-columns: 100px 1fr;
+  font-size: 12px;
+  gap: 12px;
+  grid-template-columns: 112px minmax(0, 1fr);
 }
 .logDetail dt {
   color: var(--muted);
@@ -1639,10 +1649,11 @@
 .logDetail dd {
   font-weight: 600;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 .logDetail h3 {
-  color: var(--blue);
-  font-size: 12px;
+  color: var(--navy);
+  font-size: 13px;
   margin: 18px 20px 8px;
 }
 .logDetailActions {
@@ -1657,7 +1668,7 @@
   background: #f4f7fc;
   border-radius: 7px;
   color: #425478;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
   margin: 0 20px;
   padding: 12px;
@@ -1846,13 +1857,70 @@
     z-index: 20;
   }
   .logMetrics .metric {
-    display: block;
+    align-items: center;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
   }
   .logMetrics .metricIcon {
-    margin-bottom: 7px;
+    grid-row: 1;
+    margin-bottom: 0;
+  }
+  .logMetrics .metricBody {
+    min-width: 0;
+  }
+  .logMetrics .metricFootnote {
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
   .logsLayout .filterBar {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .logsLayout .periodFieldset {
+    grid-column: 1 / -1;
+  }
+  .logsLayout .periodFieldset > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    width: 100%;
+  }
+  .logsLayout .periodFieldset > div > svg {
+    display: none;
+  }
+  .logsLayout .periodFieldset input {
+    min-width: 0;
+    padding: 0 2px;
+  }
+  .logsLayout .filterBar label,
+  .logsLayout .filterBar select {
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+  .logMobileCard {
+    gap: 4px 10px;
+    grid-template-columns: minmax(0, 1fr) minmax(92px, auto) auto;
+  }
+  .logMobileCard > strong {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .logMobileCard > span:first-of-type {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .logMobileCard > .status {
+    align-self: center;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-width: 0;
+    white-space: normal;
+  }
+  .logMobileCard > svg {
+    align-self: center;
+    grid-column: 3;
+    grid-row: 1 / span 2;
   }
   .logDetail[data-mobile-open="false"] {
     display: none;

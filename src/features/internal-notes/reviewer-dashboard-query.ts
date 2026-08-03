@@ -1,12 +1,16 @@
 import "server-only";
 
 import {
+  AuditResult,
   FindingStatus,
   NoteStatus,
+  ProcessingJobStatus,
 } from "@/generated/prisma/enums";
 import { prisma } from "@/server/db/prisma";
 
 import type { ReviewerDashboardNote } from "@/features/workspace-ui/reviewer-dashboard-types";
+import { sanitizeReviewerDashboardNote } from "./reviewer-payload-policy";
+import { attachmentReference } from "./attachment-reference";
 
 function formatDate(value: Date, isDateOnly: boolean) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -27,24 +31,47 @@ function periodKey(value: Date, isDateOnly: boolean) {
 }
 
 function classificationValue(note: {
+  auditResult: AuditResult | null;
   classification: string | null;
+  processingJobStatus: ProcessingJobStatus | null;
   status: NoteStatus;
 }): ReviewerDashboardNote["classification"] {
+  if (note.auditResult === AuditResult.READ_FAILED) return "Falha de leitura";
+  if (note.auditResult === AuditResult.NEEDS_CONTEXT) return "Precisa de informação";
+  if (note.auditResult === AuditResult.SUSPICIOUS) return "Suspeita";
+  if (note.auditResult === AuditResult.OK) return "OK";
   if (note.status === NoteStatus.READ_FAILED) return "Falha de leitura";
   if (note.status === NoteStatus.FAILED) return "Falha de processamento";
-  if (note.status === NoteStatus.RECEIVED) return "Aguardando processamento";
+  if (note.status === NoteStatus.RECEIVED) {
+    if (
+      note.processingJobStatus === ProcessingJobStatus.PENDING ||
+      note.processingJobStatus === ProcessingJobStatus.RUNNING
+    ) {
+      return "Aguardando processamento";
+    }
+    if (
+      note.processingJobStatus === ProcessingJobStatus.FAILED ||
+      note.processingJobStatus === ProcessingJobStatus.CANCELLED
+    ) {
+      return "Falha de processamento";
+    }
+    return "Não processado";
+  }
   if (note.status === NoteStatus.APPROVED) return "OK";
   if (note.status === NoteStatus.REJECTED) return "Suspeita";
   if (note.classification === "OK") return "OK";
   if (note.classification === "SUSPICIOUS") return "Suspeita";
-  if (note.classification === "NO_PARAMETER") return "Sem parâmetro";
+  if (note.classification === "NO_PARAMETER") return "Precisa de informação";
   return "Em análise";
 }
 
-export async function listReviewerDashboardNotes(): Promise<ReviewerDashboardNote[]> {
+export async function listReviewerDashboardNotes(
+  options: { sanitizeForReviewer?: boolean } = {},
+): Promise<ReviewerDashboardNote[]> {
   const notes = await prisma.note.findMany({
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
+      auditResult: true,
       classification: true,
       createdAt: true,
       documentNumber: true,
@@ -55,14 +82,25 @@ export async function listReviewerDashboardNotes(): Promise<ReviewerDashboardNot
       },
       id: true,
       issuedAt: true,
+      processingJobs: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { status: true },
+      },
       status: true,
       supplierName: true,
       totalAmount: true,
-      work: { select: { name: true } },
+      work: {
+        select: {
+          name: true,
+          responsibleName: true,
+          responsibleProfile: { select: { email: true, fullName: true } },
+        },
+      },
     },
   });
 
-  return notes.map((note) => {
+  const items = notes.map((note) => {
     const isDateOnly = Boolean(note.issuedAt);
     const date = note.issuedAt ?? note.createdAt;
     const reasons = [
@@ -72,15 +110,27 @@ export async function listReviewerDashboardNotes(): Promise<ReviewerDashboardNot
     ];
 
     return {
-      classification: classificationValue(note),
+      classification: classificationValue({
+        ...note,
+        processingJobStatus: note.processingJobs[0]?.status ?? null,
+      }),
       date: formatDate(date, isDateOnly),
       dateKey: periodKey(date, isDateOnly),
       id: note.id,
-      number: note.documentNumber ?? "Sem número",
+      number: attachmentReference(note.documentNumber, note.id),
       reasons,
+      responsible:
+        note.work.responsibleName ??
+        note.work.responsibleProfile?.fullName ??
+        note.work.responsibleProfile?.email ??
+        "Não definido",
       supplier: note.supplierName ?? "Fornecedor não identificado",
       value: note.totalAmount?.toFixed(2) ?? "0",
       work: note.work.name,
     };
   });
+
+  return options.sanitizeForReviewer
+    ? items.map(sanitizeReviewerDashboardNote)
+    : items;
 }

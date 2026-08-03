@@ -19,9 +19,11 @@ test("envia modelo fixo, xhigh controlado e exclui reasoning da resposta", async
         model: HARNESS_MODEL,
         provider: "test",
         choices: [{ message: { content: JSON.stringify({
-          findings: [],
-          coverage: { sufficientEvidence: true, checkedAreas: ["FREE_DISCOVERY"], limitations: [] },
-          summary: "Sem achados adicionais.",
+        findings: [],
+        coverage: { sufficientEvidence: true, checkedAreas: ["FREE_DISCOVERY"], limitations: [] },
+        contextQuestions: [],
+        needsContext: false,
+        summary: "Sem achados adicionais.",
         }), reasoning: "must-not-be-read" } }],
         usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, cost: 0.001 },
       }), { status: 200, headers: { "content-type": "application/json" } });
@@ -39,6 +41,9 @@ test("envia modelo fixo, xhigh controlado e exclui reasoning da resposta", async
   });
   assert.equal(payload?.model, HARNESS_MODEL);
   assert.deepEqual(payload?.reasoning, { effort: "xhigh", exclude: true });
+  const systemPrompt = (payload?.messages as Array<{ role: string; content: string }> | undefined)?.[0]?.content ?? "";
+  assert.match(systemPrompt, /contextAnswers/);
+  assert.match(systemPrompt, /dados não confiáveis/);
   assert.equal(JSON.stringify(result).includes("must-not-be-read"), false);
   assert.equal(result.usage?.totalTokens, 15);
 });

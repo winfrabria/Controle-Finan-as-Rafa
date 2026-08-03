@@ -6,7 +6,12 @@ import {
   type PortalRole,
 } from "@/features/workspace-ui/portal-shell";
 import { Icon } from "@/features/workspace-ui/ui-icons";
+import {
+  auditResultLabel,
+  auditResultTone,
+} from "@/features/workspace-ui/audit-result-label";
 import type { Prisma } from "@/generated/prisma/client";
+import { attachmentReference } from "@/features/internal-notes/attachment-reference";
 
 import type { NoteDetailData } from "./data";
 import { AdminComparativeAuditView } from "./admin-comparative-audit-view";
@@ -44,11 +49,15 @@ export function NoteDetailView({
 
   const role: PortalRole = "reviewer";
   const basePath = "/revisao";
-  const classification = classificationLabel(data.analysis.classification);
+  const classification = auditResultLabel(
+    data.analysis.auditResult,
+    data.analysis.classification,
+    data.status,
+  );
   const primaryFinding = data.analysis.findings[0] ?? null;
   const latestValidation = data.validations.at(-1) ?? null;
   const raw = data.analysis.rawExtraction;
-  const number = data.number ?? "Sem número";
+  const number = attachmentReference(data.number, data.id);
   const supplier = data.supplier.name ?? "Fornecedor não identificado";
   const total = formatCurrency(data.totalAmount);
   const extractedFields = [
@@ -56,13 +65,13 @@ export function NoteDetailView({
     ["Série", rawValue(raw, ["serie", "series"]) ?? "Não identificada", "document"],
     [
       "Tipo de operação",
-      rawValue(raw, ["tipoOperacao", "operationType"]) ?? "Venda de mercadoria",
+      rawValue(raw, ["tipoOperacao", "operationType"]) ?? "Não identificado",
       "building",
     ],
     [
       "Natureza da operação",
       rawValue(raw, ["naturezaOperacao", "operationNature"]) ??
-        "Venda de mercadoria",
+        "Não identificada",
       "building",
     ],
     ["CNPJ do fornecedor", data.supplier.taxId ?? "Não identificado", "document"],
@@ -112,7 +121,7 @@ export function NoteDetailView({
           <div>
             <div className={styles.titleRow}>
               <h1>Detalhe da nota</h1>
-              <StatusBadge tone={classification === "OK" ? "ok" : "warning"}>
+              <StatusBadge tone={auditResultTone(classification)}>
                 ● &nbsp;{classification}
               </StatusBadge>
               {data.demoLabel ? (
@@ -181,7 +190,11 @@ export function NoteDetailView({
               <header className={styles.cardHeader}>
                 <div>
                   <h2>Explicação da IA</h2>
-                  <p>Principais pontos que levaram à classificação da nota como suspeita.</p>
+                  <p>
+                    {classification === "Suspeita"
+                      ? "Principais pontos que levaram à classificação do anexo como suspeito."
+                      : "Resultado e evidências registradas no processamento deste anexo."}
+                  </p>
                 </div>
               </header>
               {primaryFinding ? (
@@ -360,12 +373,6 @@ function MetadataItem({
       </dl>
     </div>
   );
-}
-
-function classificationLabel(value: string | null) {
-  if (value === "OK") return "OK";
-  if (value === "SUSPICIOUS") return "Suspeita";
-  return "Em análise";
 }
 
 function validationDecisionLabel(value: string) {

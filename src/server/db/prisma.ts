@@ -20,7 +20,19 @@ const createPrismaClient = () => {
   return new PrismaClient({ adapter });
 };
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+function hasCurrentSchema(
+  client: PrismaClient | undefined,
+): client is PrismaClient {
+  if (!client) return false;
+
+  // During `next dev`, the global client can survive a Prisma regeneration.
+  // Reusing that stale instance leaves newly added model delegates undefined.
+  return "noteRead" in client && "pushSubscription" in client;
+}
+
+export const prisma = hasCurrentSchema(globalForPrisma.prisma)
+  ? globalForPrisma.prisma
+  : createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

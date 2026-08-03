@@ -396,6 +396,7 @@ export type AiRunWhereInput = {
   processingJob?: Prisma.XOR<Prisma.ProcessingJobNullableScalarRelationFilter, Prisma.ProcessingJobWhereInput> | null
   findings?: Prisma.FindingListRelationFilter
   validations?: Prisma.ValidationListRelationFilter
+  contextQuestions?: Prisma.NoteContextQuestionListRelationFilter
 }
 
 export type AiRunOrderByWithRelationInput = {
@@ -428,6 +429,7 @@ export type AiRunOrderByWithRelationInput = {
   processingJob?: Prisma.ProcessingJobOrderByWithRelationInput
   findings?: Prisma.FindingOrderByRelationAggregateInput
   validations?: Prisma.ValidationOrderByRelationAggregateInput
+  contextQuestions?: Prisma.NoteContextQuestionOrderByRelationAggregateInput
 }
 
 export type AiRunWhereUniqueInput = Prisma.AtLeast<{
@@ -463,6 +465,7 @@ export type AiRunWhereUniqueInput = Prisma.AtLeast<{
   processingJob?: Prisma.XOR<Prisma.ProcessingJobNullableScalarRelationFilter, Prisma.ProcessingJobWhereInput> | null
   findings?: Prisma.FindingListRelationFilter
   validations?: Prisma.ValidationListRelationFilter
+  contextQuestions?: Prisma.NoteContextQuestionListRelationFilter
 }, "id" | "idempotencyKey">
 
 export type AiRunOrderByWithAggregationInput = {
@@ -557,6 +560,7 @@ export type AiRunCreateInput = {
   processingJob?: Prisma.ProcessingJobCreateNestedOneWithoutAiRunsInput
   findings?: Prisma.FindingCreateNestedManyWithoutAiRunInput
   validations?: Prisma.ValidationCreateNestedManyWithoutAiRunInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutAiRunInput
 }
 
 export type AiRunUncheckedCreateInput = {
@@ -587,6 +591,7 @@ export type AiRunUncheckedCreateInput = {
   createdAt?: Date | string
   findings?: Prisma.FindingUncheckedCreateNestedManyWithoutAiRunInput
   validations?: Prisma.ValidationUncheckedCreateNestedManyWithoutAiRunInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutAiRunInput
 }
 
 export type AiRunUpdateInput = {
@@ -617,6 +622,7 @@ export type AiRunUpdateInput = {
   processingJob?: Prisma.ProcessingJobUpdateOneWithoutAiRunsNestedInput
   findings?: Prisma.FindingUpdateManyWithoutAiRunNestedInput
   validations?: Prisma.ValidationUpdateManyWithoutAiRunNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunUncheckedUpdateInput = {
@@ -647,6 +653,7 @@ export type AiRunUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   findings?: Prisma.FindingUncheckedUpdateManyWithoutAiRunNestedInput
   validations?: Prisma.ValidationUncheckedUpdateManyWithoutAiRunNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunCreateManyInput = {
@@ -962,6 +969,22 @@ export type AiRunUncheckedUpdateManyWithoutProcessingJobNestedInput = {
   deleteMany?: Prisma.AiRunScalarWhereInput | Prisma.AiRunScalarWhereInput[]
 }
 
+export type AiRunCreateNestedOneWithoutContextQuestionsInput = {
+  create?: Prisma.XOR<Prisma.AiRunCreateWithoutContextQuestionsInput, Prisma.AiRunUncheckedCreateWithoutContextQuestionsInput>
+  connectOrCreate?: Prisma.AiRunCreateOrConnectWithoutContextQuestionsInput
+  connect?: Prisma.AiRunWhereUniqueInput
+}
+
+export type AiRunUpdateOneWithoutContextQuestionsNestedInput = {
+  create?: Prisma.XOR<Prisma.AiRunCreateWithoutContextQuestionsInput, Prisma.AiRunUncheckedCreateWithoutContextQuestionsInput>
+  connectOrCreate?: Prisma.AiRunCreateOrConnectWithoutContextQuestionsInput
+  upsert?: Prisma.AiRunUpsertWithoutContextQuestionsInput
+  disconnect?: Prisma.AiRunWhereInput | boolean
+  delete?: Prisma.AiRunWhereInput | boolean
+  connect?: Prisma.AiRunWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AiRunUpdateToOneWithWhereWithoutContextQuestionsInput, Prisma.AiRunUpdateWithoutContextQuestionsInput>, Prisma.AiRunUncheckedUpdateWithoutContextQuestionsInput>
+}
+
 export type EnumAiRunKindFieldUpdateOperationsInput = {
   set?: $Enums.AiRunKind
 }
@@ -1009,6 +1032,7 @@ export type AiRunCreateWithoutNoteInput = {
   processingJob?: Prisma.ProcessingJobCreateNestedOneWithoutAiRunsInput
   findings?: Prisma.FindingCreateNestedManyWithoutAiRunInput
   validations?: Prisma.ValidationCreateNestedManyWithoutAiRunInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutAiRunInput
 }
 
 export type AiRunUncheckedCreateWithoutNoteInput = {
@@ -1038,6 +1062,7 @@ export type AiRunUncheckedCreateWithoutNoteInput = {
   createdAt?: Date | string
   findings?: Prisma.FindingUncheckedCreateNestedManyWithoutAiRunInput
   validations?: Prisma.ValidationUncheckedCreateNestedManyWithoutAiRunInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutAiRunInput
 }
 
 export type AiRunCreateOrConnectWithoutNoteInput = {
@@ -1124,6 +1149,7 @@ export type AiRunCreateWithoutFindingsInput = {
   note: Prisma.NoteCreateNestedOneWithoutAiRunsInput
   processingJob?: Prisma.ProcessingJobCreateNestedOneWithoutAiRunsInput
   validations?: Prisma.ValidationCreateNestedManyWithoutAiRunInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutAiRunInput
 }
 
 export type AiRunUncheckedCreateWithoutFindingsInput = {
@@ -1153,6 +1179,7 @@ export type AiRunUncheckedCreateWithoutFindingsInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   validations?: Prisma.ValidationUncheckedCreateNestedManyWithoutAiRunInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutAiRunInput
 }
 
 export type AiRunCreateOrConnectWithoutFindingsInput = {
@@ -1198,6 +1225,7 @@ export type AiRunUpdateWithoutFindingsInput = {
   note?: Prisma.NoteUpdateOneRequiredWithoutAiRunsNestedInput
   processingJob?: Prisma.ProcessingJobUpdateOneWithoutAiRunsNestedInput
   validations?: Prisma.ValidationUpdateManyWithoutAiRunNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunUncheckedUpdateWithoutFindingsInput = {
@@ -1227,6 +1255,7 @@ export type AiRunUncheckedUpdateWithoutFindingsInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   validations?: Prisma.ValidationUncheckedUpdateManyWithoutAiRunNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunCreateWithoutValidationsInput = {
@@ -1256,6 +1285,7 @@ export type AiRunCreateWithoutValidationsInput = {
   note: Prisma.NoteCreateNestedOneWithoutAiRunsInput
   processingJob?: Prisma.ProcessingJobCreateNestedOneWithoutAiRunsInput
   findings?: Prisma.FindingCreateNestedManyWithoutAiRunInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutAiRunInput
 }
 
 export type AiRunUncheckedCreateWithoutValidationsInput = {
@@ -1285,6 +1315,7 @@ export type AiRunUncheckedCreateWithoutValidationsInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   findings?: Prisma.FindingUncheckedCreateNestedManyWithoutAiRunInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutAiRunInput
 }
 
 export type AiRunCreateOrConnectWithoutValidationsInput = {
@@ -1330,6 +1361,7 @@ export type AiRunUpdateWithoutValidationsInput = {
   note?: Prisma.NoteUpdateOneRequiredWithoutAiRunsNestedInput
   processingJob?: Prisma.ProcessingJobUpdateOneWithoutAiRunsNestedInput
   findings?: Prisma.FindingUpdateManyWithoutAiRunNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunUncheckedUpdateWithoutValidationsInput = {
@@ -1359,6 +1391,7 @@ export type AiRunUncheckedUpdateWithoutValidationsInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   findings?: Prisma.FindingUncheckedUpdateManyWithoutAiRunNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunCreateWithoutProcessingJobInput = {
@@ -1388,6 +1421,7 @@ export type AiRunCreateWithoutProcessingJobInput = {
   note: Prisma.NoteCreateNestedOneWithoutAiRunsInput
   findings?: Prisma.FindingCreateNestedManyWithoutAiRunInput
   validations?: Prisma.ValidationCreateNestedManyWithoutAiRunInput
+  contextQuestions?: Prisma.NoteContextQuestionCreateNestedManyWithoutAiRunInput
 }
 
 export type AiRunUncheckedCreateWithoutProcessingJobInput = {
@@ -1417,6 +1451,7 @@ export type AiRunUncheckedCreateWithoutProcessingJobInput = {
   createdAt?: Date | string
   findings?: Prisma.FindingUncheckedCreateNestedManyWithoutAiRunInput
   validations?: Prisma.ValidationUncheckedCreateNestedManyWithoutAiRunInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedCreateNestedManyWithoutAiRunInput
 }
 
 export type AiRunCreateOrConnectWithoutProcessingJobInput = {
@@ -1443,6 +1478,142 @@ export type AiRunUpdateWithWhereUniqueWithoutProcessingJobInput = {
 export type AiRunUpdateManyWithWhereWithoutProcessingJobInput = {
   where: Prisma.AiRunScalarWhereInput
   data: Prisma.XOR<Prisma.AiRunUpdateManyMutationInput, Prisma.AiRunUncheckedUpdateManyWithoutProcessingJobInput>
+}
+
+export type AiRunCreateWithoutContextQuestionsInput = {
+  id?: string
+  kind: $Enums.AiRunKind
+  status?: $Enums.AiRunStatus
+  idempotencyKey: string
+  requestFingerprint: string
+  policyVersion: string
+  promptVersion: string
+  schemaVersion: string
+  model: string
+  provider?: string | null
+  reasoningEffort?: $Enums.ReasoningEffort
+  attempts?: number
+  promptTokens?: number | null
+  completionTokens?: number | null
+  totalTokens?: number | null
+  costUsd?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  latencyMs?: number | null
+  structuredResponse?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorCode?: string | null
+  errorMessage?: string | null
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  note: Prisma.NoteCreateNestedOneWithoutAiRunsInput
+  processingJob?: Prisma.ProcessingJobCreateNestedOneWithoutAiRunsInput
+  findings?: Prisma.FindingCreateNestedManyWithoutAiRunInput
+  validations?: Prisma.ValidationCreateNestedManyWithoutAiRunInput
+}
+
+export type AiRunUncheckedCreateWithoutContextQuestionsInput = {
+  id?: string
+  noteId: string
+  processingJobId?: string | null
+  kind: $Enums.AiRunKind
+  status?: $Enums.AiRunStatus
+  idempotencyKey: string
+  requestFingerprint: string
+  policyVersion: string
+  promptVersion: string
+  schemaVersion: string
+  model: string
+  provider?: string | null
+  reasoningEffort?: $Enums.ReasoningEffort
+  attempts?: number
+  promptTokens?: number | null
+  completionTokens?: number | null
+  totalTokens?: number | null
+  costUsd?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  latencyMs?: number | null
+  structuredResponse?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorCode?: string | null
+  errorMessage?: string | null
+  startedAt?: Date | string
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  findings?: Prisma.FindingUncheckedCreateNestedManyWithoutAiRunInput
+  validations?: Prisma.ValidationUncheckedCreateNestedManyWithoutAiRunInput
+}
+
+export type AiRunCreateOrConnectWithoutContextQuestionsInput = {
+  where: Prisma.AiRunWhereUniqueInput
+  create: Prisma.XOR<Prisma.AiRunCreateWithoutContextQuestionsInput, Prisma.AiRunUncheckedCreateWithoutContextQuestionsInput>
+}
+
+export type AiRunUpsertWithoutContextQuestionsInput = {
+  update: Prisma.XOR<Prisma.AiRunUpdateWithoutContextQuestionsInput, Prisma.AiRunUncheckedUpdateWithoutContextQuestionsInput>
+  create: Prisma.XOR<Prisma.AiRunCreateWithoutContextQuestionsInput, Prisma.AiRunUncheckedCreateWithoutContextQuestionsInput>
+  where?: Prisma.AiRunWhereInput
+}
+
+export type AiRunUpdateToOneWithWhereWithoutContextQuestionsInput = {
+  where?: Prisma.AiRunWhereInput
+  data: Prisma.XOR<Prisma.AiRunUpdateWithoutContextQuestionsInput, Prisma.AiRunUncheckedUpdateWithoutContextQuestionsInput>
+}
+
+export type AiRunUpdateWithoutContextQuestionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.EnumAiRunKindFieldUpdateOperationsInput | $Enums.AiRunKind
+  status?: Prisma.EnumAiRunStatusFieldUpdateOperationsInput | $Enums.AiRunStatus
+  idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  requestFingerprint?: Prisma.StringFieldUpdateOperationsInput | string
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  schemaVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  model?: Prisma.StringFieldUpdateOperationsInput | string
+  provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reasoningEffort?: Prisma.EnumReasoningEffortFieldUpdateOperationsInput | $Enums.ReasoningEffort
+  attempts?: Prisma.IntFieldUpdateOperationsInput | number
+  promptTokens?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  completionTokens?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  totalTokens?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  costUsd?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  latencyMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  structuredResponse?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  note?: Prisma.NoteUpdateOneRequiredWithoutAiRunsNestedInput
+  processingJob?: Prisma.ProcessingJobUpdateOneWithoutAiRunsNestedInput
+  findings?: Prisma.FindingUpdateManyWithoutAiRunNestedInput
+  validations?: Prisma.ValidationUpdateManyWithoutAiRunNestedInput
+}
+
+export type AiRunUncheckedUpdateWithoutContextQuestionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  noteId?: Prisma.StringFieldUpdateOperationsInput | string
+  processingJobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kind?: Prisma.EnumAiRunKindFieldUpdateOperationsInput | $Enums.AiRunKind
+  status?: Prisma.EnumAiRunStatusFieldUpdateOperationsInput | $Enums.AiRunStatus
+  idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  requestFingerprint?: Prisma.StringFieldUpdateOperationsInput | string
+  policyVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  promptVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  schemaVersion?: Prisma.StringFieldUpdateOperationsInput | string
+  model?: Prisma.StringFieldUpdateOperationsInput | string
+  provider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reasoningEffort?: Prisma.EnumReasoningEffortFieldUpdateOperationsInput | $Enums.ReasoningEffort
+  attempts?: Prisma.IntFieldUpdateOperationsInput | number
+  promptTokens?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  completionTokens?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  totalTokens?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  costUsd?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  latencyMs?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  structuredResponse?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  findings?: Prisma.FindingUncheckedUpdateManyWithoutAiRunNestedInput
+  validations?: Prisma.ValidationUncheckedUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunCreateManyNoteInput = {
@@ -1499,6 +1670,7 @@ export type AiRunUpdateWithoutNoteInput = {
   processingJob?: Prisma.ProcessingJobUpdateOneWithoutAiRunsNestedInput
   findings?: Prisma.FindingUpdateManyWithoutAiRunNestedInput
   validations?: Prisma.ValidationUpdateManyWithoutAiRunNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunUncheckedUpdateWithoutNoteInput = {
@@ -1528,6 +1700,7 @@ export type AiRunUncheckedUpdateWithoutNoteInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   findings?: Prisma.FindingUncheckedUpdateManyWithoutAiRunNestedInput
   validations?: Prisma.ValidationUncheckedUpdateManyWithoutAiRunNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunUncheckedUpdateManyWithoutNoteInput = {
@@ -1611,6 +1784,7 @@ export type AiRunUpdateWithoutProcessingJobInput = {
   note?: Prisma.NoteUpdateOneRequiredWithoutAiRunsNestedInput
   findings?: Prisma.FindingUpdateManyWithoutAiRunNestedInput
   validations?: Prisma.ValidationUpdateManyWithoutAiRunNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunUncheckedUpdateWithoutProcessingJobInput = {
@@ -1640,6 +1814,7 @@ export type AiRunUncheckedUpdateWithoutProcessingJobInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   findings?: Prisma.FindingUncheckedUpdateManyWithoutAiRunNestedInput
   validations?: Prisma.ValidationUncheckedUpdateManyWithoutAiRunNestedInput
+  contextQuestions?: Prisma.NoteContextQuestionUncheckedUpdateManyWithoutAiRunNestedInput
 }
 
 export type AiRunUncheckedUpdateManyWithoutProcessingJobInput = {
@@ -1677,11 +1852,13 @@ export type AiRunUncheckedUpdateManyWithoutProcessingJobInput = {
 export type AiRunCountOutputType = {
   findings: number
   validations: number
+  contextQuestions: number
 }
 
 export type AiRunCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   findings?: boolean | AiRunCountOutputTypeCountFindingsArgs
   validations?: boolean | AiRunCountOutputTypeCountValidationsArgs
+  contextQuestions?: boolean | AiRunCountOutputTypeCountContextQuestionsArgs
 }
 
 /**
@@ -1706,6 +1883,13 @@ export type AiRunCountOutputTypeCountFindingsArgs<ExtArgs extends runtime.Types.
  */
 export type AiRunCountOutputTypeCountValidationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ValidationWhereInput
+}
+
+/**
+ * AiRunCountOutputType without action
+ */
+export type AiRunCountOutputTypeCountContextQuestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.NoteContextQuestionWhereInput
 }
 
 
@@ -1739,6 +1923,7 @@ export type AiRunSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   processingJob?: boolean | Prisma.AiRun$processingJobArgs<ExtArgs>
   findings?: boolean | Prisma.AiRun$findingsArgs<ExtArgs>
   validations?: boolean | Prisma.AiRun$validationsArgs<ExtArgs>
+  contextQuestions?: boolean | Prisma.AiRun$contextQuestionsArgs<ExtArgs>
   _count?: boolean | Prisma.AiRunCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["aiRun"]>
 
@@ -1836,6 +2021,7 @@ export type AiRunInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   processingJob?: boolean | Prisma.AiRun$processingJobArgs<ExtArgs>
   findings?: boolean | Prisma.AiRun$findingsArgs<ExtArgs>
   validations?: boolean | Prisma.AiRun$validationsArgs<ExtArgs>
+  contextQuestions?: boolean | Prisma.AiRun$contextQuestionsArgs<ExtArgs>
   _count?: boolean | Prisma.AiRunCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type AiRunIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1854,6 +2040,7 @@ export type $AiRunPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     processingJob: Prisma.$ProcessingJobPayload<ExtArgs> | null
     findings: Prisma.$FindingPayload<ExtArgs>[]
     validations: Prisma.$ValidationPayload<ExtArgs>[]
+    contextQuestions: Prisma.$NoteContextQuestionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2279,6 +2466,7 @@ export interface Prisma__AiRunClient<T, Null = never, ExtArgs extends runtime.Ty
   processingJob<T extends Prisma.AiRun$processingJobArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AiRun$processingJobArgs<ExtArgs>>): Prisma.Prisma__ProcessingJobClient<runtime.Types.Result.GetResult<Prisma.$ProcessingJobPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   findings<T extends Prisma.AiRun$findingsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AiRun$findingsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FindingPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   validations<T extends Prisma.AiRun$validationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AiRun$validationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ValidationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contextQuestions<T extends Prisma.AiRun$contextQuestionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AiRun$contextQuestionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NoteContextQuestionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2798,6 +2986,30 @@ export type AiRun$validationsArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.ValidationScalarFieldEnum | Prisma.ValidationScalarFieldEnum[]
+}
+
+/**
+ * AiRun.contextQuestions
+ */
+export type AiRun$contextQuestionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NoteContextQuestion
+   */
+  select?: Prisma.NoteContextQuestionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NoteContextQuestion
+   */
+  omit?: Prisma.NoteContextQuestionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NoteContextQuestionInclude<ExtArgs> | null
+  where?: Prisma.NoteContextQuestionWhereInput
+  orderBy?: Prisma.NoteContextQuestionOrderByWithRelationInput | Prisma.NoteContextQuestionOrderByWithRelationInput[]
+  cursor?: Prisma.NoteContextQuestionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NoteContextQuestionScalarFieldEnum | Prisma.NoteContextQuestionScalarFieldEnum[]
 }
 
 /**

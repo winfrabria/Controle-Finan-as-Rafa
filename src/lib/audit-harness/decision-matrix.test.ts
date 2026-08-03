@@ -17,9 +17,9 @@ const sparseInvoice: HarnessInvoice = {
   items: [],
 };
 
-test("prioriza READ_FAILED e usa NO_PARAMETER sem achado nem cobertura", () => {
+test("prioriza READ_FAILED e pede contexto sem achado nem cobertura", () => {
   assert.equal(decideClassification({ readFailed: true, deterministicCoverage: true, aiCoverage: true, findings: [] }), "READ_FAILED");
-  assert.equal(evaluateHarness({ invoice: sparseInvoice }).classification, "NO_PARAMETER");
+  assert.equal(evaluateHarness({ invoice: sparseInvoice }).classification, "NEEDS_CONTEXT");
   assert.equal(evaluateHarness({ invoice: { ...sparseInvoice, readConfidence: 0.3 } }).classification, "READ_FAILED");
 });
 
@@ -32,8 +32,33 @@ test("qualquer achado sustentado exige classificação suspeita", () => {
       code: "X", title: "X", description: "X", category: "X", severity: "WARNING",
       source: "AI_DISCOVERY", confidence: 0.8, justification: "Evidência objetiva.",
       references: ["DANFE:campo:value"],
-      evidence: { field: "value" }, expectedValue: null, actualValue: "value",
+      evidence: { field: "value", summary: "O campo diverge do documento." }, expectedValue: null, actualValue: "value",
       noteItemLineNumber: null,
     }],
   }), "SUSPICIOUS");
+});
+
+test("achado livre sem localização e evidência concreta não sustenta suspeita", () => {
+  assert.equal(decideClassification({
+    readFailed: false,
+    deterministicCoverage: true,
+    aiCoverage: true,
+    findings: [{
+      code: "X", title: "X", description: "X", category: "X", severity: "WARNING",
+      source: "AI_DISCOVERY", confidence: 0.99, justification: "Parece inconsistente.",
+      references: [], evidence: { field: "" }, expectedValue: null, actualValue: null,
+      noteItemLineNumber: null,
+    }],
+  }), "OK");
+});
+
+test("contexto necessário não vira suspeita sem achado sustentado", () => {
+  assert.equal(decideClassification({
+    readFailed: false,
+    deterministicCoverage: true,
+    aiCoverage: false,
+    contextRequired: true,
+    contextQuestions: 1,
+    findings: [],
+  }), "NEEDS_CONTEXT");
 });

@@ -6,6 +6,8 @@ import { Prisma } from "@/generated/prisma/client";
 import {
   AiRunKind,
   AiRunStatus,
+  AuditResult,
+  ContextSubmissionStatus,
   FindingSource,
   FindingStatus,
   NoteClassification,
@@ -16,15 +18,16 @@ import {
   UserRole,
 } from "@/generated/prisma/enums";
 import {
-  AUDIT_POLICY,
   HARNESS_MODEL,
   HARNESS_VERSIONS,
   evaluateHarness,
   evaluateUniversalRules,
   evaluateWorkRules,
   isReadFailure,
+  isSupportedFinding,
   sanitizeForPersistence,
   selectReasoningEffort,
+  type ContextAnswerForAudit,
   type HarnessClassification,
   type HarnessInvoice,
   type WorkRuleInput,
@@ -35,6 +38,11 @@ import {
   getOpenRouterAuditDiscoveryClient,
   type AuditDiscoveryClient,
 } from "@/server/integrations/openrouter";
+import {
+  PUBLIC_CONTEXT_CAPABILITY_TTL_SECONDS,
+  terminalPublicCapabilityFields,
+} from "@/server/notes/public-capability";
+import { invalidateNoteReads } from "@/server/notes/note-read-invalidation";
 
 export class AuditPipelineError extends Error {
   constructor(public readonly code: string, message: string, options?: ErrorOptions) {
@@ -56,26 +64,37 @@ function dateOnly(value: Date | null) {
 }
 
 function classificationValue(value: HarnessClassification) {
-  const values = {
-    OK: NoteClassification.OK,
-    SUSPICIOUS: NoteClassification.SUSPICIOUS,
-    NO_PARAMETER: NoteClassification.NO_PARAMETER,
-    READ_FAILED: NoteClassification.INCOMPATIBLE,
-  } as const;
-  return values[value];
+  if (value === "OK") return NoteClassification.OK;
+  if (value === "SUSPICIOUS") return NoteClassification.SUSPICIOUS;
+  return null;
+}
+
+function auditResultValue(value: HarnessClassification) {
+  return {
+    OK: AuditResult.OK,
+    SUSPICIOUS: AuditResult.SUSPICIOUS,
+    NEEDS_CONTEXT: AuditResult.NEEDS_CONTEXT,
+    READ_FAILED: AuditResult.READ_FAILED,
+  }[value];
 }
 
 function noteStatus(value: HarnessClassification) {
-  if (value === "SUSPICIOUS") return NoteStatus.PENDING_VALIDATION;
-  if (value === "NO_PARAMETER") return NoteStatus.OK;
-  if (value === "READ_FAILED") return NoteStatus.READ_FAILED;
-  return NoteStatus.OK;
+  return value === "READ_FAILED" ? NoteStatus.READ_FAILED : NoteStatus.OK;
 }
 
-async function loadAuditContext(noteId: string) {
+type ContextSubmissionForAudit = {
+  answers: Array<{
+    question: { code: string; prompt: string; type: string };
+    value: Prisma.JsonValue;
+  }>;
+  id: string;
+};
+
+async function loadAuditContext(noteId: string, contextSubmissionId?: string) {
   const note = await prisma.note.findUnique({
     where: { id: noteId },
     select: {
+      contextRound: true,
       documentNumber: true,
       extractedData: true,
       id: true,
@@ -90,6 +109,10 @@ async function loadAuditContext(noteId: string) {
   if (note.processingStage !== ProcessingStage.ANALYZING || !note.extractedData) {
     throw new AuditPipelineError("AUDIT_NOT_ALLOWED", "A nota não está pronta para auditoria.");
   }
+  const activeContextQuestion = await prisma.noteContextQuestion.findFirst({
+    where: { noteId, round: note.contextRound },
+    select: { id: true },
+  });
 
   const parsed = invoiceExtractionSchema.safeParse(note.extractedData);
   if (!parsed.success) {
@@ -97,23 +120,11 @@ async function loadAuditContext(noteId: string) {
   }
   const invoice: HarnessInvoice = parsed.data;
   const activeRules = await prisma.auditRule.findMany({
-    where: {
-      active: true,
-      OR: [{ workId: null }, { workId: note.workId }],
-    },
+    where: { active: true, OR: [{ workId: null }, { workId: note.workId }] },
     orderBy: [{ priority: "asc" }, { code: "asc" }],
-    select: {
-      category: true,
-      code: true,
-      configuration: true,
-      name: true,
-      severity: true,
-    },
+    select: { category: true, code: true, configuration: true, name: true, severity: true },
   });
-  const workRules: WorkRuleInput[] = activeRules.map((rule) => ({
-    ...rule,
-    severity: rule.severity,
-  }));
+  const workRules: WorkRuleInput[] = activeRules.map((rule) => ({ ...rule, severity: rule.severity }));
   const duplicates = await prisma.note.findMany({
     where: {
       id: { not: note.id },
@@ -123,19 +134,43 @@ async function loadAuditContext(noteId: string) {
       issuedAt: note.issuedAt,
       status: { notIn: [NoteStatus.FAILED, NoteStatus.READ_FAILED] },
     },
-    select: {
-      documentNumber: true,
-      id: true,
-      issuedAt: true,
-      supplierTaxId: true,
-      totalAmount: true,
-    },
+    select: { documentNumber: true, id: true, issuedAt: true, supplierTaxId: true, totalAmount: true },
     take: 20,
   });
 
+  let contextSubmission: ContextSubmissionForAudit | null = null;
+  if (contextSubmissionId) {
+    contextSubmission = await prisma.noteContextSubmission.findUnique({
+      where: { id: contextSubmissionId },
+      select: {
+        answers: {
+          orderBy: { question: { position: "asc" } },
+          select: {
+            question: { select: { code: true, prompt: true, type: true } },
+            value: true,
+          },
+        },
+        id: true,
+      },
+    });
+    if (!contextSubmission) {
+      throw new AuditPipelineError("CONTEXT_SUBMISSION_NOT_FOUND", "A rodada de contexto não foi encontrada.");
+    }
+  }
+
+  const contextAnswers: ContextAnswerForAudit[] | undefined = contextSubmission
+    ? contextSubmission.answers.flatMap((answer) => {
+        const value = answer.value;
+        if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return [];
+        return [{ code: answer.question.code, question: answer.question.prompt, type: answer.question.type as ContextAnswerForAudit["type"], value }];
+      })
+    : undefined;
+
   return {
-    invoice,
-    workRules,
+    contextAnswers,
+    contextQuestionCount: activeContextQuestion ? 1 : 0,
+    contextRound: note.contextRound,
+    contextSubmissionId: contextSubmission?.id ?? null,
     duplicates: duplicates.map((duplicate) => ({
       noteId: duplicate.id,
       documentNumber: duplicate.documentNumber,
@@ -143,27 +178,38 @@ async function loadAuditContext(noteId: string) {
       issuedAt: dateOnly(duplicate.issuedAt),
       totalAmount: duplicate.totalAmount?.toString() ?? null,
     })),
+    invoice,
+    workRules,
   };
 }
 
-async function finalizeReadFailure(noteId: string) {
+async function finalizeReadFailure(noteId: string, contextSubmissionId?: string) {
   return prisma.$transaction(async (tx) => {
     await tx.finding.updateMany({
       where: { noteId, status: FindingStatus.OPEN },
       data: { status: FindingStatus.RESOLVED, needsValidation: false },
     });
+    await invalidateNoteReads(tx, noteId);
+    if (contextSubmissionId) {
+      await tx.noteContextSubmission.updateMany({
+        where: { id: contextSubmissionId },
+        data: { reanalysisCompletedAt: new Date(), status: ContextSubmissionStatus.REANALYSIS_COMPLETED },
+      });
+    }
     const note = await tx.note.update({
       where: { id: noteId },
       data: {
+        auditResult: AuditResult.READ_FAILED,
         classification: null,
         failureCode: "READ_FAILED",
         failureMessage: "A leitura não possui qualidade mínima para auditoria.",
         processedAt: new Date(),
         processingStage: ProcessingStage.COMPLETED,
+        ...terminalPublicCapabilityFields(),
         status: NoteStatus.READ_FAILED,
         version: { increment: 1 },
       },
-      select: { id: true, status: true, classification: true },
+      select: { auditResult: true, id: true, status: true },
     });
     await tx.noteEvent.create({
       data: {
@@ -180,21 +226,33 @@ async function finalizeReadFailure(noteId: string) {
 
 export async function processNoteAudit(
   noteId: string,
-  dependencies: { client?: AuditDiscoveryClient; processingJobId?: string } = {},
+  dependencies: {
+    client?: AuditDiscoveryClient;
+    contextSubmissionId?: string;
+    processingJobId?: string;
+  } = {},
 ) {
-  const context = await loadAuditContext(noteId);
-  if (isReadFailure(context.invoice)) return finalizeReadFailure(noteId);
+  const context = await loadAuditContext(noteId, dependencies.contextSubmissionId);
+  if (isReadFailure(context.invoice)) return finalizeReadFailure(noteId, dependencies.contextSubmissionId);
 
   const universal = evaluateUniversalRules({ invoice: context.invoice, duplicates: context.duplicates });
   const work = evaluateWorkRules(context.invoice, context.workRules);
   const deterministicFindings = [...universal.findings, ...work.findings];
   const reasoning = selectReasoningEffort(context.invoice, deterministicFindings);
-  const requestFingerprint = createHash("sha256").update(JSON.stringify({
-    invoice: context.invoice,
-    workRules: context.workRules,
-    deterministicFindings,
-    versions: HARNESS_VERSIONS,
-  })).digest("hex");
+  const canonicalContextAnswers = [...(context.contextAnswers ?? [])].sort(
+    (left, right) =>
+      `${left.code}:${left.type}`.localeCompare(`${right.code}:${right.type}`),
+  );
+  const requestFingerprint = createHash("sha256")
+    .update(JSON.stringify({
+      contextAnswers: canonicalContextAnswers,
+      contextRound: context.contextRound,
+      invoice: context.invoice,
+      workRules: context.workRules,
+      deterministicFindings,
+      versions: HARNESS_VERSIONS,
+    }))
+    .digest("hex");
   const idempotencyKey = `audit:${dependencies.processingJobId ?? noteId}:${requestFingerprint}`;
   const aiRun = await prisma.aiRun.upsert({
     where: { idempotencyKey },
@@ -206,50 +264,44 @@ export async function processNoteAudit(
       policyVersion: HARNESS_VERSIONS.policy,
       processingJobId: dependencies.processingJobId,
       promptVersion: HARNESS_VERSIONS.prompt,
-      reasoningEffort:
-        reasoning.effort === "max"
-          ? ReasoningEffort.MAX
-          : reasoning.effort === "xhigh"
-            ? ReasoningEffort.XHIGH
-            : ReasoningEffort.HIGH,
+      reasoningEffort: reasoning.effort === "max" ? ReasoningEffort.MAX : reasoning.effort === "xhigh" ? ReasoningEffort.XHIGH : ReasoningEffort.HIGH,
       requestFingerprint,
       schemaVersion: HARNESS_VERSIONS.schema,
       status: AiRunStatus.RUNNING,
     },
-    update: {
-      completedAt: null,
-      errorCode: null,
-      errorMessage: null,
-      status: AiRunStatus.RUNNING,
-      startedAt: new Date(),
-    },
+    update: { completedAt: null, errorCode: null, errorMessage: null, status: AiRunStatus.RUNNING, startedAt: new Date() },
     select: { id: true },
   });
 
   try {
     const client = dependencies.client ?? getOpenRouterAuditDiscoveryClient();
     const discovery = await client.discover({
+      contextAnswers: context.contextAnswers,
       invoice: context.invoice,
       deterministicFindings,
       workRules: context.workRules,
       reasoningEffort: reasoning.effort,
     });
     const result = evaluateHarness({ ...context, aiDiscovery: discovery.data });
-    const supportedFindings = result.findings.filter((finding) =>
-      finding.confidence >= AUDIT_POLICY.supportedFindingThreshold &&
-      Object.keys(finding.evidence).length > 0,
-    );
+    const allowNewContextQuestions = !dependencies.contextSubmissionId && context.contextQuestionCount === 0;
+    const isFirstAudit = !dependencies.contextSubmissionId && context.contextRound === 0;
+    if (result.classification === "NEEDS_CONTEXT" && isFirstAudit && result.contextQuestions.length === 0) {
+      throw new AuditPipelineError("AUDIT_CONTEXT_QUESTIONS_MISSING", "A auditoria solicitou contexto sem fornecer perguntas.");
+    }
+    const supportedFindings = result.findings.filter(isSupportedFinding);
+    const auditResult = auditResultValue(result.classification);
+    const finalStatus = noteStatus(result.classification);
+    const keepsPublicContextCapability =
+      result.classification === "NEEDS_CONTEXT" &&
+      !dependencies.contextSubmissionId &&
+      (context.contextQuestionCount > 0 ||
+        (allowNewContextQuestions && result.contextQuestions.length > 0));
 
     return await prisma.$transaction(async (tx) => {
-      const items = await tx.noteItem.findMany({
-        where: { noteId },
-        select: { id: true, lineNumber: true },
-      });
+      const items = await tx.noteItem.findMany({ where: { noteId }, select: { id: true, lineNumber: true } });
       const itemIds = new Map(items.map((item) => [item.lineNumber, item.id]));
-      await tx.finding.updateMany({
-        where: { noteId, status: FindingStatus.OPEN },
-        data: { status: FindingStatus.RESOLVED, needsValidation: false },
-      });
+      await tx.finding.updateMany({ where: { noteId, status: FindingStatus.OPEN }, data: { status: FindingStatus.RESOLVED, needsValidation: false } });
+      await invalidateNoteReads(tx, noteId);
 
       if (supportedFindings.length > 0) {
         await tx.finding.createMany({
@@ -266,15 +318,10 @@ export async function processNoteAudit(
             confidence: finding.confidence,
             justification: finding.justification,
             references: toJson(finding.references),
-            ruleVersion:
-              finding.source === "AI_DISCOVERY"
-                ? HARNESS_VERSIONS.prompt
-                : finding.source === "WORK_RULE"
-                  ? String(finding.evidence.ruleCode ?? HARNESS_VERSIONS.policy)
-                  : HARNESS_VERSIONS.policy,
+            ruleVersion: finding.source === "AI_DISCOVERY" ? HARNESS_VERSIONS.prompt : finding.source === "WORK_RULE" ? String(finding.evidence.ruleCode ?? HARNESS_VERSIONS.policy) : HARNESS_VERSIONS.policy,
             isNovel: finding.source === "AI_DISCOVERY",
             policyVersion: HARNESS_VERSIONS.policy,
-            needsValidation: result.classification === "SUSPICIOUS",
+            needsValidation: false,
             evidence: toJson(finding.evidence),
             expectedValue: nullableJson(finding.expectedValue),
             actualValue: nullableJson(finding.actualValue),
@@ -282,35 +329,67 @@ export async function processNoteAudit(
         });
       }
 
-      const finalStatus = noteStatus(result.classification);
+      let contextRound = context.contextRound;
+      if (result.classification === "NEEDS_CONTEXT" && allowNewContextQuestions && result.contextQuestions.length > 0) {
+        contextRound = context.contextRound > 0 ? context.contextRound : 1;
+        await tx.noteContextQuestion.createMany({
+          data: result.contextQuestions.map((question, index) => ({
+            aiRunId: aiRun.id,
+            code: question.code,
+            noteId,
+            options: toJson(question.options),
+            position: index + 1,
+            prompt: question.prompt,
+            rationale: question.rationale,
+            required: question.required,
+            round: contextRound,
+            type: question.type,
+          })),
+        });
+      }
+
+      if (dependencies.contextSubmissionId) {
+        await tx.noteContextSubmission.update({
+          where: { id: dependencies.contextSubmissionId },
+          data: { reanalysisCompletedAt: new Date(), status: ContextSubmissionStatus.REANALYSIS_COMPLETED },
+        });
+      }
+
       const note = await tx.note.update({
         where: { id: noteId },
         data: {
+          auditResult,
           classification: classificationValue(result.classification),
+          contextRound,
+          contextSummary: discovery.data.summary,
           failureCode: null,
           failureMessage: null,
           processedAt: new Date(),
           processingStage: ProcessingStage.COMPLETED,
+          ...(keepsPublicContextCapability
+            ? {
+                publicTokenExpiresAt: new Date(
+                  Date.now() + PUBLIC_CONTEXT_CAPABILITY_TTL_SECONDS * 1_000,
+                ),
+              }
+            : terminalPublicCapabilityFields()),
           status: finalStatus,
           version: { increment: 1 },
         },
-        select: { classification: true, id: true, status: true },
+        select: { auditResult: true, classification: true, id: true, status: true },
       });
 
       if (result.classification === "SUSPICIOUS") {
-        const reviewers = await tx.profile.findMany({
-          where: { active: true, role: { in: [UserRole.REVIEWER, UserRole.ADMIN] } },
-          select: { id: true },
-        });
+        const reviewers = await tx.profile.findMany({ where: { active: true, role: UserRole.REVIEWER }, select: { id: true } });
         if (reviewers.length > 0) {
           await tx.notification.createMany({
             data: reviewers.map((reviewer) => ({
               recipientId: reviewer.id,
               noteId,
-              type: NotificationType.VALIDATION_REQUIRED,
-              title: "Nota suspeita requer validação",
-              body: `${supportedFindings.length} achado(s) sustentado(s) pelo Harness.`,
-              data: toJson({ aiRunId: aiRun.id, policyVersion: HARNESS_VERSIONS.policy }),
+              type: NotificationType.NOTE_PROCESSED,
+              title: "Novo diagnóstico disponível",
+              body: "O anexo recebeu um diagnóstico que requer consulta.",
+              data: toJson({ auditResult: result.classification, aiRunId: aiRun.id, policyVersion: HARNESS_VERSIONS.policy }),
             })),
           });
         }
@@ -324,8 +403,11 @@ export async function processNoteAudit(
           toStatus: finalStatus,
           data: toJson({
             aiRunId: aiRun.id,
-            classification: result.classification,
+            auditResult: result.classification,
+            contextQuestionCount: result.contextQuestions.length,
+            contextRound,
             findingCount: supportedFindings.length,
+            hasContextAnswers: Boolean(context.contextAnswers?.length),
             coverage: result.coverage,
             policyVersion: HARNESS_VERSIONS.policy,
             reasoningEffort: reasoning.effort,
@@ -346,7 +428,8 @@ export async function processNoteAudit(
           provider: discovery.provider,
           status: AiRunStatus.SUCCEEDED,
           structuredResponse: toJson({
-            classification: result.classification,
+            auditResult: result.classification,
+            contextQuestionCodes: result.contextQuestions.map((question) => question.code),
             coverage: result.coverage,
             findingCodes: supportedFindings.map((finding) => finding.code),
             summary: discovery.data.summary,
@@ -357,8 +440,8 @@ export async function processNoteAudit(
       return note;
     });
   } catch (error) {
-    await prisma.$transaction([
-      prisma.aiRun.update({
+    await prisma.$transaction(async (transaction) => {
+      await transaction.aiRun.update({
         where: { id: aiRun.id },
         data: {
           completedAt: new Date(),
@@ -366,18 +449,22 @@ export async function processNoteAudit(
           errorMessage: "A auditoria por IA não pôde ser concluída.",
           status: AiRunStatus.FAILED,
         },
-      }),
-      prisma.note.update({
-        where: { id: noteId },
+      });
+      await transaction.note.updateMany({
+        where: {
+          id: noteId,
+          processingStage: ProcessingStage.ANALYZING,
+          status: NoteStatus.PROCESSING,
+        },
         data: {
-          failureCode: "AUDIT_PROVIDER_ERROR",
+          failureCode: error instanceof AuditPipelineError ? error.code : "AUDIT_PROVIDER_ERROR",
           failureMessage: "A auditoria está temporariamente indisponível.",
-          processingStage: ProcessingStage.FAILED,
-          status: NoteStatus.FAILED,
+          processingStage: ProcessingStage.ANALYZING,
+          status: NoteStatus.PROCESSING,
           version: { increment: 1 },
         },
-      }),
-    ]);
+      });
+    });
     throw new AuditPipelineError("AUDIT_PROVIDER_ERROR", "A auditoria por IA falhou.", { cause: error });
   }
 }

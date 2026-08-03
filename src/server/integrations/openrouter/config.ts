@@ -1,6 +1,9 @@
 import "server-only";
 
-import { HARNESS_MODEL } from "@/lib/audit-harness/versions";
+import {
+  HARNESS_MODEL,
+  HARNESS_PDF_MODEL,
+} from "@/lib/audit-harness/versions";
 
 export type OpenRouterPdfEngine = "cloudflare-ai" | "mistral-ocr" | "native";
 export type OpenRouterWorkload = "audit" | "extraction";
@@ -76,7 +79,7 @@ export function getOpenRouterConfig(
           HARNESS_MODEL,
     pdfModel:
       workload === "extraction"
-        ? environment.OPENROUTER_PDF_MODEL ?? HARNESS_MODEL
+        ? environment.OPENROUTER_PDF_MODEL ?? HARNESS_PDF_MODEL
         : undefined,
     pdfReasoningEffort:
       workload === "extraction"

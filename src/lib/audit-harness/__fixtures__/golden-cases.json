@@ -16,7 +16,6 @@
   },
   {
     "id": "no-finding-no-coverage",
-    "expected": "NO_PARAMETER"
+    "expected": "NEEDS_CONTEXT"
   }
 ]
-

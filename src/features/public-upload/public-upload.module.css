@@ -615,17 +615,6 @@
   height: 50%;
 }
 
-.resultIconSuccess[data-result="suspicious"],
-.resultIconSuccess[data-result="pending"] {
-  background: #f59e0b;
-  box-shadow: 0 0 0 8px rgb(245 158 11 / 12%);
-}
-
-.resultIconSuccess[data-result="no_parameter"] {
-  background: #2563eb;
-  box-shadow: 0 0 0 8px rgb(37 99 235 / 12%);
-}
-
 /* Ícone Erro */
 .resultIconError {
   width: clamp(48px, 6vh, 64px);
@@ -671,17 +660,6 @@
   font-size: 13px;
   font-weight: 600;
   margin-bottom: clamp(20px, 3vh, 32px);
-}
-
-.badgeSuccess[data-result="suspicious"],
-.badgeSuccess[data-result="pending"] {
-  background: #fff1d6;
-  color: #9a5700;
-}
-
-.badgeSuccess[data-result="no_parameter"] {
-  background: #e8f0ff;
-  color: #174ea6;
 }
 
 .badgeError {
@@ -1005,6 +983,308 @@
   font-size: 14px;
   font-weight: 600;
 }
+
+.processingSteps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  text-align: left;
+}
+
+.processingSteps li {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 7px;
+  min-width: 0;
+}
+
+.processingSteps li > span {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 24px;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.processingSteps li[data-state="active"] {
+  color: var(--blue-primary);
+}
+
+.processingSteps li[data-state="active"] > span {
+  background: var(--blue-primary);
+  border-color: var(--blue-primary);
+  color: #ffffff;
+}
+
+.processingSteps li[data-state="completed"] {
+  color: #047857;
+}
+
+.processingSteps li[data-state="completed"] > span {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.protocolInline {
+  background: var(--blue-light);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+}
+
+.contextFlow {
+  min-width: 0;
+}
+
+.contextHeading {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.contextHeadingIcon {
+  align-items: center;
+  background: var(--blue-light);
+  border-radius: 999px;
+  color: var(--blue-primary);
+  display: flex;
+  flex: 0 0 40px;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.contextHeadingIcon svg {
+  height: 20px;
+  width: 20px;
+}
+
+.contextHeading h2 {
+  font-size: 18px;
+  margin: 0 0 5px;
+}
+
+.contextHeading p {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.contextLayout {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(230px, 0.85fr) minmax(0, 1.15fr);
+  min-width: 0;
+}
+
+.previewCard,
+.contextForm {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  min-width: 0;
+}
+
+.previewCard {
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.previewHeader {
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+}
+
+.previewHeader span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.previewHeader strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewFrame {
+  align-items: stretch;
+  display: flex;
+  height: 420px;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.previewFrame iframe,
+.previewFrame img {
+  border: 0;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.previewFallback {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  gap: 8px;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.previewFallback svg {
+  color: var(--blue-primary);
+  height: 32px;
+  width: 32px;
+}
+
+.previewFallback strong {
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+.contextForm {
+  background: #ffffff;
+  padding: 16px;
+}
+
+.questionCount {
+  background: var(--blue-light);
+  border-radius: 999px;
+  color: var(--blue-primary);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  padding: 5px 9px;
+}
+
+.questionField {
+  border: 0;
+  margin: 0 0 16px;
+  min-width: 0;
+  padding: 0;
+}
+
+.questionField > label,
+.questionField > legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 0;
+  width: 100%;
+}
+
+.questionPosition {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.questionText {
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.questionText b {
+  color: #dc2626;
+}
+
+.questionField input[type="number"],
+.questionField select,
+.questionField textarea {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-sizing: border-box;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 14px;
+  min-height: 44px;
+  outline: none;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.questionField textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.questionField input:focus-visible,
+.questionField select:focus-visible,
+.questionField textarea:focus-visible,
+.confirmationOptions label:focus-within {
+  border-color: var(--blue-primary);
+  box-shadow: 0 0 0 3px rgba(0, 82, 255, 0.12);
+}
+
+.confirmationOptions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.confirmationOptions label {
+  align-items: center;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.confirmationOptions input {
+  accent-color: var(--blue-primary);
+  height: 18px;
+  width: 18px;
+}
+
+.contextError {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+}
 @keyframes pulse {
   0% {
     opacity: 1;
@@ -1085,6 +1365,50 @@
     min-width: 0;
   }
 
+  .formCard {
+    padding: 22px 16px;
+  }
+
+  .processingSteps {
+    gap: 6px;
+  }
+
+  .processingSteps li {
+    align-items: flex-start;
+    flex-direction: column;
+    font-size: 10px;
+    gap: 5px;
+    line-height: 1.25;
+  }
+
+  .contextHeading {
+    margin-bottom: 16px;
+  }
+
+  .contextHeading h2 {
+    font-size: 17px;
+  }
+
+  .contextLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .previewFrame {
+    height: 320px;
+  }
+
+  .contextForm {
+    padding: 14px;
+  }
+
+  .questionField input[type="number"],
+  .questionField select,
+  .questionField textarea,
+  .confirmationOptions label,
+  .contextForm .submitBtn {
+    min-height: 44px;
+  }
+
   .resultContainer {
     align-items: stretch;
     box-sizing: border-box;
@@ -1143,5 +1467,694 @@
 
   .footerLeft {
     display: none;
+  }
+}
+
+/* ── Fluxo público aprovado: nota fiscal única e contexto ── */
+.page {
+  background: #f7f9fc;
+}
+
+.header {
+  min-height: 76px;
+  height: auto;
+  padding-inline: clamp(20px, 4vw, 56px);
+}
+
+.content {
+  align-items: start;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.78fr);
+  max-width: 1440px;
+  padding: clamp(24px, 4vw, 48px) clamp(20px, 4vw, 56px);
+  width: 100%;
+}
+
+.content.contextContent {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1180px;
+}
+
+.mainColumn {
+  min-width: 0;
+}
+
+.titleBlock h1 {
+  color: #101e3b;
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.12;
+}
+
+.titleBlock p {
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 720px;
+}
+
+.stepper {
+  margin-block: 8px 0;
+}
+
+.stepper li {
+  font-size: 14px;
+  gap: 9px;
+}
+
+.stepper li span {
+  font-size: 12px;
+  height: 28px;
+  width: 28px;
+}
+
+.stepper::before {
+  top: 14px;
+}
+
+.formCard {
+  border-radius: 14px;
+  padding: clamp(22px, 3vw, 34px);
+  box-shadow: 0 12px 30px rgba(24, 55, 99, 0.05);
+}
+
+.formCard h2 {
+  color: #14244a;
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+
+.label {
+  font-size: 14px;
+}
+
+.selectWrap {
+  height: 48px;
+  border-radius: 10px;
+}
+
+.selectWrap select {
+  font-size: 15px;
+}
+
+.helper {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.dropzone {
+  min-height: 132px;
+  padding: 22px;
+}
+
+.dropzone p {
+  font-size: 15px;
+}
+
+.dropzone small {
+  font-size: 13px;
+}
+
+.fileRow {
+  min-height: 64px;
+  margin-top: 14px;
+}
+
+.fileName strong {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submitBtn,
+.btnOutline {
+  min-height: 48px;
+}
+
+.sidebar {
+  min-width: 0;
+}
+
+.sidebarHidden {
+  display: none;
+}
+
+.infoCard {
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.infoCard h2 {
+  font-size: 20px;
+}
+
+.infoRow h3 {
+  font-size: 15px;
+}
+
+.infoRow p {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.footer {
+  justify-content: center;
+  min-height: 58px;
+  height: auto;
+  padding: 14px 20px;
+}
+
+.footerRight {
+  margin-inline: auto;
+  font-size: 13px;
+}
+
+.contextCard {
+  padding: clamp(20px, 3vw, 30px);
+}
+
+.contextFlow {
+  min-width: 0;
+}
+
+.contextSummary {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dfe7f2;
+  border-radius: 12px;
+  display: flex;
+  gap: 14px;
+  margin-bottom: 18px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.contextSummaryIcon {
+  align-items: center;
+  background: #fff1f1;
+  border-radius: 10px;
+  color: #e33434;
+  display: inline-flex;
+  flex: 0 0 44px;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.contextSummaryIcon svg {
+  height: 24px;
+  width: 24px;
+}
+
+.contextSummaryText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.contextSummaryText > span,
+.contextSummaryText small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.contextSummaryText strong {
+  color: #14244a;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contextSummaryStatus {
+  align-items: center;
+  color: #49617f;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 650;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.contextSummaryStatus svg {
+  height: 17px;
+  width: 17px;
+}
+
+.contextLayout {
+  align-items: start;
+  gap: 20px;
+  grid-template-columns: minmax(250px, 0.82fr) minmax(0, 1.18fr);
+}
+
+.previewDisclosure {
+  background: #fff;
+  border: 1px solid #dfe7f2;
+  border-radius: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.previewDisclosure > summary {
+  align-items: center;
+  color: #075cff;
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  font-weight: 700;
+  justify-content: space-between;
+  list-style: none;
+  min-height: 50px;
+  padding: 0 16px;
+}
+
+.previewDisclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.previewDisclosure > summary svg {
+  height: 17px;
+  transform: rotate(-90deg);
+  transition: transform 0.2s ease;
+  width: 17px;
+}
+
+.previewDisclosure[open] > summary svg {
+  transform: rotate(90deg);
+}
+
+.previewCard {
+  border: 0;
+  border-top: 1px solid #dfe7f2;
+  border-radius: 0;
+}
+
+.previewFrame {
+  height: min(54vh, 480px);
+}
+
+.contextForm {
+  border-radius: 12px;
+  padding: 22px;
+}
+
+.contextFormHeading h2 {
+  font-size: 20px;
+  margin: 0 0 5px;
+}
+
+.contextFormHeading p {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+
+.questionCount {
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+
+.questionField {
+  border-bottom: 1px solid #e7edf5;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+}
+
+.questionField:last-of-type {
+  border-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.questionText {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.questionPosition {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.questionField input[type="number"],
+.questionField select,
+.questionField textarea {
+  border-radius: 9px;
+  font-size: 15px;
+  min-height: 48px;
+}
+
+.questionField textarea {
+  min-height: 104px;
+}
+
+.confirmationOptions label {
+  min-height: 48px;
+}
+
+.contextHint {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 12px 0 0;
+  text-align: center;
+}
+
+.contextBack {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #075cff;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 7px;
+  margin: 16px auto 0;
+  padding: 8px;
+}
+
+.contextBack svg {
+  height: 17px;
+  width: 17px;
+}
+
+@media (max-width: 1024px) {
+  .content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contextLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .previewDisclosure {
+    order: 2;
+  }
+
+  .contextForm {
+    order: 1;
+  }
+}
+
+@media (max-width: 767px) {
+  .header {
+    min-height: 60px;
+    padding-inline: 16px;
+  }
+
+  .content {
+    padding: 22px 14px 26px;
+  }
+
+  .titleBlock h1 {
+    font-size: 27px;
+  }
+
+  .titleBlock p {
+    font-size: 14px;
+  }
+
+  .stepper {
+    gap: 6px;
+  }
+
+  .stepper li {
+    align-items: center;
+    flex-direction: column;
+    font-size: 11px;
+    gap: 5px;
+    text-align: center;
+  }
+
+  .stepper li span {
+    height: 26px;
+    width: 26px;
+  }
+
+  .formCard,
+  .contextCard {
+    padding: 18px 14px;
+  }
+
+  .contextSummary {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .contextSummaryIcon {
+    flex-basis: 38px;
+    height: 38px;
+    width: 38px;
+  }
+
+  .contextSummaryIcon svg {
+    height: 20px;
+    width: 20px;
+  }
+
+  .contextSummaryStatus {
+    font-size: 12px;
+  }
+
+  .contextForm {
+    padding: 16px;
+  }
+
+  .contextFormHeading h2 {
+    font-size: 18px;
+  }
+
+  .previewFrame {
+    height: 330px;
+  }
+
+  .footerRight {
+    font-size: 12px;
+  }
+}
+
+/* ── Primeiro viewport: envio rápido sem rolagem desnecessária ── */
+@media (min-width: 768px) {
+  .header {
+    min-height: 64px;
+    padding-inline: clamp(18px, 3vw, 42px);
+  }
+
+  .content {
+    gap: 18px;
+    padding: 16px clamp(18px, 3vw, 42px) 20px;
+  }
+
+  .titleBlock h1 {
+    font-size: 28px;
+    margin-bottom: 4px;
+  }
+
+  .titleBlock p {
+    font-size: 13px;
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+
+  .stepper {
+    margin-block: 4px 0;
+  }
+
+  .stepper li {
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  .stepper li span {
+    font-size: 11px;
+    height: 24px;
+    width: 24px;
+  }
+
+  .stepper::before {
+    top: 12px;
+  }
+
+  .formCard {
+    padding: 16px 20px;
+  }
+
+  .formCard h2 {
+    font-size: 16px;
+    margin-bottom: 9px;
+  }
+
+  .label {
+    font-size: 13px;
+  }
+
+  .selectWrap {
+    height: 44px;
+  }
+
+  .selectWrap select,
+  .helper {
+    font-size: 13px;
+  }
+
+  .helper {
+    line-height: 1.35;
+  }
+
+  .dropzone {
+    min-height: 100px;
+    padding: 14px;
+  }
+
+  .dropzone p {
+    font-size: 13px;
+  }
+
+  .dropzone small {
+    font-size: 12px;
+  }
+
+  .fileRow {
+    min-height: 52px;
+    margin-top: 10px;
+  }
+
+  .submitBtn,
+  .btnOutline {
+    min-height: 44px;
+  }
+
+  .infoCard {
+    padding: 16px;
+  }
+
+  .infoCard h2 {
+    font-size: 17px;
+    margin-bottom: 10px;
+  }
+
+  .infoRow {
+    gap: 8px;
+    padding-block: 10px;
+  }
+
+  .infoRow h3 {
+    font-size: 13px;
+  }
+
+  .infoRow p {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .footer {
+    min-height: 44px;
+    padding: 10px 18px;
+  }
+}
+
+@media (max-width: 767px) {
+  .header {
+    min-height: 56px;
+    padding-inline: 14px;
+  }
+
+  .content {
+    gap: 10px;
+    padding: 14px 12px 18px;
+  }
+
+  .titleBlock h1 {
+    font-size: 24px;
+    margin-bottom: 3px;
+  }
+
+  .titleBlock p {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .stepper {
+    margin-block: 6px 0;
+  }
+
+  .stepper li {
+    font-size: 10px;
+    gap: 4px;
+  }
+
+  .stepper li span {
+    font-size: 10px;
+    height: 24px;
+    width: 24px;
+  }
+
+  .stepper::before {
+    top: 12px;
+  }
+
+  .formCard {
+    padding: 14px 12px;
+  }
+
+  .formCard h2 {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+
+  .label {
+    font-size: 13px;
+  }
+
+  .selectWrap {
+    height: 44px;
+  }
+
+  .selectWrap select,
+  .helper {
+    font-size: 13px;
+  }
+
+  .dropzone {
+    min-height: 96px;
+    padding: 12px 10px;
+  }
+
+  .dropzone p {
+    font-size: 13px;
+  }
+
+  .dropzone small {
+    font-size: 11px;
+  }
+
+  .fileRow {
+    min-height: 50px;
+    margin-top: 9px;
+  }
+
+  .submitBtn,
+  .btnOutline {
+    min-height: 44px;
+  }
+
+  /* A coluna lateral é apenas explicativa; não deve empurrar o envio para fora
+     do primeiro viewport do PWA. */
+  .sidebar {
+    display: none;
+  }
+
+  .footer {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  .footerRight {
+    font-size: 12px;
   }
 }

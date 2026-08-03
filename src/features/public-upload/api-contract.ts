@@ -23,8 +23,61 @@ export type ProjectsResponse = {
 export type CreateInvoiceResponse = {
   nota: {
     id: string;
-    status: string;
+    protocolo?: string;
+    status?: string;
   };
+};
+
+export type PublicQuestionType =
+  | "TEXT"
+  | "NUMBER"
+  | "CONFIRMATION"
+  | "SELECT";
+
+export type PublicContextQuestion = {
+  id: string;
+  pergunta: string;
+  tipo: PublicQuestionType;
+  obrigatoria: boolean;
+  opcoes?: string[];
+};
+
+export type PublicNoteState =
+  | "PROCESSING"
+  | "NEEDS_CONTEXT"
+  | "COMPLETED"
+  | "READ_FAILED"
+  | "FAILED";
+
+export type PublicNoteStatus = {
+  id: string;
+  estadoPublico: PublicNoteState;
+  etapa: string;
+  protocolo?: string;
+  perguntas?: PublicContextQuestion[];
+  erro?: { codigo: string; mensagem: string };
+};
+
+export type PublicNoteStatusResponse = {
+  nota: PublicNoteStatus;
+};
+
+export type PublicPreviewResponse = {
+  preview: {
+    expiresInSeconds: number;
+    fileName: string;
+    mimeType: string;
+    url: string;
+  };
+};
+
+export type PublicContextAnswer = {
+  perguntaId: string;
+  valor: string | number | boolean;
+};
+
+export type SubmitPublicContextBody = {
+  respostas: PublicContextAnswer[];
 };
 
 export type ApiErrorResponse = {

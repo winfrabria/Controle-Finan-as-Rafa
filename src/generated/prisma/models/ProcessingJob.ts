@@ -39,6 +39,7 @@ export type ProcessingJobSumAggregateOutputType = {
 export type ProcessingJobMinAggregateOutputType = {
   id: string | null
   noteId: string | null
+  contextSubmissionId: string | null
   type: $Enums.ProcessingJobType | null
   status: $Enums.ProcessingJobStatus | null
   idempotencyKey: string | null
@@ -58,6 +59,7 @@ export type ProcessingJobMinAggregateOutputType = {
 export type ProcessingJobMaxAggregateOutputType = {
   id: string | null
   noteId: string | null
+  contextSubmissionId: string | null
   type: $Enums.ProcessingJobType | null
   status: $Enums.ProcessingJobStatus | null
   idempotencyKey: string | null
@@ -77,6 +79,7 @@ export type ProcessingJobMaxAggregateOutputType = {
 export type ProcessingJobCountAggregateOutputType = {
   id: number
   noteId: number
+  contextSubmissionId: number
   type: number
   status: number
   idempotencyKey: number
@@ -108,6 +111,7 @@ export type ProcessingJobSumAggregateInputType = {
 export type ProcessingJobMinAggregateInputType = {
   id?: true
   noteId?: true
+  contextSubmissionId?: true
   type?: true
   status?: true
   idempotencyKey?: true
@@ -127,6 +131,7 @@ export type ProcessingJobMinAggregateInputType = {
 export type ProcessingJobMaxAggregateInputType = {
   id?: true
   noteId?: true
+  contextSubmissionId?: true
   type?: true
   status?: true
   idempotencyKey?: true
@@ -146,6 +151,7 @@ export type ProcessingJobMaxAggregateInputType = {
 export type ProcessingJobCountAggregateInputType = {
   id?: true
   noteId?: true
+  contextSubmissionId?: true
   type?: true
   status?: true
   idempotencyKey?: true
@@ -252,6 +258,7 @@ export type ProcessingJobGroupByArgs<ExtArgs extends runtime.Types.Extensions.In
 export type ProcessingJobGroupByOutputType = {
   id: string
   noteId: string
+  contextSubmissionId: string | null
   type: $Enums.ProcessingJobType
   status: $Enums.ProcessingJobStatus
   idempotencyKey: string
@@ -294,6 +301,7 @@ export type ProcessingJobWhereInput = {
   NOT?: Prisma.ProcessingJobWhereInput | Prisma.ProcessingJobWhereInput[]
   id?: Prisma.UuidFilter<"ProcessingJob"> | string
   noteId?: Prisma.UuidFilter<"ProcessingJob"> | string
+  contextSubmissionId?: Prisma.UuidNullableFilter<"ProcessingJob"> | string | null
   type?: Prisma.EnumProcessingJobTypeFilter<"ProcessingJob"> | $Enums.ProcessingJobType
   status?: Prisma.EnumProcessingJobStatusFilter<"ProcessingJob"> | $Enums.ProcessingJobStatus
   idempotencyKey?: Prisma.StringFilter<"ProcessingJob"> | string
@@ -309,12 +317,14 @@ export type ProcessingJobWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"ProcessingJob"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ProcessingJob"> | Date | string
   note?: Prisma.XOR<Prisma.NoteScalarRelationFilter, Prisma.NoteWhereInput>
+  contextSubmission?: Prisma.XOR<Prisma.NoteContextSubmissionNullableScalarRelationFilter, Prisma.NoteContextSubmissionWhereInput> | null
   aiRuns?: Prisma.AiRunListRelationFilter
 }
 
 export type ProcessingJobOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   noteId?: Prisma.SortOrder
+  contextSubmissionId?: Prisma.SortOrderInput | Prisma.SortOrder
   type?: Prisma.SortOrder
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
@@ -330,11 +340,13 @@ export type ProcessingJobOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   note?: Prisma.NoteOrderByWithRelationInput
+  contextSubmission?: Prisma.NoteContextSubmissionOrderByWithRelationInput
   aiRuns?: Prisma.AiRunOrderByRelationAggregateInput
 }
 
 export type ProcessingJobWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  contextSubmissionId?: string
   idempotencyKey?: string
   AND?: Prisma.ProcessingJobWhereInput | Prisma.ProcessingJobWhereInput[]
   OR?: Prisma.ProcessingJobWhereInput[]
@@ -354,12 +366,14 @@ export type ProcessingJobWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"ProcessingJob"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ProcessingJob"> | Date | string
   note?: Prisma.XOR<Prisma.NoteScalarRelationFilter, Prisma.NoteWhereInput>
+  contextSubmission?: Prisma.XOR<Prisma.NoteContextSubmissionNullableScalarRelationFilter, Prisma.NoteContextSubmissionWhereInput> | null
   aiRuns?: Prisma.AiRunListRelationFilter
-}, "id" | "idempotencyKey">
+}, "id" | "contextSubmissionId" | "idempotencyKey">
 
 export type ProcessingJobOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   noteId?: Prisma.SortOrder
+  contextSubmissionId?: Prisma.SortOrderInput | Prisma.SortOrder
   type?: Prisma.SortOrder
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
@@ -387,6 +401,7 @@ export type ProcessingJobScalarWhereWithAggregatesInput = {
   NOT?: Prisma.ProcessingJobScalarWhereWithAggregatesInput | Prisma.ProcessingJobScalarWhereWithAggregatesInput[]
   id?: Prisma.UuidWithAggregatesFilter<"ProcessingJob"> | string
   noteId?: Prisma.UuidWithAggregatesFilter<"ProcessingJob"> | string
+  contextSubmissionId?: Prisma.UuidNullableWithAggregatesFilter<"ProcessingJob"> | string | null
   type?: Prisma.EnumProcessingJobTypeWithAggregatesFilter<"ProcessingJob"> | $Enums.ProcessingJobType
   status?: Prisma.EnumProcessingJobStatusWithAggregatesFilter<"ProcessingJob"> | $Enums.ProcessingJobStatus
   idempotencyKey?: Prisma.StringWithAggregatesFilter<"ProcessingJob"> | string
@@ -420,12 +435,14 @@ export type ProcessingJobCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   note: Prisma.NoteCreateNestedOneWithoutProcessingJobsInput
+  contextSubmission?: Prisma.NoteContextSubmissionCreateNestedOneWithoutProcessingJobInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutProcessingJobInput
 }
 
 export type ProcessingJobUncheckedCreateInput = {
   id?: string
   noteId: string
+  contextSubmissionId?: string | null
   type?: $Enums.ProcessingJobType
   status?: $Enums.ProcessingJobStatus
   idempotencyKey: string
@@ -460,12 +477,14 @@ export type ProcessingJobUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   note?: Prisma.NoteUpdateOneRequiredWithoutProcessingJobsNestedInput
+  contextSubmission?: Prisma.NoteContextSubmissionUpdateOneWithoutProcessingJobNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutProcessingJobNestedInput
 }
 
 export type ProcessingJobUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   noteId?: Prisma.StringFieldUpdateOperationsInput | string
+  contextSubmissionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.EnumProcessingJobTypeFieldUpdateOperationsInput | $Enums.ProcessingJobType
   status?: Prisma.EnumProcessingJobStatusFieldUpdateOperationsInput | $Enums.ProcessingJobStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
@@ -486,6 +505,7 @@ export type ProcessingJobUncheckedUpdateInput = {
 export type ProcessingJobCreateManyInput = {
   id?: string
   noteId: string
+  contextSubmissionId?: string | null
   type?: $Enums.ProcessingJobType
   status?: $Enums.ProcessingJobStatus
   idempotencyKey: string
@@ -523,6 +543,7 @@ export type ProcessingJobUpdateManyMutationInput = {
 export type ProcessingJobUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   noteId?: Prisma.StringFieldUpdateOperationsInput | string
+  contextSubmissionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.EnumProcessingJobTypeFieldUpdateOperationsInput | $Enums.ProcessingJobType
   status?: Prisma.EnumProcessingJobStatusFieldUpdateOperationsInput | $Enums.ProcessingJobStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
@@ -552,6 +573,7 @@ export type ProcessingJobOrderByRelationAggregateInput = {
 export type ProcessingJobCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   noteId?: Prisma.SortOrder
+  contextSubmissionId?: Prisma.SortOrder
   type?: Prisma.SortOrder
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
@@ -576,6 +598,7 @@ export type ProcessingJobAvgOrderByAggregateInput = {
 export type ProcessingJobMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   noteId?: Prisma.SortOrder
+  contextSubmissionId?: Prisma.SortOrder
   type?: Prisma.SortOrder
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
@@ -595,6 +618,7 @@ export type ProcessingJobMaxOrderByAggregateInput = {
 export type ProcessingJobMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   noteId?: Prisma.SortOrder
+  contextSubmissionId?: Prisma.SortOrder
   type?: Prisma.SortOrder
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
@@ -671,6 +695,38 @@ export type EnumProcessingJobStatusFieldUpdateOperationsInput = {
   set?: $Enums.ProcessingJobStatus
 }
 
+export type ProcessingJobCreateNestedOneWithoutContextSubmissionInput = {
+  create?: Prisma.XOR<Prisma.ProcessingJobCreateWithoutContextSubmissionInput, Prisma.ProcessingJobUncheckedCreateWithoutContextSubmissionInput>
+  connectOrCreate?: Prisma.ProcessingJobCreateOrConnectWithoutContextSubmissionInput
+  connect?: Prisma.ProcessingJobWhereUniqueInput
+}
+
+export type ProcessingJobUncheckedCreateNestedOneWithoutContextSubmissionInput = {
+  create?: Prisma.XOR<Prisma.ProcessingJobCreateWithoutContextSubmissionInput, Prisma.ProcessingJobUncheckedCreateWithoutContextSubmissionInput>
+  connectOrCreate?: Prisma.ProcessingJobCreateOrConnectWithoutContextSubmissionInput
+  connect?: Prisma.ProcessingJobWhereUniqueInput
+}
+
+export type ProcessingJobUpdateOneWithoutContextSubmissionNestedInput = {
+  create?: Prisma.XOR<Prisma.ProcessingJobCreateWithoutContextSubmissionInput, Prisma.ProcessingJobUncheckedCreateWithoutContextSubmissionInput>
+  connectOrCreate?: Prisma.ProcessingJobCreateOrConnectWithoutContextSubmissionInput
+  upsert?: Prisma.ProcessingJobUpsertWithoutContextSubmissionInput
+  disconnect?: Prisma.ProcessingJobWhereInput | boolean
+  delete?: Prisma.ProcessingJobWhereInput | boolean
+  connect?: Prisma.ProcessingJobWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ProcessingJobUpdateToOneWithWhereWithoutContextSubmissionInput, Prisma.ProcessingJobUpdateWithoutContextSubmissionInput>, Prisma.ProcessingJobUncheckedUpdateWithoutContextSubmissionInput>
+}
+
+export type ProcessingJobUncheckedUpdateOneWithoutContextSubmissionNestedInput = {
+  create?: Prisma.XOR<Prisma.ProcessingJobCreateWithoutContextSubmissionInput, Prisma.ProcessingJobUncheckedCreateWithoutContextSubmissionInput>
+  connectOrCreate?: Prisma.ProcessingJobCreateOrConnectWithoutContextSubmissionInput
+  upsert?: Prisma.ProcessingJobUpsertWithoutContextSubmissionInput
+  disconnect?: Prisma.ProcessingJobWhereInput | boolean
+  delete?: Prisma.ProcessingJobWhereInput | boolean
+  connect?: Prisma.ProcessingJobWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ProcessingJobUpdateToOneWithWhereWithoutContextSubmissionInput, Prisma.ProcessingJobUpdateWithoutContextSubmissionInput>, Prisma.ProcessingJobUncheckedUpdateWithoutContextSubmissionInput>
+}
+
 export type ProcessingJobCreateNestedOneWithoutAiRunsInput = {
   create?: Prisma.XOR<Prisma.ProcessingJobCreateWithoutAiRunsInput, Prisma.ProcessingJobUncheckedCreateWithoutAiRunsInput>
   connectOrCreate?: Prisma.ProcessingJobCreateOrConnectWithoutAiRunsInput
@@ -703,11 +759,13 @@ export type ProcessingJobCreateWithoutNoteInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  contextSubmission?: Prisma.NoteContextSubmissionCreateNestedOneWithoutProcessingJobInput
   aiRuns?: Prisma.AiRunCreateNestedManyWithoutProcessingJobInput
 }
 
 export type ProcessingJobUncheckedCreateWithoutNoteInput = {
   id?: string
+  contextSubmissionId?: string | null
   type?: $Enums.ProcessingJobType
   status?: $Enums.ProcessingJobStatus
   idempotencyKey: string
@@ -757,6 +815,7 @@ export type ProcessingJobScalarWhereInput = {
   NOT?: Prisma.ProcessingJobScalarWhereInput | Prisma.ProcessingJobScalarWhereInput[]
   id?: Prisma.UuidFilter<"ProcessingJob"> | string
   noteId?: Prisma.UuidFilter<"ProcessingJob"> | string
+  contextSubmissionId?: Prisma.UuidNullableFilter<"ProcessingJob"> | string | null
   type?: Prisma.EnumProcessingJobTypeFilter<"ProcessingJob"> | $Enums.ProcessingJobType
   status?: Prisma.EnumProcessingJobStatusFilter<"ProcessingJob"> | $Enums.ProcessingJobStatus
   idempotencyKey?: Prisma.StringFilter<"ProcessingJob"> | string
@@ -771,6 +830,102 @@ export type ProcessingJobScalarWhereInput = {
   completedAt?: Prisma.DateTimeNullableFilter<"ProcessingJob"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ProcessingJob"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ProcessingJob"> | Date | string
+}
+
+export type ProcessingJobCreateWithoutContextSubmissionInput = {
+  id?: string
+  type?: $Enums.ProcessingJobType
+  status?: $Enums.ProcessingJobStatus
+  idempotencyKey: string
+  attempt?: number
+  maxAttempts?: number
+  availableAt?: Date | string
+  lockedAt?: Date | string | null
+  lockedBy?: string | null
+  lastErrorCode?: string | null
+  lastError?: string | null
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  note: Prisma.NoteCreateNestedOneWithoutProcessingJobsInput
+  aiRuns?: Prisma.AiRunCreateNestedManyWithoutProcessingJobInput
+}
+
+export type ProcessingJobUncheckedCreateWithoutContextSubmissionInput = {
+  id?: string
+  noteId: string
+  type?: $Enums.ProcessingJobType
+  status?: $Enums.ProcessingJobStatus
+  idempotencyKey: string
+  attempt?: number
+  maxAttempts?: number
+  availableAt?: Date | string
+  lockedAt?: Date | string | null
+  lockedBy?: string | null
+  lastErrorCode?: string | null
+  lastError?: string | null
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  aiRuns?: Prisma.AiRunUncheckedCreateNestedManyWithoutProcessingJobInput
+}
+
+export type ProcessingJobCreateOrConnectWithoutContextSubmissionInput = {
+  where: Prisma.ProcessingJobWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProcessingJobCreateWithoutContextSubmissionInput, Prisma.ProcessingJobUncheckedCreateWithoutContextSubmissionInput>
+}
+
+export type ProcessingJobUpsertWithoutContextSubmissionInput = {
+  update: Prisma.XOR<Prisma.ProcessingJobUpdateWithoutContextSubmissionInput, Prisma.ProcessingJobUncheckedUpdateWithoutContextSubmissionInput>
+  create: Prisma.XOR<Prisma.ProcessingJobCreateWithoutContextSubmissionInput, Prisma.ProcessingJobUncheckedCreateWithoutContextSubmissionInput>
+  where?: Prisma.ProcessingJobWhereInput
+}
+
+export type ProcessingJobUpdateToOneWithWhereWithoutContextSubmissionInput = {
+  where?: Prisma.ProcessingJobWhereInput
+  data: Prisma.XOR<Prisma.ProcessingJobUpdateWithoutContextSubmissionInput, Prisma.ProcessingJobUncheckedUpdateWithoutContextSubmissionInput>
+}
+
+export type ProcessingJobUpdateWithoutContextSubmissionInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.EnumProcessingJobTypeFieldUpdateOperationsInput | $Enums.ProcessingJobType
+  status?: Prisma.EnumProcessingJobStatusFieldUpdateOperationsInput | $Enums.ProcessingJobStatus
+  idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  attempt?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  availableAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastErrorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  note?: Prisma.NoteUpdateOneRequiredWithoutProcessingJobsNestedInput
+  aiRuns?: Prisma.AiRunUpdateManyWithoutProcessingJobNestedInput
+}
+
+export type ProcessingJobUncheckedUpdateWithoutContextSubmissionInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  noteId?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.EnumProcessingJobTypeFieldUpdateOperationsInput | $Enums.ProcessingJobType
+  status?: Prisma.EnumProcessingJobStatusFieldUpdateOperationsInput | $Enums.ProcessingJobStatus
+  idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
+  attempt?: Prisma.IntFieldUpdateOperationsInput | number
+  maxAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  availableAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastErrorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  aiRuns?: Prisma.AiRunUncheckedUpdateManyWithoutProcessingJobNestedInput
 }
 
 export type ProcessingJobCreateWithoutAiRunsInput = {
@@ -790,11 +945,13 @@ export type ProcessingJobCreateWithoutAiRunsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   note: Prisma.NoteCreateNestedOneWithoutProcessingJobsInput
+  contextSubmission?: Prisma.NoteContextSubmissionCreateNestedOneWithoutProcessingJobInput
 }
 
 export type ProcessingJobUncheckedCreateWithoutAiRunsInput = {
   id?: string
   noteId: string
+  contextSubmissionId?: string | null
   type?: $Enums.ProcessingJobType
   status?: $Enums.ProcessingJobStatus
   idempotencyKey: string
@@ -844,11 +1001,13 @@ export type ProcessingJobUpdateWithoutAiRunsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   note?: Prisma.NoteUpdateOneRequiredWithoutProcessingJobsNestedInput
+  contextSubmission?: Prisma.NoteContextSubmissionUpdateOneWithoutProcessingJobNestedInput
 }
 
 export type ProcessingJobUncheckedUpdateWithoutAiRunsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   noteId?: Prisma.StringFieldUpdateOperationsInput | string
+  contextSubmissionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.EnumProcessingJobTypeFieldUpdateOperationsInput | $Enums.ProcessingJobType
   status?: Prisma.EnumProcessingJobStatusFieldUpdateOperationsInput | $Enums.ProcessingJobStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
@@ -867,6 +1026,7 @@ export type ProcessingJobUncheckedUpdateWithoutAiRunsInput = {
 
 export type ProcessingJobCreateManyNoteInput = {
   id?: string
+  contextSubmissionId?: string | null
   type?: $Enums.ProcessingJobType
   status?: $Enums.ProcessingJobStatus
   idempotencyKey: string
@@ -899,11 +1059,13 @@ export type ProcessingJobUpdateWithoutNoteInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  contextSubmission?: Prisma.NoteContextSubmissionUpdateOneWithoutProcessingJobNestedInput
   aiRuns?: Prisma.AiRunUpdateManyWithoutProcessingJobNestedInput
 }
 
 export type ProcessingJobUncheckedUpdateWithoutNoteInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  contextSubmissionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.EnumProcessingJobTypeFieldUpdateOperationsInput | $Enums.ProcessingJobType
   status?: Prisma.EnumProcessingJobStatusFieldUpdateOperationsInput | $Enums.ProcessingJobStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
@@ -923,6 +1085,7 @@ export type ProcessingJobUncheckedUpdateWithoutNoteInput = {
 
 export type ProcessingJobUncheckedUpdateManyWithoutNoteInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  contextSubmissionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   type?: Prisma.EnumProcessingJobTypeFieldUpdateOperationsInput | $Enums.ProcessingJobType
   status?: Prisma.EnumProcessingJobStatusFieldUpdateOperationsInput | $Enums.ProcessingJobStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
@@ -973,6 +1136,7 @@ export type ProcessingJobCountOutputTypeCountAiRunsArgs<ExtArgs extends runtime.
 export type ProcessingJobSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   noteId?: boolean
+  contextSubmissionId?: boolean
   type?: boolean
   status?: boolean
   idempotencyKey?: boolean
@@ -988,6 +1152,7 @@ export type ProcessingJobSelect<ExtArgs extends runtime.Types.Extensions.Interna
   createdAt?: boolean
   updatedAt?: boolean
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
+  contextSubmission?: boolean | Prisma.ProcessingJob$contextSubmissionArgs<ExtArgs>
   aiRuns?: boolean | Prisma.ProcessingJob$aiRunsArgs<ExtArgs>
   _count?: boolean | Prisma.ProcessingJobCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["processingJob"]>
@@ -995,6 +1160,7 @@ export type ProcessingJobSelect<ExtArgs extends runtime.Types.Extensions.Interna
 export type ProcessingJobSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   noteId?: boolean
+  contextSubmissionId?: boolean
   type?: boolean
   status?: boolean
   idempotencyKey?: boolean
@@ -1010,11 +1176,13 @@ export type ProcessingJobSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   createdAt?: boolean
   updatedAt?: boolean
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
+  contextSubmission?: boolean | Prisma.ProcessingJob$contextSubmissionArgs<ExtArgs>
 }, ExtArgs["result"]["processingJob"]>
 
 export type ProcessingJobSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   noteId?: boolean
+  contextSubmissionId?: boolean
   type?: boolean
   status?: boolean
   idempotencyKey?: boolean
@@ -1030,11 +1198,13 @@ export type ProcessingJobSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   createdAt?: boolean
   updatedAt?: boolean
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
+  contextSubmission?: boolean | Prisma.ProcessingJob$contextSubmissionArgs<ExtArgs>
 }, ExtArgs["result"]["processingJob"]>
 
 export type ProcessingJobSelectScalar = {
   id?: boolean
   noteId?: boolean
+  contextSubmissionId?: boolean
   type?: boolean
   status?: boolean
   idempotencyKey?: boolean
@@ -1051,28 +1221,33 @@ export type ProcessingJobSelectScalar = {
   updatedAt?: boolean
 }
 
-export type ProcessingJobOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "noteId" | "type" | "status" | "idempotencyKey" | "attempt" | "maxAttempts" | "availableAt" | "lockedAt" | "lockedBy" | "lastErrorCode" | "lastError" | "startedAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["processingJob"]>
+export type ProcessingJobOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "noteId" | "contextSubmissionId" | "type" | "status" | "idempotencyKey" | "attempt" | "maxAttempts" | "availableAt" | "lockedAt" | "lockedBy" | "lastErrorCode" | "lastError" | "startedAt" | "completedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["processingJob"]>
 export type ProcessingJobInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
+  contextSubmission?: boolean | Prisma.ProcessingJob$contextSubmissionArgs<ExtArgs>
   aiRuns?: boolean | Prisma.ProcessingJob$aiRunsArgs<ExtArgs>
   _count?: boolean | Prisma.ProcessingJobCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ProcessingJobIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
+  contextSubmission?: boolean | Prisma.ProcessingJob$contextSubmissionArgs<ExtArgs>
 }
 export type ProcessingJobIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   note?: boolean | Prisma.NoteDefaultArgs<ExtArgs>
+  contextSubmission?: boolean | Prisma.ProcessingJob$contextSubmissionArgs<ExtArgs>
 }
 
 export type $ProcessingJobPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "ProcessingJob"
   objects: {
     note: Prisma.$NotePayload<ExtArgs>
+    contextSubmission: Prisma.$NoteContextSubmissionPayload<ExtArgs> | null
     aiRuns: Prisma.$AiRunPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     noteId: string
+    contextSubmissionId: string | null
     type: $Enums.ProcessingJobType
     status: $Enums.ProcessingJobStatus
     idempotencyKey: string
@@ -1482,6 +1657,7 @@ readonly fields: ProcessingJobFieldRefs;
 export interface Prisma__ProcessingJobClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   note<T extends Prisma.NoteDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.NoteDefaultArgs<ExtArgs>>): Prisma.Prisma__NoteClient<runtime.Types.Result.GetResult<Prisma.$NotePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  contextSubmission<T extends Prisma.ProcessingJob$contextSubmissionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProcessingJob$contextSubmissionArgs<ExtArgs>>): Prisma.Prisma__NoteContextSubmissionClient<runtime.Types.Result.GetResult<Prisma.$NoteContextSubmissionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   aiRuns<T extends Prisma.ProcessingJob$aiRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ProcessingJob$aiRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AiRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1514,6 +1690,7 @@ export interface Prisma__ProcessingJobClient<T, Null = never, ExtArgs extends ru
 export interface ProcessingJobFieldRefs {
   readonly id: Prisma.FieldRef<"ProcessingJob", 'String'>
   readonly noteId: Prisma.FieldRef<"ProcessingJob", 'String'>
+  readonly contextSubmissionId: Prisma.FieldRef<"ProcessingJob", 'String'>
   readonly type: Prisma.FieldRef<"ProcessingJob", 'ProcessingJobType'>
   readonly status: Prisma.FieldRef<"ProcessingJob", 'ProcessingJobStatus'>
   readonly idempotencyKey: Prisma.FieldRef<"ProcessingJob", 'String'>
@@ -1926,6 +2103,25 @@ export type ProcessingJobDeleteManyArgs<ExtArgs extends runtime.Types.Extensions
    * Limit how many ProcessingJobs to delete.
    */
   limit?: number
+}
+
+/**
+ * ProcessingJob.contextSubmission
+ */
+export type ProcessingJob$contextSubmissionArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NoteContextSubmission
+   */
+  select?: Prisma.NoteContextSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NoteContextSubmission
+   */
+  omit?: Prisma.NoteContextSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NoteContextSubmissionInclude<ExtArgs> | null
+  where?: Prisma.NoteContextSubmissionWhereInput
 }
 
 /**

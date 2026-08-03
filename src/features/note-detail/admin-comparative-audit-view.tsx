@@ -2,7 +2,12 @@ import Link from "next/link";
 
 import { PortalShell, StatusBadge } from "@/features/workspace-ui/portal-shell";
 import { Icon } from "@/features/workspace-ui/ui-icons";
+import {
+  auditResultLabel,
+  auditResultTone,
+} from "@/features/workspace-ui/audit-result-label";
 import type { Prisma } from "@/generated/prisma/client";
+import { attachmentReference } from "@/features/internal-notes/attachment-reference";
 
 import type { AdminNoteDetail, AdminNoteDetailFinding } from "./data";
 import { AdminAuditActions } from "./admin-audit-actions";
@@ -30,11 +35,15 @@ export function AdminComparativeAuditView({
   const raw = data.analysis.rawExtraction;
   const latestValidation = data.validations.at(-1) ?? null;
   const latestRun = data.technical.aiRuns[0] ?? null;
-  const number = data.number ?? "Sem número";
+  const number = attachmentReference(data.number, data.id);
   const series = rawValue(raw, ["serie", "series"]) ?? "Não identificada";
   const supplier = data.supplier.name ?? "Fornecedor não identificado";
   const total = formatCurrency(data.totalAmount);
-  const classification = classificationLabel(data.analysis.classification);
+  const classification = auditResultLabel(
+    data.analysis.auditResult,
+    data.analysis.classification,
+    data.status,
+  );
   const fields = [
     ["Número da nota", number],
     ["Série", series],
@@ -62,7 +71,7 @@ export function AdminComparativeAuditView({
           <div>
             <div className={styles.titleRow}>
               <h1>Auditoria comparativa</h1>
-              <StatusBadge tone={classification === "OK" ? "ok" : "warning"}>
+              <StatusBadge tone={auditResultTone(classification)}>
                 ● &nbsp;{classification}
               </StatusBadge>
               {data.demoLabel ? <span className={styles.demoBadge}>{data.demoLabel}</span> : null}
@@ -187,10 +196,26 @@ function rawValue(value: Prisma.JsonValue | null, keys: string[]) { if (!value |
 function rawItemValue(value: Prisma.JsonValue | null, keys: string[]) { return rawValue(value, keys); }
 function formatMaybeCurrency(value: string | null, fallback = "Não identificado") { return value ? formatCurrency(value) : fallback; }
 function formatConfidence(value: number | null) { return value === null ? "Não informada" : `${Math.round(value * 100)}%`; }
-function classificationLabel(value: string | null) { return value === "OK" ? "OK" : value === "SUSPICIOUS" ? "Suspeita" : value === "NO_PARAMETER" ? "Sem parâmetro" : "Em análise"; }
 function validationLabel(value: string) { return value === "SUSPICION_CONFIRMED" || value === "FINDING_CORRECT" ? "Suspeita" : "OK"; }
 function validationTone(value: string): "ok" | "warning" { return value === "SUSPICION_CONFIRMED" || value === "FINDING_CORRECT" ? "warning" : "ok"; }
 function severityLabel(value: string) { return value === "CRITICAL" ? "Alto" : value === "WARNING" ? "Médio" : "Baixo"; }
 function sourceLabel(value: string) { return value === "WORK_RULE" ? "Regra da obra" : value === "AI_DISCOVERY" ? "Descoberta da IA" : "Regra universal"; }
 function timelineIcon(type: string): "document" | "money" | "warning" | "help" { return type.includes("VALIDATION") ? "help" : type.includes("ANALYSIS") ? "warning" : type.includes("EXTRACTION") ? "money" : "document"; }
-function timelineDescription(entry: AdminNoteDetail["history"][number]) { const data = jsonSummary(entry.data, ""); return data && data !== "—" ? data : entry.toStatus ? `Status: ${entry.toStatus}` : "Evento registrado no sistema."; }
+function timelineDescription(entry: AdminNoteDetail["history"][number]) {
+  const descriptions: Record<string, string> = {
+    AUDIT_COMPLETED: "As regras e a análise da IA foram concluídas.",
+    ANALYSIS_COMPLETED: "O diagnóstico final do anexo foi registrado.",
+    EXTRACTION_COMPLETED: "Os dados e itens identificados foram normalizados para auditoria.",
+    EXTRACTION_FAILED: "A tentativa de leitura falhou e ficou disponível para diagnóstico.",
+    EXTRACTION_STARTED: "O Harness iniciou a leitura estruturada dos dados e itens.",
+    FILE_STORED: "O arquivo original foi salvo com segurança e liberado para leitura.",
+    NOTE_RECEIVED: "O anexo foi recebido e colocado na fila de processamento.",
+    PROCESSING_STARTED: "O processamento do anexo foi iniciado.",
+    READ_FAILED: "Não foi possível obter dados mínimos confiáveis para auditar o anexo.",
+    REPROCESS_SCHEDULED: "Uma nova leitura e auditoria foram colocadas na fila.",
+    UPLOAD_FAILED: "O recebimento do arquivo não foi concluído.",
+    UPLOAD_RECEIVED: "O anexo foi recebido e colocado na fila de processamento.",
+    VALIDATION_RECORDED: "A decisão humana foi registrada no histórico.",
+  };
+  return descriptions[entry.type] ?? "Evento registrado no sistema.";
+}

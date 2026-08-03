@@ -34,7 +34,7 @@
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(180px, 0.9fr) minmax(210px, 1fr) minmax(190px, 0.9fr) minmax(240px, 1.15fr) auto;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(170px, 0.9fr) minmax(170px, 0.9fr) minmax(170px, 0.85fr) minmax(240px, 1.15fr) auto;
   margin-bottom: 16px;
 }
 
@@ -449,6 +449,11 @@
 .statusSuspicious {
   background: #fff2da;
   color: #d87900;
+}
+
+.statusNeedsContext {
+  background: #f1efff;
+  color: #5b3fb4;
 }
 
 .statusProcessing {

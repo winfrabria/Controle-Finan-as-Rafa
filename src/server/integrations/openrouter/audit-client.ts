@@ -7,6 +7,7 @@ import {
   AUDIT_DISCOVERY_PROMPT,
   aiDiscoveryResponseSchema,
   type AiDiscoveryResponse,
+  type ContextAnswerForAudit,
   type HarnessFinding,
   type HarnessInvoice,
   type WorkRuleInput,
@@ -60,6 +61,7 @@ async function readProviderError(response: Response) {
 }
 
 export type AuditDiscoveryRequest = {
+  contextAnswers?: ContextAnswerForAudit[];
   invoice: HarnessInvoice;
   deterministicFindings: HarnessFinding[];
   workRules: WorkRuleInput[];
@@ -142,6 +144,7 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
             {
               role: "user",
               content: `${AUDIT_DISCOVERY_PROMPT.user}\n\n${JSON.stringify({
+                contextAnswers: request.contextAnswers ?? [],
                 invoice: request.invoice,
                 deterministicFindings: request.deterministicFindings,
                 workRules: request.workRules,

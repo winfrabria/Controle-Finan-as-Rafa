@@ -10,7 +10,7 @@ import {
   ReasoningEffort,
 } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
-import { HARNESS_VERSIONS } from "@/lib/audit-harness";
+import { HARNESS_PDF_MODEL, HARNESS_VERSIONS } from "@/lib/audit-harness";
 import type { InvoiceExtraction } from "@/lib/integrations/openrouter/extraction-contract";
 import { prisma } from "@/server/db/prisma";
 import {
@@ -91,6 +91,7 @@ async function claimNote(noteId: string) {
         originalFileName: true,
         originalFilePath: true,
         originalMimeType: true,
+        processingStage: true,
         status: true,
         version: true,
       },
@@ -106,6 +107,9 @@ async function claimNote(noteId: string) {
     const canProcess =
       note.status === NoteStatus.RECEIVED ||
       (note.status === NoteStatus.FAILED &&
+        isRetryableFailedNote(note.failureCode)) ||
+      (note.status === NoteStatus.PROCESSING &&
+        note.processingStage === ProcessingStage.EXTRACTING &&
         isRetryableFailedNote(note.failureCode));
 
     if (!canProcess) {
@@ -164,8 +168,8 @@ async function recordExtractionFailure(
       data: {
         failureCode: failure.code,
         failureMessage: failure.message,
-        processingStage: ProcessingStage.FAILED,
-        status: NoteStatus.FAILED,
+        processingStage: ProcessingStage.EXTRACTING,
+        status: NoteStatus.PROCESSING,
         version: { increment: 1 },
       },
     });
@@ -174,9 +178,9 @@ async function recordExtractionFailure(
       await transaction.noteEvent.create({
         data: {
           noteId,
-          type: "EXTRACTION_FAILED",
+          type: "EXTRACTION_ATTEMPT_FAILED",
           fromStatus: NoteStatus.PROCESSING,
-          toStatus: NoteStatus.FAILED,
+          toStatus: NoteStatus.PROCESSING,
           data: { failureCode: failure.code },
         },
       });
@@ -313,7 +317,7 @@ export async function processNoteExtraction(
       idempotencyKey,
       kind: AiRunKind.EXTRACTION,
       model: extractingPdf
-        ? process.env.OPENROUTER_PDF_MODEL ?? "openai/gpt-5.6-sol"
+        ? process.env.OPENROUTER_PDF_MODEL ?? HARNESS_PDF_MODEL
         : process.env.OPENROUTER_EXTRACTION_MODEL ?? "openai/gpt-5.6-luna",
       noteId: note.id,
       policyVersion: HARNESS_VERSIONS.policy,

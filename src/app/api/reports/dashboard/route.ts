@@ -1,31 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const reportRows = {
-  admin: [
-    ["Métrica", "Valor"],
-    ["Total de notas", "2847"],
-    ["Notas suspeitas", "176"],
-    ["Obras cadastradas", "48"],
-    ["Validações pelo Rafael", "498"],
-    ["Valor analisado", "R$ 18,75 mi"],
-  ],
-  reviewer: [
-    ["Métrica", "Valor"],
-    ["Total de notas", "1248"],
-    ["Notas suspeitas", "142"],
-    ["Valor analisado", "R$ 8,45 mi"],
-    ["Pendentes de validação", "198"],
-  ],
-} as const;
+import { AuditResult, NoteClassification, NoteStatus } from "@/generated/prisma/enums";
+import { INTERNAL_ROLES } from "@/server/auth/access-policy";
+import { requireApiRoles } from "@/server/auth/authorization";
+import { prisma } from "@/server/db/prisma";
 
 function quoteCsv(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
 }
 
 export async function GET(request: NextRequest) {
-  const requestedRole = request.nextUrl.searchParams.get("role");
-  const role = requestedRole === "reviewer" ? "reviewer" : "admin";
-  const csv = reportRows[role]
+  void request;
+  const access = await requireApiRoles(INTERNAL_ROLES);
+  if (!access.ok) return access.response;
+
+  const [total, suspicious, processedValue, failures, workCount] =
+    await Promise.all([
+      prisma.note.count(),
+      prisma.note.count({
+        where: {
+          OR: [
+            { auditResult: AuditResult.SUSPICIOUS },
+            { classification: NoteClassification.SUSPICIOUS },
+            { status: { in: [NoteStatus.PENDING_VALIDATION, NoteStatus.REJECTED] } },
+          ],
+        },
+      }),
+      prisma.note.aggregate({
+        where: {
+          status: {
+            notIn: [NoteStatus.RECEIVED, NoteStatus.PROCESSING, NoteStatus.FAILED],
+          },
+        },
+        _sum: { totalAmount: true },
+      }),
+      prisma.note.count({
+        where: { status: { in: [NoteStatus.READ_FAILED, NoteStatus.FAILED] } },
+      }),
+      access.profile.role === "ADMIN" ? prisma.work.count() : Promise.resolve(0),
+    ]);
+
+  const money = new Intl.NumberFormat("pt-BR", {
+    currency: "BRL",
+    style: "currency",
+  }).format(Number(processedValue._sum.totalAmount ?? 0));
+  const reportRows = [
+    ["Métrica", "Valor"],
+    ["Total de anexos", String(total)],
+    ["Anexos suspeitos", String(suspicious)],
+    ["Falhas de leitura ou processamento", String(failures)],
+    ["Valor processado", money],
+    ...(access.profile.role === "ADMIN"
+      ? [["Obras cadastradas", String(workCount)]]
+      : []),
+  ];
+  const role = access.profile.role === "ADMIN" ? "admin" : "reviewer";
+  const csv = reportRows
     .map((row) => row.map(quoteCsv).join(";"))
     .join("\r\n");
 

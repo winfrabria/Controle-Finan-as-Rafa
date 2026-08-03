@@ -1,12 +1,16 @@
 import "server-only";
 
 import {
+  AuditResult,
   FindingStatus,
   NoteClassification,
   NoteStatus,
+  ProcessingJobStatus,
 } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
+
+import { sanitizeReviewerNoteListItem } from "./reviewer-payload-policy";
 
 function stringifyJson(value: unknown) {
   if (value === null || value === undefined) return null;
@@ -37,6 +41,7 @@ export type NoteListFilters = {
 };
 
 export type NoteListItem = {
+  auditResult: AuditResult | null;
   classification: NoteClassification | null;
   createdAt: Date;
   documentNumber: string | null;
@@ -55,6 +60,8 @@ export type NoteListItem = {
   isRead: boolean;
   issuedAt: Date | null;
   primaryFinding: string | null;
+  processingJobStatus: ProcessingJobStatus | null;
+  responsibleName: string | null;
   status: NoteStatus;
   supplierName: string | null;
   totalAmount: string | null;
@@ -155,26 +162,44 @@ function buildWhere(filters: NoteListFilters, validationOnly: boolean) {
 
 export async function listNotes(
   filters: NoteListFilters,
-  options: { profileId?: string; validationOnly?: boolean } = {},
+  options: {
+    all?: boolean;
+    profileId?: string;
+    sanitizeForReviewer?: boolean;
+    validationOnly?: boolean;
+  } = {},
 ) {
   const validationOnly = options.validationOnly ?? false;
-  const where = buildWhere(filters, validationOnly);
-  const [total, notes, works] = await prisma.$transaction([
+  const where = {
+    ...buildWhere(filters, validationOnly),
+    ...(options.profileId
+      ? {
+          noteReads: {
+            none: { profileId: options.profileId },
+          },
+        }
+      : {}),
+  } satisfies Prisma.NoteWhereInput;
+  const [total, notes, works] = await Promise.all([
     prisma.note.count({ where }),
     prisma.note.findMany({
       where,
       orderBy: validationOnly
         ? [{ createdAt: "asc" }, { id: "asc" }]
         : [{ createdAt: "desc" }, { id: "desc" }],
-      skip: (filters.pagina - 1) * NOTES_PAGE_SIZE,
-      take: NOTES_PAGE_SIZE,
+      ...(options.all
+        ? {}
+        : {
+            skip: (filters.pagina - 1) * NOTES_PAGE_SIZE,
+            take: NOTES_PAGE_SIZE,
+          }),
       select: {
+        auditResult: true,
         classification: true,
         createdAt: true,
         documentNumber: true,
         findings: {
           where: {
-            needsValidation: true,
             status: FindingStatus.OPEN,
           },
           orderBy: [{ severity: "desc" }, { createdAt: "asc" }],
@@ -190,13 +215,32 @@ export async function listNotes(
             title: true,
           },
         },
+        _count: {
+          select: {
+            findings: { where: { status: FindingStatus.OPEN } },
+          },
+        },
         id: true,
         issuedAt: true,
+        noteReads: {
+          select: { profileId: true },
+        },
+        processingJobs: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { status: true },
+        },
         status: true,
         supplierName: true,
         totalAmount: true,
         version: true,
-        work: { select: { name: true } },
+        work: {
+          select: {
+            name: true,
+            responsibleName: true,
+            responsibleProfile: { select: { email: true, fullName: true } },
+          },
+        },
       },
     }),
     prisma.work.findMany({
@@ -206,25 +250,12 @@ export async function listNotes(
     }),
   ]);
 
-  const readIds = options.profileId
-    ? new Set(
-        (
-          await prisma.noteRead.findMany({
-            where: {
-              noteId: { in: notes.map((note) => note.id) },
-              profileId: options.profileId,
-            },
-            select: { noteId: true },
-          })
-        ).map((entry) => entry.noteId),
-      )
-    : new Set<string>();
-
-  const items: NoteListItem[] = notes.map((note) => ({
+  const rawItems: NoteListItem[] = notes.map((note) => ({
+    auditResult: note.auditResult,
     classification: note.classification,
     createdAt: note.createdAt,
     documentNumber: note.documentNumber,
-    findingCount: note.findings.length,
+    findingCount: note._count.findings,
     findings: note.findings.map((finding) => ({
       actualValue: stringifyJson(finding.actualValue),
       category: finding.category,
@@ -236,20 +267,32 @@ export async function listNotes(
       title: finding.title,
     })),
     id: note.id,
-    isRead: readIds.has(note.id),
+    isRead: Boolean(
+      options.profileId &&
+        note.noteReads.some((read) => read.profileId === options.profileId),
+    ),
     issuedAt: note.issuedAt,
     primaryFinding: note.findings[0]?.title ?? null,
+    processingJobStatus: note.processingJobs[0]?.status ?? null,
+    responsibleName:
+      note.work.responsibleName ??
+      note.work.responsibleProfile?.fullName ??
+      note.work.responsibleProfile?.email ??
+      null,
     status: note.status,
     supplierName: note.supplierName,
     totalAmount: note.totalAmount?.toFixed(2) ?? null,
     version: note.version,
     workName: note.work.name,
   }));
+  const items = options.sanitizeForReviewer
+    ? rawItems.map(sanitizeReviewerNoteListItem)
+    : rawItems;
 
   return {
     items,
     page: filters.pagina,
-    pageCount: Math.max(1, Math.ceil(total / NOTES_PAGE_SIZE)),
+    pageCount: options.all ? 1 : Math.max(1, Math.ceil(total / NOTES_PAGE_SIZE)),
     total,
     works,
   };

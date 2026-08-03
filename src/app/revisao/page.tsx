@@ -13,7 +13,7 @@ export default async function ReviewPage() {
         name: "asc",
       },
     }),
-    listReviewerDashboardNotes(),
+    listReviewerDashboardNotes({ sanitizeForReviewer: true }),
   ]);
 
   return <DashboardView role="reviewer" works={works} reviewerNotes={notes} />;

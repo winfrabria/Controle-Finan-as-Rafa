@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import {
-  listNotes,
-  parseNoteListFilters,
-} from "@/features/internal-notes/note-list-query";
 import { requireInternalUser } from "@/features/internal-notes/require-internal-user";
-import { NotesView } from "@/features/workspace-ui/portal-views";
+import { getRoleDestination } from "@/server/auth/access-policy";
 
 export const metadata: Metadata = {
   title: "Notas | WinfraBR",
@@ -18,32 +15,12 @@ type NotesPageProps = {
 
 export default async function NotesPage({ searchParams }: NotesPageProps) {
   const params = await searchParams;
-  await requireInternalUser("/notas");
-  const filters = parseNoteListFilters(params);
-  const result = await listNotes(filters);
-
-  const items = result.items.map((item) => ({
-    id: item.id,
-    number: item.documentNumber ?? "Sem número",
-    supplier: item.supplierName ?? "Fornecedor não identificado",
-    date: new Intl.DateTimeFormat("pt-BR", {
-      timeZone: "America/Sao_Paulo",
-    }).format(item.issuedAt ?? item.createdAt),
-    value: item.totalAmount
-      ? new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(Number(item.totalAmount))
-      : "—",
-    classification:
-      item.classification === "OK"
-        ? "OK"
-        : item.classification === "SUSPICIOUS"
-          ? "Suspeita"
-          : "Em análise",
-    findings: item.findings,
-    version: item.version,
-  }));
-
-  return <NotesView role="reviewer" items={items} />;
+  const profile = await requireInternalUser("/notas");
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const selected = Array.isArray(value) ? value[0] : value;
+    if (selected) query.set(key, selected);
+  }
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  redirect(getRoleDestination(profile.role, `/notas${suffix}`));
 }

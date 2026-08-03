@@ -15,7 +15,11 @@ export default async function ReviewerNotesPage({ searchParams }: PageProps) {
   const profile = await requirePageRoles("/revisao/notas", REVIEW_ROLES);
   const params = await searchParams;
   const filters = parseNoteListFilters(params);
-  const result = await listNotes(filters, { profileId: profile.id });
+  const result = await listNotes(filters, {
+    all: true,
+    profileId: profile.id,
+    sanitizeForReviewer: true,
+  });
   return (
     <NotesView
       initialQuery={filters.documentNumber}

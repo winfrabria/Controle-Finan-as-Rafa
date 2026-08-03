@@ -322,11 +322,21 @@
 
 .statusBadge,
 .largeStatus {
+  align-items: center;
   border-radius: 999px;
   display: inline-flex;
   font-size: 10px;
   font-weight: 800;
+  gap: 5px;
   white-space: nowrap;
+}
+
+.statusBadge svg,
+.largeStatus svg,
+.mobileStatus svg {
+  flex: 0 0 auto;
+  height: 13px;
+  width: 13px;
 }
 
 .statusBadge {
@@ -347,6 +357,11 @@
   color: #bd6a00;
 }
 
+.statusNeedsContext {
+  background: #f1efff;
+  color: #5b3fb4;
+}
+
 .statusProcessing {
   background: #edf2fa;
   color: #597091;
@@ -356,6 +371,42 @@
   color: #b42318;
   background: #fff0ee;
   border-color: #f7b4ad;
+}
+
+.mobileStatus {
+  align-items: center;
+  border-radius: 999px;
+  display: none;
+  font-size: 10px;
+  font-weight: 800;
+  gap: 4px;
+  justify-self: start;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobileStatus.statusOk {
+  color: #09844b;
+}
+
+.mobileStatus.statusSuspicious {
+  color: #bd6a00;
+}
+
+.mobileStatus.statusNeedsContext {
+  color: #5b3fb4;
+}
+
+.mobileStatus.statusProcessing {
+  color: #597091;
+}
+
+.mobileStatus.statusFailed {
+  color: #b42318;
 }
 
 .readDot {
@@ -471,6 +522,25 @@
   display: flex;
   justify-content: space-between;
   padding: 21px 0 13px;
+}
+
+.contextCount {
+  align-items: center;
+  background: #f1efff;
+  border-radius: 999px;
+  color: #5b3fb4;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 9px;
+  white-space: nowrap;
+}
+
+.contextCount svg {
+  height: 14px;
+  width: 14px;
 }
 
 .diagnosisHeading h2 {
@@ -592,6 +662,45 @@
   padding: 15px;
 }
 
+.contextSummary {
+  align-items: flex-start;
+  background: #f8f7ff;
+  border: 1px solid #d8d0fb;
+  border-radius: 10px;
+  display: flex;
+  gap: 11px;
+  padding: 15px;
+}
+
+.contextSummaryIcon {
+  align-items: center;
+  background: #e9e4ff;
+  border-radius: 10px;
+  color: #5b3fb4;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.contextSummaryIcon svg {
+  height: 18px;
+  width: 18px;
+}
+
+.contextSummary strong {
+  color: #35216f;
+  font-size: 12px;
+}
+
+.contextSummary p {
+  color: #625683;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
 .noFindingIcon {
   background: #d7f5e3;
   color: #09844b;
@@ -698,6 +807,25 @@
   color: #b42318;
   font-size: 0.8rem;
   margin: 0.55rem 0 0;
+}
+
+.readNotice {
+  align-items: center;
+  background: #effaf4;
+  border: 1px solid #bfe8d0;
+  border-radius: 9px;
+  color: #12623e;
+  display: flex;
+  font-size: 11px;
+  font-weight: 750;
+  gap: 7px;
+  margin: -3px 0 12px;
+  padding: 9px 11px;
+}
+
+.readNotice svg {
+  height: 15px;
+  width: 15px;
 }
 
 .detailLink {
@@ -809,6 +937,10 @@
 
   .attachmentMeta {
     display: none;
+  }
+
+  .mobileStatus {
+    display: inline-flex;
   }
 }
 
@@ -990,6 +1122,10 @@
     display: grid;
     gap: 9px;
     padding: 16px 0 11px;
+  }
+
+  .contextCount {
+    justify-self: start;
   }
 
   .diagnosisHeading h2 {

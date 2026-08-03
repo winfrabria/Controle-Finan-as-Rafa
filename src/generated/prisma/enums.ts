@@ -31,6 +31,16 @@ export const NoteStatus = {
 export type NoteStatus = (typeof NoteStatus)[keyof typeof NoteStatus]
 
 
+export const AuditResult = {
+  OK: 'OK',
+  SUSPICIOUS: 'SUSPICIOUS',
+  NEEDS_CONTEXT: 'NEEDS_CONTEXT',
+  READ_FAILED: 'READ_FAILED'
+} as const
+
+export type AuditResult = (typeof AuditResult)[keyof typeof AuditResult]
+
+
 export const ProcessingStage = {
   RECEIVED: 'RECEIVED',
   EXTRACTING: 'EXTRACTING',
@@ -80,7 +90,8 @@ export type ReasoningEffort = (typeof ReasoningEffort)[keyof typeof ReasoningEff
 
 
 export const ProcessingJobType = {
-  FULL_AUDIT: 'FULL_AUDIT'
+  FULL_AUDIT: 'FULL_AUDIT',
+  CONTEXT_REANALYSIS: 'CONTEXT_REANALYSIS'
 } as const
 
 export type ProcessingJobType = (typeof ProcessingJobType)[keyof typeof ProcessingJobType]
@@ -144,3 +155,23 @@ export const NotificationType = {
 } as const
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]
+
+
+export const ContextQuestionType = {
+  TEXT: 'TEXT',
+  NUMBER: 'NUMBER',
+  SINGLE_SELECT: 'SINGLE_SELECT',
+  BOOLEAN: 'BOOLEAN'
+} as const
+
+export type ContextQuestionType = (typeof ContextQuestionType)[keyof typeof ContextQuestionType]
+
+
+export const ContextSubmissionStatus = {
+  SUBMITTED: 'SUBMITTED',
+  REANALYSIS_QUEUED: 'REANALYSIS_QUEUED',
+  REANALYSIS_COMPLETED: 'REANALYSIS_COMPLETED',
+  REANALYSIS_FAILED: 'REANALYSIS_FAILED'
+} as const
+
+export type ContextSubmissionStatus = (typeof ContextSubmissionStatus)[keyof typeof ContextSubmissionStatus]

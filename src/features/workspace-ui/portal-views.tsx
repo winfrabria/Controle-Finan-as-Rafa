@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { AdminWorksClient } from "./admin-works-client";
-import { DashboardFilters } from "./dashboard-filters";
 import { LogsExplorer, type AuditLog } from "./logs-explorer";
 import { noteRows, validationRows } from "./mock-data";
 import { Icon } from "./ui-icons";
@@ -89,6 +88,10 @@ function NotesFilterBar({
             <option value="">Todos</option>
             <option value="OK">OK</option>
             <option value="Suspeita">Suspeita</option>
+            <option value="Sem parâmetro">Sem parâmetro</option>
+            <option value="Falha de leitura">Falha de leitura</option>
+            <option value="Falha de processamento">Falha de processamento</option>
+            <option value="Aguardando processamento">Aguardando processamento</option>
             <option value="Em análise">Em análise</option>
           </select>
         </div>
@@ -111,74 +114,17 @@ export function DashboardView({
   works?: { id: string; name: string }[];
   reviewerNotes?: ReviewerDashboardNote[];
 }) {
-  const admin = role === "admin";
-  if (!admin) {
-    return (
-      <ReviewerDashboardView
-        role={role}
-        userEmail={userEmail}
-        works={works}
-        notes={reviewerNotes}
-      />
-    );
-  }
-
   return (
-    <PortalShell active="dashboard" role={role} userEmail={userEmail}>
-      <PageIntro
-        title={admin ? "Dashboard Administrativo" : "Dashboard"}
-        description={
-          admin
-            ? "Visão geral completa da plataforma com controle total de notas fiscais e validações."
-            : "Visão geral da auditoria e do status das notas fiscais."
-        }
-      />
-      <section
-        className={`${styles.metrics} ${admin ? styles.metricsAdmin : ""}`}
-      >
-        <MetricCard
-          icon="document"
-          label="Total de notas"
-          value={admin ? "2.847" : "1.248"}
-          footnote="↗ 12,8% vs. período anterior"
-        />
-        <MetricCard
-          icon="warning"
-          label="Notas suspeitas"
-          value={admin ? "176" : "142"}
-          footnote={admin ? "↗ 6,2% vs. período anterior" : "11,4% do total"}
-          tone="orange"
-        />
-        {admin && (
-          <MetricCard
-            icon="building"
-            label="Obras cadastradas"
-            value="48"
-            footnote="↗ 3 novas vs. período anterior"
-          />
-        )}
-        <MetricCard
-          icon={admin ? "shield" : "money"}
-          label={admin ? "Validações pelo Rafael" : "Valor analisado"}
-          value={admin ? "498" : "R$ 8,45 mi"}
-          footnote="↗ 18,4% vs. período anterior"
-          tone={admin ? "blue" : "green"}
-        />
-        <MetricCard
-          icon={admin ? "money" : "shield"}
-          label={admin ? "Valor analisado" : "Pendentes de validação"}
-          value={admin ? "R$ 18,75 mi" : "198"}
-          footnote={admin ? "↗ 15,6% vs. período anterior" : "15,9% do total"}
-          tone={admin ? "green" : "blue"}
-        />
-      </section>
-      <DashboardFilters role={role} works={works} />
-      {admin ? <AdminDashboardPanels /> : null}
-    </PortalShell>
+    <ReviewerDashboardView
+      role={role}
+      userEmail={userEmail}
+      works={works}
+      notes={reviewerNotes}
+    />
   );
 }
 
-function AdminDashboardPanels() {
+export function AdminDashboardPanels() {
   const obras = [
     {
       name: "Projeto Piloto",
@@ -522,6 +468,14 @@ export function NotesView({
     setPeriod("");
     setPage(1);
   };
+  const suspiciousCount = rows.filter(
+    (row) => row.classification === "Suspeita",
+  ).length;
+  const okCount = rows.filter((row) => row.classification === "OK").length;
+  const percentage = (value: number) =>
+    rows.length === 0
+      ? "0% do total"
+      : `${((value / rows.length) * 100).toFixed(1).replace(".", ",")}% do total`;
   if (role === "reviewer") {
     return (
       <ReviewerNotesView
@@ -548,21 +502,21 @@ export function NotesView({
         <MetricCard
           icon="document"
           label="Total de notas"
-          value={role === "admin" ? "2.847" : "1.248"}
-          footnote="+12,5% vs. período anterior ↗"
+          value={rows.length.toLocaleString("pt-BR")}
+          footnote="Anexos cadastrados no sistema"
         />
         <MetricCard
           icon="warning"
           label="Notas suspeitas"
-          value={role === "admin" ? "176" : "142"}
-          footnote="11,4% do total"
+          value={suspiciousCount.toLocaleString("pt-BR")}
+          footnote={percentage(suspiciousCount)}
           tone="orange"
         />
         <MetricCard
           icon="money"
-          label={role === "admin" ? "Notas OK" : "Valor total analisado"}
-          value={role === "admin" ? "2.671" : "R$ 8,45 mi"}
-          footnote="+18,7% vs. período anterior ↗"
+          label="Notas OK"
+          value={okCount.toLocaleString("pt-BR")}
+          footnote={percentage(okCount)}
           tone="green"
         />
       </section>
@@ -606,7 +560,11 @@ export function NotesView({
                   <strong>{n.value}</strong>
                 </td>
                 <td>
-                  <Link href={`/notas/${n.id}`} className={styles.eyeButton}>
+                  <Link
+                    aria-label={`Abrir detalhes da nota ${n.number}`}
+                    href={`/notas/${n.id}`}
+                    className={styles.eyeButton}
+                  >
                     <Icon name="eye" />
                   </Link>
                 </td>
@@ -638,7 +596,11 @@ export function NotesView({
                   {n.classification}
                 </StatusBadge>
                 <strong>{n.value}</strong>
-                <Link href={`/notas/${n.id}`} className={styles.eyeButton}>
+                <Link
+                  aria-label={`Abrir detalhes da nota ${n.number}`}
+                  href={`/notas/${n.id}`}
+                  className={styles.eyeButton}
+                >
                   <Icon name="eye" />
                 </Link>
               </aside>
@@ -1202,7 +1164,7 @@ export function LogsView({ logs }: { logs: AuditLog[] }) {
     <PortalShell active="logs" role="admin">
       <PageIntro
         title="Logs"
-        description="Histórico das ações e decisões tomadas por Rafael."
+        description="Histórico técnico do processamento, da IA e das ações administrativas."
       />
       <section className={`${styles.metrics} ${styles.logMetrics}`}>
         <MetricCard
@@ -1213,14 +1175,14 @@ export function LogsView({ logs }: { logs: AuditLog[] }) {
         />
         <MetricCard
           icon="check"
-          label="Validações OK"
+          label="Eventos OK"
           value={String(okCount)}
           footnote="Decisões e processamentos OK"
           tone="green"
         />
         <MetricCard
           icon="warning"
-          label="Validações suspeitas"
+          label="Eventos suspeitos"
           value={String(suspiciousCount)}
           footnote="Suspeitas confirmadas ou pendentes"
           tone="orange"

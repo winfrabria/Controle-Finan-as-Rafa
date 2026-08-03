@@ -2,6 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type {
   AiRunKind,
   AiRunStatus,
+  AuditResult,
   FindingSource,
   FindingSeverity,
   FindingStatus,
@@ -123,6 +124,7 @@ export type NoteDetailHistoryEntry = {
 
 export type NoteDetailBase = {
   analysis: {
+    auditResult?: AuditResult | null;
     classification: NoteClassification | null;
     extractionMarkdown: string | null;
     findings: NoteDetailFinding[];

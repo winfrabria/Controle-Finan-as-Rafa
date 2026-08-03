@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   ChangeEvent,
   DragEvent,
@@ -14,13 +15,22 @@ import {
   ACCEPTED_FILE_TYPES,
   MAX_FILE_SIZE_BYTES,
   PUBLIC_UPLOAD_ENDPOINTS,
+  type ApiErrorResponse,
+  type PublicContextAnswer,
+  type PublicContextQuestion,
+  type PublicNoteStatus,
+  type PublicNoteStatusResponse,
+  type PublicPreviewResponse,
   type ProjectOption,
   type ProjectsResponse,
+  type SubmitPublicContextBody,
 } from "./api-contract";
 import { uploadInvoice } from "./upload-api";
 import {
+  normalizePublicQuestions,
+  resolvePublicProcessingPhase,
   resolvePublicUploadResult,
-  type PublicNoteStatus,
+  type PublicProcessingPhase,
 } from "./public-upload-status";
 import styles from "./public-upload.module.css";
 
@@ -77,21 +87,6 @@ function IconShieldCheck() {
     >
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       <path d="m9 11 2 2 4-4" />
-    </svg>
-  );
-}
-function IconLockKeyhole() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
   );
 }
@@ -334,30 +329,100 @@ function IconArrowLeft() {
   );
 }
 
-type View = "form" | "sending" | "processing" | "success" | "error";
-type ResultKind = "OK" | "NO_PARAMETER" | "SUSPICIOUS" | "PENDING";
+type View =
+  | "form"
+  | "sending"
+  | "processing"
+  | "context"
+  | "pending"
+  | "success"
+  | "error";
 type FailureKind = "READ_FAILED" | "TECHNICAL";
 
-type NoteStatusResponse = {
-  nota: PublicNoteStatus;
+type PreviewResource = {
+  fileName: string;
+  mimeType: string;
+  url: string;
+};
+
+type StoredSubmission = {
+  noteId: string;
+  protocolo: string;
 };
 
 class ProcessingTimeoutError extends Error {}
 
-async function waitForNoteResult(noteId: string, signal: AbortSignal) {
+const PUBLIC_SUBMISSION_STORAGE_KEY = "winfrabr.public-submission.v1";
+
+function persistSubmission(submission: StoredSubmission) {
+  window.sessionStorage.setItem(
+    PUBLIC_SUBMISSION_STORAGE_KEY,
+    JSON.stringify(submission),
+  );
+}
+
+function readStoredSubmission(): StoredSubmission | null {
+  try {
+    const raw = window.sessionStorage.getItem(PUBLIC_SUBMISSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredSubmission>;
+    if (
+      typeof parsed.noteId !== "string" ||
+      !parsed.noteId ||
+      typeof parsed.protocolo !== "string" ||
+      !parsed.protocolo
+    ) {
+      window.sessionStorage.removeItem(PUBLIC_SUBMISSION_STORAGE_KEY);
+      return null;
+    }
+    return { noteId: parsed.noteId, protocolo: parsed.protocolo };
+  } catch {
+    window.sessionStorage.removeItem(PUBLIC_SUBMISSION_STORAGE_KEY);
+    return null;
+  }
+}
+
+function clearStoredSubmission() {
+  window.sessionStorage.removeItem(PUBLIC_SUBMISSION_STORAGE_KEY);
+}
+
+async function parseApiError(response: Response, fallback: string) {
+  const payload = (await response.json().catch(() => null)) as ApiErrorResponse | null;
+  return (
+    payload?.erro?.mensagem ?? payload?.message ?? payload?.error ?? fallback
+  );
+}
+
+async function waitForNoteResult(
+  noteId: string,
+  signal: AbortSignal,
+  onUpdate: (note: PublicNoteStatus) => void,
+  ignoreContext: boolean,
+) {
   const deadline = Date.now() + 90_000;
 
   while (Date.now() < deadline) {
     const response = await fetch(`/api/notas/${noteId}/status`, {
       cache: "no-store",
+      credentials: "same-origin",
       headers: { Accept: "application/json" },
       signal,
     });
-    if (!response.ok) throw new Error("Não foi possível consultar a análise.");
-    const payload = (await response.json()) as NoteStatusResponse;
+    if (!response.ok) {
+      throw new Error(
+        await parseApiError(response, "Não foi possível consultar a análise."),
+      );
+    }
+    const payload = (await response.json()) as PublicNoteStatusResponse;
     const note = payload.nota;
+    onUpdate(note);
+    const publicState = resolvePublicUploadResult(note);
 
-    if (resolvePublicUploadResult(note)) {
+    if (
+      publicState &&
+      publicState !== "PROCESSING" &&
+      !(ignoreContext && publicState === "NEEDS_CONTEXT")
+    ) {
       return note;
     }
 
@@ -375,6 +440,60 @@ async function waitForNoteResult(noteId: string, signal: AbortSignal) {
   }
 
   throw new ProcessingTimeoutError("A análise continua em andamento.");
+}
+
+async function submitPublicContext(
+  noteId: string,
+  answers: PublicContextAnswer[],
+) {
+  const body: SubmitPublicContextBody = { respostas: answers };
+  const response = await fetch(`/api/notas/${noteId}/context`, {
+    body: JSON.stringify(body),
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(
+      await parseApiError(response, "Não foi possível enviar as informações."),
+    );
+  }
+}
+
+async function requestPublicPreview(noteId: string, signal: AbortSignal) {
+  const response = await fetch(`/api/notas/${noteId}/preview`, {
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: { Accept: "application/json" },
+    signal,
+  });
+  if (!response.ok) throw new Error("Prévia indisponível.");
+
+  const payload = (await response.json()) as PublicPreviewResponse;
+  const preview = payload.preview;
+  if (
+    !preview ||
+    typeof preview.url !== "string" ||
+    typeof preview.fileName !== "string" ||
+    typeof preview.mimeType !== "string"
+  ) {
+    throw new Error("Prévia indisponível.");
+  }
+
+  const url = new URL(preview.url, window.location.origin);
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error("Prévia indisponível.");
+  }
+
+  return {
+    fileName: preview.fileName,
+    mimeType: preview.mimeType,
+    url: url.toString(),
+  } satisfies PreviewResource;
 }
 
 function formatBytes(value: number) {
@@ -400,10 +519,10 @@ function validateFile(file: File) {
   const validType = ACCEPTED_FILE_TYPES.includes(
     file.type as (typeof ACCEPTED_FILE_TYPES)[number],
   );
-  if (!validType || !validExtension) return "Envie um arquivo PDF, JPG ou PNG.";
+  if (!validType || !validExtension) return "Envie uma nota fiscal em PDF, JPG ou PNG.";
   if (file.size > MAX_FILE_SIZE_BYTES)
-    return `O arquivo deve ter no máximo ${formatBytes(MAX_FILE_SIZE_BYTES)}.`;
-  if (file.size === 0) return "O arquivo selecionado está vazio.";
+    return `A nota fiscal deve ter no máximo ${formatBytes(MAX_FILE_SIZE_BYTES)}.`;
+  if (file.size === 0) return "A nota fiscal selecionada está vazia.";
   return null;
 }
 
@@ -421,6 +540,7 @@ async function requestProjects() {
 export function PublicUploadFlow() {
   const inputRef = useRef<HTMLInputElement>(null);
   const pollingControllerRef = useRef<AbortController | null>(null);
+  const contextSubmissionStartedRef = useRef(false);
   const [view, setView] = useState<View>("form");
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectOption | null>(
@@ -434,9 +554,20 @@ export function PublicUploadFlow() {
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
-  const [resultKind, setResultKind] = useState<ResultKind>("OK");
+  const [protocol, setProtocol] = useState<string | null>(null);
+  const [processingPhase, setProcessingPhase] =
+    useState<PublicProcessingPhase>("READING");
+  const [questions, setQuestions] = useState<PublicContextQuestion[]>([]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [contextError, setContextError] = useState("");
+  const [isSubmittingContext, setIsSubmittingContext] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [remotePreview, setRemotePreview] =
+    useState<PreviewResource | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
   const [failureKind, setFailureKind] = useState<FailureKind>("TECHNICAL");
   const [failureMessage, setFailureMessage] = useState("");
+  const [canRetryProcessing, setCanRetryProcessing] = useState(false);
 
   async function loadProjects() {
     setIsLoading(true);
@@ -466,6 +597,151 @@ export function PublicUploadFlow() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    const stored = readStoredSubmission();
+    if (!stored) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setInvoiceId(stored.noteId);
+      setProtocol(stored.protocolo);
+      setProcessingPhase("READING");
+      setView("processing");
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!file) {
+      queueMicrotask(() => {
+        if (!active) return;
+        setPreviewUrl(null);
+        setPreviewFailed(false);
+      });
+      return () => {
+        active = false;
+      };
+    }
+    const url = URL.createObjectURL(file);
+    queueMicrotask(() => {
+      if (!active) return;
+      setPreviewUrl(url);
+      setPreviewFailed(false);
+    });
+    return () => {
+      active = false;
+      URL.revokeObjectURL(url);
+    };
+  }, [file]);
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
+    if (view !== "context" || !invoiceId || file) {
+      queueMicrotask(() => {
+        if (active) setRemotePreview(null);
+      });
+      return () => {
+        active = false;
+        controller.abort();
+      };
+    }
+
+    void requestPublicPreview(invoiceId, controller.signal)
+      .then((preview) => {
+        if (!active) return;
+        setRemotePreview(preview);
+        setPreviewFailed(false);
+      })
+      .catch((caught) => {
+        if (!active || (caught instanceof DOMException && caught.name === "AbortError")) {
+          return;
+        }
+        setRemotePreview(null);
+        setPreviewFailed(true);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [file, invoiceId, view]);
+
+  useEffect(() => {
+    if (view !== "processing" || !invoiceId) return;
+    const controller = new AbortController();
+    pollingControllerRef.current?.abort();
+    pollingControllerRef.current = controller;
+
+    void waitForNoteResult(
+      invoiceId,
+      controller.signal,
+      (note) => setProcessingPhase(resolvePublicProcessingPhase(note.etapa)),
+      contextSubmissionStartedRef.current,
+    )
+      .then((note) => {
+        const outcome = resolvePublicUploadResult(note);
+        if (outcome === "NEEDS_CONTEXT") {
+          const nextQuestions = normalizePublicQuestions(note.perguntas);
+          if (nextQuestions.length === 0) {
+            throw new Error(
+              "A análise precisa de informações, mas nenhuma pergunta foi disponibilizada.",
+            );
+          }
+          setQuestions(nextQuestions);
+          setAnswers({});
+          setContextError("");
+          setView("context");
+          return;
+        }
+        if (outcome === "READ_FAILED") {
+          clearStoredSubmission();
+          setCanRetryProcessing(false);
+          setFailureKind("READ_FAILED");
+          setFailureMessage(
+            note.erro?.mensagem ??
+              "Não foi possível identificar as informações da nota.",
+          );
+          setView("error");
+          return;
+        }
+        if (outcome === "FAILED") {
+          clearStoredSubmission();
+          setCanRetryProcessing(false);
+          setFailureKind("TECHNICAL");
+          setFailureMessage(
+            note.erro?.mensagem ?? "O processamento não pôde ser concluído.",
+          );
+          setView("error");
+          return;
+        }
+        clearStoredSubmission();
+        setCanRetryProcessing(false);
+        setView("success");
+      })
+      .catch((caught) => {
+        if (caught instanceof DOMException && caught.name === "AbortError") return;
+        if (caught instanceof ProcessingTimeoutError) {
+          setView("pending");
+          return;
+        }
+        setFailureKind("TECHNICAL");
+        setCanRetryProcessing(true);
+        setFailureMessage(
+          caught instanceof Error
+            ? caught.message
+            : "Não foi possível consultar a análise.",
+        );
+        setView("error");
+      });
+
+    return () => controller.abort();
+  }, [invoiceId, view]);
 
   useEffect(
     () => () => {
@@ -497,11 +773,12 @@ export function PublicUploadFlow() {
       return;
     }
     if (!file) {
-      setFileError("Selecione um arquivo antes de enviar.");
+      setFileError("Selecione uma nota fiscal antes de enviar.");
       return;
     }
     setProgress(0);
     setFailureMessage("");
+    setCanRetryProcessing(false);
     setView("sending");
     try {
       const result = await uploadInvoice({
@@ -509,52 +786,19 @@ export function PublicUploadFlow() {
         file,
         onProgress: setProgress,
       });
-      setInvoiceId(
-        result.nota.id ||
-          `PRT-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000)
-            .toString()
-            .padStart(5, "0")}`,
-      );
-      setView("processing");
-      const controller = new AbortController();
-      pollingControllerRef.current?.abort();
-      pollingControllerRef.current = controller;
-
-      try {
-        const note = await waitForNoteResult(result.nota.id, controller.signal);
-        const outcome = resolvePublicUploadResult(note);
-        if (outcome === "READ_FAILED") {
-          setFailureKind("READ_FAILED");
-          setFailureMessage(
-            note.erro?.mensagem ??
-              "Não foi possível identificar as informações da nota.",
-          );
-          setView("error");
-          return;
-        }
-        if (outcome === "FAILED") {
-          setFailureKind("TECHNICAL");
-          setFailureMessage(
-            note.erro?.mensagem ?? "O processamento não pôde ser concluído.",
-          );
-          setView("error");
-          return;
-        }
-        setResultKind(outcome ?? "OK");
-        setView("success");
-      } catch (pollError) {
-        if (pollError instanceof ProcessingTimeoutError) {
-          setResultKind("PENDING");
-          setView("success");
-          return;
-        }
-        if (pollError instanceof DOMException && pollError.name === "AbortError") {
-          return;
-        }
-        throw pollError;
+      if (!result.nota.id) {
+        throw new Error("O envio foi recebido sem um identificador de acompanhamento.");
       }
+      const nextProtocol = result.nota.protocolo || result.nota.id;
+      persistSubmission({ noteId: result.nota.id, protocolo: nextProtocol });
+      contextSubmissionStartedRef.current = false;
+      setInvoiceId(result.nota.id);
+      setProtocol(nextProtocol);
+      setProcessingPhase("READING");
+      setView("processing");
     } catch (caught) {
       setFailureKind("TECHNICAL");
+      setCanRetryProcessing(false);
       setFailureMessage(
         caught instanceof Error
           ? caught.message
@@ -566,86 +810,134 @@ export function PublicUploadFlow() {
 
   function startAgain() {
     pollingControllerRef.current?.abort();
+    clearStoredSubmission();
+    contextSubmissionStartedRef.current = false;
     setSelectedProject(null);
     setFile(null);
     setFileError(null);
     setProgress(0);
     setInvoiceId(null);
-    setResultKind("OK");
+    setProtocol(null);
+    setProcessingPhase("READING");
+    setQuestions([]);
+    setAnswers({});
+    setContextError("");
+    setIsSubmittingContext(false);
+    setRemotePreview(null);
     setFailureKind("TECHNICAL");
     setFailureMessage("");
+    setCanRetryProcessing(false);
     setView("form");
   }
 
-  async function retryProcessing() {
+  function retryProcessing() {
     if (!invoiceId) return;
-    const controller = new AbortController();
-    pollingControllerRef.current?.abort();
-    pollingControllerRef.current = controller;
+    setFailureMessage("");
+    setCanRetryProcessing(false);
     setView("processing");
+  }
+
+  async function handleContextSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!invoiceId || isSubmittingContext || contextSubmissionStartedRef.current) {
+      return;
+    }
+
+    const missingRequired = questions.some(
+      (question) => question.obrigatoria && !answers[question.id]?.trim(),
+    );
+    if (missingRequired) {
+      setContextError("Responda às perguntas obrigatórias antes de continuar.");
+      return;
+    }
+
+    const invalidNumber = questions.some((question) => {
+      if (question.tipo !== "NUMBER") return false;
+      const rawValue = answers[question.id]?.trim() ?? "";
+      if (!rawValue) return false;
+      return !Number.isFinite(Number(rawValue.replace(",", ".")));
+    });
+    if (invalidNumber) {
+      setContextError("Revise os campos numéricos antes de continuar.");
+      return;
+    }
+
+    const preparedAnswers = questions.flatMap<PublicContextAnswer>((question) => {
+      const rawValue = answers[question.id]?.trim() ?? "";
+      if (!rawValue && !question.obrigatoria) return [];
+      if (question.tipo === "NUMBER") {
+        const numericValue = Number(rawValue.replace(",", "."));
+        if (!Number.isFinite(numericValue)) return [];
+        return [{ perguntaId: question.id, valor: numericValue }];
+      }
+      if (question.tipo === "CONFIRMATION") {
+        return [{ perguntaId: question.id, valor: rawValue === "true" }];
+      }
+      return [{ perguntaId: question.id, valor: rawValue }];
+    });
+
+    if (preparedAnswers.length === 0) {
+      setContextError("Informe ao menos uma resposta antes de continuar.");
+      return;
+    }
+
+    setContextError("");
+    setIsSubmittingContext(true);
+    contextSubmissionStartedRef.current = true;
     try {
-      const note = await waitForNoteResult(invoiceId, controller.signal);
-      const outcome = resolvePublicUploadResult(note);
-      if (outcome === "READ_FAILED" || outcome === "FAILED") {
-        setFailureKind(outcome === "READ_FAILED" ? "READ_FAILED" : "TECHNICAL");
-        setFailureMessage(
-          note.erro?.mensagem ??
-            (outcome === "READ_FAILED"
-              ? "Não foi possível identificar as informações da nota."
-              : "O processamento não pôde ser concluído."),
-        );
-        setView("error");
-        return;
-      }
-      setResultKind(outcome ?? "OK");
-      setView("success");
+      await submitPublicContext(invoiceId, preparedAnswers);
+      setQuestions([]);
+      setAnswers({});
+      setRemotePreview(null);
+      setProcessingPhase("CHECKING");
+      setView("processing");
     } catch (caught) {
-      if (caught instanceof ProcessingTimeoutError) {
-        setResultKind("PENDING");
-        setView("success");
-        return;
-      }
-      if (caught instanceof DOMException && caught.name === "AbortError") return;
-      setFailureKind("TECHNICAL");
-      setFailureMessage(
+      contextSubmissionStartedRef.current = false;
+      setContextError(
         caught instanceof Error
           ? caught.message
-          : "Não foi possível consultar a análise.",
+          : "Não foi possível enviar as informações.",
       );
-      setView("error");
+    } finally {
+      setIsSubmittingContext(false);
     }
   }
 
   const isFormView =
-    view === "form" || view === "sending" || view === "processing";
-  const successCopy =
-    resultKind === "SUSPICIOUS"
-      ? {
-          badge: "Encaminhada para validação",
-          description:
-            "A análise encontrou pontos que precisam da decisão do responsável.",
-          title: "Nota recebida e em validação",
-        }
-      : resultKind === "NO_PARAMETER"
-        ? {
-            badge: "Análise concluída sem parâmetros suficientes",
-            description:
-              "A nota foi registrada e poderá ser reprocessada quando novos parâmetros forem cadastrados.",
-            title: "Nota recebida com sucesso",
-          }
-        : resultKind === "PENDING"
-          ? {
-              badge: "Análise em andamento",
-              description:
-                "A nota já está no sistema e continuará sendo analisada em segundo plano. Você não precisa manter esta tela aberta.",
-              title: "Nota enviada ao sistema",
-            }
-          : {
-              badge: "Análise concluída",
-              description: "Sua nota fiscal foi recebida e analisada corretamente.",
-              title: "Nota enviada com sucesso",
-            };
+    view === "form" ||
+    view === "sending" ||
+    view === "processing" ||
+    view === "context" ||
+    view === "pending";
   const readFailure = failureKind === "READ_FAILED";
+  const activePreview: PreviewResource | null = previewUrl
+    ? {
+        fileName: file?.name ?? "Arquivo recebido",
+        mimeType: file?.type ?? "",
+        url: previewUrl,
+      }
+    : remotePreview;
+  const activePreviewIsPdf = Boolean(
+    activePreview &&
+      (activePreview.mimeType === "application/pdf" ||
+        activePreview.fileName.toLowerCase().endsWith(".pdf")),
+  );
+
+  useEffect(() => {
+    const shouldWarn =
+      view === "sending" ||
+      view === "processing" ||
+      view === "context" ||
+      view === "pending";
+    if (!shouldWarn) return;
+
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = true;
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [view]);
 
   return (
     <main className={styles.page}>
@@ -661,30 +953,52 @@ export function PublicUploadFlow() {
       </header>
 
       {isFormView ? (
-        <div className={styles.content}>
+        <div
+          className={`${styles.content} ${view === "context" ? styles.contextContent : ""}`}
+        >
           <section className={styles.mainColumn}>
             <div className={styles.titleBlock}>
-              <h1>Enviar nota fiscal</h1>
+              <h1>
+                {view === "context"
+                  ? "Precisamos de uma informação"
+                  : "Enviar nota fiscal"}
+              </h1>
               <p>
-                Envie sua nota fiscal para análise sem precisar fazer login.
-                <br />
-                Rápido, seguro e sem complicação.
+                {view === "context"
+                  ? "Responda às perguntas abaixo para continuarmos a análise da sua nota fiscal."
+                  : "Envie sua nota fiscal para análise sem precisar fazer login. Rápido, seguro e sem complicação."}
               </p>
             </div>
 
             <ol className={styles.stepper}>
               <li className={styles.active}>
-                <span>1</span>Selecione a obra
+                <span>{view === "context" ? "✓" : "1"}</span>
+                {view === "context" ? "Obra" : "Selecione a obra"}
               </li>
               <li className={view !== "form" ? styles.active : ""}>
-                <span>2</span>Envie sua nota fiscal
+                <span>{view === "context" ? "✓" : "2"}</span>
+                {view === "context" ? "Nota fiscal" : "Envie sua nota fiscal"}
               </li>
-              <li>
-                <span>3</span>Conclusão
-              </li>
+              {view === "context" ? (
+                <>
+                  <li className={styles.active}>
+                    <span>3</span>Informações
+                  </li>
+                  <li>
+                    <span>4</span>Conclusão
+                  </li>
+                </>
+              ) : (
+                <li>
+                  <span>3</span>Conclusão
+                </li>
+              )}
             </ol>
 
-            <section className={styles.formCard} aria-live="polite">
+            <section
+              className={`${styles.formCard} ${view === "context" ? styles.contextCard : ""}`}
+              aria-live="polite"
+            >
               {view === "form" ? (
                 <form onSubmit={handleSubmit}>
                   <h2>1. Selecione a obra</h2>
@@ -730,7 +1044,7 @@ export function PublicUploadFlow() {
 
                   <h2>2. Envie sua nota fiscal</h2>
                   <p className={styles.helper}>
-                    Envie apenas 1 nota por vez. Formatos aceitos: PDF, JPG,
+                    Envie uma nota fiscal por vez. Formatos aceitos: PDF, JPG,
                     PNG.
                   </p>
 
@@ -762,11 +1076,12 @@ export function PublicUploadFlow() {
                       <IconCloudUpload />
                     </span>
                     <p>
-                      <strong>Clique para selecionar</strong> ou arraste o
-                      arquivo aqui
+                      <strong>Clique para selecionar</strong> ou arraste a
+                      nota fiscal aqui
                     </p>
                     <small>
-                      Tamanho máximo: 20 MB • Apenas 1 arquivo por envio
+                      Tamanho máximo: {formatBytes(MAX_FILE_SIZE_BYTES)} • Apenas
+                      1 nota fiscal por envio
                     </small>
                   </div>
 
@@ -786,7 +1101,7 @@ export function PublicUploadFlow() {
                       </span>
                       <button
                         type="button"
-                        aria-label="Remover arquivo"
+                        aria-label="Remover nota fiscal"
                         onClick={() => setFile(null)}
                       >
                         <IconX />
@@ -807,22 +1122,16 @@ export function PublicUploadFlow() {
                     <IconUpload /> Enviar nota fiscal
                   </button>
 
-                  <p className={styles.lockNote}>
-                    <IconLockKeyhole />
-                    <span>
-                      Não é necessário login. Seus dados estão protegidos com
-                      criptografia de ponta a ponta.
-                    </span>
-                  </p>
                 </form>
               ) : null}
 
               {view === "sending" ? (
                 <Status
                   icon={<IconCloudUpload />}
-                  title="Enviando sua nota"
-                  text="Mantenha esta página aberta até o arquivo ser recebido."
+                  title="Enviando nota fiscal"
+                  text="Mantenha esta página aberta até a nota fiscal ser recebida."
                 >
+                  <ProcessingSteps current="UPLOADING" />
                   <div className={styles.progress}>
                     <span style={{ width: `${progress}%` }} />
                   </div>
@@ -832,17 +1141,176 @@ export function PublicUploadFlow() {
               {view === "processing" ? (
                 <Status
                   icon={<IconCloudUpload />}
-                  title="Arquivo recebido"
-                  text="A nota já está no sistema e o Harness iniciou a análise."
+                  title={
+                    processingPhase === "READING"
+                      ? "Lendo nota fiscal"
+                      : "Conferindo informações"
+                  }
+                  text="Aguarde enquanto conferimos a nota fiscal enviada."
                 >
-                  <p className={styles.ok}>✓ Upload concluído</p>
-                  <p className={styles.pulsing}>● Análise em andamento</p>
+                  <ProcessingSteps current={processingPhase} />
+                  <p className={styles.pulsing}>Análise em andamento</p>
                 </Status>
+              ) : null}
+              {view === "pending" ? (
+                <Status
+                  icon={<IconInfo />}
+                  title="A análise continua em andamento"
+                  text="A nota fiscal já foi recebida. Você pode consultar o andamento novamente nesta sessão."
+                >
+                  <ProcessingSteps current={processingPhase} />
+                  {protocol ? (
+                    <p className={styles.protocolInline}>
+                      Protocolo: <strong>{protocol}</strong>
+                    </p>
+                  ) : null}
+                  <button
+                    className={styles.submitBtn}
+                    onClick={retryProcessing}
+                    type="button"
+                  >
+                    Consultar andamento
+                  </button>
+                </Status>
+              ) : null}
+              {view === "context" ? (
+                <div className={styles.contextFlow}>
+                  <div className={styles.contextSummary}>
+                    <span className={styles.contextSummaryIcon}>
+                      <IconPdfBadge />
+                    </span>
+                    <div className={styles.contextSummaryText}>
+                      <span>Nota fiscal recebida</span>
+                      <strong title={activePreview?.fileName}>
+                        {activePreview?.fileName ?? "Nota fiscal enviada"}
+                      </strong>
+                      <small>
+                        {activePreview
+                          ? "Nota fiscal pronta para complementar a análise"
+                          : "Nota fiscal protegida nesta sessão"}
+                      </small>
+                    </div>
+                    <span className={styles.contextSummaryStatus}>
+                      <IconInfo /> Em análise
+                    </span>
+                  </div>
+
+                  <div className={styles.contextLayout}>
+                    <details className={styles.previewDisclosure}>
+                      <summary>
+                        <span>Visualizar nota fiscal</span>
+                        <IconArrowLeft />
+                      </summary>
+                      <section
+                        aria-label="Prévia da nota fiscal enviada"
+                        className={styles.previewCard}
+                      >
+                        <div className={styles.previewHeader}>
+                          <span>Nota fiscal enviada</span>
+                          <strong title={activePreview?.fileName}>
+                            {activePreview?.fileName ?? "Nota fiscal recebida"}
+                          </strong>
+                        </div>
+                        <div className={styles.previewFrame}>
+                          {activePreview && !previewFailed ? (
+                            activePreviewIsPdf ? (
+                              <iframe
+                                onError={() => setPreviewFailed(true)}
+                                referrerPolicy="no-referrer"
+                                src={activePreview.url}
+                                title={`Prévia de ${activePreview.fileName}`}
+                              />
+                            ) : (
+                              <Image
+                                alt={`Prévia de ${activePreview.fileName}`}
+                                height={720}
+                                onError={() => setPreviewFailed(true)}
+                                referrerPolicy="no-referrer"
+                                src={activePreview.url}
+                                unoptimized
+                                width={960}
+                              />
+                            )
+                          ) : (
+                            <div className={styles.previewFallback}>
+                              <IconFileText />
+                              <strong>Prévia indisponível nesta sessão</strong>
+                              <span>
+                                A nota fiscal foi recebida e continua protegida
+                                no sistema.
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    </details>
+
+                    <form
+                      className={styles.contextForm}
+                      onSubmit={handleContextSubmit}
+                    >
+                      <div className={styles.contextFormHeading}>
+                        <h2>Informações sobre a nota fiscal</h2>
+                        <p>
+                          Responda apenas o que a análise automática não
+                          conseguiu confirmar.
+                        </p>
+                      </div>
+                      <div className={styles.questionCount}>
+                        {questions.length === 1
+                          ? "1 informação necessária"
+                          : `${questions.length} informações necessárias`}
+                      </div>
+                      {questions.map((question, index) => (
+                        <ContextQuestionField
+                          answer={answers[question.id] ?? ""}
+                          index={index}
+                          key={question.id}
+                          onChange={(value) => {
+                            setAnswers((current) => ({
+                              ...current,
+                              [question.id]: value,
+                            }));
+                            setContextError("");
+                          }}
+                          question={question}
+                          total={questions.length}
+                        />
+                      ))}
+                      {contextError ? (
+                        <p className={styles.contextError} role="alert">
+                          {contextError}
+                        </p>
+                      ) : null}
+                      <button
+                        className={styles.submitBtn}
+                        disabled={isSubmittingContext}
+                        type="submit"
+                      >
+                        {isSubmittingContext
+                          ? "Enviando informações..."
+                          : "Enviar informações"}
+                      </button>
+                      <p className={styles.contextHint}>
+                        Depois do envio, a análise continuará automaticamente.
+                      </p>
+                      <button
+                        className={styles.contextBack}
+                        onClick={() => setView("form")}
+                        type="button"
+                      >
+                        <IconArrowLeft /> Voltar para a nota fiscal
+                      </button>
+                    </form>
+                  </div>
+                </div>
               ) : null}
             </section>
           </section>
 
-          <aside className={styles.sidebar}>
+          <aside
+            className={`${styles.sidebar} ${view === "context" ? styles.sidebarHidden : ""}`}
+          >
             <section className={styles.infoCard}>
               <h2>Como funciona</h2>
               <div className={styles.infoRow}>
@@ -864,7 +1332,7 @@ export function PublicUploadFlow() {
                 <div>
                   <h3>2. Envie sua nota fiscal</h3>
                   <p>
-                    Faça o upload da 1 nota fiscal por vez.
+                    Faça o upload de uma nota fiscal por vez.
                     <br />
                     Formatos aceitos: PDF, JPG, PNG.
                   </p>
@@ -883,40 +1351,6 @@ export function PublicUploadFlow() {
                 </div>
               </div>
             </section>
-            <section className={styles.infoCard}>
-              <h2>Segurança e privacidade</h2>
-              <div
-                className={styles.infoRow}
-                style={{
-                  borderBottom: "none",
-                  marginBottom: 0,
-                  paddingBottom: 0,
-                }}
-              >
-                <span className={styles.infoIconWrap}>
-                  <IconShieldCheck />
-                </span>
-                <div>
-                  <p>
-                    Suas informações e documentos são tratados com total
-                    segurança e confidencialidade. Utilizamos criptografia de
-                    ponta a ponta e seguimos a LGPD.
-                  </p>
-                </div>
-              </div>
-            </section>
-            <section className={styles.noticeAlert}>
-              <span className={styles.noticeIcon}>
-                <IconInfo />
-              </span>
-              <div>
-                <strong>Este envio não requer login.</strong>
-                <p>
-                  Se for necessário acompanhar o status, nossa equipe entrará em
-                  contato pelos dados informados na nota.
-                </p>
-              </div>
-            </section>
           </aside>
         </div>
       ) : (
@@ -928,14 +1362,16 @@ export function PublicUploadFlow() {
             <div className={styles.resultCard}>
               <div
                 className={styles.resultIconSuccess}
-                data-result={resultKind.toLowerCase()}
               >
                 <IconCheckCircle />
               </div>
-              <h2>{successCopy.title}</h2>
-              <p>{successCopy.description}</p>
-              <span className={styles.badgeSuccess} data-result={resultKind.toLowerCase()}>
-                <IconCheckCircle /> {successCopy.badge}
+              <h2>Nota fiscal enviada com sucesso</h2>
+              <p>
+                A nota fiscal foi recebida e encaminhada com segurança para o
+                sistema.
+              </p>
+              <span className={styles.badgeSuccess}>
+                <IconCheckCircle /> Envio concluído
               </span>
 
               <div className={styles.summaryBoxSuccess}>
@@ -946,9 +1382,9 @@ export function PublicUploadFlow() {
                   >
                     <IconPdfBadge />
                   </span>
-                  <span className={styles.summaryLabel}>Arquivo da nota</span>
-                  <span className={styles.summaryValue}>
-                    {file?.name || "NF_12548_ABC_Construtora.pdf"}
+                    <span className={styles.summaryLabel}>Nota fiscal</span>
+                    <span className={styles.summaryValue}>
+                    {file?.name || "Nota fiscal enviada"}
                   </span>
                 </div>
                 <div className={styles.summaryRow}>
@@ -957,7 +1393,7 @@ export function PublicUploadFlow() {
                   </span>
                   <span className={styles.summaryLabel}>Obra selecionada</span>
                   <span className={styles.summaryValue}>
-                    {selectedProject?.nome || "Projeto Piloto"}
+                    {selectedProject?.nome || "Obra informada no envio"}
                   </span>
                 </div>
                 <div className={styles.summaryRow}>
@@ -965,7 +1401,7 @@ export function PublicUploadFlow() {
                     <IconCalendar />
                   </span>
                   <span className={styles.summaryLabel}>
-                    Data e hora do envio
+                    Data e hora da conclusão
                   </span>
                   <span className={styles.summaryValue}>{formatDate()}</span>
                 </div>
@@ -975,17 +1411,12 @@ export function PublicUploadFlow() {
                   </span>
                   <span className={styles.summaryLabel}>Protocolo</span>
                   <span className={styles.summaryValue}>
-                    {invoiceId || "PRT-2024-00012345"}
+                    {protocol || invoiceId || "Protocolo indisponível"}
                   </span>
                 </div>
               </div>
 
               <div className={styles.resultButtons}>
-                {resultKind === "PENDING" ? (
-                  <button className={styles.submitBtn} onClick={() => void retryProcessing()}>
-                    <IconFocus /> Consultar andamento
-                  </button>
-                ) : null}
                 <button className={styles.submitBtn} onClick={startAgain}>
                   <IconFilePlus /> Enviar nova nota
                 </button>
@@ -1010,7 +1441,7 @@ export function PublicUploadFlow() {
                 <p>
                   {readFailure
                     ? failureMessage ||
-                      "Recebemos o arquivo, mas não foi possível identificar corretamente as informações da nota. Envie uma imagem mais nítida."
+                      "Recebemos a nota fiscal, mas não foi possível identificar corretamente as informações. Envie uma imagem mais nítida."
                     : failureMessage ||
                       "Ocorreu uma falha técnica durante o envio ou processamento. Tente novamente em alguns instantes."}
                 </p>
@@ -1027,16 +1458,16 @@ export function PublicUploadFlow() {
                       </span>
                       <div className={styles.summaryTextGroup}>
                         <span className={styles.summaryLabelSmall}>
-                          Arquivo enviado
+                          Nota fiscal enviada
                         </span>
                         <span
                           className={styles.summaryValueBig}
                           title={file?.name}
                         >
-                          {file?.name || "NF_12548_ABC_Construtora.pdf"}
+                          {file?.name || "Nota fiscal recebida"}
                         </span>
                         <span className={styles.summarySub}>
-                          {file ? formatBytes(file.size) : "1,2 MB"}
+                          {file ? formatBytes(file.size) : "Arquivo recebido"}
                         </span>
                       </div>
                     </div>
@@ -1052,7 +1483,7 @@ export function PublicUploadFlow() {
                           Obra selecionada
                         </span>
                         <span className={styles.summaryValueBig}>
-                          {selectedProject?.nome || "Projeto Piloto"}
+                          {selectedProject?.nome || "Obra informada no envio"}
                         </span>
                       </div>
                     </div>
@@ -1070,9 +1501,23 @@ export function PublicUploadFlow() {
                 </div>
 
                 <div className={styles.resultButtonsRow}>
-                  <button className={styles.submitBtn} onClick={startAgain}>
-                    <IconUpload /> Enviar nova nota
-                  </button>
+                  {canRetryProcessing ? (
+                    <button
+                      className={styles.submitBtn}
+                      onClick={retryProcessing}
+                      type="button"
+                    >
+                      <IconFocus /> Tentar novamente
+                    </button>
+                  ) : (
+                    <button
+                      className={styles.submitBtn}
+                      onClick={startAgain}
+                      type="button"
+                    >
+                      <IconUpload /> Enviar nova nota
+                    </button>
+                  )}
                   <Link href="/" className={styles.btnOutline}>
                     <IconArrowLeft /> Voltar ao início
                   </Link>
@@ -1134,19 +1579,6 @@ export function PublicUploadFlow() {
       )}
 
       <footer className={styles.footer}>
-        <div className={styles.footerLeft}>
-          <div className={styles.footerItem}>
-            <IconShieldCheck />
-            <span>Ambiente seguro e em conformidade com a LGPD</span>
-          </div>
-          <div className={styles.footerDivider} />
-          <div className={styles.footerItem}>
-            <IconLockKeyhole />
-            <span>
-              Seus dados estão protegidos com criptografia de ponta a ponta.
-            </span>
-          </div>
-        </div>
         <div className={styles.footerRight}>
           © 2026 <span className={styles.footerRightBlue}>WinfraBR</span>.
           Todos os direitos reservados.
@@ -1173,6 +1605,141 @@ function Status({
       <h2>{title}</h2>
       <p>{text}</p>
       {children}
+    </div>
+  );
+}
+
+function ProcessingSteps({
+  current,
+}: {
+  current: "UPLOADING" | PublicProcessingPhase;
+}) {
+  const steps = [
+    { id: "UPLOADING", label: "Enviando nota fiscal" },
+    { id: "READING", label: "Lendo nota fiscal" },
+    { id: "CHECKING", label: "Conferindo informações" },
+  ] as const;
+  const currentIndex = steps.findIndex((step) => step.id === current);
+
+  return (
+    <ol aria-label="Progresso do envio" className={styles.processingSteps}>
+      {steps.map((step, index) => (
+        <li
+          data-state={
+            index < currentIndex
+              ? "completed"
+              : index === currentIndex
+                ? "active"
+                : "pending"
+          }
+          key={step.id}
+        >
+          <span aria-hidden="true">{index + 1}</span>
+          {step.label}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function ContextQuestionField({
+  answer,
+  index,
+  onChange,
+  question,
+  total,
+}: {
+  answer: string;
+  index: number;
+  onChange: (value: string) => void;
+  question: PublicContextQuestion;
+  total: number;
+}) {
+  const inputId = `context-question-${index}`;
+  const questionLabel = (
+    <>
+      <span className={styles.questionPosition}>
+        Pergunta {index + 1} de {total}
+      </span>
+      <span className={styles.questionText}>
+        {question.pergunta}
+        {question.obrigatoria ? <b aria-hidden="true"> *</b> : null}
+      </span>
+    </>
+  );
+
+  if (question.tipo === "CONFIRMATION") {
+    return (
+      <fieldset className={styles.questionField}>
+        <legend>{questionLabel}</legend>
+        <div className={styles.confirmationOptions}>
+          <label>
+            <input
+              checked={answer === "true"}
+              name={inputId}
+              onChange={() => onChange("true")}
+              required={question.obrigatoria}
+              type="radio"
+              value="true"
+            />
+            <span>Sim</span>
+          </label>
+          <label>
+            <input
+              checked={answer === "false"}
+              name={inputId}
+              onChange={() => onChange("false")}
+              required={question.obrigatoria}
+              type="radio"
+              value="false"
+            />
+            <span>Não</span>
+          </label>
+        </div>
+      </fieldset>
+    );
+  }
+
+  const options = question.opcoes ?? [];
+  return (
+    <div className={styles.questionField}>
+      <label htmlFor={inputId}>{questionLabel}</label>
+      {question.tipo === "SELECT" && options.length > 0 ? (
+        <select
+          id={inputId}
+          onChange={(event) => onChange(event.target.value)}
+          required={question.obrigatoria}
+          value={answer}
+        >
+          <option value="">Selecione uma opção</option>
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      ) : question.tipo === "NUMBER" ? (
+        <input
+          id={inputId}
+          inputMode="decimal"
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Digite o valor"
+          required={question.obrigatoria}
+          step="any"
+          type="number"
+          value={answer}
+        />
+      ) : (
+        <textarea
+          id={inputId}
+          maxLength={500}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Digite sua resposta"
+          required={question.obrigatoria}
+          rows={3}
+          value={answer}
+        />
+      )}
     </div>
   );
 }

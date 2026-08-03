@@ -20,6 +20,7 @@ export function evaluateHarness(input: {
   if (readFailed) {
     return {
       classification: "READ_FAILED" as const,
+      contextQuestions: [],
       findings: [],
       coverage: { deterministic: false, ai: false, areas: [] as string[] },
       reasoning: { effort: "high" as const, triggers: [] as string[] },
@@ -40,15 +41,20 @@ export function evaluateHarness(input: {
   ];
   const deterministicCoverage = universal.covered || work.covered;
   const aiCoverage = input.aiDiscovery?.coverage.sufficientEvidence ?? false;
+  const contextQuestions = input.aiDiscovery?.contextQuestions ?? [];
+  const contextRequired = input.aiDiscovery?.needsContext ?? false;
 
   return {
     classification: decideClassification({
+      contextQuestions: contextQuestions.length,
+      contextRequired,
       readFailed: false,
       deterministicCoverage,
       aiCoverage,
       findings,
     }),
     findings,
+    contextQuestions,
     coverage: {
       deterministic: deterministicCoverage,
       ai: aiCoverage,
@@ -61,4 +67,3 @@ export function evaluateHarness(input: {
     versions: HARNESS_VERSIONS,
   };
 }
-

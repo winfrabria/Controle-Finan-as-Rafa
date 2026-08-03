@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { attachmentReference } from "./attachment-reference";
 
 import {
   NoteClassification,
@@ -153,7 +154,7 @@ export function NoteListView({
           <section className={styles.desktopTable} aria-label={validationOnly ? "Notas aguardando validação" : "Notas"}>
             <table>
               <thead><tr><th>Nota / fornecedor</th><th>Obra</th><th>Emissão</th><th>Valor</th><th>Status</th>{validationOnly ? <th>Pendência</th> : <th>Classificação</th>}<th><span className={styles.srOnly}>Ação</span></th></tr></thead>
-              <tbody>{items.map((item) => <tr key={item.id} className={validationOnly ? styles.pendingRow : undefined}><td><strong>{item.documentNumber ?? "Sem número"}</strong><span>{item.supplierName ?? "Fornecedor não identificado"}</span></td><td>{item.workName}</td><td>{formatDate(item.issuedAt ?? item.createdAt)}</td><td><strong>{formatMoney(item.totalAmount)}</strong></td><td><span className={`${styles.badge} ${statusTone(item.status)}`}>{STATUS_LABELS[item.status]}</span></td><td>{validationOnly ? <span className={styles.tableFinding}><strong>{item.findingCount}</strong>{item.primaryFinding ?? "Revisão necessária"}</span> : item.classification ? CLASSIFICATION_LABELS[item.classification] : "—"}</td><td><Link className={styles.tableAction} href={`/notas/${item.id}`}>{validationOnly ? "Analisar" : "Abrir"} →</Link></td></tr>)}</tbody>
+              <tbody>{items.map((item) => <tr key={item.id} className={validationOnly ? styles.pendingRow : undefined}><td><strong>{attachmentReference(item.documentNumber, item.id)}</strong><span>{item.supplierName ?? "Fornecedor não identificado"}</span></td><td>{item.workName}</td><td>{formatDate(item.issuedAt ?? item.createdAt)}</td><td><strong>{formatMoney(item.totalAmount)}</strong></td><td><span className={`${styles.badge} ${statusTone(item.status)}`}>{STATUS_LABELS[item.status]}</span></td><td>{validationOnly ? <span className={styles.tableFinding}><strong>{item.findingCount}</strong>{item.primaryFinding ?? "Revisão necessária"}</span> : item.classification ? CLASSIFICATION_LABELS[item.classification] : "—"}</td><td><Link className={styles.tableAction} href={`/notas/${item.id}`}>{validationOnly ? "Analisar" : "Abrir"} →</Link></td></tr>)}</tbody>
             </table>
           </section>
           <section className={styles.mobileCards} aria-label={validationOnly ? "Notas aguardando validação" : "Notas"}>

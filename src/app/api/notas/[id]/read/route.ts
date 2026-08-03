@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { NoteStatus } from "@/generated/prisma/enums";
 import { INTERNAL_ROLES } from "@/server/auth/access-policy";
 import { requireApiRoles } from "@/server/auth/authorization";
 import { prisma } from "@/server/db/prisma";
@@ -26,7 +27,7 @@ export async function POST(
 
   const note = await prisma.note.findUnique({
     where: { id },
-    select: { id: true },
+    select: { id: true, status: true },
   });
   if (!note) {
     return NextResponse.json(
@@ -34,25 +35,39 @@ export async function POST(
       { status: 404 },
     );
   }
+  if (
+    note.status === NoteStatus.RECEIVED ||
+    note.status === NoteStatus.PROCESSING
+  ) {
+    return NextResponse.json(
+      {
+        erro: {
+          codigo: "ANALISE_EM_ANDAMENTO",
+          mensagem: "Aguarde a conclusão da análise antes de marcar como lida.",
+        },
+      },
+      { status: 409 },
+    );
+  }
 
   const readAt = new Date();
-  await prisma.$transaction([
-    prisma.noteRead.upsert({
+  await prisma.$transaction(async (transaction) => {
+    await transaction.noteRead.upsert({
       where: {
         profileId_noteId: { noteId: id, profileId: access.profile.id },
       },
       create: { noteId: id, profileId: access.profile.id, readAt },
       update: { readAt },
-    }),
-    prisma.notification.updateMany({
+    });
+    await transaction.notification.updateMany({
       where: {
         noteId: id,
         recipientId: access.profile.id,
         readAt: null,
       },
       data: { readAt },
-    }),
-  ]);
+    });
+  });
 
   return NextResponse.json({ nota: { id, lidaEm: readAt.toISOString() } });
 }

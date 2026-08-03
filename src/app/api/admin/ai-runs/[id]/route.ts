@@ -22,6 +22,7 @@ export async function GET(
       },
       note: {
         select: {
+          auditResult: true,
           classification: true,
           documentNumber: true,
           id: true,

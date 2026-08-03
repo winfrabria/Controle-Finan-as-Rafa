@@ -394,6 +394,9 @@ export const ModelName = {
   Finding: 'Finding',
   Validation: 'Validation',
   ProcessingJob: 'ProcessingJob',
+  NoteContextQuestion: 'NoteContextQuestion',
+  NoteContextSubmission: 'NoteContextSubmission',
+  NoteContextAnswer: 'NoteContextAnswer',
   AiRun: 'AiRun',
   AdminAuditLog: 'AdminAuditLog',
   NoteEvent: 'NoteEvent',
@@ -415,7 +418,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "profile" | "work" | "note" | "noteItem" | "auditParameter" | "auditRule" | "ruleParameter" | "finding" | "validation" | "processingJob" | "aiRun" | "adminAuditLog" | "noteEvent" | "notification" | "noteRead" | "pushSubscription"
+    modelProps: "profile" | "work" | "note" | "noteItem" | "auditParameter" | "auditRule" | "ruleParameter" | "finding" | "validation" | "processingJob" | "noteContextQuestion" | "noteContextSubmission" | "noteContextAnswer" | "aiRun" | "adminAuditLog" | "noteEvent" | "notification" | "noteRead" | "pushSubscription"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1159,6 +1162,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    NoteContextQuestion: {
+      payload: Prisma.$NoteContextQuestionPayload<ExtArgs>
+      fields: Prisma.NoteContextQuestionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.NoteContextQuestionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.NoteContextQuestionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload>
+        }
+        findFirst: {
+          args: Prisma.NoteContextQuestionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.NoteContextQuestionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload>
+        }
+        findMany: {
+          args: Prisma.NoteContextQuestionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload>[]
+        }
+        create: {
+          args: Prisma.NoteContextQuestionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload>
+        }
+        createMany: {
+          args: Prisma.NoteContextQuestionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.NoteContextQuestionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload>[]
+        }
+        delete: {
+          args: Prisma.NoteContextQuestionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload>
+        }
+        update: {
+          args: Prisma.NoteContextQuestionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload>
+        }
+        deleteMany: {
+          args: Prisma.NoteContextQuestionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.NoteContextQuestionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.NoteContextQuestionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload>[]
+        }
+        upsert: {
+          args: Prisma.NoteContextQuestionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextQuestionPayload>
+        }
+        aggregate: {
+          args: Prisma.NoteContextQuestionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateNoteContextQuestion>
+        }
+        groupBy: {
+          args: Prisma.NoteContextQuestionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.NoteContextQuestionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.NoteContextQuestionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.NoteContextQuestionCountAggregateOutputType> | number
+        }
+      }
+    }
+    NoteContextSubmission: {
+      payload: Prisma.$NoteContextSubmissionPayload<ExtArgs>
+      fields: Prisma.NoteContextSubmissionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.NoteContextSubmissionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.NoteContextSubmissionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload>
+        }
+        findFirst: {
+          args: Prisma.NoteContextSubmissionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.NoteContextSubmissionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload>
+        }
+        findMany: {
+          args: Prisma.NoteContextSubmissionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload>[]
+        }
+        create: {
+          args: Prisma.NoteContextSubmissionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload>
+        }
+        createMany: {
+          args: Prisma.NoteContextSubmissionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.NoteContextSubmissionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload>[]
+        }
+        delete: {
+          args: Prisma.NoteContextSubmissionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload>
+        }
+        update: {
+          args: Prisma.NoteContextSubmissionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload>
+        }
+        deleteMany: {
+          args: Prisma.NoteContextSubmissionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.NoteContextSubmissionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.NoteContextSubmissionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload>[]
+        }
+        upsert: {
+          args: Prisma.NoteContextSubmissionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextSubmissionPayload>
+        }
+        aggregate: {
+          args: Prisma.NoteContextSubmissionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateNoteContextSubmission>
+        }
+        groupBy: {
+          args: Prisma.NoteContextSubmissionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.NoteContextSubmissionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.NoteContextSubmissionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.NoteContextSubmissionCountAggregateOutputType> | number
+        }
+      }
+    }
+    NoteContextAnswer: {
+      payload: Prisma.$NoteContextAnswerPayload<ExtArgs>
+      fields: Prisma.NoteContextAnswerFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.NoteContextAnswerFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.NoteContextAnswerFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload>
+        }
+        findFirst: {
+          args: Prisma.NoteContextAnswerFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.NoteContextAnswerFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload>
+        }
+        findMany: {
+          args: Prisma.NoteContextAnswerFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload>[]
+        }
+        create: {
+          args: Prisma.NoteContextAnswerCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload>
+        }
+        createMany: {
+          args: Prisma.NoteContextAnswerCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.NoteContextAnswerCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload>[]
+        }
+        delete: {
+          args: Prisma.NoteContextAnswerDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload>
+        }
+        update: {
+          args: Prisma.NoteContextAnswerUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload>
+        }
+        deleteMany: {
+          args: Prisma.NoteContextAnswerDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.NoteContextAnswerUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.NoteContextAnswerUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload>[]
+        }
+        upsert: {
+          args: Prisma.NoteContextAnswerUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteContextAnswerPayload>
+        }
+        aggregate: {
+          args: Prisma.NoteContextAnswerAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateNoteContextAnswer>
+        }
+        groupBy: {
+          args: Prisma.NoteContextAnswerGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.NoteContextAnswerGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.NoteContextAnswerCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.NoteContextAnswerCountAggregateOutputType> | number
+        }
+      }
+    }
     AiRun: {
       payload: Prisma.$AiRunPayload<ExtArgs>
       fields: Prisma.AiRunFieldRefs
@@ -1674,6 +1899,9 @@ export const NoteScalarFieldEnum = {
   id: 'id',
   workId: 'workId',
   submittedById: 'submittedById',
+  publicProtocol: 'publicProtocol',
+  publicTokenHash: 'publicTokenHash',
+  publicTokenExpiresAt: 'publicTokenExpiresAt',
   originalFilePath: 'originalFilePath',
   originalFileName: 'originalFileName',
   originalMimeType: 'originalMimeType',
@@ -1688,10 +1916,14 @@ export const NoteScalarFieldEnum = {
   status: 'status',
   processingStage: 'processingStage',
   classification: 'classification',
+  auditResult: 'auditResult',
   readConfidence: 'readConfidence',
   failureCode: 'failureCode',
   failureMessage: 'failureMessage',
   version: 'version',
+  contextRound: 'contextRound',
+  contextSubmittedAt: 'contextSubmittedAt',
+  contextSummary: 'contextSummary',
   receivedAt: 'receivedAt',
   processedAt: 'processedAt',
   createdAt: 'createdAt',
@@ -1814,6 +2046,7 @@ export type ValidationScalarFieldEnum = (typeof ValidationScalarFieldEnum)[keyof
 export const ProcessingJobScalarFieldEnum = {
   id: 'id',
   noteId: 'noteId',
+  contextSubmissionId: 'contextSubmissionId',
   type: 'type',
   status: 'status',
   idempotencyKey: 'idempotencyKey',
@@ -1831,6 +2064,51 @@ export const ProcessingJobScalarFieldEnum = {
 } as const
 
 export type ProcessingJobScalarFieldEnum = (typeof ProcessingJobScalarFieldEnum)[keyof typeof ProcessingJobScalarFieldEnum]
+
+
+export const NoteContextQuestionScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  aiRunId: 'aiRunId',
+  round: 'round',
+  position: 'position',
+  code: 'code',
+  prompt: 'prompt',
+  type: 'type',
+  options: 'options',
+  required: 'required',
+  rationale: 'rationale',
+  createdAt: 'createdAt'
+} as const
+
+export type NoteContextQuestionScalarFieldEnum = (typeof NoteContextQuestionScalarFieldEnum)[keyof typeof NoteContextQuestionScalarFieldEnum]
+
+
+export const NoteContextSubmissionScalarFieldEnum = {
+  id: 'id',
+  noteId: 'noteId',
+  round: 'round',
+  idempotencyKey: 'idempotencyKey',
+  answerFingerprint: 'answerFingerprint',
+  requestId: 'requestId',
+  status: 'status',
+  submittedAt: 'submittedAt',
+  reanalysisQueuedAt: 'reanalysisQueuedAt',
+  reanalysisCompletedAt: 'reanalysisCompletedAt'
+} as const
+
+export type NoteContextSubmissionScalarFieldEnum = (typeof NoteContextSubmissionScalarFieldEnum)[keyof typeof NoteContextSubmissionScalarFieldEnum]
+
+
+export const NoteContextAnswerScalarFieldEnum = {
+  id: 'id',
+  submissionId: 'submissionId',
+  questionId: 'questionId',
+  value: 'value',
+  createdAt: 'createdAt'
+} as const
+
+export type NoteContextAnswerScalarFieldEnum = (typeof NoteContextAnswerScalarFieldEnum)[keyof typeof NoteContextAnswerScalarFieldEnum]
 
 
 export const AiRunScalarFieldEnum = {
@@ -2121,6 +2399,20 @@ export type ListEnumNoteClassificationFieldRefInput<$PrismaModel> = FieldRefInpu
 
 
 /**
+ * Reference to a field of type 'AuditResult'
+ */
+export type EnumAuditResultFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuditResult'>
+    
+
+
+/**
+ * Reference to a field of type 'AuditResult[]'
+ */
+export type ListEnumAuditResultFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AuditResult[]'>
+    
+
+
+/**
  * Reference to a field of type 'Int'
  */
 export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
@@ -2215,6 +2507,34 @@ export type EnumProcessingJobStatusFieldRefInput<$PrismaModel> = FieldRefInputTy
  * Reference to a field of type 'ProcessingJobStatus[]'
  */
 export type ListEnumProcessingJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ProcessingJobStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ContextQuestionType'
+ */
+export type EnumContextQuestionTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ContextQuestionType'>
+    
+
+
+/**
+ * Reference to a field of type 'ContextQuestionType[]'
+ */
+export type ListEnumContextQuestionTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ContextQuestionType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'ContextSubmissionStatus'
+ */
+export type EnumContextSubmissionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ContextSubmissionStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ContextSubmissionStatus[]'
+ */
+export type ListEnumContextSubmissionStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ContextSubmissionStatus[]'>
     
 
 
@@ -2407,6 +2727,9 @@ export type GlobalOmitConfig = {
   finding?: Prisma.FindingOmit
   validation?: Prisma.ValidationOmit
   processingJob?: Prisma.ProcessingJobOmit
+  noteContextQuestion?: Prisma.NoteContextQuestionOmit
+  noteContextSubmission?: Prisma.NoteContextSubmissionOmit
+  noteContextAnswer?: Prisma.NoteContextAnswerOmit
   aiRun?: Prisma.AiRunOmit
   adminAuditLog?: Prisma.AdminAuditLogOmit
   noteEvent?: Prisma.NoteEventOmit

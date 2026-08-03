@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ erro: { codigo: "CONSULTA_INVALIDA", mensagem: "Filtros inválidos." } }, { status: 400 });
   }
-  const [administrative, aiRuns, validations] = await prisma.$transaction([
+  const [administrative, aiRuns, validations] = await Promise.all([
     prisma.adminAuditLog.findMany({
       orderBy: { createdAt: "desc" },
       take: parsed.data.limit,
@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
       include: {
         note: {
           select: {
+            auditResult: true,
             classification: true,
             documentNumber: true,
             id: true,
