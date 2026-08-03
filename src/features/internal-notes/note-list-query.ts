@@ -10,19 +10,12 @@ import {
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
 
+import { formatFindingValue } from "./finding-display";
 import { sanitizeReviewerNoteListItem } from "./reviewer-payload-policy";
 
 function stringifyJson(value: unknown) {
   if (value === null || value === undefined) return null;
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return null;
-  }
+  return formatFindingValue(value);
 }
 
 export const NOTES_PAGE_SIZE = 10;
