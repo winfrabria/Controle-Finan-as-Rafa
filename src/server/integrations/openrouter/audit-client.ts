@@ -102,11 +102,45 @@ type Options = Omit<
 
 export type AuditDiscoveryAttempt = {
   attempt: number;
+  detail?:
+    | "invalid-audit-envelope"
+    | "invalid-audit-json"
+    | "invalid-audit-schema"
+    | "provider-error"
+    | "request-timeout";
   kind: "invalid-response" | "provider" | "success" | "timeout";
   latencyMs: number;
   model: string;
   status?: number;
+  validationIssues?: string[];
 };
+
+function safeAttemptDiagnostics(error: OpenRouterClientError) {
+  const detail =
+    error.kind === "timeout"
+      ? ("request-timeout" as const)
+      : error.kind === "provider"
+        ? ("provider-error" as const)
+        : error.message.includes("envelope")
+          ? ("invalid-audit-envelope" as const)
+          : error.message.includes("non-JSON")
+            ? ("invalid-audit-json" as const)
+            : ("invalid-audit-schema" as const);
+  const validationIssues =
+    error.cause instanceof z.ZodError
+      ? error.cause.issues.slice(0, 12).map((issue) => {
+          const path = issue.path.length > 0 ? issue.path.join(".") : "root";
+          return `${path}:${issue.code}`;
+        })
+      : undefined;
+
+  return {
+    detail,
+    ...(validationIssues && validationIssues.length > 0
+      ? { validationIssues }
+      : {}),
+  };
+}
 
 export class OpenRouterAuditDiscoveryError extends OpenRouterClientError {
   constructor(
@@ -140,22 +174,12 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
   async discover(request: AuditDiscoveryRequest): Promise<AuditDiscoveryResult> {
     const startedAt = Date.now();
     const attemptTrace: AuditDiscoveryAttempt[] = [];
-    const routes = [
-      { model: this.options.model, reasoningEffort: request.reasoningEffort },
-      ...(this.options.fallbackModel &&
-      this.options.fallbackModel !== this.options.model
-        ? [
-            {
-              model: this.options.fallbackModel,
-              reasoningEffort:
-                this.options.fallbackReasoningEffort ?? "high",
-            },
-          ]
-        : []),
-    ].slice(0, this.options.maxAttempts);
+    let route = {
+      model: this.options.model,
+      reasoningEffort: request.reasoningEffort,
+    };
 
-    for (const [index, route] of routes.entries()) {
-      const attempt = index + 1;
+    for (let attempt = 1; attempt <= this.options.maxAttempts; attempt += 1) {
       const attemptStartedAt = Date.now();
       try {
         const result = await this.performRequest(
@@ -179,19 +203,20 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
         const normalized = this.normalizeError(error);
         attemptTrace.push({
           attempt,
+          ...safeAttemptDiagnostics(normalized),
           kind: normalized.kind,
           latencyMs: Date.now() - attemptStartedAt,
           model: route.model,
           status: normalized.status,
         });
-        const hasFallback = index < routes.length - 1;
-        const canFallback =
+        const hasAnotherAttempt = attempt < this.options.maxAttempts;
+        const canRetry =
           normalized.retryable &&
           (normalized.kind === "timeout" ||
             normalized.kind === "provider" ||
             normalized.kind === "invalid-response");
 
-        if (!hasFallback || !canFallback) {
+        if (!hasAnotherAttempt || !canRetry) {
           throw new OpenRouterAuditDiscoveryError(
             normalized,
             route.model,
@@ -204,6 +229,23 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
           normalized.retryAfterMs ??
             Math.min(500 * 2 ** (attempt - 1), 5_000),
         );
+
+        // Invalid structured output is model variance: one cheap Luna retry
+        // proved sufficient in production. Provider failures and timeouts use
+        // the independent Sol route instead.
+        route =
+          normalized.kind === "invalid-response" ||
+          !this.options.fallbackModel ||
+          this.options.fallbackModel === this.options.model
+            ? {
+                model: this.options.model,
+                reasoningEffort: request.reasoningEffort,
+              }
+            : {
+                model: this.options.fallbackModel,
+                reasoningEffort:
+                  this.options.fallbackReasoningEffort ?? "high",
+              };
       }
     }
 

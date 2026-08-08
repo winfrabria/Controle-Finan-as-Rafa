@@ -30,3 +30,22 @@ test("aceita descoberta explicável e rejeita campos extras", () => {
     summary: "Um achado adicional.",
   }).success, true);
 });
+
+test("aceita referências extensas de reembolso composto dentro do limite", () => {
+  const references = Array.from(
+    { length: 30 },
+    (_, index) => `REEMBOLSO:comprovante:${index + 1}`,
+  );
+
+  assert.equal(
+    harnessFindingSchema.safeParse({ ...finding, references }).success,
+    true,
+  );
+  assert.equal(
+    harnessFindingSchema.safeParse({
+      ...finding,
+      references: Array.from({ length: 101 }, (_, index) => `REF:${index}`),
+    }).success,
+    false,
+  );
+});

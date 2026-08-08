@@ -74,9 +74,9 @@ export function getOpenRouterConfig(
   return {
     apiKey: requireApiKey(environment),
     appUrl: environment.NEXT_PUBLIC_APP_URL,
-    // Audit uses one Luna attempt followed by at most one Sol fallback. The
-    // configurable retry count remains exclusive to extraction so a stale
-    // value cannot repeat the same audit model.
+    // Audit uses at most two calls: Luna may repeat once for invalid structured
+    // output; provider failures/timeouts switch the second call to Sol. The
+    // configurable retry count remains exclusive to extraction.
     maxAttempts: workload === "audit" ? 2 : configuredMaxAttempts,
     model:
       workload === "extraction"

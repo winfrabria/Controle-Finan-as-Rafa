@@ -59,7 +59,10 @@ export const harnessFindingSchema = z
     source: z.enum(["UNIVERSAL_RULE", "WORK_RULE", "AI_DISCOVERY"]),
     confidence: z.number().min(0).max(1),
     justification: z.string().trim().min(1).max(2_000),
-    references: z.array(z.string().trim().min(1).max(500)).max(20),
+    // Composite reimbursements may reference many receipts/pages in a single
+    // supported finding. Keep the bound defensive without rejecting valid
+    // evidence from large documents.
+    references: z.array(z.string().trim().min(1).max(500)).max(100),
     evidence: z.record(z.string(), z.unknown()),
     expectedValue: z.unknown().nullable(),
     actualValue: z.unknown().nullable(),
@@ -124,6 +127,7 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
           justification: { type: "string" },
           references: {
             type: "array",
+            maxItems: 100,
             items: { type: "string" },
           },
           evidence: {

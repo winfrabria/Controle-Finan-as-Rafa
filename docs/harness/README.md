@@ -8,7 +8,7 @@ O Harness transforma uma extração validada em uma decisão auditável. A ordem
 4. matriz de decisão;
 5. persistência de achados, métricas e diagnóstico.
 
-Política ativa: `2026-08-08.1`. Prompt, schema e regras permanecem em
+Política e schema ativos: `2026-08-08.1`. Prompt e regras permanecem em
 `2026-08-01.1`. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
@@ -16,8 +16,8 @@ versão ativa.
 
 ## Garantias
 
-- `openai/gpt-5.6-luna`, `high` como avaliação primária; `openai/gpt-5.6-sol`, `high` é usado uma única vez quando Luna expira, encontra erro recuperável ou devolve resposta estruturalmente inválida;
-- depois da rota Luna -> Sol, o `ProcessingJob` não repete a auditoria e não multiplica chamadas pagas;
+- `openai/gpt-5.6-luna`, `high` como avaliação primária; uma resposta estruturalmente inválida permite uma única repetição Luna. Timeout ou erro recuperável troca a segunda tentativa para `openai/gpt-5.6-sol`, `high`;
+- a auditoria faz no máximo duas chamadas e o `ProcessingJob` não repete externamente a rota já concluída;
 - `reasoning.exclude=true`; chain-of-thought nunca é solicitado ou persistido;
 - resposta de IA validada com Zod e JSON Schema estrito;
 - URL assinada, chave, autorização e reasoning são removidos de dados persistidos;

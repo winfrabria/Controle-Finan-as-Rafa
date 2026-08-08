@@ -189,7 +189,7 @@ test("usa Sol high após timeout simulável da Luna", async () => {
   assert.equal(result.model, AUDIT_POLICY.fallbackModel);
 });
 
-test("usa o fallback quando Luna retorna resposta estruturalmente inválida", async () => {
+test("repete Luna uma vez quando a resposta estruturada é inválida", async () => {
   const requestedModels: string[] = [];
   const client = new OpenRouterAuditDiscoveryClient({
     apiKey: "test-only",
@@ -205,12 +205,12 @@ test("usa o fallback quando Luna retorna resposta estruturalmente inválida", as
       requestedModels.push(payload.model);
       return requestedModels.length === 1
         ? new Response(JSON.stringify({ choices: [] }), { status: 200 })
-        : successfulAuditResponse(AUDIT_POLICY.fallbackModel);
+        : successfulAuditResponse(HARNESS_MODEL);
     },
   });
 
   const result = await client.discover(discoveryRequest);
-  assert.deepEqual(requestedModels, [HARNESS_MODEL, AUDIT_POLICY.fallbackModel]);
+  assert.deepEqual(requestedModels, [HARNESS_MODEL, HARNESS_MODEL]);
   assert.equal(result.attempts, 2);
   assert.deepEqual(
     result.attemptTrace.map((attempt) => attempt.kind),
