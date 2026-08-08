@@ -31,12 +31,25 @@ export const ACTIVE_CONTEXT_SUBMISSION_STATUSES = [
   ContextSubmissionStatus.REANALYSIS_QUEUED,
 ] as const;
 
+const GENERIC_PIPELINE_FAILURE_MESSAGE = "O pipeline não pôde ser concluído.";
+const MAX_PERSISTED_ERROR_MESSAGE_LENGTH = 300;
+
+export function auditRecoveryIdempotencyKey(noteId: string, version: number) {
+  return `audit-recovery:${noteId}:${version}`;
+}
+
 export function processingFailureLifecycle(input: {
   attempt: number;
+  failureCode?: string;
   maxAttempts: number;
   type: ProcessingJobType;
 }) {
-  const attemptsExhausted = input.attempt >= input.maxAttempts;
+  // The audit client already executes the complete Luna -> Sol route. Retrying
+  // the outer ProcessingJob would repeat paid provider calls and make a single
+  // failure look like an endless analysis to the public flow.
+  const attemptsExhausted =
+    input.attempt >= input.maxAttempts ||
+    Boolean(input.failureCode?.startsWith("AUDIT_"));
   return {
     attemptsExhausted,
     contextSubmissionStatus:
@@ -52,11 +65,99 @@ export function processingFailureLifecycle(input: {
   } as const;
 }
 
-function pipelineFailureCode(error: unknown) {
-  if (error && typeof error === "object" && "code" in error) {
-    return String(error.code);
+export function pipelineFailureDetails(error: unknown) {
+  const rawCode =
+    error && typeof error === "object" && "code" in error
+      ? String(error.code)
+      : "PIPELINE_FAILED";
+  const code = /^[A-Z0-9][A-Z0-9_.:-]{0,79}$/.test(rawCode)
+    ? rawCode
+    : "PIPELINE_FAILED";
+  const rawMessage =
+    error && typeof error === "object" && "message" in error
+      ? String(error.message)
+      : error instanceof Error
+        ? error.message
+        : "";
+  const normalizedMessage = rawMessage.replace(/\s+/g, " ").trim();
+  if (!normalizedMessage) {
+    return { code, message: GENERIC_PIPELINE_FAILURE_MESSAGE };
   }
-  return "PIPELINE_FAILED";
+
+  const message = normalizedMessage
+    .replace(/\b(Bearer\s+)[^\s,;]+/gi, "$1[REDACTED]")
+    .replace(
+      /\b(api[-_ ]?key|authorization|token|secret|signed[-_ ]?url)\s*[:=]\s*([^\s,;]+)/gi,
+      "$1=[REDACTED]",
+    )
+    .replace(/(https?:\/\/[^\s?#]+)[?#][^\s]*/gi, "$1?[REDACTED]")
+    .slice(0, MAX_PERSISTED_ERROR_MESSAGE_LENGTH);
+
+  return {
+    code,
+    message: message || GENERIC_PIPELINE_FAILURE_MESSAGE,
+  };
+}
+
+export function shouldRunAuditWithoutExtraction(input: {
+  extractedData: unknown;
+  failureCode: string | null;
+  processingStage: ProcessingStage;
+  type: ProcessingJobType;
+}) {
+  const hasExtractedData =
+    input.extractedData !== null && input.extractedData !== undefined;
+
+  return (
+    input.type === ProcessingJobType.CONTEXT_REANALYSIS ||
+    (hasExtractedData &&
+      (input.processingStage === ProcessingStage.ANALYZING ||
+        input.processingStage === ProcessingStage.FINALIZING ||
+        input.processingStage === ProcessingStage.FAILED ||
+        input.failureCode?.startsWith("AUDIT_")))
+  );
+}
+
+type ClaimedPipelineJob = {
+  contextSubmissionId: string | null;
+  id: string;
+  noteId: string;
+  type: ProcessingJobType;
+};
+
+type PipelineNoteState = {
+  extractedData: unknown;
+  failureCode: string | null;
+  processingStage: ProcessingStage;
+};
+
+export async function runClaimedProcessingJobPipeline(
+  job: ClaimedPipelineJob,
+  dependencies: {
+    findNoteState: (noteId: string) => Promise<PipelineNoteState>;
+    markAuditStarted: (noteId: string) => Promise<unknown>;
+    processAudit: typeof processNoteAudit;
+    processExtraction: typeof processNoteExtraction;
+  },
+) {
+  const noteState = await dependencies.findNoteState(job.noteId);
+  if (
+    shouldRunAuditWithoutExtraction({
+      ...noteState,
+      type: job.type,
+    })
+  ) {
+    await dependencies.markAuditStarted(job.noteId);
+  } else {
+    await dependencies.processExtraction(job.noteId, {
+      processingJobId: job.id,
+    });
+  }
+
+  return dependencies.processAudit(job.noteId, {
+    contextSubmissionId: job.contextSubmissionId ?? undefined,
+    processingJobId: job.id,
+  });
 }
 
 export async function createInitialProcessingJob(
@@ -143,38 +244,29 @@ export async function processProcessingJob(
   const job = await claimProcessingJob(jobId, workerId);
 
   try {
-    const noteState = await prisma.note.findUniqueOrThrow({
-      where: { id: job.noteId },
-      select: {
-        extractedData: true,
-        failureCode: true,
-        processingStage: true,
-        status: true,
-      },
-    });
-    const retryingAudit =
-      Boolean(noteState.extractedData) &&
-      (noteState.processingStage === ProcessingStage.ANALYZING ||
-        noteState.failureCode?.startsWith("AUDIT_"));
-    if (job.type === ProcessingJobType.CONTEXT_REANALYSIS || retryingAudit) {
-      await prisma.note.update({
-        where: { id: job.noteId },
-        data: {
-          failureCode: null,
-          failureMessage: null,
-          processingStage: ProcessingStage.ANALYZING,
-          status: NoteStatus.PROCESSING,
-          version: { increment: 1 },
-        },
-      });
-    } else {
-      await (dependencies.processExtraction ?? processNoteExtraction)(job.noteId, {
-        processingJobId: job.id,
-      });
-    }
-    const note = await (dependencies.processAudit ?? processNoteAudit)(job.noteId, {
-      contextSubmissionId: job.contextSubmissionId ?? undefined,
-      processingJobId: job.id,
+    const note = await runClaimedProcessingJobPipeline(job, {
+      findNoteState: (noteId) =>
+        prisma.note.findUniqueOrThrow({
+          where: { id: noteId },
+          select: {
+            extractedData: true,
+            failureCode: true,
+            processingStage: true,
+          },
+        }),
+      markAuditStarted: (noteId) =>
+        prisma.note.update({
+          where: { id: noteId },
+          data: {
+            failureCode: null,
+            failureMessage: null,
+            processingStage: ProcessingStage.ANALYZING,
+            status: NoteStatus.PROCESSING,
+            version: { increment: 1 },
+          },
+        }),
+      processAudit: dependencies.processAudit ?? processNoteAudit,
+      processExtraction: dependencies.processExtraction ?? processNoteExtraction,
     });
     await prisma.processingJob.updateMany({
       where: { id: job.id, lockedBy: workerId, status: ProcessingJobStatus.RUNNING },
@@ -188,8 +280,11 @@ export async function processProcessingJob(
     return { jobId: job.id, note };
   } catch (error) {
     const now = new Date();
-    const failureCode = pipelineFailureCode(error);
-    const lifecycle = processingFailureLifecycle(job);
+    const failure = pipelineFailureDetails(error);
+    const lifecycle = processingFailureLifecycle({
+      ...job,
+      failureCode: failure.code,
+    });
     await prisma.$transaction(async (tx) => {
       const failedJob = await tx.processingJob.updateMany({
         where: {
@@ -204,11 +299,13 @@ export async function processProcessingJob(
                 now.getTime() + Math.min(2 ** job.attempt * 1_000, 60_000),
               ),
           completedAt: lifecycle.attemptsExhausted ? now : null,
-          lastError: "O pipeline não pôde ser concluído.",
-          lastErrorCode: failureCode,
+          lastError: failure.message,
+          lastErrorCode: failure.code,
           lockedAt: null,
           lockedBy: null,
-          status: ProcessingJobStatus.FAILED,
+          status: lifecycle.attemptsExhausted
+            ? ProcessingJobStatus.CANCELLED
+            : ProcessingJobStatus.FAILED,
         },
       });
       if (failedJob.count !== 1) return;
@@ -221,7 +318,19 @@ export async function processProcessingJob(
           status: true,
         },
       });
-      if (!currentNote || currentNote.processingStage === ProcessingStage.COMPLETED) {
+      const noteAlreadyTerminal =
+        currentNote?.processingStage === ProcessingStage.COMPLETED &&
+        currentNote.status !== NoteStatus.RECEIVED &&
+        currentNote.status !== NoteStatus.PROCESSING &&
+        currentNote.status !== NoteStatus.FAILED;
+      const noteAlreadyFailed =
+        currentNote?.processingStage === ProcessingStage.FAILED &&
+        currentNote.status === NoteStatus.FAILED;
+      if (
+        !currentNote ||
+        noteAlreadyTerminal ||
+        (lifecycle.attemptsExhausted && noteAlreadyFailed)
+      ) {
         return;
       }
 
@@ -231,10 +340,17 @@ export async function processProcessingJob(
           ? ProcessingStage.ANALYZING
           : ProcessingStage.EXTRACTING;
       const noteUpdated = await tx.note.updateMany({
-        where: {
-          id: job.noteId,
-          processingStage: { not: ProcessingStage.COMPLETED },
-        },
+        where: lifecycle.attemptsExhausted
+          ? {
+              id: job.noteId,
+              status: {
+                in: [NoteStatus.RECEIVED, NoteStatus.PROCESSING, NoteStatus.FAILED],
+              },
+            }
+          : {
+              id: job.noteId,
+              processingStage: { not: ProcessingStage.COMPLETED },
+            },
         data: lifecycle.attemptsExhausted
           ? {
               failureCode: "PROCESSING_ATTEMPTS_EXHAUSTED",
@@ -246,7 +362,7 @@ export async function processProcessingJob(
               version: { increment: 1 },
             }
           : {
-              failureCode,
+              failureCode: failure.code,
               failureMessage:
                 "A tentativa falhou e será repetida automaticamente.",
               processingStage: retryStage,
@@ -281,7 +397,8 @@ export async function processProcessingJob(
           toStatus: lifecycle.noteStatus,
           data: {
             attempt: job.attempt,
-            failureCode,
+            failureCode: failure.code,
+            failureMessage: failure.message,
             jobId: job.id,
             maxAttempts: job.maxAttempts,
             nextAttempt: lifecycle.attemptsExhausted
@@ -293,6 +410,189 @@ export async function processProcessingJob(
     });
     throw error;
   }
+}
+
+export async function scheduleNoteAuditRecoveryInTransaction(
+  transaction: Prisma.TransactionClient,
+  noteId: string,
+  now = new Date(),
+) {
+  const note = await transaction.note.findUnique({
+    where: { id: noteId },
+    select: {
+      extractedData: true,
+      id: true,
+      processingStage: true,
+      status: true,
+      version: true,
+    },
+  });
+  if (!note) {
+    throw new ProcessingJobError("NOTE_NOT_FOUND", "Nota não encontrada.");
+  }
+  if (note.extractedData === null || note.extractedData === undefined) {
+    throw new ProcessingJobError(
+      "AUDIT_RECOVERY_REQUIRES_EXTRACTION",
+      "A nota não possui extração persistida para recuperar somente a auditoria.",
+    );
+  }
+
+  const eligibleStatus =
+    note.status === NoteStatus.PROCESSING || note.status === NoteStatus.FAILED;
+  const eligibleStage =
+    note.processingStage === ProcessingStage.ANALYZING ||
+    note.processingStage === ProcessingStage.FINALIZING ||
+    note.processingStage === ProcessingStage.FAILED;
+  if (!eligibleStatus || !eligibleStage) {
+    throw new ProcessingJobError(
+      "AUDIT_RECOVERY_NOT_ALLOWED",
+      "A nota não está em um estado recuperável de auditoria.",
+    );
+  }
+
+  const currentVersionKey = auditRecoveryIdempotencyKey(note.id, note.version);
+  const previouslyScheduled = await transaction.processingJob.findUnique({
+    where: { idempotencyKey: currentVersionKey },
+    select: { id: true, status: true },
+  });
+  if (previouslyScheduled) return previouslyScheduled;
+
+  const unfinishedJobs = await transaction.processingJob.findMany({
+    where: {
+      noteId,
+      status: {
+        in: [
+          ProcessingJobStatus.PENDING,
+          ProcessingJobStatus.RUNNING,
+          ProcessingJobStatus.FAILED,
+        ],
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      attempt: true,
+      id: true,
+      maxAttempts: true,
+      status: true,
+      type: true,
+    },
+  });
+  const blockingJob = unfinishedJobs.find(
+    (job) =>
+      job.status === ProcessingJobStatus.PENDING ||
+      job.status === ProcessingJobStatus.RUNNING ||
+      (job.status === ProcessingJobStatus.FAILED &&
+        job.attempt < job.maxAttempts),
+  );
+  if (blockingJob) {
+    throw new ProcessingJobError(
+      "AUDIT_RECOVERY_CONFLICT",
+      "A nota ainda possui um job com tentativas disponíveis.",
+    );
+  }
+
+  const previousJob = unfinishedJobs[0];
+  if (previousJob?.type === ProcessingJobType.CONTEXT_REANALYSIS) {
+    throw new ProcessingJobError(
+      "AUDIT_RECOVERY_CONTEXT_CONFLICT",
+      "A reanálise de contexto deve ser recuperada com a submissão correspondente.",
+    );
+  }
+
+  const recoveryVersion = note.version + 1;
+  const idempotencyKey = auditRecoveryIdempotencyKey(note.id, recoveryVersion);
+  const concurrentlyScheduled = await transaction.processingJob.findUnique({
+    where: { idempotencyKey },
+    select: { id: true, status: true },
+  });
+  if (concurrentlyScheduled) return concurrentlyScheduled;
+
+  const transitioned = await transaction.note.updateMany({
+    where: {
+      id: note.id,
+      processingStage: note.processingStage,
+      status: note.status,
+      version: note.version,
+    },
+    data: {
+      auditResult: null,
+      classification: null,
+      failureCode: null,
+      failureMessage: null,
+      processedAt: null,
+      processingStage: ProcessingStage.ANALYZING,
+      status: NoteStatus.PROCESSING,
+      version: { increment: 1 },
+    },
+  });
+  if (transitioned.count !== 1) {
+    const scheduledAfterConflict = await transaction.processingJob.findUnique({
+      where: { idempotencyKey },
+      select: { id: true, status: true },
+    });
+    if (scheduledAfterConflict) return scheduledAfterConflict;
+    throw new ProcessingJobError(
+      "AUDIT_RECOVERY_CONFLICT",
+      "A nota mudou durante o reagendamento da auditoria.",
+    );
+  }
+
+  const exhaustedJobIds = unfinishedJobs
+    .filter(
+      (job) =>
+        job.status === ProcessingJobStatus.FAILED &&
+        job.attempt >= job.maxAttempts,
+    )
+    .map((job) => job.id);
+  if (exhaustedJobIds.length > 0) {
+    await transaction.processingJob.updateMany({
+      where: {
+        id: { in: exhaustedJobIds },
+        status: ProcessingJobStatus.FAILED,
+      },
+      data: {
+        completedAt: now,
+        lockedAt: null,
+        lockedBy: null,
+        status: ProcessingJobStatus.CANCELLED,
+      },
+    });
+  }
+
+  const job = await transaction.processingJob.create({
+    data: {
+      availableAt: now,
+      idempotencyKey,
+      maxAttempts: 2,
+      noteId: note.id,
+      type: ProcessingJobType.FULL_AUDIT,
+    },
+    select: { id: true, status: true },
+  });
+  await transaction.noteEvent.create({
+    data: {
+      noteId: note.id,
+      type: "AUDIT_RECOVERY_SCHEDULED",
+      fromStatus: note.status,
+      toStatus: NoteStatus.PROCESSING,
+      data: {
+        auditOnly: true,
+        jobId: job.id,
+        previousAttempt: previousJob?.attempt ?? null,
+        previousJobId: previousJob?.id ?? null,
+        previousMaxAttempts: previousJob?.maxAttempts ?? null,
+        recoveryVersion,
+      },
+    },
+  });
+
+  return job;
+}
+
+export async function scheduleNoteAuditRecovery(noteId: string) {
+  return prisma.$transaction((transaction) =>
+    scheduleNoteAuditRecoveryInTransaction(transaction, noteId),
+  );
 }
 
 export async function scheduleNoteReprocess(noteId: string) {

@@ -30,34 +30,30 @@ const responseSchema = z.object({
   }).optional(),
 }).passthrough();
 
-async function readProviderError(response: Response) {
-  try {
-    const body = (await response.json()) as {
-      error?: { message?: unknown; code?: unknown; metadata?: Record<string, unknown> };
-      message?: unknown;
-    };
-    const message =
-      typeof body.error?.message === "string"
-        ? body.error.message
-        : typeof body.message === "string"
-          ? body.message
-          : undefined;
-    const code = typeof body.error?.code === "string" ? ` (${body.error.code})` : "";
-    const metadata = body.error?.metadata;
-    const metadataParts = metadata
-      ? [metadata.error_type, metadata.provider_code, metadata.provider_name]
-          .filter((value): value is string => typeof value === "string")
-          .join(", ")
-      : "";
-    const raw = typeof metadata?.raw === "string" ? `: ${metadata.raw}` : "";
-    if (message) {
-      const details = metadataParts ? ` [${metadataParts}]` : "";
-      return `OpenRouter audit request failed with status ${response.status}${code}: ${message}${details}${raw}`.slice(0, 900);
-    }
-  } catch {
-    // Keep the generic status when the provider body is not JSON.
+function parseRetryAfter(value: string | null) {
+  if (!value) return undefined;
+
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(seconds * 1_000, 5_000);
   }
-  return `OpenRouter audit request failed with status ${response.status}.`;
+
+  const dateDelay = Date.parse(value) - Date.now();
+  return Number.isFinite(dateDelay)
+    ? Math.min(Math.max(dateDelay, 0), 5_000)
+    : undefined;
+}
+
+function providerErrorKind(status: number) {
+  return status === 408 || status === 504 ? "timeout" : "provider";
+}
+
+function providerErrorMessage(status: number) {
+  if (providerErrorKind(status) === "timeout") {
+    return `OpenRouter audit request exceeded the provider time limit (HTTP ${status}).`;
+  }
+
+  return `OpenRouter audit provider rejected the request (HTTP ${status}).`;
 }
 
 export type AuditDiscoveryRequest = {
@@ -70,6 +66,7 @@ export type AuditDiscoveryRequest = {
 
 export type AuditDiscoveryResult = {
   attempts: number;
+  attemptTrace: AuditDiscoveryAttempt[];
   data: AiDiscoveryResponse;
   latencyMs: number;
   model: string;
@@ -88,14 +85,47 @@ export interface AuditDiscoveryClient {
 
 type Options = Omit<
   ReturnType<typeof getOpenRouterConfig>,
-  "pdfModel" | "pdfReasoningEffort" | "reasoningEffort"
+  | "fallbackModel"
+  | "fallbackReasoningEffort"
+  | "pdfModel"
+  | "pdfReasoningEffort"
+  | "reasoningEffort"
 > & {
+  fallbackModel?: string;
+  fallbackReasoningEffort?: AuditDiscoveryRequest["reasoningEffort"];
   pdfModel?: string;
   pdfReasoningEffort?: string;
   reasoningEffort?: string;
   fetchImplementation?: typeof fetch;
   sleep?: (milliseconds: number) => Promise<void>;
 };
+
+export type AuditDiscoveryAttempt = {
+  attempt: number;
+  kind: "invalid-response" | "provider" | "success" | "timeout";
+  latencyMs: number;
+  model: string;
+  status?: number;
+};
+
+export class OpenRouterAuditDiscoveryError extends OpenRouterClientError {
+  constructor(
+    error: OpenRouterClientError,
+    public readonly model: string,
+    public readonly attempts: number,
+    public readonly attemptTrace: AuditDiscoveryAttempt[],
+  ) {
+    super(
+      error.kind,
+      error.message,
+      error.retryable,
+      error.status,
+      error.retryAfterMs,
+      { cause: error },
+    );
+    this.name = "OpenRouterAuditDiscoveryError";
+  }
+}
 
 export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
   private readonly fetchImplementation: typeof fetch;
@@ -108,23 +138,92 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
   }
 
   async discover(request: AuditDiscoveryRequest): Promise<AuditDiscoveryResult> {
-    let lastError: OpenRouterClientError | undefined;
-    for (let attempt = 1; attempt <= this.options.maxAttempts; attempt += 1) {
+    const startedAt = Date.now();
+    const attemptTrace: AuditDiscoveryAttempt[] = [];
+    const routes = [
+      { model: this.options.model, reasoningEffort: request.reasoningEffort },
+      ...(this.options.fallbackModel &&
+      this.options.fallbackModel !== this.options.model
+        ? [
+            {
+              model: this.options.fallbackModel,
+              reasoningEffort:
+                this.options.fallbackReasoningEffort ?? "high",
+            },
+          ]
+        : []),
+    ].slice(0, this.options.maxAttempts);
+
+    for (const [index, route] of routes.entries()) {
+      const attempt = index + 1;
+      const attemptStartedAt = Date.now();
       try {
-        const result = await this.performRequest(request);
-        return { ...result, attempts: attempt };
+        const result = await this.performRequest(
+          request,
+          route.model,
+          route.reasoningEffort,
+        );
+        attemptTrace.push({
+          attempt,
+          kind: "success",
+          latencyMs: Date.now() - attemptStartedAt,
+          model: route.model,
+        });
+        return {
+          ...result,
+          attempts: attempt,
+          attemptTrace,
+          latencyMs: Date.now() - startedAt,
+        };
       } catch (error) {
         const normalized = this.normalizeError(error);
-        lastError = normalized;
-        if (!normalized.retryable || attempt === this.options.maxAttempts) throw normalized;
-        await this.sleep(Math.min(500 * 2 ** (attempt - 1), 5_000));
+        attemptTrace.push({
+          attempt,
+          kind: normalized.kind,
+          latencyMs: Date.now() - attemptStartedAt,
+          model: route.model,
+          status: normalized.status,
+        });
+        const hasFallback = index < routes.length - 1;
+        const canFallback =
+          normalized.retryable &&
+          (normalized.kind === "timeout" ||
+            normalized.kind === "provider" ||
+            normalized.kind === "invalid-response");
+
+        if (!hasFallback || !canFallback) {
+          throw new OpenRouterAuditDiscoveryError(
+            normalized,
+            route.model,
+            attempt,
+            attemptTrace,
+          );
+        }
+
+        await this.sleep(
+          normalized.retryAfterMs ??
+            Math.min(500 * 2 ** (attempt - 1), 5_000),
+        );
       }
     }
-    throw lastError ?? new OpenRouterClientError("provider", "Audit discovery failed.", false);
+
+    throw new OpenRouterAuditDiscoveryError(
+      new OpenRouterClientError(
+        "provider",
+        "OpenRouter audit has no configured model.",
+        false,
+      ),
+      this.options.model,
+      0,
+      attemptTrace,
+    );
   }
 
-  private async performRequest(request: AuditDiscoveryRequest) {
-    const startedAt = Date.now();
+  private async performRequest(
+    request: AuditDiscoveryRequest,
+    model: string,
+    reasoningEffort: AuditDiscoveryRequest["reasoningEffort"],
+  ) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs);
 
@@ -138,7 +237,7 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
           ...(this.options.appUrl ? { "HTTP-Referer": this.options.appUrl } : {}),
         },
         body: JSON.stringify({
-          model: this.options.model,
+          model,
           messages: [
             { role: "system", content: AUDIT_DISCOVERY_PROMPT.system },
             {
@@ -151,7 +250,7 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
               })}`,
             },
           ],
-          reasoning: { effort: request.reasoningEffort, exclude: true },
+          reasoning: { effort: reasoningEffort, exclude: true },
           response_format: {
             type: "json_schema",
             json_schema: { name: "audit_discovery", strict: true, schema: AI_DISCOVERY_JSON_SCHEMA },
@@ -163,11 +262,13 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
       });
 
       if (!response.ok) {
+        await response.body?.cancel();
         throw new OpenRouterClientError(
-          "provider",
-          await readProviderError(response),
+          providerErrorKind(response.status),
+          providerErrorMessage(response.status),
           RETRYABLE_STATUS_CODES.has(response.status),
           response.status,
+          parseRetryAfter(response.headers.get("retry-after")),
         );
       }
 
@@ -196,7 +297,6 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
       const usage = envelope.data.usage;
       return {
         data: parsed.data,
-        latencyMs: Date.now() - startedAt,
         model: envelope.data.model,
         provider: envelope.data.provider,
         ...(usage ? { usage: {

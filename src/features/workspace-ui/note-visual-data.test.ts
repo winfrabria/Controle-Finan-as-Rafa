@@ -5,6 +5,7 @@ import { AuditResult } from "@/generated/prisma/enums";
 import { toNoteVisualItems } from "./note-visual-data";
 
 const base = {
+  auditResult: null,
   classification: null,
   createdAt: new Date("2026-08-01T12:00:00Z"),
   documentNumber: "1",
@@ -51,4 +52,16 @@ test("não apresenta anexo legado sem job como se estivesse processando", () => 
   ]);
 
   assert.equal(item.classification, "Não processado");
+});
+
+test("exibe a data de recebimento mesmo quando a emissão é de um mês antigo", () => {
+  const [item] = toNoteVisualItems([
+    {
+      ...base,
+      createdAt: new Date("2026-08-08T12:00:00Z"),
+      issuedAt: new Date("2025-01-15T00:00:00Z"),
+    },
+  ]);
+
+  assert.equal(item.date, "08/08/2026");
 });

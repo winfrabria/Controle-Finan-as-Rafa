@@ -49,7 +49,7 @@ function visualClassification(item: NoteListItem) {
 export function toNoteVisualItems(items: NoteListItem[]): NoteVisualItem[] {
   return items.map((item) => ({
     classification: visualClassification(item),
-    date: dateFormatter.format(item.issuedAt ?? item.createdAt),
+    date: dateFormatter.format(item.createdAt),
     finding: item.primaryFinding ?? undefined,
     findings: item.findings,
     id: item.id,

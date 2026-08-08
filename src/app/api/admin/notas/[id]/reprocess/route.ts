@@ -8,6 +8,7 @@ import { requireApiRoles } from "@/server/auth/authorization";
 import {
   processProcessingJob,
   ProcessingJobError,
+  scheduleNoteAuditRecovery,
   scheduleNoteReprocess,
 } from "@/server/notes/processing-jobs";
 
@@ -22,7 +23,22 @@ export async function POST(
   const { id } = await context.params;
   const requestId = randomUUID();
   try {
-    const job = await scheduleNoteReprocess(id);
+    let job;
+    let mode: "AUDIT_ONLY" | "FULL" = "AUDIT_ONLY";
+    try {
+      job = await scheduleNoteAuditRecovery(id);
+    } catch (error) {
+      const requiresFullReprocess =
+        error instanceof ProcessingJobError &&
+        [
+          "AUDIT_RECOVERY_NOT_ALLOWED",
+          "AUDIT_RECOVERY_REQUIRES_EXTRACTION",
+        ].includes(error.code);
+      if (!requiresFullReprocess) throw error;
+
+      mode = "FULL";
+      job = await scheduleNoteReprocess(id);
+    }
     await persistAdminAudit({
       action: "note.reprocess.scheduled",
       actorId: auth.profile.id,
@@ -30,7 +46,7 @@ export async function POST(
       entityId: id,
       entityType: "note",
       requestId,
-      changes: { jobId: job.id },
+      changes: { jobId: job.id, mode },
     });
     after(async () => {
       try {
@@ -46,7 +62,7 @@ export async function POST(
         });
       }
     });
-    return NextResponse.json({ job }, { status: 202 });
+    return NextResponse.json({ job, mode }, { status: 202 });
   } catch (error) {
     if (error instanceof ProcessingJobError) {
       return NextResponse.json({ erro: { codigo: error.code, mensagem: error.message } }, { status: error.code === "NOTE_NOT_FOUND" ? 404 : 409 });

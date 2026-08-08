@@ -4,7 +4,9 @@ import { HARNESS_MODEL, HARNESS_VERSIONS } from "./versions";
 export const AUDIT_POLICY = {
   version: HARNESS_VERSIONS.policy,
   model: HARNESS_MODEL,
-  defaultReasoningEffort: "max",
+  fallbackModel: "openai/gpt-5.6-sol",
+  defaultReasoningEffort: "high",
+  fallbackReasoningEffort: "high",
   readFailureThreshold: 0.6,
   supportedFindingThreshold: 0.65,
   xhighTriggers: {

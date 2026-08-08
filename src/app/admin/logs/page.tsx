@@ -31,7 +31,9 @@ function runStatusLabel(status: string) {
 function failureCodeLabel(code: string) {
   const labels: Record<string, string> = {
     AUDIT_INVALID_EXTRACTION: "Os dados extraídos não eram suficientes para a auditoria",
-    AUDIT_PROVIDER_ERROR: "O provedor de IA não concluiu a auditoria",
+    AUDIT_INVALID_RESPONSE: "A resposta da auditoria não estava no formato esperado",
+    AUDIT_PROVIDER_ERROR: "Os provedores de IA não concluíram a auditoria",
+    AUDIT_TIMEOUT: "A auditoria ultrapassou o tempo limite dos modelos disponíveis",
     EXTRACTION_CONFLICT: "Houve conflito ao salvar os dados extraídos",
     EXTRACTION_INVALID_RESPONSE: "A resposta de leitura não estava no formato esperado",
     EXTRACTION_PROVIDER_ERROR: "O provedor de IA não concluiu a leitura",

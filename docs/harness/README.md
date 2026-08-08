@@ -4,18 +4,20 @@ O Harness transforma uma extração validada em uma decisão auditável. A ordem
 
 1. regras universais determinísticas;
 2. regras e parâmetros ativos da obra;
-3. descoberta livre estruturada pela Luna max;
+3. descoberta livre estruturada pela Luna high, com Sol high como contingência;
 4. matriz de decisão;
 5. persistência de achados, métricas e diagnóstico.
 
-Versão ativa: `2026-08-01.1`. Os artefatos versionados ficam nas pastas
+Política ativa: `2026-08-08.1`. Prompt, schema e regras permanecem em
+`2026-08-01.1`. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
 versão ativa.
 
 ## Garantias
 
-- `openai/gpt-5.6-luna`, `max` por padrão para a avaliação; os gatilhos permanecem registrados para auditoria;
+- `openai/gpt-5.6-luna`, `high` como avaliação primária; `openai/gpt-5.6-sol`, `high` é usado uma única vez quando Luna expira, encontra erro recuperável ou devolve resposta estruturalmente inválida;
+- depois da rota Luna -> Sol, o `ProcessingJob` não repete a auditoria e não multiplica chamadas pagas;
 - `reasoning.exclude=true`; chain-of-thought nunca é solicitado ou persistido;
 - resposta de IA validada com Zod e JSON Schema estrito;
 - URL assinada, chave, autorização e reasoning são removidos de dados persistidos;
@@ -27,7 +29,7 @@ versão ativa.
 - a capacidade pública usa cookie HttpOnly, SameSite=Strict, TTL curto, hash persistido e protocolo não secreto. UUID sozinho não autoriza status, contexto ou preview;
 - em estado terminal, o preview é negado imediatamente; o primeiro status genérico consome a capability com CAS, limpa o cookie e expira a capability antes da resposta. Repetições retornam 404;
 - perguntas e respostas ficam na trilha ADMIN; o REVIEWER recebe apenas o diagnóstico final. O endpoint legado de decisão retorna bloqueio e preserva o histórico;
-- reprocessamento preserva execuções e validações anteriores, encerra achados abertos e cria novo job.
+- reprocessamento preserva execuções e validações anteriores. Quando a extração já existe, recupera apenas a auditoria; uma extração nova só ocorre quando realmente necessária.
 
 ## Operação
 

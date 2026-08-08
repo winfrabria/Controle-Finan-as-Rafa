@@ -36,8 +36,10 @@ import { invoiceExtractionSchema } from "@/lib/integrations/openrouter/extractio
 import { prisma } from "@/server/db/prisma";
 import {
   getOpenRouterAuditDiscoveryClient,
+  OpenRouterAuditDiscoveryError,
   type AuditDiscoveryClient,
-} from "@/server/integrations/openrouter";
+} from "@/server/integrations/openrouter/audit-client";
+import { OpenRouterClientError } from "@/server/integrations/openrouter/client";
 import {
   PUBLIC_CONTEXT_CAPABILITY_TTL_SECONDS,
   terminalPublicCapabilityFields,
@@ -49,6 +51,53 @@ export class AuditPipelineError extends Error {
     super(message, options);
     this.name = "AuditPipelineError";
   }
+}
+
+function getAuditFailureDetails(error: unknown) {
+  const attemptDetails =
+    error instanceof OpenRouterAuditDiscoveryError
+      ? {
+          attempts: error.attempts,
+          attemptTrace: error.attemptTrace,
+          model: error.model,
+        }
+      : { attemptTrace: [] };
+
+  if (error instanceof AuditPipelineError) {
+    return {
+      ...attemptDetails,
+      code: error.code,
+      message: error.message,
+      noteMessage: error.message,
+    };
+  }
+
+  if (error instanceof OpenRouterClientError) {
+    if (error.kind === "timeout") {
+      return {
+        ...attemptDetails,
+        code: "AUDIT_TIMEOUT",
+        message: "A auditoria excedeu o tempo limite dos modelos disponíveis.",
+        noteMessage: "A auditoria excedeu o tempo limite e será repetida automaticamente.",
+      };
+    }
+
+    if (error.kind === "invalid-response") {
+      return {
+        ...attemptDetails,
+        code: "AUDIT_INVALID_RESPONSE",
+        message: "A resposta da auditoria não pôde ser validada.",
+        noteMessage: "A auditoria retornou uma resposta inválida e será repetida automaticamente.",
+      };
+    }
+  }
+
+  return {
+    ...attemptDetails,
+    code: "AUDIT_PROVIDER_ERROR",
+    message: "Os provedores de IA disponíveis não concluíram a auditoria.",
+    noteMessage: "A auditoria está temporariamente indisponível e será repetida automaticamente.",
+  };
 }
 
 function toJson(value: unknown) {
@@ -105,6 +154,7 @@ async function loadAuditContext(noteId: string, contextSubmissionId?: string) {
       processingStage: true,
       supplierTaxId: true,
       totalAmount: true,
+      version: true,
       workId: true,
     },
   });
@@ -182,25 +232,24 @@ async function loadAuditContext(noteId: string, contextSubmissionId?: string) {
       totalAmount: duplicate.totalAmount?.toString() ?? null,
     })),
     invoice,
+    noteVersion: note.version,
     workRules,
   };
 }
 
-async function finalizeReadFailure(noteId: string, contextSubmissionId?: string) {
+async function finalizeReadFailure(
+  noteId: string,
+  expectedVersion: number,
+  contextSubmissionId?: string,
+) {
   return prisma.$transaction(async (tx) => {
-    await tx.finding.updateMany({
-      where: { noteId, status: FindingStatus.OPEN },
-      data: { status: FindingStatus.RESOLVED, needsValidation: false },
-    });
-    await invalidateNoteReads(tx, noteId);
-    if (contextSubmissionId) {
-      await tx.noteContextSubmission.updateMany({
-        where: { id: contextSubmissionId },
-        data: { reanalysisCompletedAt: new Date(), status: ContextSubmissionStatus.REANALYSIS_COMPLETED },
-      });
-    }
-    const note = await tx.note.update({
-      where: { id: noteId },
+    const finalized = await tx.note.updateMany({
+      where: {
+        id: noteId,
+        processingStage: ProcessingStage.ANALYZING,
+        status: NoteStatus.PROCESSING,
+        version: expectedVersion,
+      },
       data: {
         auditResult: AuditResult.READ_FAILED,
         classification: null,
@@ -212,6 +261,26 @@ async function finalizeReadFailure(noteId: string, contextSubmissionId?: string)
         status: NoteStatus.READ_FAILED,
         version: { increment: 1 },
       },
+    });
+    if (finalized.count !== 1) {
+      throw new AuditPipelineError(
+        "AUDIT_CONFLICT",
+        "A nota mudou durante a finalização da leitura.",
+      );
+    }
+    await tx.finding.updateMany({
+      where: { noteId, status: FindingStatus.OPEN },
+      data: { status: FindingStatus.RESOLVED, needsValidation: false },
+    });
+    await invalidateNoteReads(tx, noteId);
+    if (contextSubmissionId) {
+      await tx.noteContextSubmission.updateMany({
+        where: { id: contextSubmissionId },
+        data: { reanalysisCompletedAt: new Date(), status: ContextSubmissionStatus.REANALYSIS_COMPLETED },
+      });
+    }
+    const note = await tx.note.findUniqueOrThrow({
+      where: { id: noteId },
       select: { auditResult: true, id: true, status: true },
     });
     await tx.noteEvent.create({
@@ -236,7 +305,13 @@ export async function processNoteAudit(
   } = {},
 ) {
   const context = await loadAuditContext(noteId, dependencies.contextSubmissionId);
-  if (isReadFailure(context.invoice)) return finalizeReadFailure(noteId, dependencies.contextSubmissionId);
+  if (isReadFailure(context.invoice)) {
+    return finalizeReadFailure(
+      noteId,
+      context.noteVersion,
+      dependencies.contextSubmissionId,
+    );
+  }
 
   const universal = evaluateUniversalRules({ invoice: context.invoice, duplicates: context.duplicates });
   const work = evaluateWorkRules(context.invoice, context.workRules);
@@ -272,7 +347,15 @@ export async function processNoteAudit(
       schemaVersion: HARNESS_VERSIONS.schema,
       status: AiRunStatus.RUNNING,
     },
-    update: { completedAt: null, errorCode: null, errorMessage: null, status: AiRunStatus.RUNNING, startedAt: new Date() },
+    update: {
+      attempts: 1,
+      completedAt: null,
+      errorCode: null,
+      errorMessage: null,
+      model: HARNESS_MODEL,
+      status: AiRunStatus.RUNNING,
+      startedAt: new Date(),
+    },
     select: { id: true },
   });
 
@@ -299,8 +382,50 @@ export async function processNoteAudit(
       !dependencies.contextSubmissionId &&
       (context.contextQuestionCount > 0 ||
         (allowNewContextQuestions && result.contextQuestions.length > 0));
+    const targetContextRound =
+      result.classification === "NEEDS_CONTEXT" &&
+      allowNewContextQuestions &&
+      result.contextQuestions.length > 0
+        ? context.contextRound > 0
+          ? context.contextRound
+          : 1
+        : context.contextRound;
 
     return await prisma.$transaction(async (tx) => {
+      const finalized = await tx.note.updateMany({
+        where: {
+          id: noteId,
+          processingStage: ProcessingStage.ANALYZING,
+          status: NoteStatus.PROCESSING,
+          version: context.noteVersion,
+        },
+        data: {
+          auditResult,
+          classification: classificationValue(result.classification),
+          contextRound: targetContextRound,
+          contextSummary: discovery.data.summary,
+          failureCode: null,
+          failureMessage: null,
+          processedAt: new Date(),
+          processingStage: ProcessingStage.COMPLETED,
+          ...(keepsPublicContextCapability
+            ? {
+                publicTokenExpiresAt: new Date(
+                  Date.now() + PUBLIC_CONTEXT_CAPABILITY_TTL_SECONDS * 1_000,
+                ),
+              }
+            : terminalPublicCapabilityFields()),
+          status: finalStatus,
+          version: { increment: 1 },
+        },
+      });
+      if (finalized.count !== 1) {
+        throw new AuditPipelineError(
+          "AUDIT_CONFLICT",
+          "A nota mudou durante a auditoria; o resultado obsoleto foi descartado.",
+        );
+      }
+
       const items = await tx.noteItem.findMany({ where: { noteId }, select: { id: true, lineNumber: true } });
       const itemIds = new Map(items.map((item) => [item.lineNumber, item.id]));
       await tx.finding.updateMany({ where: { noteId, status: FindingStatus.OPEN }, data: { status: FindingStatus.RESOLVED, needsValidation: false } });
@@ -332,9 +457,7 @@ export async function processNoteAudit(
         });
       }
 
-      let contextRound = context.contextRound;
       if (result.classification === "NEEDS_CONTEXT" && allowNewContextQuestions && result.contextQuestions.length > 0) {
-        contextRound = context.contextRound > 0 ? context.contextRound : 1;
         await tx.noteContextQuestion.createMany({
           data: result.contextQuestions.map((question, index) => ({
             aiRunId: aiRun.id,
@@ -345,7 +468,7 @@ export async function processNoteAudit(
             prompt: question.prompt,
             rationale: question.rationale,
             required: question.required,
-            round: contextRound,
+            round: targetContextRound,
             type: question.type,
           })),
         });
@@ -357,30 +480,6 @@ export async function processNoteAudit(
           data: { reanalysisCompletedAt: new Date(), status: ContextSubmissionStatus.REANALYSIS_COMPLETED },
         });
       }
-
-      const note = await tx.note.update({
-        where: { id: noteId },
-        data: {
-          auditResult,
-          classification: classificationValue(result.classification),
-          contextRound,
-          contextSummary: discovery.data.summary,
-          failureCode: null,
-          failureMessage: null,
-          processedAt: new Date(),
-          processingStage: ProcessingStage.COMPLETED,
-          ...(keepsPublicContextCapability
-            ? {
-                publicTokenExpiresAt: new Date(
-                  Date.now() + PUBLIC_CONTEXT_CAPABILITY_TTL_SECONDS * 1_000,
-                ),
-              }
-            : terminalPublicCapabilityFields()),
-          status: finalStatus,
-          version: { increment: 1 },
-        },
-        select: { auditResult: true, classification: true, id: true, status: true },
-      });
 
       if (result.classification === "SUSPICIOUS") {
         const reviewers = await tx.profile.findMany({ where: { active: true, role: UserRole.REVIEWER }, select: { id: true } });
@@ -408,7 +507,7 @@ export async function processNoteAudit(
             aiRunId: aiRun.id,
             auditResult: result.classification,
             contextQuestionCount: result.contextQuestions.length,
-            contextRound,
+            contextRound: targetContextRound,
             findingCount: supportedFindings.length,
             hasContextAnswers: Boolean(context.contextAnswers?.length),
             coverage: result.coverage,
@@ -431,6 +530,7 @@ export async function processNoteAudit(
           provider: discovery.provider,
           status: AiRunStatus.SUCCEEDED,
           structuredResponse: toJson({
+            attemptTrace: discovery.attemptTrace,
             auditResult: result.classification,
             contextQuestionCodes: result.contextQuestions.map((question) => question.code),
             coverage: result.coverage,
@@ -440,34 +540,51 @@ export async function processNoteAudit(
           totalTokens: discovery.usage?.totalTokens,
         },
       });
-      return note;
+      return tx.note.findUniqueOrThrow({
+        where: { id: noteId },
+        select: {
+          auditResult: true,
+          classification: true,
+          id: true,
+          status: true,
+        },
+      });
     });
   } catch (error) {
+    const failure = getAuditFailureDetails(error);
     await prisma.$transaction(async (transaction) => {
       await transaction.aiRun.update({
         where: { id: aiRun.id },
         data: {
+          attempts: failure.attempts,
           completedAt: new Date(),
-          errorCode: error instanceof AuditPipelineError ? error.code : "AUDIT_PROVIDER_ERROR",
-          errorMessage: "A auditoria por IA não pôde ser concluída.",
+          errorCode: failure.code,
+          errorMessage: failure.message,
+          model: failure.model,
           status: AiRunStatus.FAILED,
+          structuredResponse: toJson({ attemptTrace: failure.attemptTrace }),
         },
       });
-      await transaction.note.updateMany({
-        where: {
-          id: noteId,
-          processingStage: ProcessingStage.ANALYZING,
-          status: NoteStatus.PROCESSING,
-        },
-        data: {
-          failureCode: error instanceof AuditPipelineError ? error.code : "AUDIT_PROVIDER_ERROR",
-          failureMessage: "A auditoria está temporariamente indisponível.",
-          processingStage: ProcessingStage.ANALYZING,
-          status: NoteStatus.PROCESSING,
-          version: { increment: 1 },
-        },
-      });
+      // A stale result must never overwrite the state produced by a newer
+      // processing version. The failed AiRun remains available to ADMIN logs.
+      if (failure.code !== "AUDIT_CONFLICT") {
+        await transaction.note.updateMany({
+          where: {
+            id: noteId,
+            processingStage: ProcessingStage.ANALYZING,
+            status: NoteStatus.PROCESSING,
+            version: context.noteVersion,
+          },
+          data: {
+            failureCode: failure.code,
+            failureMessage: failure.noteMessage,
+            processingStage: ProcessingStage.ANALYZING,
+            status: NoteStatus.PROCESSING,
+            version: { increment: 1 },
+          },
+        });
+      }
     });
-    throw new AuditPipelineError("AUDIT_PROVIDER_ERROR", "A auditoria por IA falhou.", { cause: error });
+    throw new AuditPipelineError(failure.code, failure.message, { cause: error });
   }
 }

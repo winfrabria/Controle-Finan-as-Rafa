@@ -12,16 +12,16 @@ import type { ReviewerDashboardNote } from "@/features/workspace-ui/reviewer-das
 import { sanitizeReviewerDashboardNote } from "./reviewer-payload-policy";
 import { attachmentReference } from "./attachment-reference";
 
-function formatDate(value: Date, isDateOnly: boolean) {
+function formatDate(value: Date) {
   return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: isDateOnly ? "UTC" : "America/Sao_Paulo",
+    timeZone: "America/Sao_Paulo",
   }).format(value);
 }
 
-function periodKey(value: Date, isDateOnly: boolean) {
+function periodKey(value: Date) {
   const periodFormatter = new Intl.DateTimeFormat("en-US", {
     month: "2-digit",
-    timeZone: isDateOnly ? "UTC" : "America/Sao_Paulo",
+    timeZone: "America/Sao_Paulo",
     year: "numeric",
   });
   const parts = periodFormatter.formatToParts(value);
@@ -81,7 +81,6 @@ export async function listReviewerDashboardNotes(
         select: { category: true, title: true },
       },
       id: true,
-      issuedAt: true,
       processingJobs: {
         orderBy: { createdAt: "desc" },
         take: 1,
@@ -101,8 +100,6 @@ export async function listReviewerDashboardNotes(
   });
 
   const items = notes.map((note) => {
-    const isDateOnly = Boolean(note.issuedAt);
-    const date = note.issuedAt ?? note.createdAt;
     const reasons = [
       ...new Set(
         note.findings.map((finding) => finding.title || finding.category).filter(Boolean),
@@ -114,8 +111,8 @@ export async function listReviewerDashboardNotes(
         ...note,
         processingJobStatus: note.processingJobs[0]?.status ?? null,
       }),
-      date: formatDate(date, isDateOnly),
-      dateKey: periodKey(date, isDateOnly),
+      date: formatDate(note.createdAt),
+      dateKey: periodKey(note.createdAt),
       id: note.id,
       number: attachmentReference(note.documentNumber, note.id),
       reasons,

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { AUDIT_POLICY } from "@/lib/audit-harness/policy";
 import {
   HARNESS_MODEL,
   resolveHarnessModel,
@@ -62,26 +63,32 @@ export function getOpenRouterConfig(
     );
   }
 
+  const configuredMaxAttempts = parseInteger(
+    environment.OPENROUTER_MAX_ATTEMPTS,
+    3,
+    1,
+    5,
+    "OPENROUTER_MAX_ATTEMPTS",
+  );
+
   return {
     apiKey: requireApiKey(environment),
     appUrl: environment.NEXT_PUBLIC_APP_URL,
-    maxAttempts: parseInteger(
-      environment.OPENROUTER_MAX_ATTEMPTS,
-      3,
-      1,
-      5,
-      "OPENROUTER_MAX_ATTEMPTS",
-    ),
+    // Audit uses one Luna attempt followed by at most one Sol fallback. The
+    // configurable retry count remains exclusive to extraction so a stale
+    // value cannot repeat the same audit model.
+    maxAttempts: workload === "audit" ? 2 : configuredMaxAttempts,
     model:
       workload === "extraction"
         ? resolveHarnessModel(
             environment.OPENROUTER_EXTRACTION_MODEL,
             HARNESS_MODEL,
           )
-        : resolveHarnessModel(
-            environment.OPENROUTER_AUDIT_MODEL ?? environment.OPENROUTER_MODEL,
-            HARNESS_MODEL,
-          ),
+        : AUDIT_POLICY.model,
+    fallbackModel:
+      workload === "audit" ? AUDIT_POLICY.fallbackModel : undefined,
+    fallbackReasoningEffort:
+      workload === "audit" ? AUDIT_POLICY.fallbackReasoningEffort : undefined,
     pdfModel:
       workload === "extraction"
         ? resolvePdfModel(environment.OPENROUTER_PDF_MODEL)
@@ -93,7 +100,7 @@ export function getOpenRouterConfig(
     reasoningEffort:
       workload === "extraction"
         ? environment.OPENROUTER_EXTRACTION_REASONING_EFFORT ?? "max"
-        : environment.OPENROUTER_REASONING_EFFORT ?? "max",
+        : AUDIT_POLICY.defaultReasoningEffort,
     pdfEngine,
     // A request must fail fast enough for the public flow to surface a
     // recoverable error. Older Vercel environments used 120s; cap that stale

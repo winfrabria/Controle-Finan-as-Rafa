@@ -74,22 +74,19 @@ export function normalizeProcessingWorkerOptions(
 }
 
 async function findNextDueProcessingJobId() {
-  const candidates = await prisma.processingJob.findMany({
+  const candidate = await prisma.processingJob.findFirst({
     where: {
+      attempt: { lt: prisma.processingJob.fields.maxAttempts },
       availableAt: { lte: new Date() },
       status: {
         in: [ProcessingJobStatus.PENDING, ProcessingJobStatus.FAILED],
       },
     },
     orderBy: [{ availableAt: "asc" }, { createdAt: "asc" }],
-    select: { attempt: true, id: true, maxAttempts: true },
-    take: 25,
+    select: { id: true },
   });
 
-  return (
-    candidates.find((candidate) => candidate.attempt < candidate.maxAttempts)
-      ?.id ?? null
-  );
+  return candidate?.id ?? null;
 }
 
 function retryFailureForStage(
@@ -209,7 +206,9 @@ export async function recoverExpiredProcessingJobLeases(
             : "WORKER_LEASE_EXPIRED",
           lockedAt: null,
           lockedBy: null,
-          status: ProcessingJobStatus.FAILED,
+          status: lifecycle.attemptsExhausted
+            ? ProcessingJobStatus.CANCELLED
+            : ProcessingJobStatus.FAILED,
         },
       });
       if (claimedRecovery.count !== 1) return "skipped" as const;
