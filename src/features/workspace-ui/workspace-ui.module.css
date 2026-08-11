@@ -1610,7 +1610,67 @@
   grid-template-columns: minmax(0, 1fr) minmax(360px, 390px);
 }
 .logsLayout .filterBar {
-  grid-template-columns: 1.35fr repeat(3, minmax(130px, 1fr)) auto;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+}
+
+.logSearchField > span {
+  align-items: center;
+  border: 1px solid #d4ddea;
+  border-radius: 7px;
+  display: flex;
+  padding: 0 10px;
+}
+
+.logSearchField > span input {
+  border: 0;
+  min-width: 0;
+  padding-left: 8px;
+  width: 100%;
+}
+
+.harnessSteps {
+  background: #f7f9fd;
+  border: 1px solid #e0e7f1;
+  border-radius: 8px;
+  color: #344c70;
+  display: grid;
+  gap: 8px;
+  margin: 0 20px;
+  padding: 12px 12px 12px 32px;
+}
+
+.harnessSteps li {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rawLogDetails {
+  border: 1px solid #dce5f0;
+  border-radius: 8px;
+  margin: 18px 20px 0;
+  overflow: hidden;
+}
+
+.rawLogDetails summary {
+  color: #21416c;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 11px 12px;
+}
+
+.rawLogDetails pre {
+  background: #f5f7fb;
+  border-top: 1px solid #dce5f0;
+  color: #3f5276;
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 0;
+  max-height: 280px;
+  overflow: auto;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .miniAvatar {
   align-items: center;

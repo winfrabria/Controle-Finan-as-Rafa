@@ -10,6 +10,7 @@ import {
   parseAdminWorksCsv,
   type AdminWorkImportIssue,
 } from "@/lib/works/admin-work-import";
+import { normalizeResponsibleName } from "@/lib/works/responsible-name";
 import { prisma } from "@/server/db/prisma";
 
 export class WorkNotFoundError extends Error {
@@ -57,11 +58,11 @@ function serializeWork(work: SelectedAdminWork) {
     nome: work.name,
     local: work.location,
     ativa: work.active,
-    responsavel:
+    responsavel: normalizeResponsibleName(
       work.responsibleName ??
-      work.responsibleProfile?.fullName ??
-      work.responsibleProfile?.email ??
-      null,
+        work.responsibleProfile?.fullName ??
+        work.responsibleProfile?.email,
+    ),
     totalNotas: work._count.notes,
     criadaEm: work.createdAt.toISOString(),
     atualizadaEm: work.updatedAt.toISOString(),

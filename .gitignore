@@ -40,3 +40,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Superdesign local previews
+/.superdesign/tmp/
+
+# Codex and browser QA artifacts
+/.codex/
+/.playwright-mcp/
+/.superdesign/
+/tmp/
+/qa-*.png
+/dashboard-date-filter-*.png
+/notes-date-filter-reference-*.png
+/public-upload-*.png
+/reviewer-*.png

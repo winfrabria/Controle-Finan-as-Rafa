@@ -44,12 +44,15 @@ export function processingFailureLifecycle(input: {
   maxAttempts: number;
   type: ProcessingJobType;
 }) {
-  // The audit client already executes the complete Luna -> Sol route. Retrying
-  // the outer ProcessingJob would repeat paid provider calls and make a single
-  // failure look like an endless analysis to the public flow.
+  // The clients already execute their bounded provider recovery. Retrying the
+  // outer ProcessingJob would repeat paid calls and make one failure look like
+  // an endless analysis to the public flow.
   const attemptsExhausted =
     input.attempt >= input.maxAttempts ||
-    Boolean(input.failureCode?.startsWith("AUDIT_"));
+    Boolean(input.failureCode?.startsWith("AUDIT_")) ||
+    input.failureCode === "EXTRACTION_CREDIT_EXHAUSTED" ||
+    input.failureCode === "EXTRACTION_INVALID_RESPONSE" ||
+    input.failureCode === "EXTRACTION_REQUEST_REJECTED";
   return {
     attemptsExhausted,
     contextSubmissionStatus:

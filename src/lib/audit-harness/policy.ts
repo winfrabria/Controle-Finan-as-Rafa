@@ -1,10 +1,11 @@
 import type { HarnessFinding, HarnessInvoice } from "./contracts";
+import { isOcrFallbackExtraction } from "@/lib/integrations/openrouter/extraction-contract";
 import { HARNESS_MODEL, HARNESS_VERSIONS } from "./versions";
 
 export const AUDIT_POLICY = {
   version: HARNESS_VERSIONS.policy,
   model: HARNESS_MODEL,
-  fallbackModel: "openai/gpt-5.6-sol",
+  fallbackModel: HARNESS_MODEL,
   defaultReasoningEffort: "high",
   fallbackReasoningEffort: "high",
   readFailureThreshold: 0.6,
@@ -50,12 +51,19 @@ export function selectReasoningEffort(
 export function isReadFailure(invoice: HarnessInvoice) {
   if (invoice.readConfidence < AUDIT_POLICY.readFailureThreshold) return true;
 
+  const ocrFallback = isOcrFallbackExtraction(invoice);
+  const ocrHasFinancialSignal =
+    ocrFallback &&
+    invoice.markdown.length >= 120 &&
+    /(?:R\$\s*)?\d{1,3}(?:\.\d{3})*,\d{2}\b/.test(invoice.markdown);
+
   const hasMinimumIdentity = Boolean(
     invoice.supplierName || invoice.supplierTaxId || invoice.documentNumber,
   );
-  const hasFinancialContent = invoice.totalAmount !== null || invoice.items.length > 0;
+  const hasFinancialContent =
+    invoice.totalAmount !== null || invoice.items.length > 0 || ocrHasFinancialSignal;
   if (!hasFinancialContent) return true;
-  if (hasMinimumIdentity) return false;
+  if (hasMinimumIdentity || ocrFallback) return false;
 
   // Reimbursements and other composite submissions legitimately contain
   // several receipts/suppliers instead of one invoice identity. They must be

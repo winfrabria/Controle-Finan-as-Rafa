@@ -121,12 +121,16 @@ export function ReviewerDashboardView({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [query, setQuery] = useState("");
+  const [showAllCauses, setShowAllCauses] = useState(false);
 
   const workOptions = useMemo(
-    () =>
-      [...new Set([...works.map((item) => item.name), ...notes.map((item) => item.work)])].sort(
-        (a, b) => a.localeCompare(b, "pt-BR"),
-      ),
+    () => {
+      const options = new Map(works.map((item) => [item.id, item.name]));
+      notes.forEach((item) => options.set(item.workId, item.work));
+      return [...options.entries()]
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    },
     [notes, works],
   );
   const responsibleOptions = useMemo(
@@ -140,7 +144,7 @@ export function ReviewerDashboardView({
   const filteredNotes = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
     return notes.filter((note) => {
-      const matchesWork = !work || note.work === work;
+      const matchesWork = !work || note.workId === work;
       const matchesResponsible = !responsible || note.responsible === responsible;
       const matchesQuery =
         !normalizedQuery ||
@@ -168,7 +172,7 @@ export function ReviewerDashboardView({
   const comparisonNotes = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
     return notes.filter((note) => {
-      const matchesWork = !work || note.work === work;
+      const matchesWork = !work || note.workId === work;
       const matchesResponsible = !responsible || note.responsible === responsible;
       const matchesQuery =
         !normalizedQuery ||
@@ -272,11 +276,15 @@ export function ReviewerDashboardView({
             <span>Obra</span>
             <span className={styles.control}>
               <Icon name="search" />
-              <select value={work} onChange={(event) => setWork(event.target.value)}>
+              <select
+                aria-label="Obra"
+                value={work}
+                onChange={(event) => setWork(event.target.value)}
+              >
                 <option value="">Todas as obras</option>
                 {workOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
+                  <option key={item.id} value={item.id}>
+                    {item.name}
                   </option>
                 ))}
               </select>
@@ -288,7 +296,15 @@ export function ReviewerDashboardView({
             <span>Período</span>
             <span className={styles.control}>
               <Icon name="calendar" />
-              <select value={period} onChange={(event) => setPeriod(event.target.value)}>
+              <select
+                aria-label="Período"
+                value={period}
+                onChange={(event) => {
+                  setPeriod(event.target.value);
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+              >
                 {periodOptions.map((value) => (
                   <option key={value} value={value}>
                     {periodLabel(value)}
@@ -305,6 +321,7 @@ export function ReviewerDashboardView({
             <span className={styles.control}>
               <Icon name="building" />
               <select
+                aria-label="Responsável"
                 value={responsible}
                 onChange={(event) => setResponsible(event.target.value)}
               >
@@ -389,7 +406,7 @@ export function ReviewerDashboardView({
                 <span>Participação</span>
               </div>
               {causes.length ? (
-                causes.map((cause) => (
+                (showAllCauses ? causes : causes.slice(0, 4)).map((cause) => (
                   <div className={styles.causeRow} key={cause.label}>
                     <span>{cause.label}</span>
                     <strong>{cause.count}</strong>
@@ -405,9 +422,20 @@ export function ReviewerDashboardView({
                 <div className={styles.emptyState}>Nenhum desvio encontrado neste filtro.</div>
               )}
             </div>
-            <Link className={styles.panelLink} href={notesPath}>
-              Ver todas as causas <Icon name="chevron" />
-            </Link>
+            {causes.length > 4 ? (
+              <button
+                className={styles.panelLink}
+                onClick={() => setShowAllCauses((current) => !current)}
+                type="button"
+              >
+                {showAllCauses ? "Recolher" : `Ver todas (${causes.length})`}
+                <Icon name="chevron" />
+              </button>
+            ) : (
+              <Link className={styles.panelLink} href={notesPath}>
+                Ver anexos relacionados <Icon name="chevron" />
+              </Link>
+            )}
           </article>
 
           <article className={styles.panel}>

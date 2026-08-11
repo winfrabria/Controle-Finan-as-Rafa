@@ -13,6 +13,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import {
   HARNESS_MODEL,
   HARNESS_VERSIONS,
+  resolveAuditReasoningEffort,
   resolveHarnessModel,
   resolvePdfModel,
 } from "@/lib/audit-harness";
@@ -33,9 +34,11 @@ const SUPPORTED_MIME_TYPES: ReadonlySet<string> = new Set([
 
 export type ExtractionPipelineErrorCode =
   | "EXTRACTION_CONFLICT"
+  | "EXTRACTION_CREDIT_EXHAUSTED"
   | "EXTRACTION_INVALID_RESPONSE"
   | "EXTRACTION_NOT_ALLOWED"
   | "EXTRACTION_PROVIDER_ERROR"
+  | "EXTRACTION_REQUEST_REJECTED"
   | "EXTRACTION_SOURCE_UNAVAILABLE"
   | "EXTRACTION_TIMEOUT"
   | "NOTE_NOT_FOUND";
@@ -55,15 +58,26 @@ function isRetryableFailedNote(failureCode: string | null) {
   return failureCode?.startsWith("EXTRACTION_") ?? false;
 }
 
-function getFailureDetails(error: unknown): {
+type ExtractionFailureDetails = {
   code: ExtractionPipelineErrorCode;
+  diagnostic?: string;
   message: string;
-} {
+  providerStatus?: number;
+  retryable?: boolean;
+};
+
+function getFailureDetails(error: unknown): ExtractionFailureDetails {
   if (error instanceof OpenRouterClientError) {
+    const providerDetails = {
+      diagnostic: error.diagnostic,
+      providerStatus: error.status,
+      retryable: error.retryable,
+    };
     if (error.kind === "timeout") {
       return {
         code: "EXTRACTION_TIMEOUT",
         message: "A extração excedeu o tempo limite.",
+        ...providerDetails,
       };
     }
 
@@ -71,12 +85,31 @@ function getFailureDetails(error: unknown): {
       return {
         code: "EXTRACTION_INVALID_RESPONSE",
         message: "A resposta de extração não pôde ser validada.",
+        ...providerDetails,
+      };
+    }
+
+    if (error.status === 402) {
+      return {
+        code: "EXTRACTION_CREDIT_EXHAUSTED",
+        message: "Os créditos do provedor de IA são insuficientes para processar o anexo.",
+        ...providerDetails,
+        diagnostic: "provider-payment-required",
+      };
+    }
+
+    if (!error.retryable) {
+      return {
+        code: "EXTRACTION_REQUEST_REJECTED",
+        message: "O provedor recusou a configuração da extração.",
+        ...providerDetails,
       };
     }
 
     return {
       code: "EXTRACTION_PROVIDER_ERROR",
       message: "O serviço de extração está temporariamente indisponível.",
+      ...providerDetails,
     };
   }
 
@@ -316,6 +349,12 @@ export async function processNoteExtraction(
 ) {
   const note = await claimNote(noteId);
   const extractingPdf = note.originalMimeType === "application/pdf";
+  const configuredReasoning = resolveAuditReasoningEffort(
+    extractingPdf
+      ? process.env.OPENROUTER_PDF_REASONING_EFFORT
+      : process.env.OPENROUTER_EXTRACTION_REASONING_EFFORT,
+    "max",
+  );
   const idempotencyKey = `extract:${dependencies.processingJobId ?? note.id}:${note.claimedVersion}`;
   const aiRun = await prisma.aiRun.create({
     data: {
@@ -328,9 +367,12 @@ export async function processNoteExtraction(
       policyVersion: HARNESS_VERSIONS.policy,
       processingJobId: dependencies.processingJobId,
       promptVersion: HARNESS_VERSIONS.prompt,
-      reasoningEffort: extractingPdf
-        ? ReasoningEffort.HIGH
-        : ReasoningEffort.MAX,
+      reasoningEffort:
+        configuredReasoning === "xhigh"
+          ? ReasoningEffort.XHIGH
+          : configuredReasoning === "high"
+            ? ReasoningEffort.HIGH
+            : ReasoningEffort.MAX,
       requestFingerprint: createHash("sha256")
         .update(`${note.id}:${note.claimedVersion}:${note.originalFileName}`)
         .digest("hex"),
@@ -379,7 +421,7 @@ export async function processNoteExtraction(
       throw error;
     }
 
-    const failure =
+    const failure: ExtractionFailureDetails =
       error instanceof ExtractionPipelineError
         ? { code: error.code, message: error.message }
         : getFailureDetails(error);
@@ -392,6 +434,15 @@ export async function processNoteExtraction(
         errorCode: failure.code,
         errorMessage: failure.message,
         status: AiRunStatus.FAILED,
+        ...(failure.diagnostic || failure.providerStatus
+          ? {
+              structuredResponse: toJsonValue({
+                diagnostic: failure.diagnostic ?? null,
+                providerStatus: failure.providerStatus ?? null,
+                retryable: failure.retryable ?? null,
+              }),
+            }
+          : {}),
       },
     });
 

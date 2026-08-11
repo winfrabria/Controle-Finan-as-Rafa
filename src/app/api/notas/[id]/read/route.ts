@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { NoteStatus } from "@/generated/prisma/enums";
+import { AuditResult, NoteStatus } from "@/generated/prisma/enums";
 import { INTERNAL_ROLES } from "@/server/auth/access-policy";
 import { requireApiRoles } from "@/server/auth/authorization";
 import { prisma } from "@/server/db/prisma";
@@ -27,7 +27,7 @@ export async function POST(
 
   const note = await prisma.note.findUnique({
     where: { id },
-    select: { id: true, status: true },
+    select: { auditResult: true, id: true, status: true },
   });
   if (!note) {
     return NextResponse.json(
@@ -35,9 +35,13 @@ export async function POST(
       { status: 404 },
     );
   }
+  const hasTerminalDiagnosis =
+    note.auditResult === AuditResult.OK ||
+    note.auditResult === AuditResult.SUSPICIOUS ||
+    note.auditResult === AuditResult.READ_FAILED;
   if (
-    note.status === NoteStatus.RECEIVED ||
-    note.status === NoteStatus.PROCESSING
+    !hasTerminalDiagnosis &&
+    (note.status === NoteStatus.RECEIVED || note.status === NoteStatus.PROCESSING)
   ) {
     return NextResponse.json(
       {

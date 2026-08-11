@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { NotificationType } from "@/generated/prisma/enums";
+import { notificationPath } from "@/features/internal-notes/notification-path";
 import { INTERNAL_ROLES } from "@/server/auth/access-policy";
 import { requireApiRoles } from "@/server/auth/authorization";
 import { prisma } from "@/server/db/prisma";
@@ -43,7 +44,17 @@ export async function GET(request: Request) {
       body: true,
       createdAt: true,
       id: true,
-      note: { select: { documentNumber: true } },
+      note: {
+        select: {
+          documentNumber: true,
+          id: true,
+          noteReads: {
+            where: { profileId: access.profile.id },
+            select: { readAt: true },
+            take: 1,
+          },
+        },
+      },
       readAt: true,
       title: true,
       type: true,
@@ -53,11 +64,16 @@ export async function GET(request: Request) {
   return NextResponse.json(
     {
       notificacoes: rows.map((notification) => {
-        const search = notification.note?.documentNumber ?? "";
+        const noteId = notification.note?.id;
         return {
           detail: notification.body,
           id: notification.id,
-          path: `${basePath}/notas${search ? `?busca=${encodeURIComponent(search)}` : ""}`,
+          path: notificationPath({
+            basePath,
+            documentNumber: notification.note?.documentNumber,
+            isRead: Boolean(notification.note?.noteReads.length),
+            noteId,
+          }),
           readAt: notification.readAt?.toISOString() ?? null,
           time: timeFor(notification.createdAt),
           title: notification.title,

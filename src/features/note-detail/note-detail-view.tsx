@@ -6,6 +6,7 @@ import {
   type PortalRole,
 } from "@/features/workspace-ui/portal-shell";
 import { Icon } from "@/features/workspace-ui/ui-icons";
+import { formatFindingParts } from "@/features/internal-notes/finding-display";
 import {
   auditResultLabel,
   auditResultTone,
@@ -21,7 +22,6 @@ import {
   formatDate,
   formatDateTime,
   formatDecimal,
-  jsonSummary,
 } from "./note-detail-format";
 import styles from "./note-detail.module.css";
 import { NoteDocumentPreview } from "./note-document-preview";
@@ -49,11 +49,15 @@ export function NoteDetailView({
 
   const role: PortalRole = "reviewer";
   const basePath = "/revisao";
-  const classification = auditResultLabel(
+  const rawClassification = auditResultLabel(
     data.analysis.auditResult,
     data.analysis.classification,
     data.status,
   );
+  const classification =
+    rawClassification === "Suspeita" && data.analysis.findings.length === 0
+      ? "Análise incompleta"
+      : rawClassification;
   const primaryFinding = data.analysis.findings[0] ?? null;
   const latestValidation = data.validations.at(-1) ?? null;
   const raw = data.analysis.rawExtraction;
@@ -204,7 +208,17 @@ export function NoteDetailView({
                     <strong>1. {primaryFinding.title}</strong>
                   </div>
                   <h3>Evidência</h3>
-                  <p>{jsonSummary(primaryFinding.evidence, primaryFinding.description)}</p>
+                  <dl className={styles.evidenceFacts}>
+                    {formatFindingParts(
+                      primaryFinding.evidence,
+                      primaryFinding.description,
+                    ).map((part, index) => (
+                      <div key={`${part.label}:${index}`}>
+                        <dt>{part.label}</dt>
+                        <dd>{part.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
                   <h3>Justificativa</h3>
                   <p>
                     {primaryFinding.rule?.description ?? primaryFinding.description}

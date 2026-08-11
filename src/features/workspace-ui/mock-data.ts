@@ -95,7 +95,7 @@ export const workRows = [
     "Residencial Parque das Águas",
     "OBR-0001",
     "Goiânia - GO",
-    "Carlos Menezes",
+    "Naldo",
     "Ativa",
   ],
   [
@@ -123,7 +123,7 @@ export const workRows = [
     "Condomínio Vista do Sol",
     "OBR-0005",
     "Fortaleza - CE",
-    "Carlos Menezes",
+    "Naldo",
     "Ativa",
   ],
   [

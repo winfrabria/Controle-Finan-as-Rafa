@@ -39,11 +39,15 @@ export function AdminComparativeAuditView({
   const series = rawValue(raw, ["serie", "series"]) ?? "Não identificada";
   const supplier = data.supplier.name ?? "Fornecedor não identificado";
   const total = formatCurrency(data.totalAmount);
-  const classification = auditResultLabel(
+  const rawClassification = auditResultLabel(
     data.analysis.auditResult,
     data.analysis.classification,
     data.status,
   );
+  const classification =
+    rawClassification === "Suspeita" && data.analysis.findings.length === 0
+      ? "Análise incompleta"
+      : rawClassification;
   const fields = [
     ["Número da nota", number],
     ["Série", series],

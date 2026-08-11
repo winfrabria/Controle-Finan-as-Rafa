@@ -55,6 +55,89 @@ function asRecord(value: unknown) {
     : {};
 }
 
+function textList(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function attemptDetailLabel(value: unknown) {
+  const labels: Record<string, string> = {
+    "invalid-audit-envelope": "retorno do provedor incompleto",
+    "invalid-audit-json": "retorno sem JSON válido",
+    "invalid-audit-schema": "resposta fora do formato de auditoria",
+    "provider-error": "provedor indisponível",
+    "request-timeout": "tempo limite excedido",
+  };
+  return typeof value === "string" ? labels[value] ?? value.replaceAll("-", " ") : null;
+}
+
+function runNarrative(
+  kind: string,
+  status: string,
+  structuredResponse: unknown,
+  errorCode: string | null,
+) {
+  const data = asRecord(structuredResponse);
+  const summary = typeof data.summary === "string" ? data.summary.trim() : "";
+  const findingCodes = textList(data.findingCodes);
+  const contextQuestionCodes = textList(data.contextQuestionCodes);
+  const coverage = asRecord(data.coverage);
+  const coveredAreas = textList(coverage.areas);
+  const attempts = Array.isArray(data.attemptTrace)
+    ? data.attemptTrace.map(asRecord)
+    : [];
+  const steps = attempts.map((attempt, index) => {
+    const model = typeof attempt.model === "string" ? attempt.model : "modelo configurado";
+    const latency = typeof attempt.latencyMs === "number"
+      ? ` em ${(attempt.latencyMs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s`
+      : "";
+    const succeeded = attempt.kind === "success";
+    const detail = attemptDetailLabel(attempt.detail);
+    return succeeded
+      ? `Tentativa ${index + 1}: ${model} concluiu a etapa${latency}.`
+      : `Tentativa ${index + 1}: ${model} não concluiu${latency}${detail ? ` (${detail})` : ""}.`;
+  });
+
+  if (kind === "EXTRACTION") {
+    return {
+      explanation:
+        status === "FAILED"
+          ? `O Harness tentou ler e normalizar o arquivo, mas a extração não foi concluída${errorCode ? `: ${failureCodeLabel(errorCode)}` : "."}`
+          : "O Harness leu o arquivo, percorreu as páginas disponíveis e transformou os campos e itens identificados em dados estruturados para a auditoria.",
+      steps: steps.length
+        ? steps
+        : ["Arquivo recebido.", "Campos e itens normalizados.", "Dados liberados para auditoria."],
+    };
+  }
+
+  const auditSummary = [
+    findingCodes.length
+      ? `${findingCodes.length} achado(s) estruturado(s)`
+      : "nenhum achado estruturado",
+    contextQuestionCodes.length
+      ? `${contextQuestionCodes.length} pergunta(s) de contexto`
+      : "nenhuma pergunta de contexto",
+    coveredAreas.length
+      ? `${coveredAreas.length} área(s) conferida(s)`
+      : "cobertura não detalhada",
+  ].join(", ");
+
+  return {
+    explanation:
+      status === "FAILED"
+        ? `A auditoria aplicou as regras locais, mas não conseguiu concluir a avaliação da IA${errorCode ? `: ${failureCodeLabel(errorCode)}` : "."}`
+        : summary || `O Harness aplicou regras determinísticas e a avaliação da IA: ${auditSummary}.`,
+    steps: steps.length
+      ? steps
+      : [
+          "Regras universais e parâmetros da obra conferidos.",
+          "Achados livres da IA validados contra evidências.",
+          "Classificação e rastreabilidade persistidas.",
+        ],
+  };
+}
+
 function eventCopy(type: string, dataValue: unknown) {
   const data = asRecord(dataValue);
   const fileName = typeof data.fileName === "string" ? data.fileName : "arquivo enviado";
@@ -107,6 +190,41 @@ function eventCopy(type: string, dataValue: unknown) {
       action: "Reprocessamento solicitado",
       comment: "Uma nova leitura e auditoria foram colocadas na fila.",
       status: "Reprocessando",
+    },
+    CONTEXT_SUBMITTED: {
+      action: "Informações complementares recebidas",
+      comment: "As respostas foram salvas e a nova análise foi colocada na fila.",
+      status: "Reanálise solicitada",
+    },
+    PROCESSING_RETRY_SCHEDULED: {
+      action: "Nova tentativa agendada",
+      comment: "O processamento encontrou uma falha temporária e será retomado automaticamente.",
+      status: "Aguardando nova tentativa",
+    },
+    PROCESSING_RECOVERY_SCHEDULED: {
+      action: "Processamento recuperado",
+      comment: "Uma execução interrompida foi identificada e recolocada na fila.",
+      status: "Recuperação agendada",
+    },
+    AUDIT_RECOVERY_SCHEDULED: {
+      action: "Auditoria recuperada",
+      comment: "Os dados já extraídos foram preservados e somente a auditoria foi recolocada na fila.",
+      status: "Auditoria reagendada",
+    },
+    WORKER_LEASE_RECOVERED: {
+      action: "Execução interrompida recuperada",
+      comment: "O sistema liberou uma execução antiga para que o processamento pudesse continuar.",
+      status: "Processamento retomado",
+    },
+    PROCESSING_ATTEMPTS_EXHAUSTED: {
+      action: "Processamento não concluído",
+      comment: "Todas as tentativas automáticas foram usadas. O anexo pode ser reprocessado pelo administrador.",
+      status: "Tentativas esgotadas",
+    },
+    EXTRACTION_ATTEMPT_FAILED: {
+      action: "Tentativa de leitura não concluída",
+      comment: "A leitura encontrou uma falha temporária e ficou registrada para nova tentativa.",
+      status: "Tentativa de leitura falhou",
     },
   };
   return map[type] ?? {
@@ -192,38 +310,48 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
     }),
   ]);
 
-  const runLogs: AuditLog[] = runs.map((run) => ({
-    action: run.kind === "EXTRACTION" ? "Extração estruturada da nota" : "Auditoria da IA",
-    at: dateTime.format(run.createdAt),
-    classification: classification(
-      run.note.auditResult,
-      run.note.classification,
-      run.note.status,
-    ),
-    comment:
-      run.status === "FAILED"
-        ? "A execução não foi concluída. Consulte a falha segura e os dados técnicos abaixo."
-        : `Execução ${runStatusLabel(run.status).toLocaleLowerCase("pt-BR")} pelo Harness.`,
-    dateIso: run.createdAt.toISOString().slice(0, 10),
-    id: `AI-${run.id}`,
-    noteId: run.note.id,
-    noteNumber: attachmentReference(run.note.documentNumber, run.note.id),
-    reason: run.errorCode ? failureCodeLabel(run.errorCode) : `Política ${run.policyVersion}`,
-    status: runStatusLabel(run.status),
-    technical: {
-      costUsd: run.costUsd?.toString(),
-      effort: run.reasoningEffort,
-      error: run.errorCode ?? undefined,
-      latencyMs: run.latencyMs ?? undefined,
-      model: run.model,
-      policyVersion: run.policyVersion,
-      promptVersion: run.promptVersion,
-      response: safeJson(run.structuredResponse),
-      tokens: run.totalTokens ?? undefined,
-    },
-    user: "Sistema",
-    work: run.note.work.name,
-  }));
+  const runLogs: AuditLog[] = runs.map((run) => {
+    const narrative = runNarrative(
+      run.kind,
+      run.status,
+      run.structuredResponse,
+      run.errorCode,
+    );
+    return {
+      action: run.kind === "EXTRACTION" ? "Extração estruturada da nota" : "Auditoria da IA",
+      at: dateTime.format(run.createdAt),
+      classification: classification(
+        run.note.auditResult,
+        run.note.classification,
+        run.note.status,
+      ),
+      comment:
+        run.status === "FAILED"
+          ? "A execução não foi concluída. Consulte a falha segura e os dados técnicos abaixo."
+          : `Execução ${runStatusLabel(run.status).toLocaleLowerCase("pt-BR")} pelo Harness.`,
+      dateIso: run.createdAt.toISOString().slice(0, 10),
+      id: `AI-${run.id}`,
+      noteId: run.note.id,
+      noteNumber: attachmentReference(run.note.documentNumber, run.note.id),
+      reason: run.errorCode ? failureCodeLabel(run.errorCode) : `Política ${run.policyVersion}`,
+      status: runStatusLabel(run.status),
+      technical: {
+        costUsd: run.costUsd?.toString(),
+        effort: run.reasoningEffort,
+        error: run.errorCode ?? undefined,
+        explanation: narrative.explanation,
+        latencyMs: run.latencyMs ?? undefined,
+        model: run.model,
+        policyVersion: run.policyVersion,
+        promptVersion: run.promptVersion,
+        response: safeJson(run.structuredResponse),
+        steps: narrative.steps,
+        tokens: run.totalTokens ?? undefined,
+      },
+      user: "Sistema",
+      work: run.note.work.name,
+    };
+  });
 
   const validationLogs: AuditLog[] = validations.map((validation) => {
     const confirmed = validation.decision === "SUSPICION_CONFIRMED";

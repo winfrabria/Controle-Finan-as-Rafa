@@ -191,7 +191,10 @@ export async function loadNoteDetail(
     label: "Nota fiscal original enviada",
     url: null,
   };
-  const findings: NoteDetailFinding[] = note.findings.map((finding) => {
+  const visibleFindings = forReviewer
+    ? note.findings.filter((finding) => finding.category !== "DOCUMENT_TYPE")
+    : note.findings;
+  const findings: NoteDetailFinding[] = visibleFindings.map((finding) => {
     const evidence = safeJson(finding.evidence);
     const ruleConfiguration = safeJson(finding.rule?.configuration ?? null);
     const sources = deduplicateSources([
@@ -207,6 +210,10 @@ export async function loadNoteDetail(
         : []),
       ...extractSources(evidence, "evidence", safeText),
       ...extractSources(ruleConfiguration, "reference", safeText),
+      ...extractExternalReferenceSources(
+        safeJson(finding.references),
+        safeText,
+      ),
     ]);
 
     return {
@@ -217,6 +224,7 @@ export async function loadNoteDetail(
       createdAt: finding.createdAt,
       description: safeText(finding.description),
       evidence,
+      explanation: safeText(finding.justification),
       expectedValue: safeJson(finding.expectedValue),
       id: finding.id,
       needsValidation: finding.needsValidation,
@@ -422,6 +430,28 @@ function extractSources(
 
   visit(value);
   return sources;
+}
+
+function extractExternalReferenceSources(
+  value: Prisma.JsonValue | null,
+  safeText: (value: string) => string,
+) {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((entry): NoteDetailSource[] => {
+    if (typeof entry !== "string") return [];
+    const url = safeText(entry).trim();
+    if (!isHttpUrl(url)) return [];
+    return [{ kind: "reference", label: externalSourceLabel(url), url }];
+  });
+}
+
+function externalSourceLabel(url: string) {
+  try {
+    return `Fonte externa — ${new URL(url).hostname.replace(/^www\./, "")}`;
+  } catch {
+    return "Fonte externa consultada";
+  }
 }
 
 function deduplicateSources(sources: NoteDetailSource[]) {

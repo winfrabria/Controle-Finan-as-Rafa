@@ -42,9 +42,9 @@ function money(value) {
 }
 
 const workFixtures = [
-  { code: "MVP-OBRA-01", name: "[DEMO] Obra 01", location: "Goiânia - GO" },
-  { code: "MVP-OBRA-02", name: "[DEMO] Obra 02", location: "Rio Branco - AC" },
-  { code: "MVP-OBRA-03", name: "[DEMO] Obra 03", location: "Sorriso - MT" },
+  { code: "MVP-OBRA-01", name: "[DEMO] Obra 01", location: "Goiânia - GO", responsibleName: "Naldo" },
+  { code: "MVP-OBRA-02", name: "[DEMO] Obra 02", location: "Rio Branco - AC", responsibleName: "Naldo" },
+  { code: "MVP-OBRA-03", name: "[DEMO] Obra 03", location: "Sorriso - MT", responsibleName: "Naldo" },
 ];
 
 const fixtureDefinitions = [
@@ -314,10 +314,12 @@ async function ensureWorks() {
   const result = [];
   for (const fixture of workFixtures) {
     await client.query(
-      `INSERT INTO works (code, name, location, active, updated_at)
-       VALUES ($1, $2, $3, true, CURRENT_TIMESTAMP)
-       ON CONFLICT (code) DO NOTHING`,
-      [fixture.code, fixture.name, fixture.location],
+      `INSERT INTO works (code, name, location, responsible_name, active, updated_at)
+       VALUES ($1, $2, $3, $4, true, CURRENT_TIMESTAMP)
+       ON CONFLICT (code) DO UPDATE SET
+         responsible_name = EXCLUDED.responsible_name,
+         updated_at = CURRENT_TIMESTAMP`,
+      [fixture.code, fixture.name, fixture.location, fixture.responsibleName],
     );
     const row = await client.query(
       `SELECT id, name, location FROM works WHERE code = $1`,
@@ -457,7 +459,7 @@ async function insertAiRun({ noteId, protocol, kind, status, createdAt, structur
        structured_response, error_code, error_message, started_at, completed_at, created_at
      ) VALUES (
        $1, $2::"AiRunKind", $3::"AiRunStatus", $4, $5, 'demo-policy-v1',
-       'demo-prompt-v1', 'demo-schema-v1', 'openai/gpt-5.6-luna', 'openrouter', 'MAX'::"ReasoningEffort", 1,
+       'demo-prompt-v1', 'demo-schema-v1', 'openai/gpt-5.6-terra', 'openrouter', 'MAX'::"ReasoningEffort", 1,
        $6, $7, $8, 0, $9, $10, $11, $12, $13, $14, $13
      ) RETURNING id`,
     [
@@ -661,7 +663,7 @@ async function insertAdminLog(noteId, fixture, admin, dateOnly) {
         fixture: fixture.key,
         summary: `Fixture de demonstração ${fixture.fileName} preparada para apresentação.`,
         result: fixture.auditResult ?? fixture.status,
-        model: "openai/gpt-5.6-luna",
+        model: "openai/gpt-5.6-terra",
         reasoningEffort: "MAX",
         costUsd: "0.00000000",
       },

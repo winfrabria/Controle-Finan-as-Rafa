@@ -43,12 +43,12 @@ export function PortalShell({
   const isAdmin = role === "admin";
   const visibleMenu = menu.filter(
     (item) =>
-      isAdmin || !["obras", "logs", "validacoes", "historico"].includes(item.id),
+      isAdmin || !["obras", "logs", "validacoes"].includes(item.id),
   );
   const mobileMenu = visibleMenu.filter((item) =>
       isAdmin
         ? ["dashboard", "notas", "historico"].includes(item.id)
-        : ["dashboard", "notas"].includes(item.id),
+        : ["dashboard", "notas", "historico"].includes(item.id),
   );
   const adminMoreMenu = visibleMenu.filter((item) =>
     ["obras", "logs"].includes(item.id),

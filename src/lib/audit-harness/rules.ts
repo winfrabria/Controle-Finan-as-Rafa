@@ -7,7 +7,8 @@ import type {
   WorkRuleInput,
 } from "./contracts";
 
-const MONEY_TOLERANCE = 0.02;
+const MONEY_TOLERANCE = 0.05;
+const RELATIVE_MONEY_TOLERANCE = 0.0001;
 const ALCOHOL_TERMS = [
   "cerveja", "chopp", "vinho", "whisky", "whiskey", "vodka", "cachaça",
   "cachaca", "gin ", "espumante", "licor", "tequila", "bebida alcoólica",
@@ -17,7 +18,6 @@ const HYGIENE_TERMS = [
   "pasta de dente", "escova de dente", "fio dental", "absorvente", "fralda",
   "papel higiênico", "papel higienico", "barbeador", "protetor solar",
 ];
-const NON_FISCAL_TERMS = ["orçamento", "orcamento", "pedido", "pré-venda", "pre-venda"];
 
 const workRuleConfigurationSchema = z
   .object({
@@ -38,8 +38,90 @@ function decimal(value: string | null) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function moneyTolerance(reference: number) {
+  return Math.max(MONEY_TOLERANCE, Math.abs(reference) * RELATIVE_MONEY_TOLERANCE);
+}
+
+function discountReconcilesItem(
+  description: string,
+  calculated: number,
+  total: number,
+  tolerance: number,
+) {
+  if (calculated <= total || !/desconto/i.test(description)) return false;
+
+  const discountMatch = description.match(
+    /desconto[^\d]{0,12}(?:r\$\s*)?(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:\.\d{1,2})?)/i,
+  );
+  if (!discountMatch) {
+    // A descrição confirma que o total é líquido de desconto, mas não permite
+    // uma conferência determinística. A auditoria da IA continua responsável
+    // por validar o comprovante sem gerar um falso positivo aritmético local.
+    return true;
+  }
+
+  const normalized = discountMatch[1].includes(",")
+    ? discountMatch[1].replaceAll(".", "").replace(",", ".")
+    : discountMatch[1];
+  const discount = Number(normalized);
+  return Number.isFinite(discount) && Math.abs(calculated - discount - total) <= tolerance;
+}
+
 function normalize(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function sumItemTotals(items: HarnessInvoice["items"]) {
+  const totals = items.map((item) => decimal(item.totalAmount));
+  if (totals.length === 0 || totals.some((value) => value === null)) return null;
+  return totals.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+}
+
+function reconcilesTotal(items: HarnessInvoice["items"], noteTotal: number) {
+  const sum = sumItemTotals(items);
+  return sum !== null && Math.abs(sum - noteTotal) <= moneyTolerance(noteTotal);
+}
+
+/**
+ * A compound document can expose the same expense as a fiscal line, a
+ * supporting summary and daily detail. Only one non-overlapping layer may be
+ * summed against the document total. New extractions mark that layer
+ * explicitly; the description fallback keeps older persisted extractions
+ * reprocessable without reproducing the same amount two or three times.
+ */
+function selectItemsForDocumentTotal(
+  invoice: HarnessInvoice,
+  noteTotal: number,
+) {
+  const hasExplicitSelection = invoice.items.some(
+    (item) => item.countsTowardDocumentTotal !== undefined,
+  );
+  if (hasExplicitSelection) {
+    return {
+      basis: "EXPLICIT_NON_OVERLAPPING_LAYER",
+      items: invoice.items.filter((item) => item.countsTowardDocumentTotal === true),
+    };
+  }
+
+  const fiscalItems = invoice.items.filter((item) => {
+    const description = normalize(item.description);
+    return /(^|\b)(nf-e|nfs-e|danfe|nota fiscal|linha fiscal|item fiscal|cupom fiscal)(\b|,)/.test(
+      description,
+    );
+  });
+  if (fiscalItems.length > 0 && reconcilesTotal(fiscalItems, noteTotal)) {
+    return { basis: "LEGACY_FISCAL_LAYER", items: fiscalItems };
+  }
+
+  const summaryItems = invoice.items.filter((item) => {
+    const description = normalize(item.description);
+    return /\b(resumo|consolidado|totalizador)\b/.test(description);
+  });
+  if (summaryItems.length > 0 && reconcilesTotal(summaryItems, noteTotal)) {
+    return { basis: "LEGACY_SUMMARY_LAYER", items: summaryItems };
+  }
+
+  return { basis: "ALL_ITEMS", items: invoice.items };
 }
 
 function finding(
@@ -77,18 +159,25 @@ export function evaluateUniversalRules(input: {
   const coveredAreas = new Set<string>();
   const noteTotal = decimal(invoice.totalAmount);
 
-  const itemTotals = invoice.items.map((item) => decimal(item.totalAmount));
-  if (noteTotal !== null && itemTotals.length > 0 && itemTotals.every((value) => value !== null)) {
+  const totalSelection =
+    noteTotal === null ? null : selectItemsForDocumentTotal(invoice, noteTotal);
+  const itemTotalSum = totalSelection ? sumItemTotals(totalSelection.items) : null;
+  if (noteTotal !== null && itemTotalSum !== null) {
     coveredAreas.add("TOTALS");
-    const sum = itemTotals.reduce<number>((acc, value) => acc + (value ?? 0), 0);
-    if (Math.abs(sum - noteTotal) > MONEY_TOLERANCE) {
+    const tolerance = moneyTolerance(noteTotal);
+    if (Math.abs(itemTotalSum - noteTotal) > tolerance) {
       findings.push(finding({
         code: "TOTAL_MISMATCH", title: "Total da nota diverge dos itens",
         description: "A soma dos itens não corresponde ao total extraído da nota.",
         category: "TOTALS", severity: "CRITICAL", confidence: 0.99,
-        justification: "A diferença aritmética excede a tolerância de dois centavos.",
-        evidence: { itemTotalSum: sum.toFixed(2), noteTotal: noteTotal.toFixed(2) },
-        expectedValue: sum.toFixed(2), actualValue: noteTotal.toFixed(2), noteItemLineNumber: null,
+        justification: "A diferença aritmética excede a tolerância monetária e proporcional da auditoria.",
+        evidence: {
+          itemTotalSum: itemTotalSum.toFixed(2),
+          noteTotal: noteTotal.toFixed(2),
+          reconciliationBasis: totalSelection?.basis,
+          tolerance: tolerance.toFixed(2),
+        },
+        expectedValue: itemTotalSum.toFixed(2), actualValue: noteTotal.toFixed(2), noteItemLineNumber: null,
       }));
     }
   }
@@ -100,32 +189,24 @@ export function evaluateUniversalRules(input: {
     if (quantity === null || unitPrice === null || total === null) continue;
     coveredAreas.add("QUANTITY_TIMES_PRICE");
     const calculated = quantity * unitPrice;
-    if (Math.abs(calculated - total) > MONEY_TOLERANCE) {
+    const tolerance = moneyTolerance(total);
+    if (
+      Math.abs(calculated - total) > tolerance &&
+      !discountReconcilesItem(item.description, calculated, total, tolerance)
+    ) {
       findings.push(finding({
         code: "ITEM_ARITHMETIC_MISMATCH", title: "Quantidade vezes preço diverge",
         description: `O item ${item.lineNumber} possui cálculo incompatível.`,
         category: "QUANTITY_TIMES_PRICE", severity: "WARNING", confidence: 0.99,
         justification: "Quantidade multiplicada pelo preço unitário não coincide com o total do item.",
-        evidence: { lineNumber: item.lineNumber, quantity, unitPrice, total },
+        evidence: { lineNumber: item.lineNumber, quantity, unitPrice, total, tolerance: tolerance.toFixed(2) },
         expectedValue: calculated.toFixed(2), actualValue: total.toFixed(2),
         noteItemLineNumber: item.lineNumber,
       }));
     }
   }
 
-  const fiscalText = normalize(`${invoice.markdown} ${invoice.warnings.join(" ")}`);
   if (invoice.markdown) coveredAreas.add("DOCUMENT_TYPE");
-  const nonFiscalTerm = NON_FISCAL_TERMS.find((term) => fiscalText.includes(normalize(term)));
-  if (nonFiscalTerm) {
-    findings.push(finding({
-      code: "NON_FISCAL_DOCUMENT", title: "Documento pode não ser nota ou cupom fiscal",
-      description: "O conteúdo extraído apresenta marcador de documento não fiscal.",
-      category: "DOCUMENT_TYPE", severity: "CRITICAL", confidence: 0.9,
-      justification: `Foi identificado o marcador '${nonFiscalTerm}' no conteúdo extraído.`,
-      evidence: { matchedTerm: nonFiscalTerm }, expectedValue: "NOTA_OU_CUPOM_FISCAL",
-      actualValue: nonFiscalTerm, noteItemLineNumber: null,
-    }));
-  }
 
   if (invoice.issuedAt) {
     coveredAreas.add("DATE");

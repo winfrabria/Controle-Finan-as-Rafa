@@ -2,8 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { HarnessInvoice } from "./contracts";
-import { decideClassification } from "./decision-matrix";
-import { evaluateHarness } from "./engine";
+import {
+  decideClassification,
+  resolvePostContextClassification,
+} from "./decision-matrix";
+import {
+  deduplicateHarnessFindings,
+  evaluateHarness,
+  routeContextQuestions,
+} from "./engine";
 import { isReadFailure } from "./policy";
 
 const sparseInvoice: HarnessInvoice = {
@@ -18,9 +25,9 @@ const sparseInvoice: HarnessInvoice = {
   items: [],
 };
 
-test("prioriza READ_FAILED e pede contexto sem achado nem cobertura", () => {
+test("prioriza READ_FAILED e não inventa contexto sem pergunta concreta", () => {
   assert.equal(decideClassification({ readFailed: true, deterministicCoverage: true, aiCoverage: true, findings: [] }), "READ_FAILED");
-  assert.equal(evaluateHarness({ invoice: sparseInvoice }).classification, "NEEDS_CONTEXT");
+  assert.equal(evaluateHarness({ invoice: sparseInvoice }).classification, "OK");
   assert.equal(evaluateHarness({ invoice: { ...sparseInvoice, readConfidence: 0.3 } }).classification, "READ_FAILED");
 });
 
@@ -47,7 +54,7 @@ test("reembolso composto legível segue para auditoria mesmo sem identidade úni
   assert.notEqual(evaluateHarness({ invoice: reimbursement }).classification, "READ_FAILED");
 });
 
-test("qualquer achado sustentado exige classificação suspeita", () => {
+test("achado sustentado warning exige classificação suspeita", () => {
   assert.equal(decideClassification({
     readFailed: false,
     deterministicCoverage: false,
@@ -58,6 +65,72 @@ test("qualquer achado sustentado exige classificação suspeita", () => {
       references: ["DANFE:campo:value"],
       evidence: { field: "value", summary: "O campo diverge do documento." }, expectedValue: null, actualValue: "value",
       noteItemLineNumber: null,
+    }],
+  }), "SUSPICIOUS");
+});
+
+test("observação informativa da IA não transforma uma nota em suspeita", () => {
+  assert.equal(decideClassification({
+    readFailed: false,
+    deterministicCoverage: true,
+    aiCoverage: true,
+    findings: [{
+      code: "FISCAL_AGGREGATION", title: "Agregação fiscal", description: "O total confere.", category: "FORMAT",
+      severity: "INFO", source: "AI_DISCOVERY", confidence: 0.99,
+      justification: "A unidade fiscal agrega o detalhamento operacional sem divergência de valor.",
+      references: ["DANFE:página:1"], evidence: { page: 1, summary: "1 UN de R$ 350 corresponde a 14 refeições de R$ 25." },
+      expectedValue: "350.00", actualValue: "350.00", noteItemLineNumber: null,
+    }],
+  }), "OK");
+});
+
+test("pergunta de contexto permanece quando a observação da IA é apenas informativa", () => {
+  assert.equal(decideClassification({
+    readFailed: false,
+    deterministicCoverage: true,
+    aiCoverage: true,
+    contextRequired: true,
+    contextQuestions: 1,
+    findings: [{
+      code: "VOLTAGE_CONTEXT", title: "Tensões diferentes", description: "Pode haver destinos distintos.", category: "COMPATIBILITY",
+      severity: "INFO", source: "AI_DISCOVERY", confidence: 0.9,
+      justification: "É preciso confirmar o equipamento de destino antes de concluir incompatibilidade.",
+      references: ["DANFE:item:1"], evidence: { lineNumber: 1, summary: "A nota contém itens de 127 V e 220 V." },
+      expectedValue: null, actualValue: "127 V e 220 V", noteItemLineNumber: 1,
+    }],
+  }), "NEEDS_CONTEXT");
+});
+
+test("achado livre sustentado vai direto para suspeita mesmo com pergunta acessória", () => {
+  assert.equal(decideClassification({
+    readFailed: false,
+    deterministicCoverage: true,
+    aiCoverage: true,
+    contextRequired: true,
+    contextQuestions: 1,
+    findings: [{
+      code: "PAYMENT_MISMATCH", title: "Valores divergentes", description: "A venda e o pagamento divergem.", category: "AMOUNTS",
+      severity: "WARNING", source: "AI_DISCOVERY", confidence: 0.9,
+      justification: "Os dois valores estão visíveis no mesmo anexo.", references: [],
+      evidence: { field: "valor", summary: "Venda de R$ 44,50 e pagamento de R$ 40,00." },
+      expectedValue: "R$ 44,50", actualValue: "R$ 40,00", noteItemLineNumber: null,
+    }],
+  }), "SUSPICIOUS");
+});
+
+test("achado determinístico comprovado vai direto para suspeita mesmo com pergunta acessória", () => {
+  assert.equal(decideClassification({
+    readFailed: false,
+    deterministicCoverage: true,
+    aiCoverage: true,
+    contextRequired: true,
+    contextQuestions: 1,
+    findings: [{
+      code: "TOTAL_MISMATCH", title: "Total divergente", description: "A soma não confere.", category: "TOTALS",
+      severity: "CRITICAL", source: "UNIVERSAL_RULE", confidence: 0.99,
+      justification: "A diferença excede a tolerância configurada.", references: ["DANFE:total"],
+      evidence: { field: "totalAmount", summary: "Itens somam 100 e a nota informa 150." },
+      expectedValue: "100.00", actualValue: "150.00", noteItemLineNumber: null,
     }],
   }), "SUSPICIOUS");
 });
@@ -85,4 +158,162 @@ test("contexto necessário não vira suspeita sem achado sustentado", () => {
     contextQuestions: 1,
     findings: [],
   }), "NEEDS_CONTEXT");
+});
+
+test("reanálise após contexto sempre termina em OK ou suspeita", () => {
+  assert.equal(resolvePostContextClassification({
+    deterministicCoverage: false,
+    aiCoverage: false,
+    findings: [],
+  }), "OK");
+
+  assert.equal(resolvePostContextClassification({
+    deterministicCoverage: false,
+    aiCoverage: true,
+    findings: [{
+      code: "CTX-CONFIRMED", title: "Divergência confirmada", description: "O valor diverge.", category: "TOTALS",
+      severity: "WARNING", source: "AI_DISCOVERY", confidence: 0.9,
+      justification: "A resposta confirmou a divergência observada.", references: ["DANFE:total"],
+      evidence: { field: "totalAmount", summary: "O total informado não confere." },
+      expectedValue: "100.00", actualValue: "150.00", noteItemLineNumber: null,
+    }],
+  }), "SUSPICIOUS");
+});
+
+const objectiveQuestions = [
+  {
+    code: "CTX-DATE-FAZENDINHA",
+    options: [],
+    prompt: "Por que a ficha registra a despesa do Restaurante Fazendinha em 19/05/2026, se o pedido e o pagamento de R$ 15,00 são de 18/05/2026?",
+    rationale: "A ficha e o comprovante apresentam datas diferentes.",
+    required: true,
+    type: "TEXT" as const,
+  },
+  {
+    code: "CTX-AMOUNT-JEQUITAI",
+    options: [],
+    prompt: "A venda da trena no Depósito Jequitaí, de R$ 44,50, recebeu desconto, cancelamento parcial ou outro ajuste para resultar no pagamento de R$ 40,00?",
+    rationale: "O valor da venda e o valor pago divergem.",
+    required: true,
+    type: "TEXT" as const,
+  },
+  {
+    code: "CTX-AMOUNT-UVA",
+    options: [],
+    prompt: "Por que o cartão da Casa da Uva registra R$ 28,00 em 27/05/2026, enquanto o recibo e a ficha solicitam R$ 18,00?",
+    rationale: "Os valores do cartão e da ficha são diferentes.",
+    required: true,
+    type: "TEXT" as const,
+  },
+];
+
+test("converte divergências internas de data e valor em achados, não perguntas", () => {
+  const routed = routeContextQuestions(objectiveQuestions);
+
+  assert.equal(routed.contextQuestions.length, 0);
+  assert.equal(routed.promotedFindings.length, 3);
+  assert.deepEqual(
+    routed.promotedFindings.map((finding) => finding.category),
+    ["DATES", "AMOUNTS", "AMOUNTS"],
+  );
+  assert.ok(routed.promotedFindings.every((finding) => finding.severity === "WARNING"));
+});
+
+test("as três divergências do reembolso resultam em suspeita sem rodada pública", () => {
+  const result = evaluateHarness({
+    invoice: sparseInvoice,
+    aiDiscovery: {
+      findings: [],
+      coverage: {
+        sufficientEvidence: true,
+        checkedAreas: ["REIMBURSEMENT"],
+        limitations: [],
+      },
+      contextQuestions: objectiveQuestions,
+      needsContext: true,
+      summary: "Foram identificadas divergências internas.",
+    },
+  });
+
+  assert.equal(result.classification, "SUSPICIOUS");
+  assert.equal(result.contextQuestions.length, 0);
+  assert.equal(result.findings.length, 3);
+});
+
+test("pergunta sobre fato externo continua como contexto", () => {
+  const externalQuestion = {
+    code: "CTX-HEADCOUNT",
+    options: [],
+    prompt: "Quantas pessoas foram atendidas pelas 40 refeições registradas?",
+    rationale: "O número de pessoas não está informado no anexo.",
+    required: true,
+    type: "NUMBER" as const,
+  };
+  const routed = routeContextQuestions([externalQuestion]);
+  assert.equal(routed.contextQuestions.length, 1);
+  assert.equal(routed.promotedFindings.length, 0);
+
+  const result = evaluateHarness({
+    invoice: sparseInvoice,
+    aiDiscovery: {
+      findings: [],
+      coverage: {
+        sufficientEvidence: false,
+        checkedAreas: ["MEALS"],
+        limitations: ["Quantidade de pessoas ausente."],
+      },
+      contextQuestions: [externalQuestion],
+      needsContext: true,
+      summary: "É necessário confirmar o número de pessoas.",
+    },
+  });
+  assert.equal(result.classification, "NEEDS_CONTEXT");
+  assert.equal(result.contextQuestions.length, 1);
+});
+
+test("resposta genérica não apaga contradição objetiva já comprovada", () => {
+  const routed = routeContextQuestions(objectiveQuestions);
+  assert.equal(resolvePostContextClassification({
+    deterministicCoverage: true,
+    aiCoverage: true,
+    findings: routed.promotedFindings,
+  }), "SUSPICIOUS");
+});
+
+test("remove repetições semânticas do mesmo achado e preserva itens distintos", () => {
+  const base = {
+    actualValue: "40.00",
+    category: "TOTALS",
+    code: "PAYMENT_MISMATCH",
+    evidence: {
+      lineNumber: 12,
+      page: 13,
+      summary: "O valor pago diverge do valor do documento.",
+    },
+    expectedValue: "44.50",
+    noteItemLineNumber: 12,
+  };
+
+  assert.equal(
+    deduplicateHarnessFindings([
+      base,
+      { ...base, code: "AI_PAYMENT_DIFFERENCE" },
+    ]).length,
+    1,
+  );
+  assert.equal(
+    deduplicateHarnessFindings([
+      base,
+      {
+        ...base,
+        noteItemLineNumber: 19,
+        evidence: {
+          lineNumber: 19,
+          page: 20,
+          summary: "O valor pago diverge do valor do documento.",
+        },
+      },
+    ]).length,
+    2,
+  );
 });

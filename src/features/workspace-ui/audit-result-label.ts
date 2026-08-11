@@ -1,4 +1,5 @@
 export type AuditResultLabel =
+  | "Análise incompleta"
   | "Em análise"
   | "Falha de leitura"
   | "Falha de processamento"
@@ -31,7 +32,11 @@ export function auditResultTone(label: AuditResultLabel) {
   if (label === "Falha de leitura" || label === "Falha de processamento") {
     return "danger" as const;
   }
-  if (label === "Precisa de informação" || label === "Em análise") {
+  if (
+    label === "Análise incompleta" ||
+    label === "Precisa de informação" ||
+    label === "Em análise"
+  ) {
     return "info" as const;
   }
   return "warning" as const;

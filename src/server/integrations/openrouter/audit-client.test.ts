@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AUDIT_POLICY, HARNESS_MODEL } from "@/lib/audit-harness";
 import {
+  AUDIT_POLICY,
+  HARNESS_MODEL,
+  HARNESS_PDF_MODEL,
+} from "@/lib/audit-harness";
+import {
+  normalizeAuditContent,
   OpenRouterAuditDiscoveryClient,
   type AuditDiscoveryRequest,
 } from "./audit-client";
@@ -59,7 +64,7 @@ function successfulAuditResponse(model: string) {
   );
 }
 
-test("configura auditoria Luna high com fallback Sol high", () => {
+test("configura auditoria Terra high com recuperação no mesmo modelo", () => {
   const config = getOpenRouterConfig({
     NODE_ENV: "test",
     OPENROUTER_API_KEY: "test-only",
@@ -69,9 +74,60 @@ test("configura auditoria Luna high com fallback Sol high", () => {
   assert.equal(config.model, HARNESS_MODEL);
   assert.equal(config.maxAttempts, 2);
   assert.equal(config.reasoningEffort, "high");
-  assert.equal(config.fallbackModel, "openai/gpt-5.6-sol");
+  assert.equal(config.fallbackModel, HARNESS_MODEL);
   assert.equal(config.fallbackReasoningEffort, "high");
+  assert.equal(config.maxTokens, 8_192);
   assert.equal(AUDIT_POLICY.fallbackReasoningEffort, "high");
+});
+
+test("configura Gemini high para um ciclo controlado de comparação", () => {
+  const config = getOpenRouterConfig({
+    NODE_ENV: "test",
+    OPENROUTER_API_KEY: "test-only",
+    OPENROUTER_AUDIT_MODEL: "google/gemini-3.6-flash",
+    OPENROUTER_AUDIT_REASONING_EFFORT: "high",
+  });
+
+  assert.equal(config.model, "google/gemini-3.6-flash");
+  assert.equal(config.reasoningEffort, "high");
+  assert.equal(config.fallbackModel, HARNESS_MODEL);
+});
+
+test("configura Gemini high também para extração e leitura de PDF", () => {
+  const config = getOpenRouterConfig(
+    {
+      NODE_ENV: "test",
+      OPENROUTER_API_KEY: "test-only",
+      OPENROUTER_EXTRACTION_MODEL: "google/gemini-3.6-flash",
+      OPENROUTER_EXTRACTION_REASONING_EFFORT: "high",
+      OPENROUTER_PDF_MODEL: "google/gemini-3.6-flash",
+      OPENROUTER_PDF_REASONING_EFFORT: "high",
+    },
+    "extraction",
+  );
+
+  assert.equal(config.model, "google/gemini-3.6-flash");
+  assert.equal(config.pdfModel, "google/gemini-3.6-flash");
+  assert.equal(config.pdfFallbackModel, HARNESS_PDF_MODEL);
+  assert.equal(config.reasoningEffort, "high");
+  assert.equal(config.pdfReasoningEffort, "high");
+});
+
+test("usa Terra high tanto na extração quanto na auditoria", () => {
+  const config = getOpenRouterConfig(
+    {
+      NODE_ENV: "test",
+      OPENROUTER_API_KEY: "test-only",
+    },
+    "extraction",
+  );
+
+  assert.equal(config.model, HARNESS_MODEL);
+  assert.equal(config.pdfModel, HARNESS_PDF_MODEL);
+  assert.equal(config.reasoningEffort, "high");
+  assert.equal(config.pdfReasoningEffort, "high");
+  assert.equal(config.timeoutMs, 120_000);
+  assert.equal(config.maxTokens, 8_192);
 });
 
 test("envia modelo fixo, xhigh controlado e exclui reasoning da resposta", async () => {
@@ -94,6 +150,10 @@ test("envia modelo fixo, xhigh controlado e exclui reasoning da resposta", async
   });
   assert.equal(payload?.model, HARNESS_MODEL);
   assert.deepEqual(payload?.reasoning, { effort: "xhigh", exclude: true });
+  assert.equal(payload?.max_tokens, 8_192);
+  assert.deepEqual(payload?.provider, { require_parameters: true });
+  assert.equal("temperature" in (payload ?? {}), false);
+  assert.equal("tools" in (payload ?? {}), false);
   const systemPrompt = (payload?.messages as Array<{ role: string; content: string }> | undefined)?.[0]?.content ?? "";
   assert.match(systemPrompt, /contextAnswers/);
   assert.match(systemPrompt, /dados não confiáveis/);
@@ -101,7 +161,111 @@ test("envia modelo fixo, xhigh controlado e exclui reasoning da resposta", async
   assert.equal(result.usage?.totalTokens, 15);
 });
 
-test("usa Sol high após 503 retryable sem repetir Luna", async () => {
+test("oferece pesquisa web seletiva com limite rígido quando habilitada", async () => {
+  let payload: Record<string, unknown> | undefined;
+  const client = new OpenRouterAuditDiscoveryClient({
+    apiKey: "test-only",
+    appUrl: undefined,
+    model: HARNESS_MODEL,
+    maxAttempts: 1,
+    pdfEngine: "native",
+    timeoutMs: 1_000,
+    webSearchEnabled: true,
+    webSearchMaxResults: 3,
+    fetchImplementation: async (_url, init) => {
+      payload = JSON.parse(String(init?.body));
+      return successfulAuditResponse(HARNESS_MODEL);
+    },
+  });
+
+  await client.discover(discoveryRequest);
+  assert.equal(payload?.max_tool_calls, 1);
+  assert.deepEqual(payload?.tools, [{
+    type: "openrouter:web_search",
+    parameters: {
+      engine: "auto",
+      max_results: 3,
+      max_total_results: 3,
+      max_uses: 1,
+      search_context_size: "low",
+    },
+  }]);
+});
+
+test("corrige options indevidas em pergunta textual sem gastar um retry", async () => {
+  const client = new OpenRouterAuditDiscoveryClient({
+    apiKey: "test-only",
+    appUrl: undefined,
+    model: HARNESS_MODEL,
+    maxAttempts: 1,
+    pdfEngine: "native",
+    timeoutMs: 1_000,
+    fetchImplementation: async () => new Response(JSON.stringify({
+      model: HARNESS_MODEL,
+      choices: [{ message: { content: JSON.stringify({
+        findings: [],
+        coverage: {
+          sufficientEvidence: false,
+          checkedAreas: ["OBRA"],
+          limitations: ["Falta contexto da obra."],
+        },
+        contextQuestions: [{
+          code: "CTX-001",
+          options: [{ label: "Outro", value: "outro" }],
+          prompt: "Qual é o equipamento relacionado?",
+          rationale: "A resposta altera a verificação de compatibilidade.",
+          required: true,
+          type: "TEXT",
+        }],
+        needsContext: true,
+        summary: "É necessário confirmar o equipamento.",
+      }) } }],
+    }), { status: 200 }),
+  });
+
+  const result = await client.discover(discoveryRequest);
+  assert.deepEqual(result.data.contextQuestions[0]?.options, []);
+  assert.equal(result.attempts, 1);
+});
+
+test("descarta pergunta que transfere a definição de política para quem envia", () => {
+  const normalized = normalizeAuditContent({
+    contextQuestions: [{
+      code: "CTX-POLICY",
+      options: [],
+      prompt: "Quais regras devem ser aplicadas às despesas de alimentação?",
+      rationale: "A política ainda não foi cadastrada.",
+      required: true,
+      type: "TEXT",
+    }],
+    needsContext: true,
+  }) as { contextQuestions: unknown[]; needsContext: boolean };
+
+  assert.deepEqual(normalized.contextQuestions, []);
+  assert.equal(normalized.needsContext, false);
+});
+
+test("converte seleção com opções opacas em resposta de texto", () => {
+  const normalized = normalizeAuditContent({
+    contextQuestions: [{
+      code: "CTX-VEHICLE",
+      options: [
+        { label: "All Violet", value: "all-violet" },
+        { label: "All Filet", value: "all-filet" },
+      ],
+      prompt: "Qual placa aparece no controle de abastecimento?",
+      rationale: "A placa identifica o veículo.",
+      required: true,
+      type: "SINGLE_SELECT",
+    }],
+    needsContext: true,
+  }) as { contextQuestions: Array<{ options: unknown[]; type: string }> };
+
+  assert.equal(normalized.contextQuestions[0]?.type, "TEXT");
+  assert.deepEqual(normalized.contextQuestions[0]?.options, []);
+});
+
+test("permite uma rota de contingência explícita após 503 retryable", async () => {
   const requestedModels: string[] = [];
   const client = new OpenRouterAuditDiscoveryClient({
     apiKey: "test-only",
@@ -144,7 +308,7 @@ test("usa Sol high após 503 retryable sem repetir Luna", async () => {
   assert.equal(JSON.stringify(result).includes("must-not-escape"), false);
 });
 
-test("usa Sol high após timeout simulável da Luna", async () => {
+test("permite uma rota de contingência explícita após timeout", async () => {
   const requestedModels: string[] = [];
   const client = new OpenRouterAuditDiscoveryClient({
     apiKey: "test-only",
@@ -189,7 +353,7 @@ test("usa Sol high após timeout simulável da Luna", async () => {
   assert.equal(result.model, AUDIT_POLICY.fallbackModel);
 });
 
-test("repete Luna uma vez quando a resposta estruturada é inválida", async () => {
+test("repete o mesmo avaliador uma vez quando a resposta estruturada é inválida", async () => {
   const requestedModels: string[] = [];
   const client = new OpenRouterAuditDiscoveryClient({
     apiKey: "test-only",

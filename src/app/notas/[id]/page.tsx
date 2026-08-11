@@ -1,4 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+
+import { UserRole } from "@/generated/prisma/enums";
 
 import { requireInternalUser } from "@/features/internal-notes/require-internal-user";
 import { loadNoteDetail } from "@/features/note-detail/data";
@@ -10,6 +12,9 @@ type PageProps = { params: Promise<{ id: string }> };
 export default async function NoteDetailPage({ params }: PageProps) {
   const { id } = await params;
   const profile = await requireInternalUser(`/notas/${id}`);
+  if (profile.role === UserRole.REVIEWER) {
+    redirect(`/notas/${id}/analise-ia`);
+  }
   const data = await loadNoteDetail({ id, role: profile.role });
 
   if (!data) notFound();

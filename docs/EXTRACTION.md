@@ -24,13 +24,16 @@ Notas com falha de extração podem ser reprocessadas. Atualização otimista po
 
 - `OPENROUTER_API_KEY`: segredo usado somente no servidor.
 - `OPENROUTER_MODEL`: modelo multimodal compatível com JSON Schema.
-- `OPENROUTER_TIMEOUT_MS`: timeout por tentativa, padrão de 60 segundos.
+- `OPENROUTER_TIMEOUT_MS`: timeout por tentativa, padrão de 120 segundos para acomodar PDFs longos e escaneados sem prender o fluxo público.
 - `OPENROUTER_MAX_ATTEMPTS`: de 1 a 5, padrão 3.
-- `OPENROUTER_PDF_ENGINE`: `cloudflare-ai` por padrão; pode ser
-  `mistral-ocr` para PDFs escaneados ou `native` para modelo compatível.
+- `OPENROUTER_EXTRACTION_REASONING_EFFORT`: `high` para a etapa mecânica de OCR e estruturação.
+- `OPENROUTER_EXTRACTION_MAX_TOKENS`: teto de saída da extração, padrão `8192`.
+- `OPENROUTER_AUDIT_MAX_TOKENS`: teto de saída da auditoria, padrão `8192`.
+- `OPENROUTER_PDF_ENGINE`: `mistral-ocr` por padrão para PDFs escaneados;
+  também aceita `cloudflare-ai` ou `native`.
 
 Retries ocorrem apenas para timeout, falhas de rede, resposta estruturada
 inválida e HTTP 408/409/429/5xx selecionados. `Retry-After` é respeitado até
-cinco segundos. O teste real com OpenRouter permanece pendente até a chave e o
-modelo serem configurados; o contrato local usa a fixture versionada em
-`src/lib/integrations/openrouter/__fixtures__/valid-invoice-extraction.json`.
+cinco segundos. O contrato local usa fixtures versionadas e o aceite final
+exige um teste real com PDF escaneado, sem persistir resposta bruta ou segredo
+do provedor.

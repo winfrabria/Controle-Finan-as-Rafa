@@ -44,16 +44,40 @@ export function decideClassification(
 ): HarnessClassification {
   if (input.readFailed) return "READ_FAILED";
 
-  const supportedFinding = input.findings.some(isSupportedFinding);
-  if (supportedFinding) return "SUSPICIOUS";
+  const conclusiveDeterministicFinding = input.findings.some(
+    (finding) =>
+      finding.source !== "AI_DISCOVERY" &&
+      finding.severity !== "INFO" &&
+      isSupportedFinding(finding),
+  );
+  if (conclusiveDeterministicFinding) return "SUSPICIOUS";
+
+  const conclusiveAiFinding = input.findings.some(
+    (finding) =>
+      finding.source === "AI_DISCOVERY" &&
+      finding.severity !== "INFO" &&
+      isSupportedFinding(finding),
+  );
+  if (conclusiveAiFinding) return "SUSPICIOUS";
 
   if (
     input.contextRequired ||
-    (input.contextQuestions ?? 0) > 0 ||
-    (!input.deterministicCoverage && !input.aiCoverage)
+    (input.contextQuestions ?? 0) > 0
   ) {
     return "NEEDS_CONTEXT";
   }
 
   return "OK";
+}
+
+/** Finaliza a única rodada pública de contexto sem deixar o anexo preso. */
+export function resolvePostContextClassification(
+  input: Omit<DecisionMatrixInput, "contextQuestions" | "contextRequired" | "readFailed">,
+): Exclude<HarnessClassification, "NEEDS_CONTEXT" | "READ_FAILED"> {
+  return decideClassification({
+    ...input,
+    contextQuestions: 0,
+    contextRequired: false,
+    readFailed: false,
+  }) as Exclude<HarnessClassification, "NEEDS_CONTEXT" | "READ_FAILED">;
 }

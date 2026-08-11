@@ -19,7 +19,18 @@ const OPENROUTER_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completion
 const RETRYABLE_STATUS_CODES = new Set([408, 409, 429, 500, 502, 503, 504]);
 
 const responseSchema = z.object({
-  choices: z.array(z.object({ message: z.object({ content: z.string() }).passthrough() })).min(1),
+  choices: z.array(z.object({
+    message: z.object({
+      content: z.string(),
+      annotations: z.array(z.object({
+        type: z.string(),
+        url_citation: z.object({
+          title: z.string().optional(),
+          url: z.string().url(),
+        }).passthrough().optional(),
+      }).passthrough()).optional(),
+    }).passthrough(),
+  })).min(1),
   model: z.string(),
   provider: z.string().optional(),
   usage: z.object({
@@ -27,8 +38,85 @@ const responseSchema = z.object({
     prompt_tokens: z.number().optional(),
     total_tokens: z.number().optional(),
     cost: z.number().nonnegative().optional(),
+    server_tool_use: z.object({
+      web_search_requests: z.number().int().nonnegative().optional(),
+    }).optional(),
   }).optional(),
 }).passthrough();
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+const POLICY_QUESTION_PATTERN =
+  /\b(?:quais?|qual)\s+(?:regras?|pol[ií]ticas?|crit[eé]rios?|par[aâ]metros?|limites?)\b|\b(?:defina|estabele[çc]a|informe)\s+(?:as?\s+)?(?:regras?|pol[ií]ticas?|crit[eé]rios?|par[aâ]metros?|limites?)\b/i;
+const OPAQUE_OPTION_PATTERN = /^(?:all|any|unknown|undefined|null)\b/i;
+
+function usableSelectOptions(options: unknown) {
+  if (!Array.isArray(options)) return [];
+  const seen = new Set<string>();
+  return options.flatMap((option) => {
+    if (!isRecord(option)) return [];
+    const label = typeof option.label === "string" ? option.label.trim() : "";
+    const value = typeof option.value === "string" ? option.value.trim() : "";
+    if (
+      !label ||
+      !value ||
+      label.length > 160 ||
+      value.length > 80 ||
+      OPAQUE_OPTION_PATTERN.test(label) ||
+      seen.has(label.toLocaleLowerCase("pt-BR"))
+    ) {
+      return [];
+    }
+    seen.add(label.toLocaleLowerCase("pt-BR"));
+    return [{ label, value }];
+  });
+}
+
+export function normalizeAuditContent(value: unknown) {
+  if (!isRecord(value) || !Array.isArray(value.contextQuestions)) return value;
+
+  const contextQuestions = value.contextQuestions.flatMap((question) => {
+    if (!isRecord(question)) return [];
+    const prompt = typeof question.prompt === "string" ? question.prompt.trim() : "";
+    const type = question.type;
+    if (!prompt || POLICY_QUESTION_PATTERN.test(prompt)) return [];
+
+    if (type !== "SINGLE_SELECT") {
+      return [{ ...question, prompt, options: [] }];
+    }
+
+    const options = usableSelectOptions(question.options);
+    if (options.length < 2) {
+      return [{ ...question, prompt, type: "TEXT", options: [] }];
+    }
+    return [{ ...question, prompt, options }];
+  });
+
+  return {
+    ...value,
+    contextQuestions,
+    needsContext: contextQuestions.length > 0,
+  };
+}
+
+function webSourcesFrom(
+  annotations:
+    | Array<{ type: string; url_citation?: { title?: string; url: string } }>
+    | undefined,
+) {
+  const seen = new Set<string>();
+  return (annotations ?? [])
+    .flatMap((annotation) =>
+      annotation.url_citation ? [annotation.url_citation] : [],
+    )
+    .filter((source) => {
+      if (seen.has(source.url)) return false;
+      seen.add(source.url);
+      return true;
+    });
+}
 
 function parseRetryAfter(value: string | null) {
   if (!value) return undefined;
@@ -76,7 +164,9 @@ export type AuditDiscoveryResult = {
     completionTokens?: number;
     totalTokens?: number;
     costUsd?: number;
+    webSearchRequests?: number;
   };
+  webSources?: Array<{ title?: string; url: string }>;
 };
 
 export interface AuditDiscoveryClient {
@@ -88,14 +178,21 @@ type Options = Omit<
   | "fallbackModel"
   | "fallbackReasoningEffort"
   | "pdfModel"
+  | "pdfFallbackModel"
   | "pdfReasoningEffort"
   | "reasoningEffort"
+  | "maxTokens"
+  | "webSearchEnabled"
+  | "webSearchMaxResults"
 > & {
   fallbackModel?: string;
   fallbackReasoningEffort?: AuditDiscoveryRequest["reasoningEffort"];
   pdfModel?: string;
   pdfReasoningEffort?: string;
   reasoningEffort?: string;
+  maxTokens?: number;
+  webSearchEnabled?: boolean;
+  webSearchMaxResults?: number;
   fetchImplementation?: typeof fetch;
   sleep?: (milliseconds: number) => Promise<void>;
 };
@@ -230,9 +327,8 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
             Math.min(500 * 2 ** (attempt - 1), 5_000),
         );
 
-        // Invalid structured output is model variance: one cheap Luna retry
-        // proved sufficient in production. Provider failures and timeouts use
-        // the independent Sol route instead.
+        // Invalid structured output is model variance: repeat Terra once.
+        // The bounded retry never creates an unbounded model chain.
         route =
           normalized.kind === "invalid-response" ||
           !this.options.fallbackModel ||
@@ -297,8 +393,24 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
             type: "json_schema",
             json_schema: { name: "audit_discovery", strict: true, schema: AI_DISCOVERY_JSON_SCHEMA },
           },
+          max_tokens: this.options.maxTokens ?? 8_192,
+          provider: { require_parameters: true },
           stream: false,
-          temperature: 0,
+          ...(this.options.webSearchEnabled
+            ? {
+                max_tool_calls: 1,
+                tools: [{
+                  type: "openrouter:web_search",
+                  parameters: {
+                    engine: "auto",
+                    max_results: this.options.webSearchMaxResults ?? 3,
+                    max_total_results: this.options.webSearchMaxResults ?? 3,
+                    max_uses: 1,
+                    search_context_size: "low",
+                  },
+                }],
+              }
+            : {}),
         }),
         signal: controller.signal,
       });
@@ -318,6 +430,19 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
       try {
         body = await response.json();
       } catch (error) {
+        if (
+          controller.signal.aborted ||
+          (error instanceof Error && error.name === "AbortError")
+        ) {
+          throw new OpenRouterClientError(
+            "timeout",
+            "OpenRouter audit timed out while receiving the response.",
+            true,
+            undefined,
+            undefined,
+            { cause: error },
+          );
+        }
         throw new OpenRouterClientError("invalid-response", "OpenRouter returned a non-JSON envelope.", true, undefined, undefined, { cause: error });
       }
       const envelope = responseSchema.safeParse(body);
@@ -327,7 +452,9 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
 
       let content: unknown;
       try {
-        content = JSON.parse(envelope.data.choices[0].message.content);
+        content = normalizeAuditContent(
+          JSON.parse(envelope.data.choices[0].message.content),
+        );
       } catch (error) {
         throw new OpenRouterClientError("invalid-response", "OpenRouter returned non-JSON audit content.", true, undefined, undefined, { cause: error });
       }
@@ -337,15 +464,20 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
       }
 
       const usage = envelope.data.usage;
+      const webSources = webSourcesFrom(
+        envelope.data.choices[0].message.annotations,
+      );
       return {
         data: parsed.data,
         model: envelope.data.model,
         provider: envelope.data.provider,
+        ...(webSources.length > 0 ? { webSources } : {}),
         ...(usage ? { usage: {
           promptTokens: usage.prompt_tokens,
           completionTokens: usage.completion_tokens,
           totalTokens: usage.total_tokens,
           costUsd: usage.cost,
+          webSearchRequests: usage.server_tool_use?.web_search_requests,
         } } : {}),
       };
     } finally {

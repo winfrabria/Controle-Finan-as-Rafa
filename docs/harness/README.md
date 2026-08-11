@@ -4,25 +4,28 @@ O Harness transforma uma extração validada em uma decisão auditável. A ordem
 
 1. regras universais determinísticas;
 2. regras e parâmetros ativos da obra;
-3. descoberta livre estruturada pela Luna high, com Sol high como contingência;
+3. descoberta livre estruturada pelo Terra high;
 4. matriz de decisão;
 5. persistência de achados, métricas e diagnóstico.
 
-Política e schema ativos: `2026-08-08.1`. Prompt e regras permanecem em
-`2026-08-01.1`. Os artefatos versionados ficam nas pastas
+Política ativa: `2026-08-11.1`; prompt: `2026-08-11.1`; regras: `2026-08-09.3`; schema:
+`2026-08-10.1`. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
 versão ativa.
 
 ## Garantias
 
-- `openai/gpt-5.6-luna`, `high` como avaliação primária; uma resposta estruturalmente inválida permite uma única repetição Luna. Timeout ou erro recuperável troca a segunda tentativa para `openai/gpt-5.6-sol`, `high`;
+- `openai/gpt-5.6-terra`, em `high`, é usado na extração e na auditoria. Testes reais mostraram que `max` excede a janela operacional em PDFs longos; o modelo e o esforço efetivamente usados ficam registrados no `AiRun`;
+- PDFs usam `mistral-ocr` por padrão antes da estruturação, rota indicada para documentos escaneados e compostos;
+- uma resposta estruturalmente inválida permite uma única reconstrução com o OCR ou rascunho já obtido; sem material reutilizável, o mesmo Terra é repetido uma vez. Não existe cadeia silenciosa entre modelos;
 - a auditoria faz no máximo duas chamadas e o `ProcessingJob` não repete externamente a rota já concluída;
 - `reasoning.exclude=true`; chain-of-thought nunca é solicitado ou persistido;
 - resposta de IA validada com Zod e JSON Schema estrito;
 - URL assinada, chave, autorização e reasoning são removidos de dados persistidos;
 - falha de leitura termina em `READ_FAILED`, sem achado e sem notificação ao Rafael;
 - os resultados canônicos são `OK`, `SUSPICIOUS`, `NEEDS_CONTEXT` e `READ_FAILED`; `SUSPICIOUS` é terminal no MVP e não cria decisão humana;
+- divergências de valor, data, total ou identificador comprováveis no próprio anexo viram `SUSPICIOUS`; perguntas são reservadas a fatos externos realmente ausentes;
 - `NEEDS_CONTEXT` permite até três perguntas específicas, uma submissão e uma reanálise. Se ainda faltar contexto, o estado interno permanece `NEEDS_CONTEXT`, mas o estado público termina em `COMPLETED`;
 - no MVP, cada `Note` representa um anexo recebido e o Rafael apenas consulta o diagnóstico e marca a leitura individualmente (`NoteRead`);
 - upload e resposta de contexto agendam `ProcessingJob` e usam `after()` como fast path; worker/cron faz recuperação durável. Claim otimista impede dois workers de executar o mesmo job;
@@ -30,6 +33,10 @@ versão ativa.
 - em estado terminal, o preview é negado imediatamente; o primeiro status genérico consome a capability com CAS, limpa o cookie e expira a capability antes da resposta. Repetições retornam 404;
 - perguntas e respostas ficam na trilha ADMIN; o REVIEWER recebe apenas o diagnóstico final. O endpoint legado de decisão retorna bloqueio e preserva o histórico;
 - reprocessamento preserva execuções e validações anteriores. Quando a extração já existe, recupera apenas a auditoria; uma extração nova só ocorre quando realmente necessária.
+
+Reinicie o servidor após qualquer troca de modelo para limpar os clientes em
+cache. Comparações futuras devem ocorrer em ambiente controlado, nunca por uma
+variável antiga esquecida no deploy.
 
 ## Operação
 
@@ -46,9 +53,10 @@ usa `estadoPublico` (`PROCESSING`, `NEEDS_CONTEXT`, `COMPLETED`, `READ_FAILED` o
 quando retomado pela UI, exige a mesma capacidade e retorna URL assinada curta,
 sem registrar a URL.
 
-Busca aberta na internet não faz parte do MVP. Um futuro adaptador deverá aceitar
-somente fontes autorizadas, guardar URL/fonte e tratar a pesquisa como evidência
-complementar, nunca como base única.
+A pesquisa web é opcional (`OPENROUTER_WEB_SEARCH_ENABLED=false` por padrão), usa
+no máximo uma chamada e três resultados e só serve como evidência complementar.
+Fontes externas, quando habilitadas, ficam registradas no `AiRun`; preço genérico
+encontrado na internet nunca sustenta uma suspeita sozinho.
 
 O alias legado `OpenRouter_API_Key` é aceito em memória e normalizado para o
 contrato canônico `OPENROUTER_API_KEY`. O valor nunca é registrado.

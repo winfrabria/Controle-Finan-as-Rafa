@@ -18,6 +18,41 @@ import {
   scheduleNoteAuditRecoveryInTransaction,
 } from "./processing-jobs";
 
+test("job completo sem extração executa leitura antes da auditoria", async () => {
+  const calls: string[] = [];
+
+  await runClaimedProcessingJobPipeline(
+    {
+      contextSubmissionId: null,
+      id: "job-full-audit",
+      noteId: "note-full-audit",
+      type: ProcessingJobType.FULL_AUDIT,
+    },
+    {
+      findNoteState: async () => ({
+        extractedData: null,
+        failureCode: null,
+        processingStage: ProcessingStage.RECEIVED,
+      }),
+      markAuditStarted: async () => {
+        calls.push("mark-audit-started");
+      },
+      processExtraction: async (_noteId, options) => {
+        assert.equal(options?.processingJobId, "job-full-audit");
+        calls.push("extraction");
+        return { id: "note-full-audit" } as never;
+      },
+      processAudit: async (_noteId, options) => {
+        assert.equal(options?.processingJobId, "job-full-audit");
+        calls.push("audit");
+        return { id: "note-full-audit" } as never;
+      },
+    },
+  );
+
+  assert.deepEqual(calls, ["extraction", "audit"]);
+});
+
 test("retry de auditoria usa extractedData sem repetir extração", async () => {
   let auditCalls = 0;
   let extractionCalls = 0;
@@ -233,7 +268,7 @@ test("falha esgotada é terminal e preserva mensagem segura para observabilidade
   assert.equal(lifecycle.noteStage, ProcessingStage.FAILED);
 });
 
-test("rota Luna e Sol esgota o job externo sem repetir chamadas pagas", () => {
+test("rota interna esgotada não é repetida pelo job externo", () => {
   const auditFailure = processingFailureLifecycle({
     attempt: 1,
     failureCode: "AUDIT_TIMEOUT",
@@ -246,9 +281,33 @@ test("rota Luna e Sol esgota o job externo sem repetir chamadas pagas", () => {
     maxAttempts: 2,
     type: ProcessingJobType.FULL_AUDIT,
   });
+  const invalidExtraction = processingFailureLifecycle({
+    attempt: 1,
+    failureCode: "EXTRACTION_INVALID_RESPONSE",
+    maxAttempts: 2,
+    type: ProcessingJobType.FULL_AUDIT,
+  });
+  const rejectedExtraction = processingFailureLifecycle({
+    attempt: 1,
+    failureCode: "EXTRACTION_REQUEST_REJECTED",
+    maxAttempts: 2,
+    type: ProcessingJobType.FULL_AUDIT,
+  });
+  const creditExhausted = processingFailureLifecycle({
+    attempt: 1,
+    failureCode: "EXTRACTION_CREDIT_EXHAUSTED",
+    maxAttempts: 2,
+    type: ProcessingJobType.FULL_AUDIT,
+  });
 
   assert.equal(auditFailure.attemptsExhausted, true);
   assert.equal(auditFailure.noteStatus, NoteStatus.FAILED);
   assert.equal(extractionFailure.attemptsExhausted, false);
   assert.equal(extractionFailure.noteStatus, NoteStatus.PROCESSING);
+  assert.equal(invalidExtraction.attemptsExhausted, true);
+  assert.equal(invalidExtraction.noteStatus, NoteStatus.FAILED);
+  assert.equal(rejectedExtraction.attemptsExhausted, true);
+  assert.equal(rejectedExtraction.noteStatus, NoteStatus.FAILED);
+  assert.equal(creditExhausted.attemptsExhausted, true);
+  assert.equal(creditExhausted.noteStatus, NoteStatus.FAILED);
 });

@@ -18,13 +18,15 @@ import {
   UserRole,
 } from "@/generated/prisma/enums";
 import {
-  HARNESS_MODEL,
   HARNESS_VERSIONS,
   evaluateHarness,
   evaluateUniversalRules,
   evaluateWorkRules,
   isReadFailure,
   isSupportedFinding,
+  resolveAuditEvaluatorModel,
+  resolveAuditReasoningEffort,
+  resolvePostContextClassification,
   sanitizeForPersistence,
   selectReasoningEffort,
   type ContextAnswerForAudit,
@@ -73,6 +75,15 @@ function getAuditFailureDetails(error: unknown) {
   }
 
   if (error instanceof OpenRouterClientError) {
+    if (error.status === 402) {
+      return {
+        ...attemptDetails,
+        code: "AUDIT_CREDIT_EXHAUSTED",
+        message: "Os créditos do provedor de IA são insuficientes para concluir a auditoria.",
+        noteMessage: "A auditoria não pôde continuar porque o provedor de IA está sem crédito disponível.",
+      };
+    }
+
     if (error.kind === "timeout") {
       return {
         ...attemptDetails,
@@ -316,7 +327,15 @@ export async function processNoteAudit(
   const universal = evaluateUniversalRules({ invoice: context.invoice, duplicates: context.duplicates });
   const work = evaluateWorkRules(context.invoice, context.workRules);
   const deterministicFindings = [...universal.findings, ...work.findings];
-  const reasoning = selectReasoningEffort(context.invoice, deterministicFindings);
+  const selectedReasoning = selectReasoningEffort(context.invoice, deterministicFindings);
+  const reasoning = {
+    ...selectedReasoning,
+    effort: resolveAuditReasoningEffort(
+      process.env.OPENROUTER_AUDIT_REASONING_EFFORT,
+      selectedReasoning.effort,
+    ),
+  };
+  const auditModel = resolveAuditEvaluatorModel(process.env.OPENROUTER_AUDIT_MODEL);
   const canonicalContextAnswers = [...(context.contextAnswers ?? [])].sort(
     (left, right) =>
       `${left.code}:${left.type}`.localeCompare(`${right.code}:${right.type}`),
@@ -337,7 +356,7 @@ export async function processNoteAudit(
     create: {
       idempotencyKey,
       kind: AiRunKind.AUDIT,
-      model: HARNESS_MODEL,
+      model: auditModel,
       noteId,
       policyVersion: HARNESS_VERSIONS.policy,
       processingJobId: dependencies.processingJobId,
@@ -352,7 +371,7 @@ export async function processNoteAudit(
       completedAt: null,
       errorCode: null,
       errorMessage: null,
-      model: HARNESS_MODEL,
+      model: auditModel,
       status: AiRunStatus.RUNNING,
       startedAt: new Date(),
     },
@@ -375,17 +394,31 @@ export async function processNoteAudit(
       throw new AuditPipelineError("AUDIT_CONTEXT_QUESTIONS_MISSING", "A auditoria solicitou contexto sem fornecer perguntas.");
     }
     const supportedFindings = result.findings.filter(isSupportedFinding);
-    const auditResult = auditResultValue(result.classification);
-    const finalStatus = noteStatus(result.classification);
+    // O envio público possui uma única rodada de contexto. Depois da resposta,
+    // a nota precisa sair de NEEDS_CONTEXT: achados sustentados viram suspeita;
+    // sem achado conclusivo, a análise termina como OK.
+    const finalClassification =
+      dependencies.contextSubmissionId && result.classification === "NEEDS_CONTEXT"
+        ? resolvePostContextClassification({
+            aiCoverage: result.coverage.ai,
+            deterministicCoverage: result.coverage.deterministic,
+            findings: result.findings,
+          })
+        : result.classification;
+    const finalContextQuestions = dependencies.contextSubmissionId
+      ? []
+      : result.contextQuestions;
+    const auditResult = auditResultValue(finalClassification);
+    const finalStatus = noteStatus(finalClassification);
     const keepsPublicContextCapability =
-      result.classification === "NEEDS_CONTEXT" &&
+      finalClassification === "NEEDS_CONTEXT" &&
       !dependencies.contextSubmissionId &&
       (context.contextQuestionCount > 0 ||
-        (allowNewContextQuestions && result.contextQuestions.length > 0));
+        (allowNewContextQuestions && finalContextQuestions.length > 0));
     const targetContextRound =
-      result.classification === "NEEDS_CONTEXT" &&
+      finalClassification === "NEEDS_CONTEXT" &&
       allowNewContextQuestions &&
-      result.contextQuestions.length > 0
+      finalContextQuestions.length > 0
         ? context.contextRound > 0
           ? context.contextRound
           : 1
@@ -401,7 +434,7 @@ export async function processNoteAudit(
         },
         data: {
           auditResult,
-          classification: classificationValue(result.classification),
+          classification: classificationValue(finalClassification),
           contextRound: targetContextRound,
           contextSummary: discovery.data.summary,
           failureCode: null,
@@ -457,9 +490,9 @@ export async function processNoteAudit(
         });
       }
 
-      if (result.classification === "NEEDS_CONTEXT" && allowNewContextQuestions && result.contextQuestions.length > 0) {
+      if (finalClassification === "NEEDS_CONTEXT" && allowNewContextQuestions && finalContextQuestions.length > 0) {
         await tx.noteContextQuestion.createMany({
-          data: result.contextQuestions.map((question, index) => ({
+          data: finalContextQuestions.map((question, index) => ({
             aiRunId: aiRun.id,
             code: question.code,
             noteId,
@@ -481,7 +514,7 @@ export async function processNoteAudit(
         });
       }
 
-      if (result.classification === "SUSPICIOUS") {
+      if (finalClassification === "SUSPICIOUS") {
         const reviewers = await tx.profile.findMany({ where: { active: true, role: UserRole.REVIEWER }, select: { id: true } });
         if (reviewers.length > 0) {
           await tx.notification.createMany({
@@ -491,7 +524,7 @@ export async function processNoteAudit(
               type: NotificationType.NOTE_PROCESSED,
               title: "Novo diagnóstico disponível",
               body: "O anexo recebeu um diagnóstico que requer consulta.",
-              data: toJson({ auditResult: result.classification, aiRunId: aiRun.id, policyVersion: HARNESS_VERSIONS.policy }),
+              data: toJson({ auditResult: finalClassification, aiRunId: aiRun.id, policyVersion: HARNESS_VERSIONS.policy }),
             })),
           });
         }
@@ -505,8 +538,8 @@ export async function processNoteAudit(
           toStatus: finalStatus,
           data: toJson({
             aiRunId: aiRun.id,
-            auditResult: result.classification,
-            contextQuestionCount: result.contextQuestions.length,
+            auditResult: finalClassification,
+            contextQuestionCount: finalContextQuestions.length,
             contextRound: targetContextRound,
             findingCount: supportedFindings.length,
             hasContextAnswers: Boolean(context.contextAnswers?.length),
@@ -531,11 +564,13 @@ export async function processNoteAudit(
           status: AiRunStatus.SUCCEEDED,
           structuredResponse: toJson({
             attemptTrace: discovery.attemptTrace,
-            auditResult: result.classification,
-            contextQuestionCodes: result.contextQuestions.map((question) => question.code),
+            auditResult: finalClassification,
+            contextQuestionCodes: finalContextQuestions.map((question) => question.code),
             coverage: result.coverage,
             findingCodes: supportedFindings.map((finding) => finding.code),
             summary: discovery.data.summary,
+            webSources: discovery.webSources ?? [],
+            webSearchRequests: discovery.usage?.webSearchRequests ?? 0,
           }),
           totalTokens: discovery.usage?.totalTokens,
         },

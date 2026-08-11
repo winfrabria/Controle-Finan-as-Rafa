@@ -47,6 +47,7 @@ export type NoteDetailFinding = {
   createdAt: Date;
   description: string;
   evidence: Prisma.JsonValue | null;
+  explanation: string;
   expectedValue: Prisma.JsonValue | null;
   id: string;
   needsValidation: boolean;

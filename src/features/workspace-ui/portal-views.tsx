@@ -363,14 +363,18 @@ export function AdminDashboardPanels() {
 }
 
 export function NotesView({
+  historyMode = false,
   initialQuery,
+  initialSelectedId,
   initialPage,
   initialPageCount,
   role,
   total,
   items,
 }: {
+  historyMode?: boolean;
   initialQuery?: string;
+  initialSelectedId?: string;
   initialPage?: number;
   initialPageCount?: number;
   role: PortalRole;
@@ -476,11 +480,13 @@ export function NotesView({
     rows.length === 0
       ? "0% do total"
       : `${((value / rows.length) * 100).toFixed(1).replace(".", ",")}% do total`;
-  if (role === "reviewer") {
+  if (role === "reviewer" || historyMode) {
     return (
       <ReviewerNotesView
         initialQuery={initialQuery}
+        initialSelectedId={initialSelectedId}
         items={rows}
+        mode={historyMode ? "history" : "inbox"}
         page={initialPage}
         pageCount={initialPageCount}
         role={role}

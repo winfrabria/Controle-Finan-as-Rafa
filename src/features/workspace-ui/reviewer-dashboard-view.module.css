@@ -468,8 +468,12 @@
 
 .panelLink {
   align-items: center;
+  background: transparent;
+  border: 0;
   color: var(--blue);
+  cursor: pointer;
   display: inline-flex;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 700;
   gap: 5px;

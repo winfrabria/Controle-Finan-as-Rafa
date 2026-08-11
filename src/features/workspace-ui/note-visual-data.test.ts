@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AuditResult } from "@/generated/prisma/enums";
+import {
+  AuditResult,
+  NoteStatus,
+  ProcessingJobStatus,
+} from "@/generated/prisma/enums";
 import { toNoteVisualItems } from "./note-visual-data";
 
 const base = {
+  activeContextQuestionCount: 0,
   auditResult: null,
   classification: null,
   createdAt: new Date("2026-08-01T12:00:00Z"),
@@ -17,6 +22,8 @@ const base = {
   primaryFinding: null,
   processingJobStatus: null,
   responsibleName: null,
+  readAt: null,
+  readBy: null,
   status: "OK" as const,
   supplierName: "Fornecedor",
   totalAmount: "10.00",
@@ -26,8 +33,13 @@ const base = {
 
 test("prioriza auditResult canônico nos cards", () => {
   const items = toNoteVisualItems([
-    { ...base, auditResult: AuditResult.SUSPICIOUS },
-    { ...base, auditResult: AuditResult.NEEDS_CONTEXT, id: "note-2" },
+    { ...base, auditResult: AuditResult.SUSPICIOUS, findingCount: 1 },
+    {
+      ...base,
+      activeContextQuestionCount: 1,
+      auditResult: AuditResult.NEEDS_CONTEXT,
+      id: "note-2",
+    },
     { ...base, auditResult: AuditResult.OK, id: "note-3" },
   ]);
 
@@ -38,12 +50,35 @@ test("prioriza auditResult canônico nos cards", () => {
   ]);
 });
 
-test("normaliza o legado sem parâmetro para precisa de informação", () => {
+test("normaliza o legado sem parâmetro para informação insuficiente", () => {
   const [item] = toNoteVisualItems([
     { ...base, auditResult: null, classification: "NO_PARAMETER" },
   ]);
 
-  assert.equal(item.classification, "Precisa de informação");
+  assert.equal(item.classification, "Informação insuficiente");
+});
+
+test("não chama de suspeito um resultado sem achados estruturados", () => {
+  const [item] = toNoteVisualItems([
+    { ...base, auditResult: AuditResult.SUSPICIOUS, findingCount: 0 },
+  ]);
+
+  assert.equal(item.classification, "Análise incompleta");
+});
+
+test("só exibe pedido de informação quando há pergunta ativa", () => {
+  const [stale, active] = toNoteVisualItems([
+    { ...base, auditResult: AuditResult.NEEDS_CONTEXT },
+    {
+      ...base,
+      activeContextQuestionCount: 2,
+      auditResult: AuditResult.NEEDS_CONTEXT,
+      id: "note-active-context",
+    },
+  ]);
+
+  assert.equal(stale.classification, "Análise incompleta");
+  assert.equal(active.classification, "Precisa de informação");
 });
 
 test("não apresenta anexo legado sem job como se estivesse processando", () => {
@@ -52,6 +87,18 @@ test("não apresenta anexo legado sem job como se estivesse processando", () => 
   ]);
 
   assert.equal(item.classification, "Não processado");
+});
+
+test("mostra reanálise em andamento depois do envio de contexto", () => {
+  const [item] = toNoteVisualItems([{
+    ...base,
+    auditResult: AuditResult.NEEDS_CONTEXT,
+    id: "note-context-reanalysis",
+    processingJobStatus: ProcessingJobStatus.RUNNING,
+    status: NoteStatus.PROCESSING,
+  }]);
+
+  assert.equal(item.classification, "Em análise");
 });
 
 test("exibe a data de recebimento mesmo quando a emissão é de um mês antigo", () => {

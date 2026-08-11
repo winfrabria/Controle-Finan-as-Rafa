@@ -18,6 +18,10 @@ export function sanitizeReviewerNoteListItem(item: NoteListItem): NoteListItem {
       category: sanitizeReviewerText(finding.category),
       description: sanitizeReviewerText(finding.description),
       evidence: safeNullableText(finding.evidence),
+      evidenceDetails: finding.evidenceDetails.map((part) => ({
+        label: sanitizeReviewerText(part.label),
+        value: sanitizeReviewerText(part.value),
+      })),
       expectedValue: safeNullableText(finding.expectedValue),
       justification: sanitizeReviewerText(finding.justification),
       title: sanitizeReviewerText(finding.title),

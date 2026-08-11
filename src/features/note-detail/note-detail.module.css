@@ -727,6 +727,61 @@
   margin: 7px 0 0;
 }
 
+.analysisOverview {
+  align-items: center;
+  background: linear-gradient(110deg, #f7faff 0%, #fff 72%);
+  border: 1px solid #dbe5f2;
+  border-radius: 10px;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 13px 16px;
+}
+
+.analysisOverview > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.analysisOverview span,
+.analysisOverview small {
+  color: #637493;
+  font-size: 11px;
+}
+
+.analysisOverview strong {
+  color: #102b55;
+  font-size: 16px;
+}
+
+.analysisProgress {
+  display: grid;
+  gap: 7px;
+  min-width: 220px;
+}
+
+.analysisProgress > span {
+  color: #30496f;
+  font-weight: 700;
+  text-align: right;
+}
+
+.analysisProgress > div {
+  background: #e8eff9;
+  border-radius: 999px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.analysisProgress i {
+  background: #075cff;
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width 180ms ease;
+}
+
 .backButton {
   align-items: center;
   border: 1px solid #ccd8e8;
@@ -765,6 +820,8 @@
 .findingsPanel {
   min-height: 0;
   padding: 16px 13px;
+  position: sticky;
+  top: 82px;
 }
 
 .findingsPanel h2 {
@@ -845,9 +902,21 @@
 }
 
 .findingDetailPanel {
+  animation: analysisReveal 180ms ease both;
   min-height: 0;
   min-width: 0;
   padding: 17px 18px;
+}
+
+@keyframes analysisReveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .findingDetailTitle {
@@ -893,12 +962,62 @@
   margin: 0 0 5px;
 }
 
-.findingSection p,
+.findingSectionBody,
 .comparison p,
 .justification p {
   color: #344c70;
   font-size: 12px;
   line-height: 1.55;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.comparison p > span {
+  display: block;
+}
+
+.comparison p > span + span {
+  border-top: 1px solid #edf1f5;
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.findingSectionBody {
+  margin: 4px 0 0 25px;
+}
+
+.findingSectionBody a {
+  color: #075cff;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.evidenceFacts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.evidenceFacts > div {
+  background: #f7faff;
+  border: 1px solid #e1e9f3;
+  border-radius: 7px;
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+}
+
+.evidenceFacts dt {
+  color: #637493;
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.evidenceFacts dd {
+  color: #17345e;
+  font-size: 12px;
+  line-height: 1.45;
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -963,6 +1082,8 @@
   display: grid;
   gap: 12px;
   min-width: 0;
+  position: sticky;
+  top: 82px;
 }
 
 .analysisAside > section,
@@ -1018,9 +1139,26 @@
 .sourceList li {
   align-items: center;
   color: #344c70;
-  display: flex;
+  display: grid;
   font-size: 12px;
   gap: 8px;
+  grid-template-columns: 14px auto minmax(0, 1fr);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sourceKind {
+  background: #edf4ff;
+  border-radius: 999px;
+  color: #075cff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sourceText {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -1042,6 +1180,252 @@
 
 .analysisBottomBack {
   margin-top: 14px;
+}
+
+.analysisEvidenceCard {
+  background: linear-gradient(180deg, #fffdf9 0%, #fff9ef 100%);
+  border: 1px solid #f0c878;
+  border-radius: 9px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.analysisAside .evidenceFacts + .analysisEvidenceCard {
+  margin-top: 10px;
+}
+
+.analysisEvidenceEyebrow {
+  color: #a66308;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.analysisEvidenceCard > strong {
+  color: #17345e;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.analysisEvidenceCard dl {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.analysisEvidenceCard dl > div {
+  background: #fff;
+  border: 1px solid #f0dfc0;
+  border-radius: 7px;
+  min-width: 0;
+  padding: 8px;
+}
+
+.analysisEvidenceCard dt {
+  color: #7b6b53;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.analysisEvidenceCard dd {
+  color: #17345e;
+  font-size: 12px;
+  font-weight: 750;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.analysisEvidenceEmpty {
+  background: #f7f9fc;
+  border: 1px solid #e0e7f0;
+  border-radius: 8px;
+  color: #526788 !important;
+  font-size: 12px !important;
+  line-height: 1.5;
+  padding: 11px;
+}
+
+.analysisSourceSection {
+  background: #fff;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  margin-top: 16px;
+  overflow: hidden;
+}
+
+.analysisSourceHeader {
+  align-items: center;
+  border-bottom: 1px solid #e4eaf2;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 16px 18px;
+}
+
+.analysisSourceHeader > div {
+  min-width: 0;
+}
+
+.analysisSourceHeader span {
+  color: #075cff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.analysisSourceHeader h2 {
+  color: #102b55;
+  font-size: 18px;
+  margin: 3px 0 0;
+}
+
+.analysisSourceHeader p {
+  color: #637493;
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.analysisSourceHeader > a {
+  border: 1px solid #cbd9ea;
+  border-radius: 7px;
+  color: #075cff;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 9px 11px;
+  text-decoration: none;
+}
+
+.analysisSourceGrid {
+  align-items: start;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(330px, 0.9fr) minmax(0, 1.1fr);
+  padding: 14px;
+}
+
+.analysisDocumentCard,
+.analysisExtractedCard {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.analysisDocumentCard .documentViewport {
+  height: 510px;
+}
+
+.analysisExtractedCard .cardHeader h3,
+.analysisDocumentCard .cardHeader h3,
+.analysisItemsSection h3 {
+  color: #17345e;
+  font-size: 14px;
+  margin: 0;
+}
+
+.analysisExtractedCard .cardHeader p {
+  color: #637493;
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.analysisExtractedGrid {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 0 13px 13px;
+}
+
+.analysisExtractedGrid > div {
+  background: #f8faff;
+  border: 1px solid #e0e8f2;
+  border-radius: 8px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.analysisExtractedGrid dt {
+  color: #637493;
+  font-size: 11px;
+}
+
+.analysisExtractedGrid dd {
+  color: #17345e;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.analysisItemsSection {
+  border-top: 1px solid #e4eaf2;
+  padding: 13px;
+}
+
+.analysisItemsSection > header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+
+.analysisItemsSection > header span {
+  background: #edf4ff;
+  border-radius: 999px;
+  color: #075cff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.analysisItemsTable {
+  border: 1px solid #dce5ef;
+  border-radius: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.analysisItemsTable table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.analysisItemsTable th,
+.analysisItemsTable td {
+  border-bottom: 1px solid #e8edf4;
+  color: #30496f;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.analysisItemsTable th {
+  background: #f8faff;
+  color: #637493;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.analysisItemsTable th:first-child { width: 47%; }
+
+.analysisItemCards {
+  display: none;
+}
+
+.analysisNoItems {
+  color: #637493;
+  font-size: 12px;
+  margin: 6px 0 0;
 }
 
 .itemsCard {
@@ -1198,10 +1582,6 @@
   width: 17px;
 }
 
-.findingSection > p {
-  margin: 4px 0 0 25px;
-}
-
 @media (min-width: 1440px) {
   .detailGrid {
     grid-template-columns: minmax(300px, 0.96fr) minmax(390px, 1.12fr) minmax(340px, 1fr);
@@ -1227,6 +1607,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .analysisAside {
+    position: static;
+  }
+
   .findingsPanel,
   .findingDetailPanel {
     min-height: 0;
@@ -1242,6 +1626,10 @@
   .analysisAside {
     grid-column: 1 / -1;
     grid-template-columns: 1fr 1fr;
+  }
+
+  .analysisAside {
+    position: static;
   }
 
   .findingsPanel,
@@ -1265,6 +1653,15 @@
   .extractedCard {
     min-height: 0;
   }
+
+  .findingsPanel,
+  .analysisAside {
+    position: static;
+  }
+
+  .analysisSourceGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1276,6 +1673,20 @@
   .pageHeader h1,
   .analysisHeader h1 {
     font-size: 22px;
+  }
+
+  .analysisOverview {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .analysisProgress {
+    min-width: 0;
+  }
+
+  .analysisProgress > span {
+    text-align: left;
   }
 
   .headerActions > button {
@@ -1318,6 +1729,56 @@
 
   .documentViewport {
     height: 460px;
+  }
+
+  .analysisSourceHeader {
+    align-items: flex-start;
+  }
+
+  .analysisDocumentCard .documentViewport {
+    height: 420px;
+  }
+
+  .analysisItemsTable {
+    display: none;
+  }
+
+  .analysisItemCards {
+    display: grid;
+    gap: 9px;
+  }
+
+  .analysisItemCards article {
+    border: 1px solid #dce5ef;
+    border-radius: 8px;
+    padding: 11px;
+  }
+
+  .analysisItemCards strong {
+    color: #17345e;
+    display: block;
+    font-size: 13px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .analysisItemCards dl {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 10px 0 0;
+  }
+
+  .analysisItemCards dt {
+    color: #637493;
+    font-size: 11px;
+  }
+
+  .analysisItemCards dd {
+    color: #17345e;
+    font-size: 12px;
+    margin: 3px 0 0;
+    overflow-wrap: anywhere;
   }
 
   .timelineCard ol {
@@ -1482,6 +1943,33 @@
     flex-direction: column;
   }
 
+  .analysisSourceHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .analysisSourceHeader > a {
+    text-align: center;
+  }
+
+  .analysisSourceGrid {
+    padding: 9px;
+  }
+
+  .analysisExtractedGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .analysisDocumentCard .documentViewport {
+    height: 360px;
+    margin: 0 9px;
+  }
+
+  .analysisEvidenceCard dl,
+  .analysisItemCards dl {
+    grid-template-columns: 1fr;
+  }
+
   .documentViewport {
     height: 390px;
   }
@@ -1516,6 +2004,19 @@
 
   .itemCards dl {
     grid-template-columns: 1fr;
+  }
+
+  .sourceList li {
+    align-items: start;
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+
+  .sourceKind {
+    justify-self: start;
+  }
+
+  .sourceText {
+    grid-column: 2;
   }
 }
 

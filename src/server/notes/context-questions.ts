@@ -73,13 +73,57 @@ type NormalizedAnswer = {
   value: string | number | boolean;
 };
 
-function optionValues(options: unknown) {
+function optionLabels(options: unknown) {
   if (!Array.isArray(options)) return [];
   return options.flatMap((option) => {
     if (!option || typeof option !== "object") return [];
-    const value = (option as { value?: unknown }).value;
-    return typeof value === "string" ? [value] : [];
+    const label = (option as { label?: unknown }).label;
+    return typeof label === "string" && label.trim() ? [label.trim()] : [];
   });
+}
+
+/**
+ * Some early provider responses produced opaque placeholder labels (for
+ * example "All Violet"/"All Filet") instead of a question-specific choice.
+ * They are not useful to the sender and should never be rendered as a
+ * select.  Keeping this normalization at the public boundary also makes old
+ * rows safe without requiring a destructive data migration.
+ */
+function isOpaqueOptionLabel(label: string) {
+  return /^(?:all\s+(?:violet|filet)|option\s*\d+|choice\s*[a-z]|value\s*\d+)$/i.test(
+    label.trim(),
+  );
+}
+
+function usableOptionLabels(options: unknown) {
+  return optionLabels(options).filter((label) => !isOpaqueOptionLabel(label));
+}
+
+function hasUsableSelectOptions(options: unknown) {
+  return usableOptionLabels(options).length >= 2;
+}
+
+function normalizedSelectValue(options: unknown, answer: string) {
+  if (!hasUsableSelectOptions(options)) {
+    const normalized = answer.trim();
+    return normalized.length > 0 && normalized.length <= CONTEXT_MAX_ANSWER_LENGTH
+      ? normalized
+      : null;
+  }
+  if (!Array.isArray(options)) return null;
+  const selected = options.find((option) => {
+    if (!option || typeof option !== "object") return false;
+    const candidate = option as { label?: unknown; value?: unknown };
+    return candidate.value === answer || candidate.label === answer;
+  });
+  if (!selected || typeof selected !== "object") return null;
+  const label = (selected as { label?: unknown }).label;
+  const value = (selected as { value?: unknown }).value;
+  return typeof label === "string" && label.trim()
+    ? label.trim()
+    : typeof value === "string"
+      ? value
+      : null;
 }
 
 function normalizeAnswer(question: StoredQuestion, value: unknown) {
@@ -106,7 +150,7 @@ function normalizeAnswer(question: StoredQuestion, value: unknown) {
   }
 
   if (typeof value !== "string") return null;
-  return optionValues(question.options).includes(value) ? value : null;
+  return normalizedSelectValue(question.options, value);
 }
 
 export function validateContextAnswers(
@@ -169,20 +213,21 @@ function fingerprintAnswers(answers: NormalizedAnswer[]) {
 }
 
 export function toPublicContextQuestion(question: StoredQuestion) {
+  const selectOptions = usableOptionLabels(question.options);
+  const isSelect =
+    question.type === ContextQuestionType.SINGLE_SELECT && selectOptions.length >= 2;
+
   return {
     id: question.id,
     obrigatoria: question.required,
-    opcoes:
-      question.type === ContextQuestionType.SINGLE_SELECT
-        ? optionValues(question.options)
-        : undefined,
+    opcoes: isSelect ? selectOptions : undefined,
     pergunta: question.prompt,
     tipo:
       question.type === ContextQuestionType.BOOLEAN
         ? "CONFIRMATION"
-        : question.type === ContextQuestionType.SINGLE_SELECT
+        : isSelect
           ? "SELECT"
-          : question.type,
+          : "TEXT",
   };
 }
 

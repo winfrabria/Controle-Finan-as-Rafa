@@ -18,4 +18,5 @@ export type ReviewerDashboardNote = {
   supplier: string;
   value: string;
   work: string;
+  workId: string;
 };

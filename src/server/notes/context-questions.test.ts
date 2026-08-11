@@ -65,10 +65,46 @@ test("mapeia tipos internos para o contrato público sem expor rationale", async
   assert.deepEqual(question, {
     id: questions[2].id,
     obrigatoria: false,
-    opcoes: ["yes", "no"],
+    opcoes: ["Sim", "Não"],
     pergunta: questions[2].prompt,
     tipo: "SELECT",
   });
   assert.equal("rationale" in question, false);
   assert.equal(toPublicContextQuestion(questions[1]).tipo, "CONFIRMATION");
+});
+
+test("aceita o rótulo público de uma opção e persiste uma resposta legível", async () => {
+  const { validateContextAnswers } = await contextQuestionsModule();
+
+  assert.deepEqual(
+    validateContextAnswers([questions[2]] as never, [
+      { perguntaId: questions[2].id, valor: "Sim" },
+    ]),
+    [{ questionId: questions[2].id, value: "Sim" }],
+  );
+});
+
+test("trata opções opacas antigas como texto livre em vez de exibi-las", async () => {
+  const { toPublicContextQuestion, validateContextAnswers } = await contextQuestionsModule();
+  const question = {
+    ...questions[2],
+    options: [
+      { label: "All Violet", value: "all_violet" },
+      { label: "All Filet", value: "all_filet" },
+    ],
+  } as const;
+
+  assert.deepEqual(toPublicContextQuestion(question as never), {
+    id: question.id,
+    obrigatoria: false,
+    opcoes: undefined,
+    pergunta: question.prompt,
+    tipo: "TEXT",
+  });
+  assert.deepEqual(
+    validateContextAnswers([question] as never, [
+      { perguntaId: question.id, valor: "Placa GWI-62-07" },
+    ]),
+    [{ questionId: question.id, value: "Placa GWI-62-07" }],
+  );
 });

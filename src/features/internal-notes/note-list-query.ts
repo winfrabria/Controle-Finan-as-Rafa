@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   AuditResult,
+  FindingSeverity,
   FindingStatus,
   NoteClassification,
   NoteStatus,
@@ -10,7 +11,10 @@ import {
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
 
-import { formatFindingValue } from "./finding-display";
+import { normalizeResponsibleName } from "@/lib/works/responsible-name";
+
+import { formatFindingParts, formatFindingValue } from "./finding-display";
+import { buildNoteReadFilter, type NoteReadMode } from "./note-read-filter";
 import { sanitizeReviewerNoteListItem } from "./reviewer-payload-policy";
 
 function stringifyJson(value: unknown) {
@@ -34,6 +38,7 @@ export type NoteListFilters = {
 };
 
 export type NoteListItem = {
+  activeContextQuestionCount: number;
   auditResult: AuditResult | null;
   classification: NoteClassification | null;
   createdAt: Date;
@@ -44,6 +49,7 @@ export type NoteListItem = {
     category: string;
     description: string;
     evidence: string | null;
+    evidenceDetails: { label: string; value: string }[];
     expectedValue: string | null;
     justification: string;
     severity: string;
@@ -55,6 +61,8 @@ export type NoteListItem = {
   primaryFinding: string | null;
   processingJobStatus: ProcessingJobStatus | null;
   responsibleName: string | null;
+  readAt: Date | null;
+  readBy: string | null;
   status: NoteStatus;
   supplierName: string | null;
   totalAmount: string | null;
@@ -158,20 +166,26 @@ export async function listNotes(
   options: {
     all?: boolean;
     profileId?: string;
+    readMode?: NoteReadMode;
     sanitizeForReviewer?: boolean;
     validationOnly?: boolean;
   } = {},
 ) {
   const validationOnly = options.validationOnly ?? false;
+  const readMode = options.readMode ?? (options.profileId ? "unread" : undefined);
+  const visibleFindingWhere = {
+    status: FindingStatus.OPEN,
+    ...(options.sanitizeForReviewer
+      ? { category: { not: "DOCUMENT_TYPE" } }
+      : {}),
+  } satisfies Prisma.FindingWhereInput;
+  const actionableFindingWhere = {
+    ...visibleFindingWhere,
+    severity: { not: FindingSeverity.INFO },
+  } satisfies Prisma.FindingWhereInput;
   const where = {
     ...buildWhere(filters, validationOnly),
-    ...(options.profileId
-      ? {
-          noteReads: {
-            none: { profileId: options.profileId },
-          },
-        }
-      : {}),
+    ...buildNoteReadFilter(options.profileId, readMode),
   } satisfies Prisma.NoteWhereInput;
   const [total, notes, works] = await Promise.all([
     prisma.note.count({ where }),
@@ -189,14 +203,19 @@ export async function listNotes(
       select: {
         auditResult: true,
         classification: true,
+        contextRound: true,
+        contextSubmittedAt: true,
+        contextQuestions: {
+          orderBy: [{ round: "desc" }, { position: "asc" }],
+          take: 3,
+          select: { round: true },
+        },
         createdAt: true,
         documentNumber: true,
         findings: {
-          where: {
-            status: FindingStatus.OPEN,
-          },
+          where: visibleFindingWhere,
           orderBy: [{ severity: "desc" }, { createdAt: "asc" }],
-          take: 3,
+          take: 25,
           select: {
             actualValue: true,
             category: true,
@@ -210,13 +229,18 @@ export async function listNotes(
         },
         _count: {
           select: {
-            findings: { where: { status: FindingStatus.OPEN } },
+            findings: { where: actionableFindingWhere },
           },
         },
         id: true,
         issuedAt: true,
         noteReads: {
-          select: { profileId: true },
+          orderBy: { readAt: "desc" },
+          select: {
+            profileId: true,
+            readAt: true,
+            profile: { select: { email: true, fullName: true } },
+          },
         },
         processingJobs: {
           orderBy: { createdAt: "desc" },
@@ -243,41 +267,65 @@ export async function listNotes(
     }),
   ]);
 
-  const rawItems: NoteListItem[] = notes.map((note) => ({
-    auditResult: note.auditResult,
-    classification: note.classification,
-    createdAt: note.createdAt,
-    documentNumber: note.documentNumber,
-    findingCount: note._count.findings,
-    findings: note.findings.map((finding) => ({
-      actualValue: stringifyJson(finding.actualValue),
-      category: finding.category,
-      description: finding.description,
-      evidence: stringifyJson(finding.evidence),
-      expectedValue: stringifyJson(finding.expectedValue),
-      justification: finding.justification,
-      severity: finding.severity,
-      title: finding.title,
-    })),
-    id: note.id,
-    isRead: Boolean(
-      options.profileId &&
-        note.noteReads.some((read) => read.profileId === options.profileId),
-    ),
-    issuedAt: note.issuedAt,
-    primaryFinding: note.findings[0]?.title ?? null,
-    processingJobStatus: note.processingJobs[0]?.status ?? null,
-    responsibleName:
-      note.work.responsibleName ??
-      note.work.responsibleProfile?.fullName ??
-      note.work.responsibleProfile?.email ??
-      null,
-    status: note.status,
-    supplierName: note.supplierName,
-    totalAmount: note.totalAmount?.toFixed(2) ?? null,
-    version: note.version,
-    workName: note.work.name,
-  }));
+  const rawItems: NoteListItem[] = notes.map((note) => {
+    const read = options.profileId
+      ? note.noteReads.find((item) => item.profileId === options.profileId)
+      : note.noteReads[0];
+
+    return {
+      activeContextQuestionCount:
+        note.auditResult === AuditResult.NEEDS_CONTEXT &&
+        note.contextSubmittedAt === null
+          ? note.contextQuestions.filter(
+              (question) => question.round === note.contextRound,
+            ).length
+          : 0,
+      auditResult: note.auditResult,
+      classification: note.classification,
+      createdAt: note.createdAt,
+      documentNumber: note.documentNumber,
+      findingCount: note._count.findings,
+      findings: note.findings.map((finding) => ({
+        actualValue: stringifyJson(finding.actualValue),
+        category: finding.category,
+        description: finding.description,
+        evidence: stringifyJson(finding.evidence),
+        evidenceDetails: formatFindingParts(finding.evidence),
+        expectedValue: stringifyJson(finding.expectedValue),
+        justification: finding.justification,
+        severity: finding.severity,
+        title: finding.title,
+      })),
+      id: note.id,
+      isRead: Boolean(read),
+      issuedAt: note.issuedAt,
+      primaryFinding:
+        note.findings.find(
+          (finding) => finding.severity !== FindingSeverity.INFO,
+        )?.title ?? null,
+      processingJobStatus: note.processingJobs[0]?.status ?? null,
+      responsibleName: normalizeResponsibleName(
+        note.work.responsibleName ??
+          note.work.responsibleProfile?.fullName ??
+          note.work.responsibleProfile?.email,
+      ),
+      readAt: read?.readAt ?? null,
+      readBy: read
+        ? normalizeResponsibleName(read.profile.fullName ?? read.profile.email)
+        : null,
+      status: note.status,
+      supplierName: note.supplierName,
+      totalAmount: note.totalAmount?.toFixed(2) ?? null,
+      version: note.version,
+      workName: note.work.name,
+    };
+  });
+  if (readMode === "read") {
+    rawItems.sort(
+      (left, right) =>
+        (right.readAt?.getTime() ?? 0) - (left.readAt?.getTime() ?? 0),
+    );
+  }
   const items = options.sanitizeForReviewer
     ? rawItems.map(sanitizeReviewerNoteListItem)
     : rawItems;

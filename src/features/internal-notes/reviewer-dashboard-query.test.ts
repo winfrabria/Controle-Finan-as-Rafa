@@ -20,6 +20,7 @@ test("inclui no período de recebimento uma nota emitida em mês antigo", async 
           supplierName: "Fornecedor",
           totalAmount: null,
           work: {
+            id: "work-1",
             name: "Obra",
             responsibleName: "Responsável",
             responsibleProfile: null,
@@ -43,6 +44,7 @@ test("inclui no período de recebimento uma nota emitida em mês antigo", async 
 
     assert.equal(item.date, "08/08/2026");
     assert.equal(item.dateKey, "2026-08");
+    assert.equal(item.workId, "work-1");
   } finally {
     globalForPrisma.prisma = previousPrisma;
   }

@@ -216,6 +216,7 @@ export type HarnessInvoice = {
   items: Array<{
     lineNumber: number;
     description: string;
+    countsTowardDocumentTotal?: boolean;
     quantity: string | null;
     unitPrice: string | null;
     totalAmount: string | null;

@@ -3,8 +3,8 @@ import test from "node:test";
 
 import { AUDIT_POLICY, selectReasoningEffort } from "./policy";
 
-test("mantém auditoria primária e fallback em high", () => {
-  assert.equal(AUDIT_POLICY.version, "2026-08-08.1");
+test("mantém auditoria primária e recuperação em Terra high", () => {
+  assert.equal(AUDIT_POLICY.version, "2026-08-11.1");
   assert.equal(AUDIT_POLICY.defaultReasoningEffort, "high");
   assert.equal(AUDIT_POLICY.fallbackReasoningEffort, "high");
 

@@ -398,8 +398,10 @@ async function waitForNoteResult(
   signal: AbortSignal,
   onUpdate: (note: PublicNoteStatus) => void,
   ignoreContext: boolean,
+  timeoutMs: number | null = 90_000,
 ) {
-  const deadline = Date.now() + 90_000;
+  const deadline =
+    timeoutMs === null ? Number.POSITIVE_INFINITY : Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     const response = await fetch(`/api/notas/${noteId}/status`, {
@@ -673,7 +675,7 @@ export function PublicUploadFlow() {
   }, [file, invoiceId, view]);
 
   useEffect(() => {
-    if (view !== "processing" || !invoiceId) return;
+    if ((view !== "processing" && view !== "pending") || !invoiceId) return;
     const controller = new AbortController();
     pollingControllerRef.current?.abort();
     pollingControllerRef.current = controller;
@@ -683,6 +685,7 @@ export function PublicUploadFlow() {
       controller.signal,
       (note) => setProcessingPhase(resolvePublicProcessingPhase(note.etapa)),
       contextSubmissionStartedRef.current,
+      view === "pending" ? null : 90_000,
     )
       .then((note) => {
         const outcome = resolvePublicUploadResult(note);
@@ -1432,7 +1435,7 @@ export function PublicUploadFlow() {
 
           {view === "error" && (
             <div className={styles.errorContentWrapper}>
-              <div className={styles.resultCard}>
+              <div className={`${styles.resultCard} ${styles.errorResultCard}`}>
                 <div className={styles.resultIconError}>
                   <IconAlertTriangle />
                 </div>
@@ -1496,7 +1499,7 @@ export function PublicUploadFlow() {
                           Status da leitura
                         </span>
                         <span className={styles.badgeError}>
-                          <IconX /> {readFailure ? "Leitura não realizada" : "Processamento interrompido"}
+                          <IconX /> {readFailure ? "Leitura não realizada" : "Análise interrompida"}
                         </span>
                       </div>
                     </div>
@@ -1526,7 +1529,7 @@ export function PublicUploadFlow() {
                 </div>
               </div>
 
-              <div className={styles.tipsCard}>
+              {readFailure ? <div className={styles.tipsCard}>
                 <h3>Dicas para um envio de qualidade</h3>
                 <div className={styles.tipsGrid}>
                   <div className={styles.tipItem}>
@@ -1574,7 +1577,7 @@ export function PublicUploadFlow() {
                     </p>
                   </div>
                 </div>
-              </div>
+              </div> : null}
             </div>
           )}
         </div>
@@ -1658,6 +1661,7 @@ function ContextQuestionField({
   total: number;
 }) {
   const inputId = `context-question-${index}`;
+  const answerHint = contextAnswerHint(question);
   const questionLabel = (
     <>
       <span className={styles.questionPosition}>
@@ -1698,6 +1702,7 @@ function ContextQuestionField({
             <span>Não</span>
           </label>
         </div>
+        <small className={styles.questionHelp}>{answerHint}</small>
       </fieldset>
     );
   }
@@ -1725,7 +1730,7 @@ function ContextQuestionField({
           id={inputId}
           inputMode="decimal"
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Digite o valor"
+          placeholder="Ex.: 25"
           required={question.obrigatoria}
           step="any"
           type="number"
@@ -1736,12 +1741,35 @@ function ContextQuestionField({
           id={inputId}
           maxLength={500}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Digite sua resposta"
+          placeholder="Escreva uma resposta curta e objetiva"
           required={question.obrigatoria}
           rows={3}
           value={answer}
         />
       )}
+      <small className={styles.questionHelp}>{answerHint}</small>
     </div>
   );
+}
+
+function contextAnswerHint(question: PublicContextQuestion) {
+  const prompt = question.pergunta.toLocaleLowerCase("pt-BR");
+  if (question.tipo === "CONFIRMATION") {
+    return "Marque Sim ou Não conforme o controle da obra.";
+  }
+  if (question.tipo === "NUMBER") {
+    return /pessoa|funcion[aá]ri|refei/.test(prompt)
+      ? "Informe apenas a quantidade relacionada a esta despesa."
+      : "Informe o número que consta no controle ou comprovante.";
+  }
+  if (/placa|ve[ií]culo|equipamento/.test(prompt)) {
+    return "Exemplo: placa ABC1D23 ou identificação do equipamento.";
+  }
+  if (/obra/.test(prompt)) {
+    return "Informe o nome ou código oficial usado pela empresa.";
+  }
+  if (/motivo|finalidade|justific/.test(prompt)) {
+    return "Descreva em uma frase a finalidade da despesa.";
+  }
+  return "Use a informação do controle da obra ou do próprio documento.";
 }

@@ -7,6 +7,7 @@ import {
   ProcessingJobStatus,
 } from "@/generated/prisma/enums";
 import { prisma } from "@/server/db/prisma";
+import { normalizeResponsibleName } from "@/lib/works/responsible-name";
 
 import type { ReviewerDashboardNote } from "@/features/workspace-ui/reviewer-dashboard-types";
 import { sanitizeReviewerDashboardNote } from "./reviewer-payload-policy";
@@ -68,6 +69,12 @@ function classificationValue(note: {
 export async function listReviewerDashboardNotes(
   options: { sanitizeForReviewer?: boolean } = {},
 ): Promise<ReviewerDashboardNote[]> {
+  const visibleFindingWhere = {
+    status: { not: FindingStatus.FALSE_POSITIVE },
+    ...(options.sanitizeForReviewer
+      ? { category: { not: "DOCUMENT_TYPE" } }
+      : {}),
+  } as const;
   const notes = await prisma.note.findMany({
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
@@ -76,7 +83,7 @@ export async function listReviewerDashboardNotes(
       createdAt: true,
       documentNumber: true,
       findings: {
-        where: { status: { not: FindingStatus.FALSE_POSITIVE } },
+        where: visibleFindingWhere,
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: { category: true, title: true },
       },
@@ -91,6 +98,7 @@ export async function listReviewerDashboardNotes(
       totalAmount: true,
       work: {
         select: {
+          id: true,
           name: true,
           responsibleName: true,
           responsibleProfile: { select: { email: true, fullName: true } },
@@ -117,13 +125,15 @@ export async function listReviewerDashboardNotes(
       number: attachmentReference(note.documentNumber, note.id),
       reasons,
       responsible:
-        note.work.responsibleName ??
-        note.work.responsibleProfile?.fullName ??
-        note.work.responsibleProfile?.email ??
-        "Não definido",
+        normalizeResponsibleName(
+          note.work.responsibleName ??
+            note.work.responsibleProfile?.fullName ??
+            note.work.responsibleProfile?.email,
+        ) ?? "Não definido",
       supplier: note.supplierName ?? "Fornecedor não identificado",
       value: note.totalAmount?.toFixed(2) ?? "0",
       work: note.work.name,
+      workId: note.work.id,
     };
   });
 

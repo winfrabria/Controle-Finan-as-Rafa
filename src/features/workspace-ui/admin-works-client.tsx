@@ -374,7 +374,7 @@ export function AdminWorksClient() {
   function downloadCsvTemplate() {
     const content = [
       "codigo,nome,cidade,uf,responsavel,status",
-      "OBR-0001,Residencial Parque das Águas,Goiânia,GO,Carlos Menezes,Ativa",
+      "OBR-0001,Residencial Parque das Águas,Goiânia,GO,Naldo,Ativa",
     ].join("\n");
     const url = URL.createObjectURL(
       new Blob([content], { type: "text/csv;charset=utf-8" }),

@@ -9,11 +9,31 @@ const RESTRICTED_TEXT_PATTERNS = [
   /(?:system\s+prompt|prompt(?:\s+(?:do\s+)?sistema)?)\s*[:=\-]?\s*[^.;\n]*/gi,
   /(?:raw\s*response|resposta\s+bruta)\s*[:=\-]?\s*[^.;\n]*/gi,
 ] as const;
+const FRIENDLY_FIELD_PATTERNS: Array<[RegExp, string]> = [
+  [/\bsupplierName\b/gi, "nome do fornecedor"],
+  [/\bsupplierTaxId\b/gi, "CNPJ do fornecedor"],
+  [/\bissuedAt\b/gi, "data do documento"],
+  [/\bdocumentNumber\b/gi, "número do documento"],
+  [/\btotalAmount\b/gi, "valor total"],
+  [/\blineNumber\b/gi, "item"],
+  [/\bextractedData\b/gi, "dados extraídos"],
+  [/\bsuperName\b/gi, "nome do responsável"],
+  [/\bsuperTexture\b/gi, "descrição do documento"],
+  [/\binsuredAge\b/gi, "idade informada"],
+  [/\bsuper_name\b/gi, "nome do responsável"],
+  [/\bsuper_texture\b/gi, "descrição do documento"],
+  [/\binsured_age\b/gi, "idade informada"],
+  [/\binvoice\b/gi, "documento"],
+];
 
 export function sanitizeReviewerText(value: string) {
-  return RESTRICTED_TEXT_PATTERNS.reduce(
+  const withoutRestrictedData = RESTRICTED_TEXT_PATTERNS.reduce(
     (sanitized, pattern) => sanitized.replace(pattern, "informação técnica restrita"),
     value,
+  );
+  return FRIENDLY_FIELD_PATTERNS.reduce(
+    (sanitized, [pattern, replacement]) => sanitized.replace(pattern, replacement),
+    withoutRestrictedData,
   );
 }
 

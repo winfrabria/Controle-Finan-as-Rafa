@@ -8,6 +8,7 @@ import { StatusBadge } from "./portal-shell";
 import styles from "./workspace-ui.module.css";
 
 export type LogClassification =
+  | "Análise incompleta"
   | "Falha de leitura"
   | "Falha de processamento"
   | "OK"
@@ -31,12 +32,14 @@ export type AuditLog = {
   technical?: {
     costUsd?: string;
     error?: string;
+    explanation?: string;
     effort?: string;
     latencyMs?: number;
     model?: string;
     policyVersion?: string;
     promptVersion?: string;
     response?: string;
+    steps?: string[];
     tokens?: number;
   };
 };
@@ -66,18 +69,41 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
   const [classification, setClassification] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [query, setQuery] = useState("");
+
+  const users = useMemo(
+    () => [...new Set(logs.map((log) => log.user))].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [logs],
+  );
+  const classifications = useMemo(
+    () => [...new Set(logs.map((log) => log.classification))].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [logs],
+  );
 
   const filtered = useMemo(
     () =>
-      logs.filter(
-        (log) =>
+      logs.filter((log) => {
+        const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
+        const searchable = [
+          log.noteNumber,
+          log.action,
+          log.reason,
+          log.status,
+          log.work,
+          log.comment,
+        ]
+          .join(" ")
+          .toLocaleLowerCase("pt-BR");
+        return (
+          (!normalizedQuery || searchable.includes(normalizedQuery)) &&
           (!user || log.user === user) &&
           (!work || log.work === work) &&
           (!classification || log.classification === classification) &&
           (!startDate || log.dateIso >= startDate) &&
-          (!endDate || log.dateIso <= endDate),
-      ),
-    [classification, endDate, logs, startDate, user, work],
+          (!endDate || log.dateIso <= endDate)
+        );
+      }),
+    [classification, endDate, logs, query, startDate, user, work],
   );
   const selected =
     filtered.find((log) => log.id === selectedId) ?? filtered[0];
@@ -86,6 +112,7 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
     setUser("");
     setWork("");
     setClassification("");
+    setQuery("");
     setStartDate("");
     setEndDate("");
   }
@@ -99,6 +126,18 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
     <section className={styles.logsLayout}>
       <article>
         <form className={styles.filterBar} onSubmit={(e) => e.preventDefault()}>
+          <label className={styles.logSearchField}>
+            Buscar no histórico
+            <span>
+              <Icon name="search" />
+              <input
+                aria-label="Buscar por nota, ação, motivo ou obra"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Nota, ação, motivo ou obra"
+                value={query}
+              />
+            </span>
+          </label>
           <fieldset className={styles.periodFieldset}>
             <legend>Período</legend>
             <div>
@@ -122,8 +161,7 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
             Usuário
             <select value={user} onChange={(e) => setUser(e.target.value)}>
               <option value="">Todos</option>
-              <option>Rafael</option>
-              <option>Sistema</option>
+              {users.map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
           <label>
@@ -142,12 +180,7 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
               onChange={(e) => setClassification(e.target.value)}
             >
               <option value="">Todas</option>
-              <option>OK</option>
-              <option>Suspeita</option>
-              <option>Precisa de informação</option>
-              <option>Falha de leitura</option>
-              <option>Falha de processamento</option>
-              <option>Processamento</option>
+              {classifications.map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
           <button type="button" onClick={clearFilters}>
@@ -308,7 +341,7 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
         <p className={styles.comment}>{selected.reason}</p>
         {selected.noteId ? (
           <Link className={styles.logNoteLink} href={`/notas/${selected.noteId}`}>
-            Abrir detalhe da nota <Icon name="chevron" />
+            Abrir anexo relacionado <Icon name="chevron" />
           </Link>
         ) : null}
         <h3>Linha do tempo</h3>
@@ -320,6 +353,22 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
         </ol>
         {selected.technical ? (
           <>
+            {selected.technical.explanation ? (
+              <>
+                <h3>O que o Harness fez</h3>
+                <p className={styles.comment}>{selected.technical.explanation}</p>
+              </>
+            ) : null}
+            {selected.technical.steps?.length ? (
+              <>
+                <h3>Etapas desta execução</h3>
+                <ol className={styles.harnessSteps}>
+                  {selected.technical.steps.map((step, index) => (
+                    <li key={`${selected.id}-step-${index}`}>{step}</li>
+                  ))}
+                </ol>
+              </>
+            ) : null}
             <h3>Execução técnica</h3>
             <dl>
               {selected.technical.model ? <div><dt>Modelo</dt><dd>{selected.technical.model}</dd></div> : null}
@@ -332,7 +381,10 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
               {selected.technical.error ? <div><dt>Falha segura</dt><dd>{selected.technical.error}</dd></div> : null}
             </dl>
             {selected.technical.response ? (
-              <><h3>Resposta estruturada</h3><p className={styles.comment}>{selected.technical.response}</p></>
+              <details className={styles.rawLogDetails}>
+                <summary>Dados estruturados da execução</summary>
+                <pre>{selected.technical.response}</pre>
+              </details>
             ) : null}
           </>
         ) : null}

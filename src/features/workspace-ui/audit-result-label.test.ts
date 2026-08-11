@@ -16,6 +16,7 @@ test("classification é usada apenas como fallback", () => {
   assert.equal(auditResultLabel(null, null), "Em análise");
   assert.equal(auditResultTone("Precisa de informação"), "info");
   assert.equal(auditResultTone("Falha de leitura"), "danger");
+  assert.equal(auditResultTone("Análise incompleta"), "info");
 });
 
 test("status de processamento é usado quando ainda não há resultado de auditoria", () => {

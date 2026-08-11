@@ -15,14 +15,19 @@ export default async function ReviewerNotesPage({ searchParams }: PageProps) {
   const profile = await requirePageRoles("/revisao/notas", REVIEW_ROLES);
   const params = await searchParams;
   const filters = parseNoteListFilters(params);
+  const rawSelected = Array.isArray(params.anexo) ? params.anexo[0] : params.anexo;
+  const initialSelectedId =
+    rawSelected && /^[0-9a-f-]{36}$/i.test(rawSelected) ? rawSelected : undefined;
   const result = await listNotes(filters, {
     all: true,
     profileId: profile.id,
+    readMode: "unread",
     sanitizeForReviewer: true,
   });
   return (
     <NotesView
       initialQuery={filters.documentNumber}
+      initialSelectedId={initialSelectedId}
       initialPage={result.page}
       initialPageCount={result.pageCount}
       total={result.total}

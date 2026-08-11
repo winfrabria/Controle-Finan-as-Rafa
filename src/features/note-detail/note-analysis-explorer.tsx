@@ -1,14 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { Icon } from "@/features/workspace-ui/ui-icons";
+import {
+  compactFindingFieldPath,
+  formatFindingParts,
+  formatFindingValueLines,
+  humanizeFindingText,
+} from "@/features/internal-notes/finding-display";
 
 import type {
   NoteDetailFinding,
   NoteDetailItem,
-  NoteDetailSource,
 } from "./data";
 import {
   formatDecimal,
@@ -20,25 +25,13 @@ import styles from "./note-detail.module.css";
 export function NoteAnalysisExplorer({
   findings,
   items,
-  sources,
 }: {
   findings: NoteDetailFinding[];
   items: NoteDetailItem[];
-  sources: NoteDetailSource[];
 }) {
   const [selectedId, setSelectedId] = useState(findings[0]?.id ?? "");
   const selected =
     findings.find((finding) => finding.id === selectedId) ?? findings[0] ?? null;
-  const allSources = useMemo(() => {
-    const seen = new Set<string>();
-    return [...(selected?.sources ?? []), ...sources].filter((source) => {
-      const key = `${source.kind}:${source.label}:${source.url ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [selected, sources]);
-
   if (!selected) {
     return (
       <section className={styles.findingDetailPanel}>
@@ -51,11 +44,79 @@ export function NoteAnalysisExplorer({
 
   const affectedItem =
     items.find((item) => item.id === selected.affectedItem?.id) ?? null;
+  const selectedIndex = findings.findIndex(
+    (finding) => finding.id === selected.id,
+  );
+  const evidenceParts = formatFindingParts(
+    selected.evidence,
+    selected.description,
+  ).filter((part) => {
+    const label = part.label.trim().toLocaleLowerCase("pt-BR");
+    const value = part.value.trim().toLocaleLowerCase("pt-BR");
+    const description = selected.description.trim().toLocaleLowerCase("pt-BR");
+    if (!value || value === "—" || label === "fonte") return false;
+    if (
+      (label === "evidência" || label === "resumo da evidência") &&
+      (value === description || description.includes(value))
+    ) {
+      return false;
+    }
+    return true;
+  });
+  const evidenceLocationParts = evidenceParts
+    .filter((part) => ["Campo", "Item", "Página"].includes(part.label))
+    .map((part) => ({
+      ...part,
+      value:
+        part.label === "Campo"
+          ? compactFindingFieldPath(part.value)
+          : part.value,
+    }));
+  const evidenceNarrativeParts = evidenceParts
+    .filter((part) => !["Campo", "Item", "Página"].includes(part.label))
+    .slice(0, 4);
+  const hasMeaningfulComparison =
+    selected.expectedValue !== null &&
+    selected.actualValue !== null &&
+    jsonSummary(selected.expectedValue) !== jsonSummary(selected.actualValue);
 
   return (
-    <div className={styles.analysisLayout}>
+    <>
+      <section className={styles.analysisOverview} aria-label="Resumo da análise">
+        <div>
+          <span>Diagnóstico estruturado</span>
+          <strong>
+            {findings.length} {findings.length === 1 ? "apontamento" : "apontamentos"}
+          </strong>
+          <small>
+            Evidência e comparação organizadas para consulta rápida.
+          </small>
+        </div>
+        <div className={styles.analysisProgress}>
+          <span>
+            Apontamento {selectedIndex + 1} de {findings.length}
+          </span>
+          <div
+            aria-label={`${selectedIndex + 1} de ${findings.length}`}
+            aria-valuemax={findings.length}
+            aria-valuemin={1}
+            aria-valuenow={selectedIndex + 1}
+            role="progressbar"
+          >
+            <i
+              style={{
+                width: `${((selectedIndex + 1) / findings.length) * 100}%`,
+              }}
+            />
+          </div>
+        </div>
+      </section>
+
+      <div className={styles.analysisLayout}>
       <aside className={styles.findingsPanel}>
-        <h2>{findings.length} apontamentos identificados</h2>
+        <h2>
+          {findings.length} {findings.length === 1 ? "apontamento identificado" : "apontamentos identificados"}
+        </h2>
         <p>Selecione um apontamento para ver os detalhes.</p>
         <div className={styles.findingList}>
           {findings.map((finding, index) => (
@@ -63,12 +124,15 @@ export function NoteAnalysisExplorer({
               key={finding.id}
               type="button"
               data-active={finding.id === selected.id}
+              aria-pressed={finding.id === selected.id}
               onClick={() => setSelectedId(finding.id)}
             >
               <span className={styles.findingNumber}>{index + 1}</span>
               <span>
-                <strong>{finding.title}</strong>
-                <small>{finding.description}</small>
+                <strong>{humanizeFindingText(finding.title)}</strong>
+                <small>
+                  {compactFindingDescription(humanizeFindingText(finding.description))}
+                </small>
                 <small className={styles.severityBadge}>
                   Gravidade: {severityLabel(finding.severity)}
                 </small>
@@ -79,167 +143,98 @@ export function NoteAnalysisExplorer({
         </div>
       </aside>
 
-      <article className={styles.findingDetailPanel}>
+      <article className={styles.findingDetailPanel} key={selected.id}>
         <header className={styles.findingDetailTitle}>
           <span className={styles.findingNumber}>
             {findings.findIndex((finding) => finding.id === selected.id) + 1}
           </span>
-          <h2>{selected.title}</h2>
+          <h2>{humanizeFindingText(selected.title)}</h2>
           <span className={styles.severityBadge}>
             Gravidade: {severityLabel(selected.severity)}
           </span>
         </header>
-        <p className={styles.findingLead}>{selected.description}</p>
+        <p className={styles.findingLead}>
+          {humanizeFindingText(selected.description)}
+        </p>
 
-        <FindingSection icon="shield" title="Regra aplicada">
-          {selected.rule?.description ??
-            selected.rule?.name ??
-            "Regra de auditoria associada ao apontamento."}
+        <FindingSection defaultOpen icon="document" title="Evidência no documento">
+          <EvidenceFacts
+            parts={
+              evidenceNarrativeParts.length
+                ? evidenceNarrativeParts
+                : evidenceLocationParts
+            }
+          />
         </FindingSection>
-        <FindingSection icon="search" title="O que a IA encontrou">
-          {jsonSummary(selected.actualValue, selected.description)}
+        <FindingSection defaultOpen icon="search" title="Por que chamou atenção">
+          {humanizeFindingText(selected.explanation)}
         </FindingSection>
-        <FindingSection icon="document" title="Evidência na nota">
-          {jsonSummary(selected.evidence, selected.description)}
-        </FindingSection>
-        <FindingSection icon="building" title="Referência utilizada">
-          {selected.sources.find((source) => source.kind !== "document")?.label ??
-            selected.rule?.name ??
-            "Parâmetro administrativo vigente para a obra."}
+        <FindingSection icon="shield" title="Critério usado na conferência">
+          {humanizeFindingText(
+            selected.rule?.description ??
+              selected.rule?.name ??
+              "Análise baseada nos dados observáveis deste documento.",
+          )}
         </FindingSection>
 
-        <section className={styles.comparison}>
+        {hasMeaningfulComparison ? (
+          <section className={styles.comparison}>
           <div>
-            <h3>Esperado (referência)</h3>
-            <p>{jsonSummary(selected.expectedValue)}</p>
-            <span>Valor esperado</span>
+            <h3>Esperado</h3>
+            <p>
+              {formatFindingValueLines(
+                jsonSummary(selected.expectedValue, "Sem referência comparável"),
+              ).map((line, index) => (
+                <span key={`${line}-${index}`}>{line}</span>
+              ))}
+            </p>
           </div>
           <div>
-            <h3>Identificado (na nota)</h3>
-            <p>{jsonSummary(selected.actualValue)}</p>
+            <h3>Encontrado</h3>
+            <p>
+              {formatFindingValueLines(jsonSummary(selected.actualValue)).map(
+                (line, index) => (
+                  <span key={`${line}-${index}`}>{line}</span>
+                ),
+              )}
+            </p>
           </div>
-        </section>
+          </section>
+        ) : null}
 
-        <section className={styles.affectedItems}>
-          <h3>Itens afetados</h3>
-          <table className={styles.evidenceTable}>
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Descrição do produto / serviço</th>
-                <th>UN</th>
-                <th>QTD.</th>
-                <th>Vlr. unit.</th>
-                <th>Vlr. total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>{affectedItem?.code ?? selected.affectedItem?.code ?? "—"}</td>
-                <td>
-                  {affectedItem?.description ??
-                    selected.affectedItem?.description ??
-                    "Item geral da nota"}
-                </td>
-                <td>{affectedItem?.unit ?? "—"}</td>
-                <td>{formatDecimal(affectedItem?.quantity ?? null, 0)}</td>
-                <td>{formatDecimal(affectedItem?.unitPrice ?? null)}</td>
-                <td>{formatDecimal(affectedItem?.totalAmount ?? null)}</td>
-              </tr>
-            </tbody>
-          </table>
-          <article className={styles.mobileAffectedCard}>
-            <strong>
-              {affectedItem?.description ??
-                selected.affectedItem?.description ??
-                "Item geral da nota"}
-            </strong>
-            <dl>
-              <div><dt>Código</dt><dd>{affectedItem?.code ?? selected.affectedItem?.code ?? "—"}</dd></div>
-              <div><dt>Unidade</dt><dd>{affectedItem?.unit ?? "—"}</dd></div>
-              <div><dt>Quantidade</dt><dd>{formatDecimal(affectedItem?.quantity ?? null, 0)}</dd></div>
-              <div><dt>Valor unitário</dt><dd>{formatDecimal(affectedItem?.unitPrice ?? null)}</dd></div>
-              <div><dt>Valor total</dt><dd>{formatDecimal(affectedItem?.totalAmount ?? null)}</dd></div>
-            </dl>
-          </article>
-        </section>
-
-        <section className={styles.justification}>
-          <h3>Justificativa</h3>
-          <p>{selected.rule?.description ?? selected.description}</p>
-        </section>
       </article>
 
       <aside className={styles.analysisAside}>
         <details className={styles.analysisAccordion} open>
-          <summary><h2>Trecho da DANFE (evidência)</h2></summary>
-          <p>Exibição do item relacionado ao apontamento selecionado.</p>
-          <div className={styles.danfeExcerpt}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Descrição</th>
-                  <th>UN</th>
-                  <th>QTD.</th>
-                  <th>Vlr. unit.</th>
-                  <th>Vlr. total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.slice(0, 6).map((item) => (
-                  <tr
-                    key={item.id}
-                    data-highlight={item.id === selected.affectedItem?.id}
-                  >
-                    <td>{item.code ?? "—"}</td>
-                    <td>{item.description}</td>
-                    <td>{item.unit ?? "—"}</td>
-                    <td>{formatDecimal(item.quantity, 0)}</td>
-                    <td>{formatDecimal(item.unitPrice)}</td>
-                    <td>{formatDecimal(item.totalAmount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className={styles.danfeItemCards}>
-              {items.slice(0, 6).map((item) => (
-                <article
-                  key={item.id}
-                  data-highlight={item.id === selected.affectedItem?.id}
-                >
-                  <strong>{item.description}</strong>
-                  <span>{item.code ?? "Sem código"}</span>
-                  <dl>
-                    <div><dt>UN</dt><dd>{item.unit ?? "—"}</dd></div>
-                    <div><dt>QTD.</dt><dd>{formatDecimal(item.quantity, 0)}</dd></div>
-                    <div><dt>Total</dt><dd>{formatDecimal(item.totalAmount)}</dd></div>
-                  </dl>
-                </article>
-              ))}
-            </div>
-          </div>
+          <summary><h2>Onde conferir</h2></summary>
+          <p>Localização do apontamento no arquivo original.</p>
+          {evidenceLocationParts.length ? (
+            <EvidenceFacts parts={evidenceLocationParts.slice(0, 3)} />
+          ) : null}
+          {affectedItem || selected.affectedItem ? (
+            <article className={styles.analysisEvidenceCard}>
+              <span className={styles.analysisEvidenceEyebrow}>Item relacionado</span>
+              <strong>
+                {affectedItem?.description ??
+                  selected.affectedItem?.description ??
+                  "Item identificado no documento"}
+              </strong>
+              <dl>
+                <div><dt>Código</dt><dd>{affectedItem?.code ?? selected.affectedItem?.code ?? "Não identificado"}</dd></div>
+                <div><dt>Unidade</dt><dd>{affectedItem?.unit ?? "Não identificada"}</dd></div>
+                <div><dt>Quantidade</dt><dd>{formatDecimal(affectedItem?.quantity ?? null, 0)}</dd></div>
+                <div><dt>Valor unitário</dt><dd>{formatDecimal(affectedItem?.unitPrice ?? null)}</dd></div>
+                <div><dt>Valor total</dt><dd>{formatDecimal(affectedItem?.totalAmount ?? null)}</dd></div>
+              </dl>
+            </article>
+          ) : (
+            <p className={styles.analysisEvidenceEmpty}>
+              Confira a evidência no arquivo original exibido logo abaixo.
+            </p>
+          )}
         </details>
 
-        <details className={styles.analysisAccordion} open>
-          <summary><h2>Fontes consultadas</h2></summary>
-          <ul className={styles.sourceList}>
-            {allSources.slice(0, 6).map((source) => (
-              <li key={`${source.kind}:${source.label}:${source.url ?? ""}`}>
-                <Icon name="document" />
-                {source.url ? (
-                  <a href={source.url} target="_blank" rel="noreferrer">
-                    {source.label}
-                  </a>
-                ) : (
-                  <span>{source.label}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </details>
-
-        <details className={styles.analysisAccordion} open>
+        <details className={styles.analysisAccordion}>
           <summary><h2>Limitações da análise</h2></summary>
           <ul className={styles.limitationsList}>
             <li>
@@ -251,31 +246,58 @@ export function NoteAnalysisExplorer({
               podem não ter sido considerados.
             </li>
             <li>
-              A IA não substitui a análise humana; a decisão final pertence ao revisor.
+              Uma referência externa genérica nunca comprova divergência sozinha.
             </li>
           </ul>
         </details>
       </aside>
-    </div>
+      </div>
+    </>
   );
+}
+
+function EvidenceFacts({ parts }: { parts: ReturnType<typeof formatFindingParts> }) {
+  if (parts.length === 0) return <span>Evidência não detalhada.</span>;
+
+  return (
+    <dl className={styles.evidenceFacts}>
+      {parts.map((part, index) => (
+        <div key={`${part.label}:${index}`}>
+          <dt>{part.label}</dt>
+          <dd>{part.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function compactFindingDescription(description: string) {
+  const normalized = description.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 170) return normalized;
+
+  const firstSentence = normalized.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
+  if (firstSentence && firstSentence.length <= 190) return firstSentence;
+  return `${normalized.slice(0, 167).trimEnd()}…`;
 }
 
 function FindingSection({
   children,
+  defaultOpen = false,
   icon,
   title,
 }: {
   children: ReactNode;
+  defaultOpen?: boolean;
   icon: "building" | "document" | "search" | "shield";
   title: string;
 }) {
   return (
-    <details className={styles.findingSection} open>
+    <details className={styles.findingSection} open={defaultOpen}>
       <summary>
         <Icon name={icon} />
         <h3>{title}</h3>
       </summary>
-      <p>{children}</p>
+      <div className={styles.findingSectionBody}>{children}</div>
     </details>
   );
 }

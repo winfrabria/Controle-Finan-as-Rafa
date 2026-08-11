@@ -5,26 +5,36 @@ import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { sanitizeReviewerText } from "@/features/note-detail/data/reviewer-data-policy";
+import {
+  compactFindingFieldPath,
+  formatFindingValueLines,
+  humanizeFindingText,
+} from "@/features/internal-notes/finding-display";
 
 import { Icon } from "./ui-icons";
 import { PortalShell, type PortalRole } from "./portal-shell";
+import { filterReviewerNoteRows } from "./reviewer-note-filters";
 import type { NoteFindingVisual, NoteVisualItem } from "./note-types";
 import styles from "./reviewer-notes-view.module.css";
 
 type ReviewerNotesViewProps = {
   initialQuery?: string;
+  initialSelectedId?: string;
   items: NoteVisualItem[];
   page?: number;
   pageCount?: number;
   role: PortalRole;
+  mode?: "history" | "inbox";
   total?: number;
 };
 
 const statusClass: Record<string, string> = {
+  "Análise incompleta": styles.statusIncomplete,
   "Aguardando processamento": styles.statusProcessing,
   "Em análise": styles.statusProcessing,
   "Falha de processamento": styles.statusFailed,
   "Falha de leitura": styles.statusFailed,
+  "Informação insuficiente": styles.statusNeedsContext,
   "Não processado": styles.statusProcessing,
   OK: styles.statusOk,
   "Precisa de informação": styles.statusNeedsContext,
@@ -39,14 +49,20 @@ function statusLabel(item: NoteVisualItem) {
     classification === "NO_PARAMETER" ||
     classification === "Sem parâmetro"
   ) {
-    return "Precisa de informação";
+    return item.activeContextQuestionCount && item.activeContextQuestionCount > 0
+      ? "Precisa de informação"
+      : "Análise incompleta";
   }
 
   return classification || "Em análise";
 }
 
 function statusIcon(status: string): "help" | "document" {
-  return status === "Precisa de informação" ? "help" : "document";
+  return status === "Precisa de informação" ||
+    status === "Informação insuficiente" ||
+    status === "Análise incompleta"
+    ? "help"
+    : "document";
 }
 
 function unavailableDiagnosisCopy(status: string | null) {
@@ -82,6 +98,22 @@ function unavailableDiagnosisCopy(status: string | null) {
     };
   }
 
+  if (status === "Análise incompleta") {
+    return {
+      description:
+        "O processamento terminou sem evidências estruturadas suficientes para sustentar um diagnóstico. O anexo precisa ser reprocessado pelo administrador.",
+      title: "Diagnóstico precisa ser reprocessado",
+    };
+  }
+
+  if (status === "Informação insuficiente") {
+    return {
+      description:
+        "O arquivo foi lido, mas o contexto disponível não permite uma conclusão confiável.",
+      title: "Informação insuficiente para concluir",
+    };
+  }
+
   return null;
 }
 
@@ -96,6 +128,10 @@ function findingFor(item: NoteVisualItem): NoteFindingVisual[] {
       evidence: finding.evidence
         ? sanitizeReviewerText(finding.evidence)
         : finding.evidence,
+      evidenceDetails: finding.evidenceDetails?.map((part) => ({
+        label: sanitizeReviewerText(part.label),
+        value: sanitizeReviewerText(part.value),
+      })),
       expectedValue: finding.expectedValue
         ? sanitizeReviewerText(finding.expectedValue)
         : finding.expectedValue,
@@ -130,51 +166,136 @@ function dateSortKey(value: string) {
   ).getTime();
 }
 
-function dateInputKey(value: string) {
-  const parts = value.split("/");
-  if (parts.length !== 3) return "";
-  return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-}
-
 function currentPeriodValue() {
   const now = new Date();
   return `${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
 }
 
+function itemDate(item: NoteVisualItem, historyMode: boolean) {
+  if (!historyMode || !item.readAt) return item.date;
+  const value = new Date(item.readAt);
+  if (Number.isNaN(value.getTime())) return item.date;
+  return new Intl.DateTimeFormat("pt-BR").format(value);
+}
+
+function findingCategoryLabel(value?: string | null) {
+  if (!value) return "Auditoria da IA";
+  const labels: Record<string, string> = {
+    ALCOHOL: "Bebida alcoólica",
+    BUDGET: "Limite da obra",
+    CNPJ: "Cadastro do fornecedor",
+    CONSISTENCY: "Conferência de valores",
+    DATE: "Data do documento",
+    DOCUMENT_TYPE: "Tipo de documento",
+    DUPLICATE: "Possível duplicidade",
+    EXTRACTION: "Leitura do documento",
+    FORMAT: "Formato do documento",
+    INCONSISTENCY: "Inconsistência",
+    OTHER: "Outra inconsistência",
+    PERSONAL_HYGIENE: "Higiene pessoal",
+    PRICE: "Preço",
+    QUANTITY_TIMES_PRICE: "Quantidade e preço",
+    TOTALS: "Totais do documento",
+  };
+  const normalized = value.trim().toUpperCase();
+  if (labels[normalized]) return labels[normalized];
+  return value
+    .replaceAll("_", " ")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/^./, (letter) => letter.toLocaleUpperCase("pt-BR"));
+}
+
+function severityLabel(value?: string | null) {
+  const labels: Record<string, string> = {
+    CRITICAL: "Crítica",
+    HIGH: "Alta",
+    INFO: "Informativa",
+    LOW: "Baixa",
+    MEDIUM: "Média",
+    WARNING: "Atenção",
+  };
+  return value ? labels[value.toUpperCase()] ?? findingCategoryLabel(value) : null;
+}
+
+function isInformationalFinding(finding: NoteFindingVisual) {
+  return finding.severity?.toUpperCase() === "INFO";
+}
+
+function compactEvidenceDetails(finding: NoteFindingVisual) {
+  return (finding.evidenceDetails ?? [])
+    .filter((part) => {
+      const normalizedValue = part.value.trim().toLocaleLowerCase("pt-BR");
+      if (!normalizedValue || normalizedValue === "—") return false;
+      if (part.label === "Fonte") return false;
+      if (part.label === "Resumo da evidência" || part.label === "Evidência") return false;
+      return true;
+    })
+    .slice(0, 2)
+    .map((part) => ({
+      ...part,
+      value: compactEvidenceValue(part.label, part.value),
+    }));
+}
+
+function compactEvidenceValue(label: string, value: string) {
+  return label === "Campo" ? compactFindingFieldPath(value) : value;
+}
+
+function compactFindingDescription(value: string) {
+  const text = value.replace(/\s+/g, " ").trim();
+  if (text.length <= 135) return text;
+  const firstSentence = text.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
+  if (firstSentence && firstSentence.length <= 155) return firstSentence;
+  return `${text.slice(0, 132).trimEnd()}…`;
+}
+
 export function ReviewerNotesView({
   initialQuery = "",
+  initialSelectedId,
   items,
   page = 1,
   pageCount = 1,
   role,
+  mode = "inbox",
   total = items.length,
 }: ReviewerNotesViewProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const historyMode = mode === "history";
   const currentPeriod = useMemo(() => currentPeriodValue(), []);
   const [query, setQuery] = useState(initialQuery);
-  const [period, setPeriod] = useState(currentPeriod);
+  const [period, setPeriod] = useState(historyMode ? "" : currentPeriod);
   const [status, setStatus] = useState("");
   const [responsible, setResponsible] = useState("");
+  const [work, setWork] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialSelectedId && items.some((item) => item.id === initialSelectedId)
+      ? initialSelectedId
+      : items[0]?.id ?? null,
+  );
   const [readIds, setReadIds] = useState<Set<string>>(
     () => new Set(items.filter((item) => item.isRead).map((item) => item.id)),
   );
   const [readError, setReadError] = useState<string | null>(null);
   const [readNotice, setReadNotice] = useState<string | null>(null);
+  const [isMarkingRead, setIsMarkingRead] = useState(false);
 
   const periods = useMemo(() => {
     const unique = new Set(
       [currentPeriod, ...items.map((item) => {
-        const parts = item.date.split("/");
+        const parts = itemDate(item, historyMode).split("/");
         return parts.length === 3 ? `${parts[1]}/${parts[2]}` : "";
       })],
     );
     return [...unique]
       .filter(Boolean)
-      .sort((a, b) => b.localeCompare(a))
+      .sort((a, b) => {
+        const [monthA, yearA] = a.split("/").map(Number);
+        const [monthB, yearB] = b.split("/").map(Number);
+        return yearB * 12 + monthB - (yearA * 12 + monthA);
+      })
       .map((value) => {
         const [month, year] = value.split("/").map(Number);
         const label = new Intl.DateTimeFormat("pt-BR", {
@@ -183,29 +304,18 @@ export function ReviewerNotesView({
         }).format(new Date(year, month - 1, 1));
         return { label: label.charAt(0).toUpperCase() + label.slice(1), value };
       });
-  }, [currentPeriod, items]);
+  }, [currentPeriod, historyMode, items]);
 
   const filteredItems = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
-    return items.filter((item) => {
-      const parts = item.date.split("/");
-      const itemPeriod = parts.length === 3 ? `${parts[1]}/${parts[2]}` : "";
-      const itemDate = dateInputKey(item.date);
-      const matchesQuery =
-        !normalizedQuery ||
-        item.number.toLocaleLowerCase("pt-BR").includes(normalizedQuery) ||
-        item.supplier.toLocaleLowerCase("pt-BR").includes(normalizedQuery);
-      const hasCustomRange = Boolean(dateFrom || dateTo);
-      return (
-        matchesQuery &&
-        (hasCustomRange || !period || period === itemPeriod) &&
-        (!dateFrom || (itemDate && itemDate >= dateFrom)) &&
-        (!dateTo || (itemDate && itemDate <= dateTo)) &&
-        (!responsible || item.responsible === responsible) &&
-        (!status || status === statusLabel(item))
-      );
-    });
-  }, [dateFrom, dateTo, items, period, query, responsible, status]);
+    return filterReviewerNoteRows(
+      items.map((item) => ({
+        displayDate: itemDate(item, historyMode),
+        item,
+        status: statusLabel(item),
+      })),
+      { dateFrom, dateTo, period, query, responsible, status, work },
+    ).map((row) => row.item);
+  }, [dateFrom, dateTo, historyMode, items, period, query, responsible, status, work]);
 
   const responsibles = useMemo(
     () =>
@@ -215,29 +325,52 @@ export function ReviewerNotesView({
     [items],
   );
 
+  const works = useMemo(
+    () =>
+      [...new Set(items.map((item) => item.work).filter(Boolean) as string[])].sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [items],
+  );
+
   const visibleItems = useMemo(
-    () => filteredItems.filter((item) => !readIds.has(item.id)),
-    [filteredItems, readIds],
+    () => historyMode ? filteredItems : filteredItems.filter((item) => !readIds.has(item.id)),
+    [filteredItems, historyMode, readIds],
   );
   const hasLocalFilter = Boolean(
-    query.trim() || period || status || responsible || dateFrom || dateTo || readIds.size,
+    query.trim() || period || status || responsible || work || dateFrom || dateTo || (!historyMode && readIds.size),
   );
   const displayedTotal = hasLocalFilter ? visibleItems.length : total;
   const displayedPage = hasLocalFilter ? 1 : page;
   const displayedPageCount = hasLocalFilter ? 1 : pageCount;
+  const secondaryStatCount = historyMode
+    ? visibleItems.filter((item) => Boolean(item.readAt)).length
+    : visibleItems.filter((item) => statusLabel(item) === "Suspeita").length;
 
   const selected =
     visibleItems.find((item) => item.id === selectedId) ??
     visibleItems[0] ??
     null;
   const selectedFindings = selected ? findingFor(selected) : [];
+  const actionableFindings = selectedFindings.filter(
+    (finding) => !isInformationalFinding(finding),
+  );
+  const informationalFindings = selectedFindings.filter(isInformationalFinding);
+  const previewFindings = actionableFindings;
+  const totalFindingCount = Math.max(
+    actionableFindings.length,
+    selected?.findingCount ?? 0,
+  );
+  const hiddenFindingCount = Math.max(0, totalFindingCount - previewFindings.length);
   const isRead = selected ? readIds.has(selected.id) : false;
   const selectedStatus = selected ? statusLabel(selected) : null;
   const selectedNeedsContext = selectedStatus === "Precisa de informação";
   const unavailableDiagnosis = unavailableDiagnosisCopy(selectedStatus);
   const canMarkRead =
     selectedStatus !== "Aguardando processamento" &&
-    selectedStatus !== "Em análise";
+    selectedStatus !== "Em análise" &&
+    selectedStatus !== "Precisa de informação" &&
+    selectedStatus !== "Análise incompleta";
 
   function selectItem(id: string) {
     setReadNotice(null);
@@ -245,14 +378,22 @@ export function ReviewerNotesView({
   }
 
   async function markAsRead() {
-    if (!selected || !canMarkRead) return;
+    if (!selected || !canMarkRead || isMarkingRead) return;
     setReadError(null);
+    setIsMarkingRead(true);
     try {
       const response = await fetch(`/api/notas/${selected.id}/read`, {
         method: "POST",
         headers: { Accept: "application/json" },
       });
-      if (!response.ok) throw new Error();
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { erro?: { mensagem?: string } }
+          | null;
+        throw new Error(
+          payload?.erro?.mensagem ?? "Não foi possível marcar este anexo como lido.",
+        );
+      }
       const nextSelected = visibleItems.find((item) => item.id !== selected.id);
       setReadIds((current) => {
         const next = new Set(current);
@@ -261,8 +402,14 @@ export function ReviewerNotesView({
       });
       setSelectedId(nextSelected?.id ?? null);
       setReadNotice("Anexo marcado como lido e removido da lista.");
-    } catch {
-      setReadError("Não foi possível marcar este anexo como lido.");
+    } catch (caught) {
+      setReadError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível marcar este anexo como lido.",
+      );
+    } finally {
+      setIsMarkingRead(false);
     }
   }
 
@@ -276,26 +423,33 @@ export function ReviewerNotesView({
   }
 
   return (
-    <PortalShell active="notas" role={role}>
-      <div className={styles.page}>
+    <PortalShell active={historyMode ? "historico" : "notas"} role={role}>
+      <div className={`${styles.page} ${historyMode ? styles.historyPage : ""}`}>
         <header className={styles.pageHeader}>
           <div>
-            <p className={styles.eyebrow}>REVISÃO DE ANEXOS</p>
-            <h1>Notas</h1>
+            <p className={styles.eyebrow}>{historyMode ? "ANEXOS ACOMPANHADOS" : "REVISÃO DE ANEXOS"}</p>
+            <h1>{historyMode ? "Histórico" : "Notas"}</h1>
             <p className={styles.subtitle}>
-              Acompanhe os anexos recebidos e o diagnóstico da IA.
+              {historyMode
+                ? "Consulte tudo o que já foi marcado como lido."
+                : "Acompanhe os anexos recebidos e o diagnóstico da IA."}
             </p>
           </div>
           <div className={styles.headerStats} aria-label="Resumo dos anexos">
             <span>
-              <strong>{visibleItems.length}</strong> anexos
+              <strong>{visibleItems.length}</strong>{" "}
+              {visibleItems.length === 1 ? "anexo" : "anexos"}
             </span>
             <span className={styles.statDot} />
             <span>
-              <strong>
-                {visibleItems.filter((item) => statusLabel(item) === "Suspeita").length}
-              </strong>{" "}
-              suspeitos
+              <strong>{secondaryStatCount}</strong>{" "}
+              {historyMode
+                ? secondaryStatCount === 1
+                  ? "lido"
+                  : "lidos"
+                : secondaryStatCount === 1
+                  ? "suspeito"
+                  : "suspeitos"}
             </span>
           </div>
         </header>
@@ -313,7 +467,15 @@ export function ReviewerNotesView({
           <label className={styles.selectField}>
             <Icon name="calendar" />
             <span className={styles.visuallyHidden}>Período</span>
-            <select value={period} onChange={(event) => setPeriod(event.target.value)}>
+            <select
+              aria-label="Período"
+              value={period}
+              onChange={(event) => {
+                setPeriod(event.target.value);
+                setDateFrom("");
+                setDateTo("");
+              }}
+            >
               <option value="">Todos os meses</option>
               {periods.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -322,14 +484,36 @@ export function ReviewerNotesView({
               ))}
             </select>
           </label>
+          {historyMode ? (
+            <label className={styles.selectField}>
+              <Icon name="building" />
+              <span className={styles.visuallyHidden}>Obra</span>
+              <select
+                aria-label="Obra"
+                value={work}
+                onChange={(event) => setWork(event.target.value)}
+              >
+                <option value="">Todas as obras</option>
+                {works.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label className={styles.selectField}>
             <Icon name="filter" />
             <span className={styles.visuallyHidden}>Status</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <select
+              aria-label="Status"
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+            >
               <option value="">Todos os status</option>
               <option value="Suspeita">Suspeitas</option>
               <option value="OK">OK</option>
               <option value="Precisa de informação">Precisa de informação</option>
+              <option value="Informação insuficiente">Informação insuficiente</option>
+              <option value="Análise incompleta">Análise incompleta</option>
               <option value="Falha de leitura">Falha de leitura</option>
               <option value="Falha de processamento">Falha de processamento</option>
               <option value="Não processado">Não processado</option>
@@ -356,7 +540,10 @@ export function ReviewerNotesView({
             <span className={styles.visuallyHidden}>Data inicial</span>
             <input
               aria-label="Data inicial"
-              onChange={(event) => setDateFrom(event.target.value)}
+              onChange={(event) => {
+                setDateFrom(event.target.value);
+                setPeriod("");
+              }}
               type="date"
               value={dateFrom}
             />
@@ -366,12 +553,15 @@ export function ReviewerNotesView({
             <span className={styles.visuallyHidden}>Data final</span>
             <input
               aria-label="Data final"
-              onChange={(event) => setDateTo(event.target.value)}
+              onChange={(event) => {
+                setDateTo(event.target.value);
+                setPeriod("");
+              }}
               type="date"
               value={dateTo}
             />
           </label>
-          {(query || period || status || responsible || dateFrom || dateTo) && (
+          {(query || period || status || responsible || work || dateFrom || dateTo) && (
             <button
               className={styles.clearButton}
               type="button"
@@ -380,6 +570,7 @@ export function ReviewerNotesView({
                 setPeriod("");
                 setStatus("");
                 setResponsible("");
+                setWork("");
                 setDateFrom("");
                 setDateTo("");
               }}
@@ -388,6 +579,11 @@ export function ReviewerNotesView({
             </button>
           )}
         </section>
+
+        <p className={styles.filterResult} role="status" aria-live="polite">
+          Exibindo {visibleItems.length} de {items.length}{" "}
+          {items.length === 1 ? "anexo carregado" : "anexos carregados"}.
+        </p>
 
         {readNotice ? (
           <p className={styles.readNotice} role="status" aria-live="polite">
@@ -400,8 +596,17 @@ export function ReviewerNotesView({
           <section className={styles.attachmentsPanel} aria-labelledby="attachments-title">
             <div className={styles.panelHeader}>
               <div>
-                <h2 id="attachments-title">Anexos recebidos</h2>
-                <p>{visibleItems.length} itens para acompanhar</p>
+                <h2 id="attachments-title">{historyMode ? "Anexos lidos" : "Anexos recebidos"}</h2>
+                <p>
+                  {visibleItems.length}{" "}
+                  {visibleItems.length === 1
+                    ? historyMode
+                      ? "item no histórico"
+                      : "item para acompanhar"
+                    : historyMode
+                      ? "itens no histórico"
+                      : "itens para acompanhar"}
+                </p>
               </div>
               <span className={styles.countPill}>{visibleItems.length}</span>
             </div>
@@ -409,13 +614,21 @@ export function ReviewerNotesView({
               {visibleItems.length === 0 ? (
                 <div className={styles.emptyState}>
                   <Icon name="document" />
-                  <strong>Nenhum anexo encontrado</strong>
-                  <span>Ajuste a busca ou os filtros para continuar.</span>
+                  <strong>{historyMode ? "Nenhum anexo no histórico" : "Nenhum anexo encontrado"}</strong>
+                  <span>
+                    {historyMode
+                      ? "Os anexos aparecem aqui depois de serem marcados como lidos."
+                      : "Ajuste a busca ou os filtros para continuar."}
+                  </span>
                 </div>
               ) : (
                 visibleItems
                   .slice()
-                  .sort((a, b) => dateSortKey(b.date) - dateSortKey(a.date))
+                  .sort((a, b) =>
+                    historyMode
+                      ? Date.parse(b.readAt ?? "") - Date.parse(a.readAt ?? "")
+                      : dateSortKey(b.date) - dateSortKey(a.date),
+                  )
                   .map((item) => {
                     const itemStatus = statusLabel(item);
                     const itemRead = readIds.has(item.id);
@@ -435,8 +648,9 @@ export function ReviewerNotesView({
                           <strong>{item.number}</strong>
                           <span>{item.supplier}</span>
                           <small>
-                            {item.date}
-                            {item.work ? ` • ${item.work}` : ""}
+                            {historyMode && item.readAtLabel
+                              ? `Lida em ${item.readAtLabel}${item.readBy ? ` por ${item.readBy}` : ""}`
+                              : `${item.date}${item.work ? ` • ${item.work}` : ""}`}
                           </small>
                           <span className={`${styles.mobileStatus} ${statusClass[itemStatus] ?? styles.statusProcessing}`}>
                             {itemStatus === "Precisa de informação" ? <Icon name="help" /> : null}
@@ -449,7 +663,9 @@ export function ReviewerNotesView({
                             {itemStatus === "Precisa de informação" ? <Icon name="help" /> : null}
                             {itemStatus}
                           </span>
-                          <span className={`${styles.readDot} ${itemRead ? styles.readDotRead : ""}`} aria-label={itemRead ? "Lida" : "Não lida"} />
+                          {!historyMode ? (
+                            <span className={`${styles.readDot} ${itemRead ? styles.readDotRead : ""}`} aria-label={itemRead ? "Lida" : "Não lida"} />
+                          ) : null}
                         </span>
                       </button>
                     );
@@ -460,7 +676,7 @@ export function ReviewerNotesView({
               <span>
                 {displayedTotal === 0
                   ? "Nenhum anexo"
-                  : `Página ${displayedPage} de ${displayedPageCount} • ${displayedTotal} anexos`}
+                  : `Página ${displayedPage} de ${displayedPageCount} • ${displayedTotal} ${displayedTotal === 1 ? "anexo" : "anexos"}`}
               </span>
               <span className={styles.pagination}>
                 <button
@@ -506,7 +722,7 @@ export function ReviewerNotesView({
 
                 <div className={styles.diagnosisHeading}>
                   <div>
-                    <p className={styles.kicker}>LEITURA DA NOTA</p>
+                    <p className={styles.kicker}>LEITURA DO ANEXO</p>
                     <h2 id="diagnosis-title">Diagnóstico da IA</h2>
                     <p>
                       Evidências encontradas no processamento deste anexo.
@@ -520,7 +736,7 @@ export function ReviewerNotesView({
                     <span className={styles.contextCount}>{selectedStatus}</span>
                   ) : (
                     <span className={styles.findingCount}>
-                      {selectedFindings.length} {selectedFindings.length === 1 ? "achado" : "achados"}
+                      {totalFindingCount} {totalFindingCount === 1 ? "achado" : "achados"}
                     </span>
                   )}
                 </div>
@@ -546,63 +762,139 @@ export function ReviewerNotesView({
                       <p>{unavailableDiagnosis.description}</p>
                     </div>
                   </div>
-                ) : selectedFindings.length > 0 ? (
+                ) : actionableFindings.length > 0 ? (
                   <div className={styles.findingsList}>
-                    {selectedFindings.map((finding, index) => (
-                      <article className={styles.findingCard} key={`${finding.title}-${index}`}>
-                        <div className={styles.findingTopline}>
-                          <span className={styles.findingNumber}>{String(index + 1).padStart(2, "0")}</span>
-                          <div>
-                            <h3>{finding.title}</h3>
-                            {finding.category || finding.severity ? (
-                              <span className={styles.findingMeta}>
-                                {finding.category ?? "Auditoria"}
-                                {finding.severity ? ` • ${finding.severity.toLowerCase()}` : ""}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                        <p className={styles.findingDescription}>{finding.description}</p>
-                        {finding.evidence ? (
-                          <div className={styles.evidenceBlock}>
-                            <span>Evidência</span>
-                            <p>{finding.evidence}</p>
-                          </div>
-                        ) : null}
-                        {finding.expectedValue || finding.actualValue ? (
-                          <div className={styles.comparisonGrid}>
-                            {finding.expectedValue ? (
-                              <div>
-                                <span>Esperado</span>
-                                <strong>{finding.expectedValue}</strong>
+                    {previewFindings.map((finding, index) => {
+                      const evidenceDetails = compactEvidenceDetails(finding);
+                      const hasStructuredEvidence = Boolean(finding.evidenceDetails?.length);
+                      const shortDescription = compactFindingDescription(
+                        humanizeFindingText(finding.description),
+                      );
+                      const locationDetails = evidenceDetails.filter((part) =>
+                        ["Campo", "Item", "Página"].includes(part.label),
+                      );
+                      const metaDetails = locationDetails.length
+                        ? locationDetails
+                        : evidenceDetails;
+                      const findingMeta = [
+                        ...metaDetails.map((part) =>
+                          part.label === "Campo"
+                            ? part.value
+                            : `${part.label} ${part.value}`,
+                        ),
+                        finding.severity
+                          ? `Gravidade ${severityLabel(finding.severity)}`
+                          : findingCategoryLabel(finding.category),
+                      ].filter(Boolean);
+                      return (
+                        <details
+                          className={styles.findingCard}
+                          key={`${finding.title}-${index}`}
+                          open={index < 2}
+                        >
+                          <summary className={styles.findingSummary}>
+                            <span className={styles.findingNumber}>
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <span className={styles.findingSummaryCopy}>
+                              <strong>{humanizeFindingText(finding.title)}</strong>
+                              <small>{findingMeta.join(" · ")}</small>
+                            </span>
+                            <span className={styles.findingToggle} aria-hidden="true">
+                              <Icon name="chevron" />
+                            </span>
+                          </summary>
+                          <div className={styles.findingBody}>
+                            <p className={styles.findingBodyLead}>{shortDescription}</p>
+                            {finding.expectedValue || finding.actualValue ? (
+                              <div className={styles.comparisonGrid}>
+                                {finding.expectedValue ? (
+                                  <div>
+                                    <span>Esperado</span>
+                                    <strong>
+                                      {formatFindingValueLines(finding.expectedValue).map(
+                                        (line, lineIndex) => (
+                                          <i key={`${line}-${lineIndex}`}>{line}</i>
+                                        ),
+                                      )}
+                                    </strong>
+                                  </div>
+                                ) : null}
+                                {finding.actualValue ? (
+                                  <div>
+                                    <span>Encontrado</span>
+                                    <strong>
+                                      {formatFindingValueLines(finding.actualValue).map(
+                                        (line, lineIndex) => (
+                                          <i key={`${line}-${lineIndex}`}>{line}</i>
+                                        ),
+                                      )}
+                                    </strong>
+                                  </div>
+                                ) : null}
                               </div>
                             ) : null}
-                            {finding.actualValue ? (
-                              <div>
-                                <span>Encontrado</span>
-                                <strong>{finding.actualValue}</strong>
+                            {!hasStructuredEvidence && finding.evidence ? (
+                              <div className={styles.evidenceBlock}>
+                                <span>Trecho da evidência</span>
+                                <p>{humanizeFindingText(finding.evidence)}</p>
                               </div>
                             ) : null}
+                            {finding.justification ? (
+                              <p className={styles.findingReason}>
+                                <strong>Por que merece atenção:</strong>{" "}
+                                {compactFindingDescription(
+                                  humanizeFindingText(finding.justification),
+                                )}
+                              </p>
+                            ) : null}
                           </div>
-                        ) : null}
-                        {finding.justification ? (
-                          <div className={styles.justificationBlock}>
-                            <span>Justificativa</span>
-                            <p>{finding.justification}</p>
-                          </div>
-                        ) : null}
-                      </article>
-                    ))}
+                        </details>
+                      );
+                    })}
+                    {hiddenFindingCount > 0 ? (
+                      <p className={styles.moreFindings}>
+                        +{hiddenFindingCount} {hiddenFindingCount === 1 ? "outro achado" : "outros achados"} na análise completa
+                      </p>
+                    ) : null}
                   </div>
                 ) : (
-                  <div className={styles.noFinding}>
-                    <span className={styles.noFindingIcon}><Icon name="check" /></span>
+                  <div className={selectedStatus === "Suspeita" ? styles.incompleteDiagnosis : styles.noFinding}>
+                    <span className={selectedStatus === "Suspeita" ? styles.incompleteDiagnosisIcon : styles.noFindingIcon}>
+                      <Icon name={selectedStatus === "Suspeita" ? "warning" : "check"} />
+                    </span>
                     <div>
-                      <strong>Nenhuma inconsistência registrada</strong>
-                      <p>A IA não encontrou um achado para este anexo.</p>
+                      <strong>
+                        {selectedStatus === "Suspeita"
+                          ? "Diagnóstico sem detalhes estruturados"
+                          : "Nenhuma inconsistência registrada"}
+                      </strong>
+                      <p>
+                        {selectedStatus === "Suspeita"
+                          ? "A classificação foi registrada como suspeita, mas os achados detalhados não estão disponíveis. Reprocesse o anexo no painel administrativo."
+                          : "A IA não encontrou um achado para este anexo."}
+                      </p>
                     </div>
                   </div>
                 )}
+
+                {informationalFindings.length > 0 ? (
+                  <details className={styles.informationalFindings}>
+                    <summary>
+                      {informationalFindings.length === 1
+                        ? "1 observação informativa"
+                        : `${informationalFindings.length} observações informativas`}
+                    </summary>
+                    <div>
+                      {informationalFindings.map((finding, index) => (
+                        <article key={`${finding.title}-info-${index}`}>
+                          <strong>{finding.title}</strong>
+                          <p>{finding.description}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
 
                 <details className={styles.extractedDetails}>
                   <summary>
@@ -618,22 +910,37 @@ export function ReviewerNotesView({
                 </details>
 
                 <div className={styles.diagnosisActions}>
-                  <Link className={styles.detailLink} href={`/notas/${selected.id}`}>
+                  <Link className={styles.detailLink} href={`/notas/${selected.id}/analise-ia`}>
                     Ver nota detalhada <Icon name="chevron" />
                   </Link>
-                  <button
-                    className={`${styles.readButton} ${isRead ? styles.readButtonDone : ""}`}
-                    disabled={isRead || !canMarkRead}
-                    onClick={markAsRead}
-                    type="button"
-                  >
-                    <Icon name={isRead ? "check" : "check"} />
-                    {isRead
-                      ? "Marcada como lida"
-                      : canMarkRead
-                        ? "Marcar como lida"
-                        : "Aguardando análise"}
-                  </button>
+                  {historyMode ? (
+                    <span className={styles.historyReadMeta}>
+                      <Icon name="check" />
+                      <span>
+                        <strong>Marcada como lida</strong>
+                        {selected.readAtLabel ? ` em ${selected.readAtLabel}` : ""}
+                        {selected.readBy ? ` por ${selected.readBy}` : ""}
+                      </span>
+                    </span>
+                  ) : (
+                    <button
+                      className={`${styles.readButton} ${isRead ? styles.readButtonDone : ""}`}
+                      disabled={isRead || !canMarkRead || isMarkingRead}
+                      onClick={markAsRead}
+                      type="button"
+                    >
+                      <Icon name="check" />
+                      {isRead
+                        ? "Marcada como lida"
+                        : isMarkingRead
+                          ? "Marcando…"
+                        : canMarkRead
+                          ? "Marcar como lida"
+                          : selectedNeedsContext
+                            ? "Aguardando informação"
+                            : "Aguardando análise"}
+                    </button>
+                  )}
                 </div>
                 {readError ? <p className={styles.readError}>{readError}</p> : null}
               </>

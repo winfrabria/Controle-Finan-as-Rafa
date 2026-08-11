@@ -122,6 +122,8 @@ export function createDemoNoteDetail({
         referencia: "Contrato vigente da Obra Piloto HWN",
         secaoDocumento: "Itens previstos para fundação e estrutura",
       },
+      explanation:
+        "A compra inclui um material que não aparece entre os itens autorizados no contrato vigente da obra.",
       expectedValue: { itemEsperadoNoContrato: true },
       id: `${id}-finding-1`,
       needsValidation: true,
@@ -160,6 +162,8 @@ export function createDemoNoteDetail({
         quantidadeNota: 200,
         referencia: "Medição acumulada da Obra Piloto HWN",
       },
+      explanation:
+        "A quantidade faturada supera a medição acumulada disponível para a obra.",
       expectedValue: {
         quantidadeMaximaConformeMedicao: 148.15,
         unidade: "SC",
@@ -202,6 +206,8 @@ export function createDemoNoteDetail({
         precoUnitarioNota: 15.6,
         referencia: "Tabela de preços de referência cadastrada",
       },
+      explanation:
+        "O preço unitário extraído supera a referência cadastrada para o mesmo material.",
       expectedValue: {
         precoUnitarioMaximo: 13.93,
         unidade: "KG",
