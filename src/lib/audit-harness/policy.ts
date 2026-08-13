@@ -49,8 +49,6 @@ export function selectReasoningEffort(
 }
 
 export function isReadFailure(invoice: HarnessInvoice) {
-  if (invoice.readConfidence < AUDIT_POLICY.readFailureThreshold) return true;
-
   const ocrFallback = isOcrFallbackExtraction(invoice);
   const ocrHasFinancialSignal =
     ocrFallback &&
@@ -63,7 +61,6 @@ export function isReadFailure(invoice: HarnessInvoice) {
   const hasFinancialContent =
     invoice.totalAmount !== null || invoice.items.length > 0 || ocrHasFinancialSignal;
   if (!hasFinancialContent) return true;
-  if (hasMinimumIdentity || ocrFallback) return false;
 
   // Reimbursements and other composite submissions legitimately contain
   // several receipts/suppliers instead of one invoice identity. They must be
@@ -71,5 +68,36 @@ export function isReadFailure(invoice: HarnessInvoice) {
   const compositeDocument = [...invoice.warnings, invoice.markdown].some((value) =>
     /reembolso|reimbursement|múltiplos? fornecedores|vários fornecedores|multiple suppliers|comprovantes?|prestação de contas|expense report/i.test(value),
   );
+
+  // Provider confidence is useful telemetry, but it is not sufficient on its
+  // own to discard a materially complete extraction. Some multimodal models
+  // return zero when a composite document has no single supplier identity,
+  // even after reading every page, reconciling the total and extracting many
+  // individual receipts. Require independent structural evidence before a
+  // low-confidence result can continue to audit.
+  const pricedItems = invoice.items.filter(
+    (item) => item.totalAmount !== null || item.unitPrice !== null,
+  ).length;
+  const hasRichStructuredEvidence =
+    invoice.markdown.length >= 500 &&
+    invoice.items.length >= 5 &&
+    pricedItems >= 3 &&
+    (invoice.totalAmount !== null || hasMinimumIdentity);
+  const hasCompositeEvidence =
+    compositeDocument &&
+    invoice.markdown.length >= 240 &&
+    invoice.items.length >= 3 &&
+    pricedItems >= 3 &&
+    invoice.totalAmount !== null;
+
+  if (
+    invoice.readConfidence < AUDIT_POLICY.readFailureThreshold &&
+    !hasRichStructuredEvidence &&
+    !hasCompositeEvidence
+  ) {
+    return true;
+  }
+  if (hasMinimumIdentity || ocrFallback || hasRichStructuredEvidence) return false;
+
   return !compositeDocument;
 }

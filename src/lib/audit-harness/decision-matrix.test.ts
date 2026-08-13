@@ -54,6 +54,42 @@ test("reembolso composto legível segue para auditoria mesmo sem identidade úni
   assert.notEqual(evaluateHarness({ invoice: reimbursement }).classification, "READ_FAILED");
 });
 
+test("confiança zero não descarta reembolso composto com extração materialmente rica", () => {
+  const reimbursement: HarnessInvoice = {
+    documentNumber: null,
+    supplierName: null,
+    supplierTaxId: null,
+    issuedAt: "2026-06-01",
+    totalAmount: "551.90",
+    readConfidence: 0,
+    warnings: [],
+    markdown:
+      "Ficha de reembolso com múltiplos comprovantes. ".repeat(12) +
+      "Total consolidado R$ 551,90.",
+    items: Array.from({ length: 22 }, (_, index) => ({
+      lineNumber: index + 1,
+      description: `Comprovante ${index + 1} da ficha de reembolso`,
+      quantity: "1",
+      unitPrice: "25.00",
+      totalAmount: "25.00",
+    })),
+  };
+
+  assert.equal(isReadFailure(reimbursement), false);
+  assert.notEqual(evaluateHarness({ invoice: reimbursement }).classification, "READ_FAILED");
+});
+
+test("confiança baixa continua falhando quando não há evidência estrutural suficiente", () => {
+  assert.equal(
+    isReadFailure({
+      ...sparseInvoice,
+      readConfidence: 0,
+      markdown: "Valor isolado e sem estrutura suficiente.",
+    }),
+    true,
+  );
+});
+
 test("achado sustentado warning exige classificação suspeita", () => {
   assert.equal(decideClassification({
     readFailed: false,

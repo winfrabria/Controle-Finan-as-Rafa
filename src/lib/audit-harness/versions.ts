@@ -1,5 +1,5 @@
 export const HARNESS_VERSIONS = {
-  policy: "2026-08-11.1",
+  policy: "2026-08-13.1",
   prompt: "2026-08-11.1",
   schema: "2026-08-10.1",
   rules: "2026-08-09.3",

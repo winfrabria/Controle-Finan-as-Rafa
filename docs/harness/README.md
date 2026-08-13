@@ -8,7 +8,7 @@ O Harness transforma uma extração validada em uma decisão auditável. A ordem
 4. matriz de decisão;
 5. persistência de achados, métricas e diagnóstico.
 
-Política ativa: `2026-08-11.1`; prompt: `2026-08-11.1`; regras: `2026-08-09.3`; schema:
+Política ativa: `2026-08-13.1`; prompt: `2026-08-11.1`; regras: `2026-08-09.3`; schema:
 `2026-08-10.1`. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
@@ -24,6 +24,9 @@ versão ativa.
 - resposta de IA validada com Zod e JSON Schema estrito;
 - URL assinada, chave, autorização e reasoning são removidos de dados persistidos;
 - falha de leitura termina em `READ_FAILED`, sem achado e sem notificação ao Rafael;
+- confiança de leitura baixa, isoladamente, não encerra um documento composto
+  materialmente extraído; total, texto multipágina e itens com valores formam
+  evidência estrutural independente antes da auditoria;
 - os resultados canônicos são `OK`, `SUSPICIOUS`, `NEEDS_CONTEXT` e `READ_FAILED`; `SUSPICIOUS` é terminal no MVP e não cria decisão humana;
 - divergências de valor, data, total ou identificador comprováveis no próprio anexo viram `SUSPICIOUS`; perguntas são reservadas a fatos externos realmente ausentes;
 - `NEEDS_CONTEXT` permite até três perguntas específicas, uma submissão e uma reanálise. Se ainda faltar contexto, o estado interno permanece `NEEDS_CONTEXT`, mas o estado público termina em `COMPLETED`;

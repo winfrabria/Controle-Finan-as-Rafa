@@ -121,6 +121,23 @@ export function shouldRunAuditWithoutExtraction(input: {
   );
 }
 
+export function canScheduleAuditRecovery(input: {
+  processingStage: ProcessingStage;
+  status: NoteStatus;
+}) {
+  const interruptedAudit =
+    (input.status === NoteStatus.PROCESSING ||
+      input.status === NoteStatus.FAILED) &&
+    (input.processingStage === ProcessingStage.ANALYZING ||
+      input.processingStage === ProcessingStage.FINALIZING ||
+      input.processingStage === ProcessingStage.FAILED);
+  const falseReadFailureCandidate =
+    input.status === NoteStatus.READ_FAILED &&
+    input.processingStage === ProcessingStage.COMPLETED;
+
+  return interruptedAudit || falseReadFailureCandidate;
+}
+
 type ClaimedPipelineJob = {
   contextSubmissionId: string | null;
   id: string;
@@ -440,13 +457,7 @@ export async function scheduleNoteAuditRecoveryInTransaction(
     );
   }
 
-  const eligibleStatus =
-    note.status === NoteStatus.PROCESSING || note.status === NoteStatus.FAILED;
-  const eligibleStage =
-    note.processingStage === ProcessingStage.ANALYZING ||
-    note.processingStage === ProcessingStage.FINALIZING ||
-    note.processingStage === ProcessingStage.FAILED;
-  if (!eligibleStatus || !eligibleStage) {
+  if (!canScheduleAuditRecovery(note)) {
     throw new ProcessingJobError(
       "AUDIT_RECOVERY_NOT_ALLOWED",
       "A nota não está em um estado recuperável de auditoria.",

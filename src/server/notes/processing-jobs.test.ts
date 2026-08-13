@@ -12,11 +12,29 @@ import {
 } from "@/generated/prisma/enums";
 import {
   auditRecoveryIdempotencyKey,
+  canScheduleAuditRecovery,
   pipelineFailureDetails,
   processingFailureLifecycle,
   runClaimedProcessingJobPipeline,
   scheduleNoteAuditRecoveryInTransaction,
 } from "./processing-jobs";
+
+test("recuperação audit-only aceita falso READ_FAILED com extração persistida", () => {
+  assert.equal(
+    canScheduleAuditRecovery({
+      processingStage: ProcessingStage.COMPLETED,
+      status: NoteStatus.READ_FAILED,
+    }),
+    true,
+  );
+  assert.equal(
+    canScheduleAuditRecovery({
+      processingStage: ProcessingStage.COMPLETED,
+      status: NoteStatus.OK,
+    }),
+    false,
+  );
+});
 
 test("job completo sem extração executa leitura antes da auditoria", async () => {
   const calls: string[] = [];
