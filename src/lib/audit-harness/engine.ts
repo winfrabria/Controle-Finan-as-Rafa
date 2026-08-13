@@ -172,6 +172,42 @@ export function deduplicateHarnessFindings<T extends {
   });
 }
 
+function reconcileFindingPrecedence<T extends {
+  category: string;
+  code: string;
+  evidence: Record<string, unknown>;
+  noteItemLineNumber: number | null;
+}>(findings: T[]) {
+  const hasCoverageGap = findings.some(
+    (finding) =>
+      finding.code === "COMPOSITE_DETAIL_COVERAGE_GAP" ||
+      finding.code.startsWith("COMPOSITE_PAYMENT_DOCUMENT_GAP"),
+  );
+  const evidenceMismatchLines = new Set(
+    findings
+      .filter((finding) => finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_"))
+      .map(
+        (finding) =>
+          finding.noteItemLineNumber ??
+          (typeof finding.evidence.lineNumber === "number"
+            ? finding.evidence.lineNumber
+            : null),
+      )
+      .filter((value): value is number => value !== null),
+  );
+
+  return findings.filter((finding) => {
+    if (hasCoverageGap && finding.code === "TOTAL_MISMATCH") return false;
+    if (finding.code !== "ITEM_ARITHMETIC_MISMATCH") return true;
+    const lineNumber =
+      finding.noteItemLineNumber ??
+      (typeof finding.evidence.lineNumber === "number"
+        ? finding.evidence.lineNumber
+        : null);
+    return lineNumber === null || !evidenceMismatchLines.has(lineNumber);
+  });
+}
+
 export function evaluateHarness(input: {
   invoice: HarnessInvoice;
   workRules?: WorkRuleInput[];
@@ -202,12 +238,14 @@ export function evaluateHarness(input: {
     input.aiDiscovery?.contextQuestions ?? [],
     aiFindings,
   );
-  const findings = deduplicateHarnessFindings([
-    ...universal.findings,
-    ...work.findings,
-    ...aiFindings,
-    ...routedContext.promotedFindings,
-  ]);
+  const findings = deduplicateHarnessFindings(
+    reconcileFindingPrecedence([
+      ...universal.findings,
+      ...work.findings,
+      ...aiFindings,
+      ...routedContext.promotedFindings,
+    ]),
+  );
   const deterministicCoverage = universal.covered || work.covered;
   const aiCoverage = input.aiDiscovery?.coverage.sufficientEvidence ?? false;
   const contextQuestions = routedContext.contextQuestions;

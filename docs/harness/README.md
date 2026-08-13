@@ -10,8 +10,8 @@ O Harness transforma uma extração validada em uma decisão auditável. A ordem
 6. matriz de decisão;
 7. persistência de achados, métricas e diagnóstico.
 
-Política ativa: `2026-08-13.2`; prompt: `2026-08-13.2`; regras: `2026-08-13.2`; schema:
-`2026-08-13.2`. Os artefatos versionados ficam nas pastas
+Política ativa: `2026-08-13.3`; prompt: `2026-08-13.3`; regras: `2026-08-13.3`; schema:
+`2026-08-13.3`. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
 versão ativa.
@@ -25,6 +25,14 @@ versão ativa.
   local transforma valores ou datas conflitantes em achados antes da descoberta
   livre, sem depender de um segundo modelo perceber novamente a mesma evidência;
 - diferenças explicadas por desconto explícito e reconciliável não viram achado;
+- pagamentos agregados usam `documentGroup` e são comparados com a soma dos
+  itens do mesmo documento, evitando falsos positivos por produto;
+- cobranças consolidadas usam papel e grupo documental para reconciliar todos os
+  suportes presentes, sem regra específica por fornecedor, número ou valor;
+- campos vazios só viram achado quando o próprio documento declarar a
+  obrigatoriedade; a regra vale para qualquer formulário;
+- lacunas de cobertura impedem `TOTAL_MISMATCH` até que a camada totalizadora
+  esteja completa;
 - uma resposta estruturalmente inválida permite uma única reconstrução com o OCR ou rascunho já obtido; sem material reutilizável, o mesmo Terra é repetido uma vez. Não existe cadeia silenciosa entre modelos;
 - a auditoria faz no máximo duas chamadas e o `ProcessingJob` não repete externamente a rota já concluída;
 - `reasoning.exclude=true`; chain-of-thought nunca é solicitado ou persistido;

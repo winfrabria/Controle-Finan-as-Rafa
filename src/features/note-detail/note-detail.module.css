@@ -838,6 +838,11 @@
 .findingList {
   display: grid;
   gap: 10px;
+  max-height: calc(100vh - 230px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-width: thin;
 }
 
 .findingList button {
@@ -908,6 +913,52 @@
   padding: 17px 18px;
 }
 
+.findingPager {
+  align-items: center;
+  background: #f7faff;
+  border: 1px solid #e1e9f3;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 6px;
+}
+
+.findingPager button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d7e2ee;
+  border-radius: 7px;
+  color: #075cff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 750;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.findingPager button:last-child svg {
+  transform: rotate(180deg);
+}
+
+.findingPager button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.findingPager button svg {
+  height: 12px;
+  width: 12px;
+}
+
+.findingPager > span {
+  color: #526788;
+  font-size: 11px;
+  font-weight: 750;
+}
+
 @keyframes analysisReveal {
   from {
     opacity: 0;
@@ -972,6 +1023,15 @@
   overflow-wrap: anywhere;
 }
 
+.findingDetailTitle > div {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
 .comparison p > span {
   display: block;
 }
@@ -1018,6 +1078,68 @@
   color: #17345e;
   font-size: 12px;
   line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.evidenceObservationList {
+  display: grid;
+  gap: 9px;
+}
+
+.evidenceObservationList article {
+  background: #f8faff;
+  border: 1px solid #e0e8f2;
+  border-radius: 8px;
+  min-width: 0;
+  padding: 10px 11px;
+}
+
+.evidenceObservationList article > header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.evidenceObservationList article > header > span {
+  background: #eaf2ff;
+  border-radius: 999px;
+  color: #075cff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 5px 8px;
+}
+
+.evidenceObservationList article > header > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.evidenceObservationList small {
+  color: #637493;
+  font-size: 10px;
+}
+
+.evidenceObservationList strong {
+  color: #17345e;
+  font-size: 11px;
+}
+
+.evidenceObservationList h4 {
+  color: #17345e;
+  font-size: 12px;
+  margin: 9px 0 3px;
+  overflow-wrap: anywhere;
+}
+
+.evidenceObservationList p {
+  color: #526788;
+  font-size: 11px;
+  line-height: 1.5;
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -1659,6 +1781,15 @@
     position: static;
   }
 
+  .findingList {
+    grid-auto-columns: minmax(245px, 78vw);
+    grid-auto-flow: column;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 5px;
+  }
+
   .analysisSourceGrid {
     grid-template-columns: 1fr;
   }
@@ -2004,6 +2135,26 @@
 
   .itemCards dl {
     grid-template-columns: 1fr;
+  }
+
+  .findingPager button {
+    font-size: 0;
+    min-width: 40px;
+    padding: 0 12px;
+  }
+
+  .findingPager button svg {
+    height: 14px;
+    width: 14px;
+  }
+
+  .evidenceObservationList article > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .evidenceObservationList article > header > div {
+    justify-content: flex-start;
   }
 
   .sourceList li {

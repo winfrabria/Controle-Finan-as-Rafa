@@ -154,6 +154,52 @@ test("achado livre sustentado vai direto para suspeita mesmo com pergunta acess�
   }), "SUSPICIOUS");
 });
 
+test("lacuna de cobertura impede falso total divergente e deduplica a mesma diferença", () => {
+  const result = evaluateHarness({
+    invoice: {
+      ...sparseInvoice,
+      documentKind: "COMPOSITE",
+      totalAmount: "100.00",
+      items: [{
+        lineNumber: 12,
+        description: "Item parcialmente extraído",
+        quantity: "1",
+        unitPrice: "44.50",
+        totalAmount: "40.00",
+        evidenceObservations: [
+          { kind: "SALE", label: "Venda", amount: "44.50", date: null, page: 13, text: "Venda" },
+          { kind: "PAYMENT", label: "Pagamento", amount: "40.00", date: null, page: 13, text: "Pagamento" },
+        ],
+      }],
+    },
+    aiDiscovery: {
+      findings: [{
+        code: "COMPOSITE_DETAIL_COVERAGE_GAP",
+        title: "Cobertura incompleta",
+        description: "Ainda faltam linhas anunciadas na ficha.",
+        category: "DOCUMENT_COVERAGE",
+        severity: "INFO",
+        source: "AI_DISCOVERY",
+        confidence: 1,
+        justification: "A extração termina antes das linhas referenciadas.",
+        references: ["DOCUMENTO:página:1"],
+        evidence: { page: 1, summary: "Faltam linhas 25 a 37." },
+        expectedValue: "Linhas 1 a 37",
+        actualValue: "Linhas 1 a 24",
+        noteItemLineNumber: null,
+      }],
+      coverage: { sufficientEvidence: true, checkedAreas: ["COVERAGE"], limitations: [] },
+      contextQuestions: [],
+      needsContext: false,
+      summary: "Cobertura parcial.",
+    },
+  });
+
+  assert.equal(result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"), false);
+  assert.equal(result.findings.some((finding) => finding.code === "ITEM_ARITHMETIC_MISMATCH"), false);
+  assert.equal(result.findings.some((finding) => finding.code === "EVIDENCE_AMOUNT_MISMATCH_12"), true);
+});
+
 test("achado determinístico comprovado vai direto para suspeita mesmo com pergunta acessória", () => {
   assert.equal(decideClassification({
     readFailed: false,

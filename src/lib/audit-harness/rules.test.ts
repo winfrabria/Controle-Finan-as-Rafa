@@ -156,7 +156,7 @@ test("não sinaliza como erro aritmético um desconto explícito e reconciliado"
   );
 });
 
-test("reconcilia ficha, venda e pagamento do reembolso sem depender do avaliador", () => {
+test("não inventa divergência de data ou valor no item 19 conciliado", () => {
   const result = evaluateUniversalRules({
     invoice: invoice({
       documentKind: "REIMBURSEMENT",
@@ -175,7 +175,7 @@ test("reconcilia ficha, venda e pagamento do reembolso sem depender do avaliador
               label: "Ficha de reembolso",
               amount: "18.00",
               date: "2026-05-27",
-              page: 20,
+              page: 1,
               text: "Item 19 — R$ 18,00",
             },
             {
@@ -189,10 +189,10 @@ test("reconcilia ficha, venda e pagamento do reembolso sem depender do avaliador
             {
               kind: "PAYMENT",
               label: "Cartão Casa da Uva",
-              amount: "28.00",
+              amount: "18.00",
               date: "2026-05-27",
               page: 20,
-              text: "Valor R$ 28,00",
+              text: "Valor R$ 18,00",
             },
           ],
         },
@@ -200,16 +200,333 @@ test("reconcilia ficha, venda e pagamento do reembolso sem depender do avaliador
     }),
   });
 
-  const mismatch = result.findings.find(
-    (finding) => finding.code === "EVIDENCE_AMOUNT_MISMATCH_19",
-  );
-  assert.ok(mismatch);
-  assert.equal(mismatch.expectedValue, "18.00");
-  assert.equal(mismatch.actualValue, "28.00");
-  assert.equal(mismatch.severity, "WARNING");
   assert.equal(
-    JSON.stringify(mismatch.evidence).includes("Cartão Casa da Uva"),
+    result.findings.some(
+      (finding) =>
+        finding.code === "EVIDENCE_AMOUNT_MISMATCH_19" ||
+        finding.code === "EVIDENCE_DATE_MISMATCH_19",
+    ),
+    false,
+  );
+});
+
+test("reconcilia pagamento agregado com a soma dos produtos do mesmo documento", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      totalAmount: "15.00",
+      items: [
+        {
+          lineNumber: 23,
+          description: "Pão de queijo",
+          countsTowardDocumentTotal: true,
+          quantity: "2",
+          unitPrice: "5.00",
+          totalAmount: "10.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "NFCE-75395", label: "Item 001", amount: "10.00", date: "2026-05-14", page: 3, text: "2 x R$ 5,00" },
+            { kind: "PAYMENT", documentGroup: "NFCE-75395", label: "Pagamento total", amount: "15.00", date: "2026-05-14", page: 3, text: "Débito R$ 15,00" },
+          ],
+        },
+        {
+          lineNumber: 24,
+          description: "Café expresso",
+          countsTowardDocumentTotal: true,
+          quantity: "1",
+          unitPrice: "5.00",
+          totalAmount: "5.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "NFCE-75395", label: "Item 002", amount: "5.00", date: "2026-05-14", page: 3, text: "1 x R$ 5,00" },
+            { kind: "PAYMENT", documentGroup: "NFCE-75395", label: "Pagamento total", amount: "15.00", date: "2026-05-14", page: 3, text: "Débito R$ 15,00" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_"),
+    ),
+    false,
+  );
+});
+
+test("sinaliza uma vez quando pagamento agregado não reconcilia com os produtos", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      totalAmount: "20.00",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Produto A",
+          countsTowardDocumentTotal: true,
+          quantity: "1",
+          unitPrice: "10.00",
+          totalAmount: "10.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "NFCE-X", label: "Item 1", amount: "10.00", date: null, page: 1, text: "Produto A" },
+            { kind: "PAYMENT", documentGroup: "NFCE-X", label: "Pagamento", amount: "20.00", date: null, page: 1, text: "Pagamento total" },
+          ],
+        },
+        {
+          lineNumber: 2,
+          description: "Produto B",
+          countsTowardDocumentTotal: true,
+          quantity: "1",
+          unitPrice: "5.00",
+          totalAmount: "5.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "NFCE-X", label: "Item 2", amount: "5.00", date: null, page: 1, text: "Produto B" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.filter((finding) =>
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_"),
+    ).length,
+    1,
+  );
+});
+
+test("sinaliza boleto agregado quando os documentos fiscais anexados não cobrem o pagamento", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      documentNumber: "3098",
+      totalAmount: "2142.29",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Boleto referente aos documentos 3055 A 3098",
+          documentGroup: "LOTE-A",
+          documentRole: "AGGREGATE_PAYMENT",
+          countsTowardDocumentTotal: true,
+          quantity: "1",
+          unitPrice: "2142.29",
+          totalAmount: "2142.29",
+        },
+        {
+          lineNumber: 2,
+          description: "NF-e 3098 — peças e materiais",
+          documentGroup: "LOTE-A",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: "1",
+          unitPrice: "473.93",
+          totalAmount: "473.93",
+        },
+      ],
+    }),
+  });
+
+  const gap = result.findings.find(
+    (finding) => finding.code.startsWith("COMPOSITE_PAYMENT_DOCUMENT_GAP"),
+  );
+  assert.ok(gap);
+  assert.equal(gap.expectedValue, "2142.29");
+  assert.equal(gap.actualValue, "473.93");
+  assert.equal(gap.evidence.unsupportedAmount, "1668.36");
+});
+
+test("aplica a conciliação documental a outro fornecedor, outra cobrança e outros valores", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      documentNumber: "FAT-88",
+      totalAmount: "950.00",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Cobrança mensal consolidada",
+          documentGroup: "MEDICAO-JULHO",
+          documentRole: "AGGREGATE_PAYMENT",
+          countsTowardDocumentTotal: true,
+          quantity: "1",
+          unitPrice: "950.00",
+          totalAmount: "950.00",
+        },
+        {
+          lineNumber: 2,
+          description: "Documento fiscal de suporte A-71",
+          documentGroup: "MEDICAO-JULHO",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: "1",
+          unitPrice: "300.00",
+          totalAmount: "300.00",
+        },
+        {
+          lineNumber: 3,
+          description: "Documento fiscal de suporte A-72",
+          documentGroup: "MEDICAO-JULHO",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: "1",
+          unitPrice: "250.00",
+          totalAmount: "250.00",
+        },
+      ],
+    }),
+  });
+
+  const gap = result.findings.find((finding) =>
+    finding.code.startsWith("COMPOSITE_PAYMENT_DOCUMENT_GAP"),
+  );
+  assert.ok(gap);
+  assert.equal(gap.expectedValue, "950.00");
+  assert.equal(gap.actualValue, "550.00");
+  assert.equal(gap.evidence.unsupportedAmount, "400.00");
+});
+
+test("preserva o achado de cobertura e elimina o total genérico duplicado", () => {
+  const result = evaluateHarness({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      totalAmount: "950.00",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Cobrança mensal consolidada",
+          documentGroup: "MEDICAO-AGOSTO",
+          documentRole: "AGGREGATE_PAYMENT",
+          countsTowardDocumentTotal: true,
+          quantity: "1",
+          unitPrice: "950.00",
+          totalAmount: "950.00",
+        },
+        {
+          lineNumber: 2,
+          description: "Documento fiscal de suporte B-10",
+          documentGroup: "MEDICAO-AGOSTO",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: "1",
+          unitPrice: "550.00",
+          totalAmount: "550.00",
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("COMPOSITE_PAYMENT_DOCUMENT_GAP"),
+    ),
     true,
+  );
+  assert.equal(
+    result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"),
+    false,
+  );
+});
+
+test("não sinaliza boleto agregado quando os documentos anexados cobrem o pagamento", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      totalAmount: "823.00",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Boleto referente à nota 6733",
+          documentGroup: "LOTE-B",
+          documentRole: "AGGREGATE_PAYMENT",
+          countsTowardDocumentTotal: true,
+          quantity: "1",
+          unitPrice: "823.00",
+          totalAmount: "823.00",
+        },
+        {
+          lineNumber: 2,
+          description: "NF-e 6733 — seis produtos",
+          documentGroup: "LOTE-B",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: "1",
+          unitPrice: "823.00",
+          totalAmount: "823.00",
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some(
+      (finding) => finding.code.startsWith("COMPOSITE_PAYMENT_DOCUMENT_GAP"),
+    ),
+    false,
+  );
+});
+
+test("sinaliza campos vazios somente quando o documento declara obrigatoriedade", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "REIMBURSEMENT",
+      requiredFieldChecks: [
+        {
+          field: "approver",
+          label: "Aprovador",
+          requiredByDocument: true,
+          present: false,
+          page: 1,
+          evidence: "O formulário informa que todos os campos são obrigatórios.",
+        },
+        {
+          field: "requester_signature",
+          label: "Assinatura do solicitante",
+          requiredByDocument: true,
+          present: true,
+          page: 1,
+          evidence: "Campo assinado.",
+        },
+        {
+          field: "optional_note",
+          label: "Observação opcional",
+          requiredByDocument: false,
+          present: false,
+          page: 1,
+          evidence: "Campo opcional vazio.",
+        },
+      ],
+    }),
+  });
+
+  const missing = result.findings.find(
+    (finding) => finding.code === "REQUIRED_DOCUMENT_FIELDS_MISSING",
+  );
+  assert.ok(missing);
+  assert.match(missing.description, /Aprovador/);
+  assert.doesNotMatch(missing.description, /Observação opcional/);
+  assert.doesNotMatch(missing.description, /Assinatura do solicitante/);
+});
+
+test("não sinaliza campo vazio sem declaração explícita de obrigatoriedade", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      requiredFieldChecks: [
+        {
+          field: "signature",
+          label: "Assinatura",
+          requiredByDocument: false,
+          present: false,
+          page: 1,
+          evidence: null,
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some(
+      (finding) => finding.code === "REQUIRED_DOCUMENT_FIELDS_MISSING",
+    ),
+    false,
   );
 });
 

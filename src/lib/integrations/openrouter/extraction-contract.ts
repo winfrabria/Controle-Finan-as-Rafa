@@ -67,6 +67,7 @@ export const documentKindSchema = z.enum([
 export const invoiceEvidenceObservationSchema = z
   .object({
     kind: z.enum(["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"]),
+    documentGroup: nullableText,
     label: nullableText,
     amount: decimalText,
     date: isoDate,
@@ -82,11 +83,50 @@ export const invoiceEvidenceObservationSchema = z
     { message: "Evidence observations need an amount, date or text." },
   );
 
+export const invoiceRequiredFieldCheckSchema = z
+  .object({
+    field: z.string().trim().min(1),
+    label: z.string().trim().min(1),
+    requiredByDocument: z.boolean(),
+    present: z.boolean(),
+    page: z.number().int().positive().nullable().default(null),
+    evidence: nullableText,
+  })
+  .strict();
+
+const documentRoleSchema = z.enum([
+  "LINE_ITEM",
+  "AGGREGATE_PAYMENT",
+  "SUPPORTING_DOCUMENT",
+  "SUMMARY",
+]);
+
+function normalizeDocumentRole(value: unknown) {
+  if (typeof value !== "string") return "LINE_ITEM" as const;
+  const normalized = value.trim().toUpperCase();
+  const aliases: Record<string, z.infer<typeof documentRoleSchema>> = {
+    AGGREGATE: "AGGREGATE_PAYMENT",
+    AGGREGATE_PAYMENT: "AGGREGATE_PAYMENT",
+    BOLETO: "AGGREGATE_PAYMENT",
+    CHARGE: "AGGREGATE_PAYMENT",
+    FISCAL_DOCUMENT: "SUPPORTING_DOCUMENT",
+    INVOICE: "SUPPORTING_DOCUMENT",
+    LINE: "LINE_ITEM",
+    LINE_ITEM: "LINE_ITEM",
+    SUMMARY: "SUMMARY",
+    SUPPORT: "SUPPORTING_DOCUMENT",
+    SUPPORTING_DOCUMENT: "SUPPORTING_DOCUMENT",
+  };
+  return aliases[normalized] ?? "LINE_ITEM";
+}
+
 export const invoiceExtractionItemSchema = z
   .object({
     lineNumber: z.number().int().positive(),
     code: nullableText,
     description: z.string().trim().min(1),
+    documentGroup: nullableText,
+    documentRole: documentRoleSchema.default("LINE_ITEM"),
     countsTowardDocumentTotal: z.boolean().optional(),
     quantity: decimalText,
     unit: nullableText,
@@ -109,6 +149,10 @@ export const invoiceExtractionSchema = z
     totalAmount: decimalText,
     currency: z.string().trim().length(3).default("BRL"),
     items: z.array(invoiceExtractionItemSchema).max(500),
+    requiredFieldChecks: z
+      .array(invoiceRequiredFieldCheckSchema)
+      .max(50)
+      .default([]),
     markdown: z.string().trim().min(1).max(50_000),
     readConfidence: z.number().min(0).max(1),
     warnings: z.array(z.string().trim().min(1)).max(50).default([]),
@@ -228,6 +272,12 @@ function normalizedEvidenceObservations(value: unknown) {
 
     const observation = {
       kind: kindAliases[rawKind] ?? "OTHER",
+      documentGroup: normalizeNullableText(
+        rawObservation.documentGroup ??
+          rawObservation.document_group ??
+          rawObservation.groupKey ??
+          rawObservation.group_key,
+      ),
       label: normalizeNullableText(rawObservation.label ?? rawObservation.source),
       amount:
         rawObservation.amount ??
@@ -247,6 +297,50 @@ function normalizedEvidenceObservations(value: unknown) {
     };
 
     const parsed = invoiceEvidenceObservationSchema.safeParse(observation);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
+function normalizedRequiredFieldChecks(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value.slice(0, 50).flatMap((rawCheck) => {
+    if (!isRecord(rawCheck)) return [];
+    const requiredByDocument =
+      rawCheck.requiredByDocument ??
+      rawCheck.required_by_document ??
+      rawCheck.required;
+    const present = rawCheck.present ?? rawCheck.filled ?? rawCheck.preenchido;
+    if (
+      typeof requiredByDocument !== "boolean" ||
+      typeof present !== "boolean"
+    ) {
+      return [];
+    }
+
+    const field = normalizeNullableText(
+      rawCheck.field ?? rawCheck.code ?? rawCheck.name,
+    );
+    const label = normalizeNullableText(
+      rawCheck.label ?? rawCheck.fieldLabel ?? rawCheck.field_label ?? field,
+    );
+    if (typeof field !== "string" || typeof label !== "string") return [];
+
+    const parsed = invoiceRequiredFieldCheckSchema.safeParse({
+      field,
+      label,
+      requiredByDocument,
+      present,
+      page:
+        typeof rawCheck.page === "number" &&
+        Number.isSafeInteger(rawCheck.page) &&
+        rawCheck.page > 0
+          ? rawCheck.page
+          : null,
+      evidence: normalizeNullableText(
+        rawCheck.evidence ?? rawCheck.text ?? rawCheck.excerpt,
+      ),
+    });
     return parsed.success ? [parsed.data] : [];
   });
 }
@@ -291,6 +385,15 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
           lineNumber: index + 1,
           code: normalizeNullableText(rawItem.code),
           description,
+          documentGroup: normalizeNullableText(
+            rawItem.documentGroup ??
+              rawItem.document_group ??
+              rawItem.groupKey ??
+              rawItem.group_key,
+          ),
+          documentRole: normalizeDocumentRole(
+            rawItem.documentRole ?? rawItem.document_role ?? rawItem.role,
+          ),
           ...(typeof rawItem.countsTowardDocumentTotal === "boolean"
             ? {
                 countsTowardDocumentTotal:
@@ -341,6 +444,12 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
     totalAmount: payload.totalAmount ?? payload.total_amount,
     currency: normalizedCurrency(payload.currency),
     items,
+    requiredFieldChecks: normalizedRequiredFieldChecks(
+      payload.requiredFieldChecks ??
+        payload.required_field_checks ??
+        payload.mandatoryFields ??
+        payload.mandatory_fields,
+    ),
     markdown: (
       suppliedMarkdown ||
       generatedMarkdown ||
@@ -406,6 +515,7 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
     "totalAmount",
     "currency",
     "items",
+    "requiredFieldChecks",
     "markdown",
     "readConfidence",
     "warnings",
@@ -443,6 +553,8 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
           "lineNumber",
           "code",
           "description",
+          "documentGroup",
+          "documentRole",
           "countsTowardDocumentTotal",
           "quantity",
           "unit",
@@ -454,6 +566,20 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
           lineNumber: { type: "integer", minimum: 1 },
           code: { type: ["string", "null"] },
           description: { type: "string", minLength: 1 },
+          documentGroup: {
+            type: ["string", "null"],
+            description:
+              "Stable identifier shared by an aggregate charge and the documents or line items that support it.",
+          },
+          documentRole: {
+            type: "string",
+            enum: [
+              "LINE_ITEM",
+              "AGGREGATE_PAYMENT",
+              "SUPPORTING_DOCUMENT",
+              "SUMMARY",
+            ],
+          },
           countsTowardDocumentTotal: {
             type: "boolean",
             description:
@@ -469,11 +595,16 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["kind", "label", "amount", "date", "page", "text"],
+              required: ["kind", "documentGroup", "label", "amount", "date", "page", "text"],
               properties: {
                 kind: {
                   type: "string",
                   enum: ["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"],
+                },
+                documentGroup: {
+                  type: ["string", "null"],
+                  description:
+                    "Stable identifier shared by observations from the same receipt, invoice, payment or reimbursement line.",
                 },
                 label: { type: ["string", "null"] },
                 amount: { type: ["string", "null"] },
@@ -483,6 +614,30 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
               },
             },
           },
+        },
+      },
+    },
+    requiredFieldChecks: {
+      type: "array",
+      maxItems: 50,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "field",
+          "label",
+          "requiredByDocument",
+          "present",
+          "page",
+          "evidence",
+        ],
+        properties: {
+          field: { type: "string", minLength: 1 },
+          label: { type: "string", minLength: 1 },
+          requiredByDocument: { type: "boolean" },
+          present: { type: "boolean" },
+          page: { type: ["integer", "null"], minimum: 1 },
+          evidence: { type: ["string", "null"] },
         },
       },
     },

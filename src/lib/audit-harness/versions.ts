@@ -1,8 +1,8 @@
 export const HARNESS_VERSIONS = {
-  policy: "2026-08-13.2",
-  prompt: "2026-08-13.2",
-  schema: "2026-08-13.2",
-  rules: "2026-08-13.2",
+  policy: "2026-08-13.3",
+  prompt: "2026-08-13.3",
+  schema: "2026-08-13.3",
+  rules: "2026-08-13.3",
 } as const;
 
 export const HARNESS_MODEL = "openai/gpt-5.6-terra" as const;

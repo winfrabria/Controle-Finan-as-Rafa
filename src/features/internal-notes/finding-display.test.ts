@@ -30,6 +30,23 @@ test("formata valores monetários dos achados sem perder a fonte", () => {
   assert.equal(formatFindingValue({ amount: "1.500" }), "Valor: R$\u00a01.500,00");
 });
 
+test("traduz a conciliação de boleto agregado sem expor chaves técnicas", () => {
+  assert.deepEqual(
+    formatFindingParts({
+      aggregateTotal: "2142.29",
+      supportingTotal: "473.93",
+      unsupportedAmount: "1668.36",
+      supportingDocumentCount: 1,
+    }),
+    [
+      { label: "Valor cobrado", value: "R$\u00a02.142,29" },
+      { label: "Valor comprovado", value: "R$\u00a0473,93" },
+      { label: "Valor sem documento no anexo", value: "R$\u00a01.668,36" },
+      { label: "Documentos encontrados", value: "1" },
+    ],
+  );
+});
+
 test("mostra evidência textual sem expor as chaves do JSON", () => {
   const value = formatFindingValue({
     text: "R$ 18.900,00 contra referência média de R$ 15.500,00.",

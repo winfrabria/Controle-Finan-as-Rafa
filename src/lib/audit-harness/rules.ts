@@ -124,6 +124,140 @@ function selectItemsForDocumentTotal(
   return { basis: "ALL_ITEMS", items: invoice.items };
 }
 
+function normalizedItemGroup(
+  item: HarnessInvoice["items"][number],
+) {
+  return normalizeDocumentGroup(
+    item.documentGroup ??
+      item.evidenceObservations?.find((observation) => observation.documentGroup)
+        ?.documentGroup,
+  );
+}
+
+function legacyAggregateCharge(item: HarnessInvoice["items"][number]) {
+  const description = normalize(item.description);
+  return (
+    item.countsTowardDocumentTotal === true &&
+    /\b(boleto|cobranca|fatura|pagamento consolidado)\b/.test(description) &&
+    /\b(documentos?|notas?|nfs?|titulos?|parcelas?|referente|agrupa|consolidado)\b/.test(
+      description,
+    )
+  );
+}
+
+function legacySupportingDocument(item: HarnessInvoice["items"][number]) {
+  if (item.countsTowardDocumentTotal !== false) return false;
+  const description = normalize(item.description);
+  return /\b(nf-e|nfs-e|danfe|nota fiscal|cupom fiscal|documento fiscal)\b/.test(
+    description,
+  );
+}
+
+/**
+ * Reconcilia qualquer cobrança agregada com seus documentos de suporte. A
+ * regra depende do papel e do grupo documental extraídos, nunca de fornecedor,
+ * número ou valor específicos. O reconhecimento textual existe apenas para
+ * reprocessar extrações legadas que ainda não possuem esses campos.
+ */
+function compositeDocumentCoverageFindings(invoice: HarnessInvoice) {
+  if (invoice.documentKind !== "COMPOSITE") return [];
+
+  const aggregateItems = invoice.items.filter(
+    (item) =>
+      item.documentRole === "AGGREGATE_PAYMENT" || legacyAggregateCharge(item),
+  );
+  const findings: HarnessFinding[] = [];
+
+  for (const aggregateItem of aggregateItems) {
+    const aggregateTotal = decimal(aggregateItem.totalAmount);
+    if (aggregateTotal === null) continue;
+
+    const group = normalizedItemGroup(aggregateItem);
+    const supportingItems = invoice.items.filter((item) => {
+      if (item === aggregateItem) return false;
+      const support =
+        item.documentRole === "SUPPORTING_DOCUMENT" ||
+        legacySupportingDocument(item);
+      if (!support) return false;
+
+      const supportGroup = normalizedItemGroup(item);
+      return group === null || supportGroup === null || supportGroup === group;
+    });
+    const supportingTotal = sumItemTotals(supportingItems);
+    if (supportingTotal === null) continue;
+
+    const tolerance = moneyTolerance(aggregateTotal);
+    if (Math.abs(aggregateTotal - supportingTotal) <= tolerance) continue;
+
+    findings.push(
+      finding({
+        code: `COMPOSITE_PAYMENT_DOCUMENT_GAP${group ? `_${group.replace(/[^a-z0-9]+/g, "_").slice(0, 48)}` : ""}`,
+        title: "Cobrança não está totalmente comprovada no anexo",
+        description:
+          "O valor da cobrança agregada é diferente do total dos documentos de suporte disponíveis para conferência.",
+        category: "DOCUMENT_COVERAGE",
+        severity: "CRITICAL",
+        confidence: 0.99,
+        justification:
+          "A cobrança e os documentos de suporte pertencem ao mesmo conjunto documental, mas os valores não reconciliam dentro da tolerância.",
+        references: [
+          "DOCUMENTO:COBRANCA_AGREGADA",
+          "DOCUMENTO:SUPORTES_DISPONIVEIS",
+        ],
+        evidence: {
+          documentGroup: group,
+          aggregateDescription: aggregateItem.description,
+          aggregateTotal: aggregateTotal.toFixed(2),
+          supportingTotal: supportingTotal.toFixed(2),
+          unsupportedAmount: (aggregateTotal - supportingTotal).toFixed(2),
+          supportingDocumentCount: supportingItems.length,
+        },
+        expectedValue: aggregateTotal.toFixed(2),
+        actualValue: supportingTotal.toFixed(2),
+        noteItemLineNumber: aggregateItem.lineNumber,
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function requiredDocumentFieldFindings(invoice: HarnessInvoice) {
+  const missing = (invoice.requiredFieldChecks ?? []).filter(
+    (check) => check.requiredByDocument && !check.present,
+  );
+  if (missing.length === 0) return [];
+
+  const labels = [...new Set(missing.map((check) => check.label))];
+  return [
+    finding({
+      code: "REQUIRED_DOCUMENT_FIELDS_MISSING",
+      title: "Campos obrigatórios não foram preenchidos",
+      description: `O próprio documento declara como obrigatórios os campos: ${labels.join(", ")}.`,
+      category: "DOCUMENT_COMPLETENESS",
+      severity: "WARNING",
+      confidence: 0.99,
+      justification:
+        "A exigência está registrada no formulário enviado e os campos correspondentes estão vazios.",
+      references: missing.map(
+        (check) =>
+          `DOCUMENTO:página:${check.page ?? "não identificada"}:campo:${check.field}`,
+      ),
+      evidence: {
+        fields: missing.map((check) => ({
+          label: check.label,
+          page: check.page,
+          evidence: check.evidence,
+        })),
+        summary: `${labels.length} campo(s) obrigatório(s) sem preenchimento.`,
+      },
+      expectedValue: "Campos obrigatórios preenchidos",
+      actualValue: labels.join(", "),
+      noteItemLineNumber: null,
+    }),
+  ];
+}
+
 function finding(
   input: Omit<HarnessFinding, "source" | "references"> & {
     references?: HarnessFinding["references"];
@@ -146,6 +280,93 @@ function observationIdentity(observation: EvidenceObservation) {
   ]
     .join(":")
     .slice(0, 240);
+}
+
+function normalizeDocumentGroup(value: string | null | undefined) {
+  return value?.replace(/\s+/g, " ").trim().toLocaleLowerCase("pt-BR") || null;
+}
+
+function groupedAggregatePaymentFindings(
+  items: HarnessInvoice["items"],
+) {
+  const groups = new Map<
+    string,
+    Array<{ item: HarnessInvoice["items"][number]; observation: EvidenceObservation }>
+  >();
+
+  for (const item of items) {
+    for (const observation of item.evidenceObservations ?? []) {
+      const group = normalizeDocumentGroup(observation.documentGroup);
+      if (!group) continue;
+      const entries = groups.get(group) ?? [];
+      entries.push({ item, observation });
+      groups.set(group, entries);
+    }
+  }
+
+  const reconciledObservations = new Set<EvidenceObservation>();
+  const findings: HarnessFinding[] = [];
+
+  for (const [group, entries] of groups) {
+    const uniqueItems = [...new Map(entries.map((entry) => [entry.item.lineNumber, entry.item])).values()];
+    const paymentEntries = entries.filter(
+      ({ observation }) => observation.kind === "PAYMENT" && decimal(observation.amount) !== null,
+    );
+    if (uniqueItems.length < 2 || paymentEntries.length === 0) continue;
+
+    const itemTotal = uniqueItems.reduce((sum, item) => {
+      const total = decimal(item.totalAmount);
+      return total === null ? sum : sum + total;
+    }, 0);
+    const uniquePayments = [
+      ...new Map(
+        paymentEntries.map((entry) => [
+          `${entry.observation.page ?? ""}:${entry.observation.amount}`,
+          entry,
+        ]),
+      ).values(),
+    ];
+    const paymentTotal = decimal(uniquePayments[0]?.observation.amount);
+    if (paymentTotal === null || itemTotal === 0) continue;
+
+    for (const entry of paymentEntries) reconciledObservations.add(entry.observation);
+
+    const tolerance = moneyTolerance(paymentTotal);
+    if (Math.abs(itemTotal - paymentTotal) <= tolerance) continue;
+
+    findings.push(
+      finding({
+        code: `AGGREGATE_PAYMENT_MISMATCH_${group.replace(/[^a-z0-9]+/g, "_").slice(0, 48)}`,
+        title: "Pagamento agregado diverge dos itens",
+        description:
+          "A soma dos produtos do mesmo documento não corresponde ao pagamento total apresentado.",
+        category: "AMOUNTS",
+        severity: "WARNING",
+        confidence: 0.99,
+        justification:
+          "Os itens e o pagamento pertencem ao mesmo conjunto documental e a diferença excede a tolerância monetária.",
+        references: [
+          ...new Set(
+            entries.map(
+              ({ observation }) =>
+                `DOCUMENTO:página:${observation.page ?? "não identificada"}:${observation.kind}`,
+            ),
+          ),
+        ],
+        evidence: {
+          field: "valor",
+          documentGroup: group,
+          pages: [...new Set(entries.map(({ observation }) => observation.page).filter(Boolean))],
+          summary: `${uniqueItems.length} itens somam R$ ${itemTotal.toFixed(2)}; pagamento de R$ ${paymentTotal.toFixed(2)}.`,
+        },
+        expectedValue: itemTotal.toFixed(2),
+        actualValue: paymentTotal.toFixed(2),
+        noteItemLineNumber: null,
+      }),
+    );
+  }
+
+  return { findings, reconciledObservations };
 }
 
 function observationValue(observation: EvidenceObservation) {
@@ -177,8 +398,11 @@ function baselineObservation<T extends { observation: EvidenceObservation }>(
 
 function reconcileEvidenceObservations(
   item: HarnessInvoice["items"][number],
+  ignoredObservations: Set<EvidenceObservation> = new Set(),
 ) {
-  const observations = item.evidenceObservations ?? [];
+  const observations = (item.evidenceObservations ?? []).filter(
+    (observation) => !ignoredObservations.has(observation),
+  );
   const findings: HarnessFinding[] = [];
   const amounts = observations.flatMap((observation) => {
     const value = decimal(observation.amount);
@@ -333,9 +557,16 @@ export function evaluateUniversalRules(input: {
   const findings: HarnessFinding[] = [];
   const coveredAreas = new Set<string>();
   const noteTotal = decimal(invoice.totalAmount);
+  const aggregatePayments = groupedAggregatePaymentFindings(invoice.items);
+  findings.push(...aggregatePayments.findings);
+  findings.push(...compositeDocumentCoverageFindings(invoice));
+  findings.push(...requiredDocumentFieldFindings(invoice));
 
   for (const item of invoice.items) {
-    const reconciled = reconcileEvidenceObservations(item);
+    const reconciled = reconcileEvidenceObservations(
+      item,
+      aggregatePayments.reconciledObservations,
+    );
     if ((item.evidenceObservations?.length ?? 0) > 0) {
       coveredAreas.add("COMPOSITE_EVIDENCE");
     }

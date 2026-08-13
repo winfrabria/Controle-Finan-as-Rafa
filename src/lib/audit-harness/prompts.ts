@@ -9,6 +9,12 @@ Retorne valores monetários e quantidades como strings decimais sem separadores 
 Classifique documentKind como FISCAL_INVOICE, REIMBURSEMENT, COMPOSITE,
 PAYMENT_PROOF ou OTHER.
 Preserve todos os itens legíveis, atribuindo lineNumber único e sequencial.
+Para cada item, preencha documentRole e documentGroup. Use AGGREGATE_PAYMENT para
+boleto, fatura ou cobrança que reúne vários documentos; SUPPORTING_DOCUMENT para
+cada NF, cupom ou documento que comprova aquela cobrança; LINE_ITEM para produto
+ou serviço e SUMMARY somente para um resumo repetido. Cobrança e suportes do mesmo
+conjunto devem compartilhar documentGroup. Nunca use fornecedor, número ou valor
+específico como regra: extraia a relação observável em qualquer documento equivalente.
 Para cada item, preencha countsTowardDocumentTotal. Use true somente em uma
 camada não sobreposta que componha o total geral do documento. Quando NF-e,
 resumo e detalhamento diário representarem a mesma despesa, prefira as linhas
@@ -30,10 +36,21 @@ observação separada para cada registro visual: SHEET para a ficha/controle, RE
 recibo ou cupom, SALE para venda/pedido/orçamento, PAYMENT para cartão/PIX/boleto pago,
 DISCOUNT para desconto explícito e OTHER somente quando nenhum papel anterior servir.
 Cada observação deve preservar amount, date, page, label e o menor trecho útil em text.
+Preencha documentGroup com um identificador estável do conjunto documental. Itens e o
+pagamento total da mesma NFC-e, venda, boleto ou recibo devem usar exatamente o mesmo
+documentGroup. Não compare o pagamento agregado de uma NFC-e com cada produto isolado:
+primeiro some os produtos daquele documentGroup e compare a soma com o pagamento total.
 Mesmo quando ficha e pagamento concordarem, mantenha também qualquer valor diferente
 visível na venda/recibo. Nunca substitua R$ 28,00 por R$ 18,00 só porque a ficha pede
 R$ 18,00. Para nota fiscal comum, evidenceObservations pode ficar vazio.
 Não confunda o número do item da ficha com o número da página do PDF.
+Na ficha consolidada, associe a data pelo número exato da linha. Nunca copie a data da
+linha anterior ou seguinte. Confirme visualmente item, estabelecimento, valor e data antes
+de criar a observação SHEET correspondente.
+Preencha requiredFieldChecks somente quando o próprio documento afirmar explicitamente
+que um campo é obrigatório. Registre o campo mesmo preenchido. Use present=false apenas
+quando a área correspondente estiver visivelmente vazia; não presuma obrigatoriedade por
+costume. A regra vale para qualquer formulário, inclusive aprovador e assinaturas.
 Quando houver desconto explícito, inclua o desconto na descrição do item para permitir
 a reconciliação de quantidade × preço unitário − desconto = valor final.
 O campo markdown deve ser um resumo operacional, não uma transcrição integral. Use no
@@ -71,7 +88,21 @@ títulos diferentes.
 Em cada despesa, compare separadamente o valor do recibo/venda com o valor pago no
 cartão, PIX ou boleto. Uma divergência entre esses dois valores precisa citar o item e a
 página corretos. Descontos explícitos que reconciliam o valor final não são divergência.
+Quando um pagamento for agregado, compare-o com a soma das linhas do mesmo documento,
+nunca com cada produto isolado. Uma NF-e com produtos de R$ 10,00 e R$ 5,00 conciliada
+por um único pagamento de R$ 15,00 está correta e não gera dois achados.
+Quando boleto, cobrança ou fatura reunir vários documentos, confirme se os documentos
+de suporte presentes no mesmo conjunto reconciliam o valor agregado. Gere um único achado
+de conciliação documental incompleta, citando os valores coberto e não coberto sem atribuir
+toda a cobrança a um único documento. A regra é estrutural e não depende de fornecedor,
+número, intervalo ou valor específico.
+Quando o próprio formulário declarar campos obrigatórios e algum deles estiver vazio,
+trate a ausência como achado objetivo. Não transforme isso em pergunta de contexto e não
+invente obrigatoriedade quando o documento não a declarar.
 Gere um achado separado para cada divergência material sustentada. Consolide apenas repetições da mesma divergência e, nesse caso, cite todas as linhas ou páginas afetadas.
+Uma limitação de cobertura da extração não prova divergência do total. Se faltarem linhas
+ou comprovantes anunciados, registre a cobertura incompleta e não conclua TOTAL_MISMATCH
+até que a camada que compõe o total esteja completa.
 Campos de cabeçalho usados apenas para representar um documento composto não são uma inconsistência por si só. Não exponha nomes internos de schema como supplierName, supplierTaxId, issuedAt, invoice ou lineNumber no texto destinado ao usuário.
 Use severity=INFO somente para observações que não comprovam irregularidade; uma observação informativa nunca deve sustentar classificação suspeita.
 Só gere WARNING ou CRITICAL quando a própria evidência comprovar uma inconsistência. Se a justificativa admitir que a diferença pode ser uma agregação, apresentação fiscal ou uso legítimo, use INFO ou peça contexto.

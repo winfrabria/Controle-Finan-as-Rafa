@@ -21,6 +21,8 @@ const validExtraction = {
       code: null,
       countsTowardDocumentTotal: true,
       description: "CAFÉ DA MANHÃ",
+      documentGroup: null,
+      documentRole: "LINE_ITEM",
       evidenceObservations: [],
       lineNumber: 1,
       quantity: "164.07",
@@ -31,6 +33,7 @@ const validExtraction = {
   ],
   markdown: "NF-e 1322 com total de R$ 1.148,50.",
   readConfidence: 0.99,
+  requiredFieldChecks: [],
   supplierName: "NEURACY ARGOLO COSTA",
   supplierTaxId: null,
   totalAmount: "1148.50",
@@ -119,6 +122,66 @@ test("recupera desvios estruturais seguros sem uma nova chamada", () => {
   assert.deepEqual(parsed.data.warnings, []);
   assert.equal(parsed.data.documentKind, "REIMBURSEMENT");
   assert.deepEqual(parsed.data.items[0]?.evidenceObservations, []);
+  assert.equal(parsed.data.items[0]?.documentRole, "LINE_ITEM");
+  assert.equal(parsed.data.items[0]?.documentGroup, null);
+  assert.deepEqual(parsed.data.requiredFieldChecks, []);
+});
+
+test("normaliza papéis documentais e campos obrigatórios sem depender de uma NF específica", () => {
+  const parsed = parseInvoiceExtractionPayload({
+    currency: "BRL",
+    documentKind: "COMPOSITE",
+    documentNumber: null,
+    issuedAt: null,
+    items: [
+      {
+        description: "Cobrança consolidada",
+        document_group: "Lote julho",
+        document_role: "BOLETO",
+        totalAmount: "950.00",
+      },
+      {
+        description: "Documento fiscal A-71",
+        document_group: "Lote julho",
+        role: "INVOICE",
+        totalAmount: "300.00",
+      },
+    ],
+    markdown: "Cobrança e documentos fiscais de suporte.",
+    readConfidence: 0.9,
+    required_field_checks: [
+      {
+        field: "approver",
+        label: "Aprovador",
+        required: true,
+        filled: false,
+        page: 1,
+        text: "Todos os campos são obrigatórios.",
+      },
+    ],
+    supplierName: null,
+    supplierTaxId: null,
+    totalAmount: "950.00",
+    warnings: [],
+  });
+
+  assert.equal(parsed.success, true);
+  if (!parsed.success) return;
+  assert.deepEqual(
+    parsed.data.items.map((item) => item.documentRole),
+    ["AGGREGATE_PAYMENT", "SUPPORTING_DOCUMENT"],
+  );
+  assert.equal(parsed.data.items[0]?.documentGroup, "Lote julho");
+  assert.deepEqual(parsed.data.requiredFieldChecks, [
+    {
+      evidence: "Todos os campos são obrigatórios.",
+      field: "approver",
+      label: "Aprovador",
+      page: 1,
+      present: false,
+      requiredByDocument: true,
+    },
+  ]);
 });
 
 test("preserva separadamente ficha, venda e pagamento em documento composto", () => {
@@ -133,8 +196,8 @@ test("preserva separadamente ficha, venda e pagamento em documento composto", ()
         countsTowardDocumentTotal: true,
         description: "Casa da Uva",
         evidenceObservations: [
-          { kind: "FICHA", amount: "18,00", date: "27/05/2026", page: 20 },
-          { kind: "CARTAO", amount: "28,00", date: "27/05/2026", page: 20 },
+          { kind: "FICHA", documentGroup: "casa-uva-19", amount: "18,00", date: "27/05/2026", page: 20 },
+          { kind: "CARTAO", document_group: "casa-uva-19", amount: "28,00", date: "27/05/2026", page: 20 },
         ],
         lineNumber: 19,
         quantity: "1",
@@ -163,6 +226,10 @@ test("preserva separadamente ficha, venda e pagamento em documento composto", ()
       ["SHEET", "18.00"],
       ["PAYMENT", "28.00"],
     ],
+  );
+  assert.deepEqual(
+    parsed.data.items[0]?.evidenceObservations.map((entry) => entry.documentGroup),
+    ["casa-uva-19", "casa-uva-19"],
   );
 });
 

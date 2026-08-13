@@ -1,5 +1,5 @@
 const moneyKeyPattern =
-  /^(?:amount|valor|total|totalAmount|total_amount|price|unitPrice|unit_price|cost|custo|preco|preço)$/i;
+  /^(?:amount|valor|total|totalAmount|total_amount|price|unitPrice|unit_price|cost|custo|preco|preço|aggregateTotal|supportingTotal|unsupportedAmount)$/i;
 
 const directTextKeys = new Set([
   "text",
@@ -11,6 +11,8 @@ const directTextKeys = new Set([
 
 const labelOverrides: Record<string, string> = {
   actual: "Encontrado",
+  aggregateDescription: "Cobrança informada",
+  aggregateTotal: "Valor cobrado",
   amount: "Valor",
   contract: "Contrato",
   description: "Descrição",
@@ -32,10 +34,13 @@ const labelOverrides: Record<string, string> = {
   path: "Campo",
   limit: "Limite",
   lineNumber: "Item",
+  documentGroup: "Documento relacionado",
   duplicateNoteId: "Anexo semelhante",
+  fields: "Campos não preenchidos",
   motivo: "Motivo",
   noteTotal: "Total da nota",
   period: "Período",
+  reconciliationBasis: "Base da conciliação",
   quantity: "Quantidade",
   reference: "Referência",
   referencia: "Referência",
@@ -46,11 +51,15 @@ const labelOverrides: Record<string, string> = {
   summary: "Resumo da evidência",
   supplierName: "Fornecedor",
   supplierTaxId: "CNPJ do fornecedor",
+  supportingDocumentCount: "Documentos encontrados",
+  supportingTotal: "Valor comprovado",
   text: "Evidência",
   total: "Total",
   totalAmount: "Valor total",
+  tolerance: "Tolerância",
   unit: "Unidade",
   unitPrice: "Valor unitário",
+  unsupportedAmount: "Valor sem documento no anexo",
   valor: "Valor",
 };
 

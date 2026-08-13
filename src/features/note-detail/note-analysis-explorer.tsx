@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { Icon } from "@/features/workspace-ui/ui-icons";
@@ -30,8 +30,15 @@ export function NoteAnalysisExplorer({
   items: NoteDetailItem[];
 }) {
   const [selectedId, setSelectedId] = useState(findings[0]?.id ?? "");
+  const detailRef = useRef<HTMLElement>(null);
   const selected =
     findings.find((finding) => finding.id === selectedId) ?? findings[0] ?? null;
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth > 1023) return;
+    detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedId]);
+
   if (!selected) {
     return (
       <section className={styles.findingDetailPanel}>
@@ -47,6 +54,7 @@ export function NoteAnalysisExplorer({
   const selectedIndex = findings.findIndex(
     (finding) => finding.id === selected.id,
   );
+  const evidenceObservations = extractEvidenceObservations(selected.evidence);
   const evidenceParts = formatFindingParts(
     selected.evidence,
     selected.description,
@@ -73,12 +81,22 @@ export function NoteAnalysisExplorer({
           : part.value,
     }));
   const evidenceNarrativeParts = evidenceParts
-    .filter((part) => !["Campo", "Item", "Página"].includes(part.label))
+    .filter(
+      (part) =>
+        !["Campo", "Item", "Página", "Observations", "Observações"].includes(
+          part.label,
+        ),
+    )
     .slice(0, 4);
   const hasMeaningfulComparison =
     selected.expectedValue !== null &&
     selected.actualValue !== null &&
     jsonSummary(selected.expectedValue) !== jsonSummary(selected.actualValue);
+
+  const selectFinding = (index: number) => {
+    const next = findings[index];
+    if (next) setSelectedId(next.id);
+  };
 
   return (
     <>
@@ -143,28 +161,49 @@ export function NoteAnalysisExplorer({
         </div>
       </aside>
 
-      <article className={styles.findingDetailPanel} key={selected.id}>
+      <article className={styles.findingDetailPanel} key={selected.id} ref={detailRef}>
+        <nav className={styles.findingPager} aria-label="Navegação entre apontamentos">
+          <button
+            type="button"
+            disabled={selectedIndex <= 0}
+            onClick={() => selectFinding(selectedIndex - 1)}
+          >
+            <Icon name="chevron" /> Anterior
+          </button>
+          <span>{selectedIndex + 1} de {findings.length}</span>
+          <button
+            type="button"
+            disabled={selectedIndex >= findings.length - 1}
+            onClick={() => selectFinding(selectedIndex + 1)}
+          >
+            Próximo <Icon name="chevron" />
+          </button>
+        </nav>
         <header className={styles.findingDetailTitle}>
-          <span className={styles.findingNumber}>
-            {findings.findIndex((finding) => finding.id === selected.id) + 1}
-          </span>
-          <h2>{humanizeFindingText(selected.title)}</h2>
-          <span className={styles.severityBadge}>
-            Gravidade: {severityLabel(selected.severity)}
-          </span>
+          <span className={styles.findingNumber}>{selectedIndex + 1}</span>
+          <div>
+            <h2>{humanizeFindingText(selected.title)}</h2>
+            <span className={styles.severityBadge}>
+              Gravidade: {severityLabel(selected.severity)}
+            </span>
+          </div>
         </header>
         <p className={styles.findingLead}>
           {humanizeFindingText(selected.description)}
         </p>
 
         <FindingSection defaultOpen icon="document" title="Evidência no documento">
-          <EvidenceFacts
-            parts={
-              evidenceNarrativeParts.length
-                ? evidenceNarrativeParts
-                : evidenceLocationParts
-            }
-          />
+          {evidenceObservations.length ? (
+            <EvidenceObservationList observations={evidenceObservations} />
+          ) : (
+            <EvidenceFacts
+              parts={
+                evidenceNarrativeParts.length
+                  ? evidenceNarrativeParts
+                  : evidenceLocationParts
+              }
+            />
+          )}
         </FindingSection>
         <FindingSection defaultOpen icon="search" title="Por que chamou atenção">
           {humanizeFindingText(selected.explanation)}
@@ -253,6 +292,93 @@ export function NoteAnalysisExplorer({
       </aside>
       </div>
     </>
+  );
+}
+
+type EvidenceObservation = {
+  amount: string | number | null;
+  date: string | null;
+  documentGroup: string | null;
+  kind: "SHEET" | "RECEIPT" | "SALE" | "PAYMENT" | "DISCOUNT" | "OTHER";
+  label: string | null;
+  page: number | null;
+  text: string | null;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function extractEvidenceObservations(value: unknown): EvidenceObservation[] {
+  if (!isRecord(value) || !Array.isArray(value.observations)) return [];
+
+  return value.observations.flatMap((entry) => {
+    if (!isRecord(entry)) return [];
+    const kind = typeof entry.kind === "string" ? entry.kind.toUpperCase() : "OTHER";
+    if (!["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"].includes(kind)) {
+      return [];
+    }
+    return [{
+      amount:
+        typeof entry.amount === "string" || typeof entry.amount === "number"
+          ? entry.amount
+          : null,
+      date: typeof entry.date === "string" ? entry.date : null,
+      documentGroup:
+        typeof entry.documentGroup === "string" ? entry.documentGroup : null,
+      kind: kind as EvidenceObservation["kind"],
+      label: typeof entry.label === "string" ? entry.label : null,
+      page: typeof entry.page === "number" ? entry.page : null,
+      text: typeof entry.text === "string" ? entry.text : null,
+    }];
+  });
+}
+
+const observationKindLabel: Record<EvidenceObservation["kind"], string> = {
+  SHEET: "Ficha ou controle",
+  RECEIPT: "Recibo ou cupom",
+  SALE: "Venda ou pedido",
+  PAYMENT: "Pagamento",
+  DISCOUNT: "Desconto",
+  OTHER: "Outro registro",
+};
+
+function formatObservationDate(value: string | null) {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+}
+
+function formatObservationAmount(value: string | number | null) {
+  if (value === null) return null;
+  const amount = Number(value);
+  return Number.isFinite(amount)
+    ? new Intl.NumberFormat("pt-BR", { currency: "BRL", style: "currency" }).format(amount)
+    : String(value);
+}
+
+function EvidenceObservationList({ observations }: { observations: EvidenceObservation[] }) {
+  return (
+    <div className={styles.evidenceObservationList}>
+      {observations.map((observation, index) => {
+        const amount = formatObservationAmount(observation.amount);
+        const date = formatObservationDate(observation.date);
+        return (
+          <article key={`${observation.kind}:${observation.page ?? ""}:${observation.label ?? ""}:${index}`}>
+            <header>
+              <span>{observationKindLabel[observation.kind]}</span>
+              <div>
+                {observation.page ? <small>Página {observation.page}</small> : null}
+                {date ? <small>{date}</small> : null}
+                {amount ? <strong>{amount}</strong> : null}
+              </div>
+            </header>
+            {observation.label ? <h4>{observation.label}</h4> : null}
+            {observation.text ? <p>{humanizeFindingText(observation.text)}</p> : null}
+          </article>
+        );
+      })}
+    </div>
   );
 }
 

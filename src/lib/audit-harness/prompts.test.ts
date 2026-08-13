@@ -8,6 +8,14 @@ test("exige cobertura completa de fichas de reembolso e valores concorrentes", (
   assert.match(INVOICE_EXTRACTION_PROMPT.system, /valor efetivamente pago/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /checagem de cobertura/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /não repita o mesmo problema/i);
+  assert.match(INVOICE_EXTRACTION_PROMPT.system, /documentGroup/i);
+  assert.match(AUDIT_DISCOVERY_PROMPT.system, /pagamento for agregado/i);
+  assert.match(AUDIT_DISCOVERY_PROMPT.system, /reunir vários documentos/i);
+  assert.match(AUDIT_DISCOVERY_PROMPT.system, /não conclua TOTAL_MISMATCH/i);
+  assert.match(INVOICE_EXTRACTION_PROMPT.system, /documentRole/i);
+  assert.match(INVOICE_EXTRACTION_PROMPT.system, /requiredFieldChecks/i);
+  assert.match(AUDIT_DISCOVERY_PROMPT.system, /não depende de fornecedor/i);
+  assert.match(AUDIT_DISCOVERY_PROMPT.system, /próprio formulário declarar campos obrigatórios/i);
 });
 
 test("separa contradição interna de contexto externo", () => {

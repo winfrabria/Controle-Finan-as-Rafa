@@ -219,15 +219,30 @@ export type HarnessInvoice = {
   readConfidence: number;
   warnings: string[];
   markdown: string;
+  requiredFieldChecks?: Array<{
+    field: string;
+    label: string;
+    requiredByDocument: boolean;
+    present: boolean;
+    page: number | null;
+    evidence: string | null;
+  }>;
   items: Array<{
     lineNumber: number;
     description: string;
+    documentGroup?: string | null;
+    documentRole?:
+      | "LINE_ITEM"
+      | "AGGREGATE_PAYMENT"
+      | "SUPPORTING_DOCUMENT"
+      | "SUMMARY";
     countsTowardDocumentTotal?: boolean;
     quantity: string | null;
     unitPrice: string | null;
     totalAmount: string | null;
     evidenceObservations?: Array<{
       kind: "SHEET" | "RECEIPT" | "SALE" | "PAYMENT" | "DISCOUNT" | "OTHER";
+      documentGroup?: string | null;
       label: string | null;
       amount: string | null;
       date: string | null;
