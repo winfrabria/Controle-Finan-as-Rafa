@@ -56,6 +56,32 @@ const isoDate = z.preprocess(
     .default(null),
 );
 
+export const documentKindSchema = z.enum([
+  "FISCAL_INVOICE",
+  "REIMBURSEMENT",
+  "COMPOSITE",
+  "PAYMENT_PROOF",
+  "OTHER",
+]);
+
+export const invoiceEvidenceObservationSchema = z
+  .object({
+    kind: z.enum(["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"]),
+    label: nullableText,
+    amount: decimalText,
+    date: isoDate,
+    page: z.number().int().positive().nullable().default(null),
+    text: nullableText,
+  })
+  .strict()
+  .refine(
+    (observation) =>
+      observation.amount !== null ||
+      observation.date !== null ||
+      observation.text !== null,
+    { message: "Evidence observations need an amount, date or text." },
+  );
+
 export const invoiceExtractionItemSchema = z
   .object({
     lineNumber: z.number().int().positive(),
@@ -66,11 +92,16 @@ export const invoiceExtractionItemSchema = z
     unit: nullableText,
     unitPrice: decimalText,
     totalAmount: decimalText,
+    evidenceObservations: z
+      .array(invoiceEvidenceObservationSchema)
+      .max(12)
+      .default([]),
   })
   .strict();
 
 export const invoiceExtractionSchema = z
   .object({
+    documentKind: documentKindSchema.default("OTHER"),
     documentNumber: nullableText,
     supplierName: nullableText,
     supplierTaxId: nullableText,
@@ -136,6 +167,90 @@ function normalizedWarnings(value: unknown) {
     .slice(0, 50);
 }
 
+function normalizedDocumentKind(value: unknown, searchableText: string) {
+  if (typeof value === "string") {
+    const normalized = value.trim().toUpperCase();
+    const aliases: Record<string, z.infer<typeof documentKindSchema>> = {
+      COMPOSITE: "COMPOSITE",
+      COMPOSTO: "COMPOSITE",
+      FISCAL_INVOICE: "FISCAL_INVOICE",
+      INVOICE: "FISCAL_INVOICE",
+      NOTA_FISCAL: "FISCAL_INVOICE",
+      OTHER: "OTHER",
+      OUTRO: "OTHER",
+      PAYMENT_PROOF: "PAYMENT_PROOF",
+      COMPROVANTE_PAGAMENTO: "PAYMENT_PROOF",
+      REEMBOLSO: "REIMBURSEMENT",
+      REIMBURSEMENT: "REIMBURSEMENT",
+    };
+    if (aliases[normalized]) return aliases[normalized];
+  }
+
+  if (/reembolso|prestação de contas|expense report/i.test(searchableText)) {
+    return "REIMBURSEMENT" as const;
+  }
+  if (/múltiplos? comprovantes|vários comprovantes|documento composto/i.test(searchableText)) {
+    return "COMPOSITE" as const;
+  }
+  return "OTHER" as const;
+}
+
+function normalizedEvidenceObservations(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value.slice(0, 12).flatMap((rawObservation) => {
+    if (!isRecord(rawObservation)) return [];
+    const rawKind =
+      typeof rawObservation.kind === "string"
+        ? rawObservation.kind.trim().toUpperCase()
+        : "OTHER";
+    const kindAliases: Record<
+      string,
+      z.infer<typeof invoiceEvidenceObservationSchema>["kind"]
+    > = {
+      CARD: "PAYMENT",
+      CARTAO: "PAYMENT",
+      COMPROVANTE: "RECEIPT",
+      CUPOM: "RECEIPT",
+      DESCONTO: "DISCOUNT",
+      DISCOUNT: "DISCOUNT",
+      FICHA: "SHEET",
+      OTHER: "OTHER",
+      PAGAMENTO: "PAYMENT",
+      PAYMENT: "PAYMENT",
+      PIX: "PAYMENT",
+      RECEIPT: "RECEIPT",
+      RECIBO: "RECEIPT",
+      SALE: "SALE",
+      SHEET: "SHEET",
+      VENDA: "SALE",
+    };
+
+    const observation = {
+      kind: kindAliases[rawKind] ?? "OTHER",
+      label: normalizeNullableText(rawObservation.label ?? rawObservation.source),
+      amount:
+        rawObservation.amount ??
+        rawObservation.value ??
+        rawObservation.totalAmount ??
+        null,
+      date: rawObservation.date ?? rawObservation.issuedAt ?? null,
+      page:
+        typeof rawObservation.page === "number" &&
+        Number.isSafeInteger(rawObservation.page) &&
+        rawObservation.page > 0
+          ? rawObservation.page
+          : null,
+      text: normalizeNullableText(
+        rawObservation.text ?? rawObservation.summary ?? rawObservation.description,
+      ),
+    };
+
+    const parsed = invoiceEvidenceObservationSchema.safeParse(observation);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 function unwrapExtractionPayload(value: unknown) {
   if (!isRecord(value)) return value;
   for (const key of ["extraction", "invoice", "data", "result"]) {
@@ -158,6 +273,8 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
   const payload = unwrapped;
 
   const warnings = normalizedWarnings(payload.warnings);
+  const suppliedMarkdown =
+    typeof payload.markdown === "string" ? payload.markdown.trim() : "";
   const rawItems: unknown[] = Array.isArray(payload.items) ? payload.items : [];
   const items = rawItems
     .slice(0, 500)
@@ -184,12 +301,14 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
           unit: normalizeNullableText(rawItem.unit),
           unitPrice: rawItem.unitPrice ?? rawItem.unit_price,
           totalAmount: rawItem.totalAmount ?? rawItem.total_amount ?? rawItem.total,
+          evidenceObservations: normalizedEvidenceObservations(
+            rawItem.evidenceObservations ??
+              rawItem.evidence_observations ??
+              rawItem.evidence,
+          ),
         },
       ];
     });
-
-  const suppliedMarkdown =
-    typeof payload.markdown === "string" ? payload.markdown.trim() : "";
   const generatedMarkdown = items
     .map((item) => {
       const amount =
@@ -205,6 +324,10 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
   }
 
   return {
+    documentKind: normalizedDocumentKind(
+      payload.documentKind ?? payload.document_kind ?? payload.type,
+      `${suppliedMarkdown}\n${warnings.join("\n")}`,
+    ),
     documentNumber: normalizeNullableText(
       payload.documentNumber ?? payload.document_number,
     ),
@@ -254,6 +377,7 @@ export function createOcrFallbackExtraction(
 
   return invoiceExtractionSchema.parse({
     currency: "BRL",
+    documentKind: "OTHER",
     documentNumber: null,
     issuedAt: null,
     items: [],
@@ -274,6 +398,7 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: [
+    "documentKind",
     "documentNumber",
     "supplierName",
     "supplierTaxId",
@@ -286,6 +411,16 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
     "warnings",
   ],
   properties: {
+    documentKind: {
+      type: "string",
+      enum: [
+        "FISCAL_INVOICE",
+        "REIMBURSEMENT",
+        "COMPOSITE",
+        "PAYMENT_PROOF",
+        "OTHER",
+      ],
+    },
     documentNumber: { type: ["string", "null"] },
     supplierName: { type: ["string", "null"] },
     supplierTaxId: { type: ["string", "null"] },
@@ -313,6 +448,7 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
           "unit",
           "unitPrice",
           "totalAmount",
+          "evidenceObservations",
         ],
         properties: {
           lineNumber: { type: "integer", minimum: 1 },
@@ -327,6 +463,26 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
           unit: { type: ["string", "null"] },
           unitPrice: { type: ["string", "null"] },
           totalAmount: { type: ["string", "null"] },
+          evidenceObservations: {
+            type: "array",
+            maxItems: 12,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["kind", "label", "amount", "date", "page", "text"],
+              properties: {
+                kind: {
+                  type: "string",
+                  enum: ["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"],
+                },
+                label: { type: ["string", "null"] },
+                amount: { type: ["string", "null"] },
+                date: { type: ["string", "null"] },
+                page: { type: ["integer", "null"], minimum: 1 },
+                text: { type: ["string", "null"] },
+              },
+            },
+          },
         },
       },
     },

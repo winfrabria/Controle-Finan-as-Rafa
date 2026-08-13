@@ -133,6 +133,181 @@ function finding(
   return { references: ["POLITICA_AUDITORIA_VIGENTE"], source: "UNIVERSAL_RULE", ...input };
 }
 
+type EvidenceObservation = NonNullable<
+  HarnessInvoice["items"][number]["evidenceObservations"]
+>[number];
+
+function observationIdentity(observation: EvidenceObservation) {
+  return [
+    observation.kind,
+    observation.page ?? "",
+    observation.label ?? "",
+    observation.text ?? "",
+  ]
+    .join(":")
+    .slice(0, 240);
+}
+
+function observationValue(observation: EvidenceObservation) {
+  const parts = [
+    observation.amount === null ? null : `R$ ${Number(observation.amount).toFixed(2)}`,
+    observation.date === null ? null : observation.date,
+  ].filter((value): value is string => Boolean(value));
+  return parts.join(" · ");
+}
+
+const EVIDENCE_BASELINE_PRIORITY: Record<EvidenceObservation["kind"], number> = {
+  SALE: 0,
+  RECEIPT: 1,
+  SHEET: 2,
+  PAYMENT: 3,
+  OTHER: 4,
+  DISCOUNT: 5,
+};
+
+function baselineObservation<T extends { observation: EvidenceObservation }>(
+  entries: T[],
+) {
+  return [...entries].sort(
+    (left, right) =>
+      EVIDENCE_BASELINE_PRIORITY[left.observation.kind] -
+      EVIDENCE_BASELINE_PRIORITY[right.observation.kind],
+  )[0];
+}
+
+function reconcileEvidenceObservations(
+  item: HarnessInvoice["items"][number],
+) {
+  const observations = item.evidenceObservations ?? [];
+  const findings: HarnessFinding[] = [];
+  const amounts = observations.flatMap((observation) => {
+    const value = decimal(observation.amount);
+    return value === null ? [] : [{ observation, value }];
+  });
+  const dates = observations.flatMap((observation) =>
+    observation.date === null ? [] : [{ observation, value: observation.date }],
+  );
+  const discount = amounts
+    .filter(({ observation }) => observation.kind === "DISCOUNT")
+    .reduce((sum, entry) => sum + Math.abs(entry.value), 0);
+  const comparableAmounts = amounts.filter(
+    ({ observation }) => observation.kind !== "DISCOUNT",
+  );
+
+  if (comparableAmounts.length >= 2) {
+    const highest = comparableAmounts.reduce((left, right) =>
+      right.value > left.value ? right : left,
+    );
+    const lowest = comparableAmounts.reduce((left, right) =>
+      right.value < left.value ? right : left,
+    );
+    const difference = highest.value - lowest.value;
+    const tolerance = moneyTolerance(highest.value);
+    const discountExplainsDifference =
+      discount > 0 && Math.abs(difference - discount) <= tolerance;
+
+    if (difference > tolerance && !discountExplainsDifference) {
+      const baseline = baselineObservation(comparableAmounts) ?? lowest;
+      const conflicting = comparableAmounts.filter(
+        (entry) =>
+          Math.abs(entry.value - baseline.value) >
+          moneyTolerance(baseline.value),
+      );
+      findings.push(
+        finding({
+          code: `EVIDENCE_AMOUNT_MISMATCH_${item.lineNumber}`,
+          title: "Valores divergentes no mesmo comprovante",
+          description: `O item ${item.lineNumber} apresenta valores diferentes entre ficha, venda, recibo ou pagamento.`,
+          category: "AMOUNTS",
+          severity: "WARNING",
+          confidence: 0.99,
+          justification:
+            "Os valores conflitantes estão registrados no próprio anexo e não há desconto explícito que reconcilie a diferença.",
+          references: [
+            ...new Set(
+              comparableAmounts.map(
+                ({ observation }) =>
+                  `DOCUMENTO:página:${observation.page ?? "não identificada"}:${observation.kind}`,
+              ),
+            ),
+          ],
+          evidence: {
+            field: "valor",
+            lineNumber: item.lineNumber,
+            observations: comparableAmounts.map(({ observation }) => ({
+              amount: observation.amount,
+              date: observation.date,
+              kind: observation.kind,
+              label: observation.label,
+              page: observation.page,
+              text: observation.text,
+            })),
+            summary: comparableAmounts
+              .map(
+                ({ observation }) =>
+                  `${observation.kind}: ${observationValue(observation)}`,
+              )
+              .join("; "),
+          },
+          expectedValue: baseline.value.toFixed(2),
+          actualValue: conflicting
+            .map((entry) => entry.value.toFixed(2))
+            .join(" × "),
+          noteItemLineNumber: item.lineNumber,
+        }),
+      );
+    }
+  }
+
+  const distinctDates = [
+    ...new Map(dates.map((entry) => [entry.value, entry])).values(),
+  ];
+  if (distinctDates.length >= 2) {
+    const baseline = baselineObservation(distinctDates) ?? distinctDates[0];
+    const conflicting = distinctDates.filter(
+      (entry) => entry.value !== baseline.value,
+    );
+    findings.push(
+      finding({
+        code: `EVIDENCE_DATE_MISMATCH_${item.lineNumber}`,
+        title: "Datas divergentes no mesmo comprovante",
+        description: `O item ${item.lineNumber} apresenta datas diferentes entre ficha, venda, recibo ou pagamento.`,
+        category: "DATES",
+        severity: "WARNING",
+        confidence: 0.99,
+        justification:
+          "As datas conflitantes estão registradas no próprio conjunto documental.",
+        references: distinctDates.map(
+          ({ observation }) =>
+            `DOCUMENTO:página:${observation.page ?? "não identificada"}:${observationIdentity(observation)}`,
+        ),
+        evidence: {
+          field: "data",
+          lineNumber: item.lineNumber,
+          observations: distinctDates.map(({ observation }) => ({
+            date: observation.date,
+            kind: observation.kind,
+            label: observation.label,
+            page: observation.page,
+            text: observation.text,
+          })),
+          summary: distinctDates
+            .map(
+              ({ observation }) =>
+                `${observation.kind}: ${observation.date ?? "data ausente"}`,
+            )
+            .join("; "),
+        },
+        expectedValue: baseline.value,
+        actualValue: conflicting.map((entry) => entry.value).join(" × "),
+        noteItemLineNumber: item.lineNumber,
+      }),
+    );
+  }
+
+  return findings;
+}
+
 function validateCnpj(value: string) {
   const digits = value.replace(/\D/g, "");
   if (digits.length !== 14 || /^(\d)\1+$/.test(digits)) return false;
@@ -158,6 +333,14 @@ export function evaluateUniversalRules(input: {
   const findings: HarnessFinding[] = [];
   const coveredAreas = new Set<string>();
   const noteTotal = decimal(invoice.totalAmount);
+
+  for (const item of invoice.items) {
+    const reconciled = reconcileEvidenceObservations(item);
+    if ((item.evidenceObservations?.length ?? 0) > 0) {
+      coveredAreas.add("COMPOSITE_EVIDENCE");
+    }
+    findings.push(...reconciled);
+  }
 
   const totalSelection =
     noteTotal === null ? null : selectItemsForDocumentTotal(invoice, noteTotal);

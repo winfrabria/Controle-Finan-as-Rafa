@@ -2,14 +2,16 @@
 
 O Harness transforma uma extração validada em uma decisão auditável. A ordem é:
 
-1. regras universais determinísticas;
-2. regras e parâmetros ativos da obra;
-3. descoberta livre estruturada pelo Terra high;
-4. matriz de decisão;
-5. persistência de achados, métricas e diagnóstico.
+1. extração estruturada com evidências concorrentes preservadas;
+2. reconciliação determinística de ficha, venda, recibo, pagamento e desconto;
+3. regras universais determinísticas;
+4. regras e parâmetros ativos da obra;
+5. descoberta livre estruturada pelo Terra high;
+6. matriz de decisão;
+7. persistência de achados, métricas e diagnóstico.
 
-Política ativa: `2026-08-13.1`; prompt: `2026-08-11.1`; regras: `2026-08-09.3`; schema:
-`2026-08-10.1`. Os artefatos versionados ficam nas pastas
+Política ativa: `2026-08-13.2`; prompt: `2026-08-13.2`; regras: `2026-08-13.2`; schema:
+`2026-08-13.2`. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
 versão ativa.
@@ -18,6 +20,11 @@ versão ativa.
 
 - `openai/gpt-5.6-terra`, em `high`, é usado na extração e na auditoria. Testes reais mostraram que `max` excede a janela operacional em PDFs longos; o modelo e o esforço efetivamente usados ficam registrados no `AiRun`;
 - PDFs usam `mistral-ocr` por padrão antes da estruturação, rota indicada para documentos escaneados e compostos;
+- documentos compostos classificam o tipo e preservam, por linha, observações
+  independentes da ficha, venda, recibo, pagamento e desconto. A reconciliação
+  local transforma valores ou datas conflitantes em achados antes da descoberta
+  livre, sem depender de um segundo modelo perceber novamente a mesma evidência;
+- diferenças explicadas por desconto explícito e reconciliável não viram achado;
 - uma resposta estruturalmente inválida permite uma única reconstrução com o OCR ou rascunho já obtido; sem material reutilizável, o mesmo Terra é repetido uma vez. Não existe cadeia silenciosa entre modelos;
 - a auditoria faz no máximo duas chamadas e o `ProcessingJob` não repete externamente a rota já concluída;
 - `reasoning.exclude=true`; chain-of-thought nunca é solicitado ou persistido;

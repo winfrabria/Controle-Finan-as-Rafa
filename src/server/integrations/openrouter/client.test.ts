@@ -13,6 +13,7 @@ import {
 
 const validExtraction = {
   currency: "BRL",
+  documentKind: "FISCAL_INVOICE",
   documentNumber: "1322",
   issuedAt: "2026-07-31",
   items: [
@@ -20,6 +21,7 @@ const validExtraction = {
       code: null,
       countsTowardDocumentTotal: true,
       description: "CAFÉ DA MANHÃ",
+      evidenceObservations: [],
       lineNumber: 1,
       quantity: "164.07",
       totalAmount: "1148.50",
@@ -115,6 +117,53 @@ test("recupera desvios estruturais seguros sem uma nova chamada", () => {
     [1, 2],
   );
   assert.deepEqual(parsed.data.warnings, []);
+  assert.equal(parsed.data.documentKind, "REIMBURSEMENT");
+  assert.deepEqual(parsed.data.items[0]?.evidenceObservations, []);
+});
+
+test("preserva separadamente ficha, venda e pagamento em documento composto", () => {
+  const parsed = parseInvoiceExtractionPayload({
+    currency: "BRL",
+    documentKind: "REEMBOLSO",
+    documentNumber: null,
+    issuedAt: "27/05/2026",
+    items: [
+      {
+        code: "19",
+        countsTowardDocumentTotal: true,
+        description: "Casa da Uva",
+        evidenceObservations: [
+          { kind: "FICHA", amount: "18,00", date: "27/05/2026", page: 20 },
+          { kind: "CARTAO", amount: "28,00", date: "27/05/2026", page: 20 },
+        ],
+        lineNumber: 19,
+        quantity: "1",
+        totalAmount: "18,00",
+        unit: null,
+        unitPrice: "18,00",
+      },
+    ],
+    markdown: "Ficha de reembolso — item 19 — Casa da Uva.",
+    readConfidence: 0.98,
+    supplierName: null,
+    supplierTaxId: null,
+    totalAmount: "551,90",
+    warnings: [],
+  });
+
+  assert.equal(parsed.success, true);
+  if (!parsed.success) return;
+  assert.equal(parsed.data.documentKind, "REIMBURSEMENT");
+  assert.deepEqual(
+    parsed.data.items[0]?.evidenceObservations.map((entry) => [
+      entry.kind,
+      entry.amount,
+    ]),
+    [
+      ["SHEET", "18.00"],
+      ["PAYMENT", "28.00"],
+    ],
+  );
 });
 
 test("aceita envelope comum e termina leitura vazia como baixa confiança", () => {

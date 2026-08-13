@@ -205,6 +205,12 @@ export type ContextAnswerForAudit = {
 };
 
 export type HarnessInvoice = {
+  documentKind?:
+    | "FISCAL_INVOICE"
+    | "REIMBURSEMENT"
+    | "COMPOSITE"
+    | "PAYMENT_PROOF"
+    | "OTHER";
   documentNumber: string | null;
   supplierName: string | null;
   supplierTaxId: string | null;
@@ -220,6 +226,14 @@ export type HarnessInvoice = {
     quantity: string | null;
     unitPrice: string | null;
     totalAmount: string | null;
+    evidenceObservations?: Array<{
+      kind: "SHEET" | "RECEIPT" | "SALE" | "PAYMENT" | "DISCOUNT" | "OTHER";
+      label: string | null;
+      amount: string | null;
+      date: string | null;
+      page: number | null;
+      text: string | null;
+    }>;
   }>;
 };
 
