@@ -23,9 +23,13 @@ import type { ReviewerDashboardNote } from "./reviewer-dashboard-types";
 import type { NoteVisualItem } from "./note-types";
 
 function NotesFilterBar({
+  filtersOpen,
+  query,
   period,
   onClear,
+  onFiltersOpenChange,
   onPeriodChange,
+  onQueryChange,
   onStatusChange,
   onWorkChange,
   status,
@@ -33,9 +37,13 @@ function NotesFilterBar({
   works,
   periods,
 }: {
+  filtersOpen: boolean;
+  query: string;
   period: string;
   onClear: () => void;
+  onFiltersOpenChange: (value: boolean) => void;
   onPeriodChange: (value: string) => void;
+  onQueryChange: (value: string) => void;
   onStatusChange: (value: string) => void;
   onWorkChange: (value: string) => void;
   status: string;
@@ -44,8 +52,37 @@ function NotesFilterBar({
   periods: { val: string; label: string }[];
 }) {
   return (
-    <form className={noteStyles.filters} onReset={onClear}>
-      <label>
+    <form
+      className={noteStyles.filters}
+      data-mobile-open={filtersOpen ? "true" : "false"}
+      onReset={onClear}
+    >
+      <label className={noteStyles.searchField}>
+        <span>Buscar</span>
+        <div className={noteStyles.selectWrapper}>
+          <Icon name="search" />
+          <input
+            aria-label="Buscar por nota, fornecedor ou obra"
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Nota, fornecedor ou obra"
+            type="search"
+            value={query}
+          />
+        </div>
+      </label>
+      <button
+        aria-controls="admin-note-secondary-filters"
+        aria-expanded={filtersOpen}
+        className={noteStyles.mobileFilterToggle}
+        onClick={() => onFiltersOpenChange(!filtersOpen)}
+        type="button"
+      >
+        <Icon name="filter" /> Mais filtros
+        {(work || period || status) && (
+          <span className={noteStyles.activeFilterDot} aria-label="Filtros ativos" />
+        )}
+      </button>
+      <label className={noteStyles.filterSecondary} id="admin-note-secondary-filters">
         <span>Obra</span>
         <div className={noteStyles.selectWrapper}>
           <Icon name="building" />
@@ -60,7 +97,7 @@ function NotesFilterBar({
           </select>
         </div>
       </label>
-      <label>
+      <label className={noteStyles.filterSecondary}>
         <span>Período</span>
         <div className={noteStyles.selectWrapper}>
           <Icon name="calendar" />
@@ -77,7 +114,7 @@ function NotesFilterBar({
           </select>
         </div>
       </label>
-      <label>
+      <label className={noteStyles.filterSecondary}>
         <span>Status</span>
         <div className={noteStyles.selectWrapper}>
           <Icon name="document" />
@@ -96,7 +133,7 @@ function NotesFilterBar({
           </select>
         </div>
       </label>
-      <button type="reset">
+      <button className={noteStyles.filterSecondary} type="reset">
         <Icon name="filter" /> Limpar filtros
       </button>
     </form>
@@ -398,6 +435,8 @@ export function NotesView({
   const [work, setWork] = useState("");
   const [status, setStatus] = useState("");
   const [period, setPeriod] = useState("");
+  const [query, setQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -411,6 +450,10 @@ export function NotesView({
   };
   const handlePeriodChange = (val: string) => {
     setPeriod(val);
+    setPage(1);
+  };
+  const handleQueryChange = (val: string) => {
+    setQuery(val);
     setPage(1);
   };
 
@@ -446,6 +489,14 @@ export function NotesView({
   const filteredRows = useMemo(
     () =>
       rows.filter((row) => {
+        const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
+        const queryMatch =
+          !normalizedQuery ||
+          [row.number, row.supplier, row.work]
+            .filter(Boolean)
+            .some((value) =>
+              String(value).toLocaleLowerCase("pt-BR").includes(normalizedQuery),
+            );
         let periodMatch = true;
         if (period) {
           const parts = row.date.split("/");
@@ -454,12 +505,13 @@ export function NotesView({
           }
         }
         return (
+          queryMatch &&
           (!work || row.work === work) &&
           (!status || row.classification === status) &&
           periodMatch
         );
       }),
-    [period, rows, status, work],
+    [period, query, rows, status, work],
   );
   const paginatedRows = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -470,6 +522,7 @@ export function NotesView({
     setWork("");
     setStatus("");
     setPeriod("");
+    setQuery("");
     setPage(1);
   };
   const suspiciousCount = rows.filter(
@@ -527,9 +580,13 @@ export function NotesView({
         />
       </section>
       <NotesFilterBar
+        filtersOpen={filtersOpen}
+        query={query}
         period={period}
         onClear={clearFilters}
+        onFiltersOpenChange={setFiltersOpen}
         onPeriodChange={handlePeriodChange}
+        onQueryChange={handleQueryChange}
         onStatusChange={handleStatusChange}
         onWorkChange={handleWorkChange}
         status={status}
@@ -1163,7 +1220,13 @@ export function WorksView() {
   );
 }
 
-export function LogsView({ logs }: { logs: AuditLog[] }) {
+export function LogsView({
+  logs,
+  noteFilterLabel,
+}: {
+  logs: AuditLog[];
+  noteFilterLabel?: string;
+}) {
   const okCount = logs.filter((log) => log.classification === "OK").length;
   const suspiciousCount = logs.filter((log) => log.classification === "Suspeita").length;
   return (
@@ -1201,7 +1264,7 @@ export function LogsView({ logs }: { logs: AuditLog[] }) {
           tone="purple"
         />
       </section>
-      <LogsExplorer logs={logs} />
+      <LogsExplorer logs={logs} noteFilterLabel={noteFilterLabel} />
     </PortalShell>
   );
 }
@@ -1230,34 +1293,34 @@ function Pagination({
       </span>
       {totalPages > 1 && (
         <div className={styles.paginationNumbers}>
-          <span
-            style={{
-              cursor: page > 1 ? "pointer" : "default",
-              opacity: page > 1 ? 1 : 0.5,
-            }}
-            onClick={() => page > 1 && onPageChange(page - 1)}
+          <button
+            aria-label="Página anterior"
+            disabled={page <= 1}
+            onClick={() => onPageChange(page - 1)}
+            type="button"
           >
             <Icon name="chevron" style={{ transform: "rotate(180deg)" }} />
-          </span>
+          </button>
           {Array.from({ length: totalPages }).map((_, i) => (
-            <span
+            <button
+              aria-current={page === i + 1 ? "page" : undefined}
+              aria-label={`Página ${i + 1}`}
               key={i}
               className={page === i + 1 ? styles.activePage : undefined}
-              style={{ cursor: "pointer" }}
               onClick={() => onPageChange(i + 1)}
+              type="button"
             >
               {i + 1}
-            </span>
+            </button>
           ))}
-          <span
-            style={{
-              cursor: page < totalPages ? "pointer" : "default",
-              opacity: page < totalPages ? 1 : 0.5,
-            }}
-            onClick={() => page < totalPages && onPageChange(page + 1)}
+          <button
+            aria-label="Próxima página"
+            disabled={page >= totalPages}
+            onClick={() => onPageChange(page + 1)}
+            type="button"
           >
             <Icon name="chevron" />
-          </span>
+          </button>
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>

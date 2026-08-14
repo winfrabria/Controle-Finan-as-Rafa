@@ -10,6 +10,8 @@ import {
   useState,
 } from "react";
 
+import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
+
 import { Icon } from "./ui-icons";
 import styles from "./admin-works.module.css";
 
@@ -137,6 +139,9 @@ export function AdminWorksClient() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const mobileFormDialogRef = useRef<HTMLDivElement>(null);
+  const importDialogRef = useRef<HTMLElement>(null);
+  const modalTriggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -252,19 +257,65 @@ export function AdminWorksClient() {
   }, [form.cidade, form.uf]);
 
   useEffect(() => {
-    if (!formOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
+    const mobileFormActive =
+      formOpen && window.matchMedia("(max-width: 940px)").matches;
+    const dialog = importResult
+      ? importDialogRef.current
+      : mobileFormActive
+        ? mobileFormDialogRef.current
+        : null;
+    if (!dialog) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const frame = window.requestAnimationFrame(() => dialog.focus());
+    const handleKeyboard = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setEditing(null);
-        setForm(emptyForm);
-        setFormOpen(false);
+        if (importResult) {
+          setImportResult(null);
+          setImportCsv("");
+        } else {
+          setEditing(null);
+          setForm(emptyForm);
+          setCitySuggestions([]);
+          setCityWarning(null);
+          setFormOpen(false);
+        }
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [formOpen]);
+    window.addEventListener("keydown", handleKeyboard);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", handleKeyboard);
+      document.body.style.overflow = previousOverflow;
+      modalTriggerRef.current?.focus();
+      modalTriggerRef.current = null;
+    };
+  }, [formOpen, importResult]);
 
   function startCreate() {
+    modalTriggerRef.current = document.activeElement as HTMLElement | null;
     setEditing(null);
     setForm(emptyForm);
     setError(null);
@@ -276,6 +327,7 @@ export function AdminWorksClient() {
   }
 
   function startEdit(work: AdminWork) {
+    modalTriggerRef.current = document.activeElement as HTMLElement | null;
     const location = splitLocation(work.local);
     setEditing(work);
     setForm({
@@ -308,6 +360,7 @@ export function AdminWorksClient() {
 
   async function submitWork(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const endCriticalActivity = beginPwaCriticalActivity();
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -342,6 +395,7 @@ export function AdminWorksClient() {
       );
     } finally {
       setSaving(false);
+      endCriticalActivity();
     }
   }
 
@@ -353,6 +407,7 @@ export function AdminWorksClient() {
       setError("Selecione um arquivo no formato CSV.");
       return;
     }
+    const endCriticalActivity = beginPwaCriticalActivity();
     setImporting(true);
     setError(null);
     try {
@@ -369,6 +424,7 @@ export function AdminWorksClient() {
       );
     } finally {
       setImporting(false);
+      endCriticalActivity();
     }
   }
 
@@ -389,6 +445,7 @@ export function AdminWorksClient() {
 
   async function applyImport() {
     if (!importResult?.valido || !importCsv) return;
+    const endCriticalActivity = beginPwaCriticalActivity();
     setImporting(true);
     setError(null);
     try {
@@ -406,6 +463,7 @@ export function AdminWorksClient() {
       );
     } finally {
       setImporting(false);
+      endCriticalActivity();
     }
   }
 
@@ -420,6 +478,7 @@ export function AdminWorksClient() {
       return;
     }
 
+    const endCriticalActivity = beginPwaCriticalActivity();
     setChangingStatusId(work.id);
     setError(null);
     setSuccess(null);
@@ -438,6 +497,7 @@ export function AdminWorksClient() {
       );
     } finally {
       setChangingStatusId(null);
+      endCriticalActivity();
     }
   }
 
@@ -498,8 +558,9 @@ export function AdminWorksClient() {
     );
   }
 
-  const workForm = (
-    <form className={styles.workForm} onSubmit={submitWork}>
+  function renderWorkForm(cityOptionsId: string) {
+    return (
+      <form className={styles.workForm} onSubmit={submitWork}>
       <div className={styles.formHeader}>
         <div>
           <h2>{editing ? "Editar obra" : "Nova obra"}</h2>
@@ -577,7 +638,7 @@ export function AdminWorksClient() {
               maxLength={200}
               role="combobox"
               aria-autocomplete="list"
-              aria-controls="work-city-options"
+              aria-controls={cityOptionsId}
               aria-expanded={cityOpen && citySuggestions.length > 0}
               disabled={!form.uf}
               placeholder={form.uf ? "Busque ou digite a cidade" : "Selecione a UF"}
@@ -590,8 +651,8 @@ export function AdminWorksClient() {
               }}
             />
             {cityOpen && citySuggestions.length > 0 ? (
-              <div className={styles.cityOptions} id="work-city-options" role="listbox">
-                {citySuggestions.slice(0, 8).map((city) => (
+              <div className={styles.cityOptions} id={cityOptionsId} role="listbox">
+                {citySuggestions.map((city) => (
                   <button
                     key={city}
                     type="button"
@@ -654,8 +715,9 @@ export function AdminWorksClient() {
       <button className={styles.clearButton} type="button" onClick={clearForm}>
         Limpar
       </button>
-    </form>
-  );
+      </form>
+    );
+  }
 
   return (
     <div className={styles.page}>
@@ -678,7 +740,10 @@ export function AdminWorksClient() {
           <button
             className={styles.importButton}
             disabled={importing}
-            onClick={() => importInputRef.current?.click()}
+            onClick={() => {
+              modalTriggerRef.current = document.activeElement as HTMLElement;
+              importInputRef.current?.click();
+            }}
             title="Selecione um CSV com código, nome, cidade, UF, responsável e status"
           >
             <Icon name="upload" /> {importing ? "Validando..." : "Importar"}
@@ -870,7 +935,9 @@ export function AdminWorksClient() {
           </section>
         </main>
 
-        <aside className={styles.desktopForm}>{workForm}</aside>
+        <aside className={styles.desktopForm}>
+          {renderWorkForm("desktop-work-city-options")}
+        </aside>
       </div>
 
       <button className={styles.floatingButton} onClick={startCreate}>
@@ -885,18 +952,32 @@ export function AdminWorksClient() {
             if (event.currentTarget === event.target) closeForm();
           }}
         >
-          <div className={styles.mobileFormDialog} role="dialog" aria-modal>
-            {workForm}
+          <div
+            aria-label={editing ? "Editar obra" : "Nova obra"}
+            aria-modal="true"
+            className={styles.mobileFormDialog}
+            ref={mobileFormDialogRef}
+            role="dialog"
+            tabIndex={-1}
+          >
+            {renderWorkForm("mobile-work-city-options")}
           </div>
         </div>
       ) : null}
 
       {importResult ? (
         <div className={styles.importBackdrop} role="presentation">
-          <section className={styles.importDialog} role="dialog" aria-modal>
+          <section
+            aria-labelledby="import-works-title"
+            aria-modal="true"
+            className={styles.importDialog}
+            ref={importDialogRef}
+            role="dialog"
+            tabIndex={-1}
+          >
             <div className={styles.formHeader}>
               <div>
-                <h2>Importar obras</h2>
+                <h2 id="import-works-title">Importar obras</h2>
                 <p>
                   {importResult.valido
                     ? `${importResult.totalLinhas} linha(s) pronta(s) para importar.`

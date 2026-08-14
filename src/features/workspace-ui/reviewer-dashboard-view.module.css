@@ -90,6 +90,7 @@
   color: var(--navy);
   font: inherit;
   font-size: 12px;
+  height: 100%;
   min-width: 0;
   outline: 0;
   width: 100%;
@@ -148,6 +149,7 @@
   color: var(--navy);
   font: inherit;
   font-size: 11px;
+  height: 100%;
   min-width: 0;
   outline: 0;
   width: 100%;
@@ -478,6 +480,8 @@
   font-weight: 700;
   gap: 5px;
   margin: 8px 16px 14px;
+  min-height: 44px;
+  padding: 8px 6px;
   text-decoration: none;
 }
 
@@ -539,6 +543,16 @@
 
   .control,
   .clearButton {
+    min-height: 46px;
+  }
+
+  .dateControl {
+    min-height: 46px;
+  }
+
+  .control select,
+  .control input,
+  .dateControl input[type="date"] {
     min-height: 44px;
   }
 

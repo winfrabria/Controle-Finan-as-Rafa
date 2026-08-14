@@ -208,6 +208,76 @@ function reconcileFindingPrecedence<T extends {
   });
 }
 
+const NAME_VARIATION_PATTERN =
+  /(?:benefici[aá]ri|fornecedor|supplier|vendor|nome)[\s\S]{0,100}(?:vari|diverg|diferen|inconsist)|(?:vari|diverg|diferen|inconsist)[\s\S]{0,100}(?:benefici[aá]ri|fornecedor|supplier|vendor|nome)/iu;
+const ASSET_ASSOCIATION_PATTERN =
+  /\b(?:placa|ve[ií]cul\w*|equipament\w*|frota|m[aá]quin\w*|asset)\b/iu;
+const TAX_IDENTIFIER_PATTERN =
+  /\b(?:\d{2}[.\s-]?\d{3}[.\s-]?\d{3}[\/\s-]?\d{4}[-\s]?\d{2}|\d{3}[.\s-]?\d{3}[.\s-]?\d{3}[-\s]?\d{2}|\d{11}|\d{14})\b/gu;
+
+function findingSearchText(finding: HarnessFinding) {
+  return normalizeComparableToken(
+    [
+      finding.code,
+      finding.title,
+      finding.description,
+      finding.category,
+      finding.justification,
+      JSON.stringify(finding.evidence),
+      JSON.stringify(finding.expectedValue),
+      JSON.stringify(finding.actualValue),
+      finding.references.join(" "),
+    ].join(" "),
+  );
+}
+
+function distinctTaxIdentifiers(value: string) {
+  return new Set(
+    (value.match(TAX_IDENTIFIER_PATTERN) ?? [])
+      .map((candidate) => candidate.replace(/\D/g, ""))
+      .filter((candidate) => candidate.length === 11 || candidate.length === 14),
+  );
+}
+
+/**
+ * Remove observações livres que não têm base suficiente para chegar ao
+ * diagnóstico do revisor. Regras universais determinísticas não passam por
+ * este filtro.
+ */
+export function filterAiDiscoveryFindings(
+  findings: HarnessFinding[],
+  workRules: WorkRuleInput[] = [],
+) {
+  const hasAssetRule = workRules.some((rule) =>
+    ASSET_ASSOCIATION_PATTERN.test(
+      normalizeComparableToken(
+        `${rule.code} ${rule.name} ${rule.category} ${JSON.stringify(rule.configuration)}`,
+      ),
+    ),
+  );
+
+  return findings.filter((finding) => {
+    if (finding.source !== "AI_DISCOVERY") return true;
+    if (finding.severity === "INFO") return false;
+
+    const text = findingSearchText(finding);
+    if (NAME_VARIATION_PATTERN.test(text)) {
+      // Abreviação ou variação textual não comprova duas entidades distintas.
+      // São necessários dois identificadores fiscais diferentes no próprio
+      // conjunto de evidências.
+      if (distinctTaxIdentifiers(text).size < 2) return false;
+    }
+
+    if (ASSET_ASSOCIATION_PATTERN.test(text) && !hasAssetRule) {
+      // No MVP, placa/equipamento só é auditável quando um cadastro ou regra
+      // ativa da obra foi realmente fornecido ao Harness.
+      return false;
+    }
+
+    return true;
+  });
+}
+
 export function evaluateHarness(input: {
   invoice: HarnessInvoice;
   workRules?: WorkRuleInput[];
@@ -233,7 +303,19 @@ export function evaluateHarness(input: {
     now: input.now,
   });
   const work = evaluateWorkRules(input.invoice, input.workRules ?? []);
-  const aiFindings = input.aiDiscovery?.findings ?? [];
+  const discoveredFindings = input.aiDiscovery?.findings ?? [];
+  const aiFindings = filterAiDiscoveryFindings(
+    discoveredFindings,
+    input.workRules ?? [],
+  );
+  // A lacuna de cobertura é um sinal interno que pode impedir um falso
+  // TOTAL_MISMATCH, mas não deve virar card de diagnóstico para o revisor.
+  const reconciliationSignals = discoveredFindings.filter(
+    (finding) =>
+      finding.source === "AI_DISCOVERY" &&
+      finding.severity === "INFO" &&
+      finding.code === "COMPOSITE_DETAIL_COVERAGE_GAP",
+  );
   const routedContext = routeContextQuestions(
     input.aiDiscovery?.contextQuestions ?? [],
     aiFindings,
@@ -242,9 +324,13 @@ export function evaluateHarness(input: {
     reconcileFindingPrecedence([
       ...universal.findings,
       ...work.findings,
+      ...reconciliationSignals,
       ...aiFindings,
       ...routedContext.promotedFindings,
     ]),
+  ).filter(
+    (finding) =>
+      finding.source !== "AI_DISCOVERY" || finding.severity !== "INFO",
   );
   const deterministicCoverage = universal.covered || work.covered;
   const aiCoverage = input.aiDiscovery?.coverage.sufficientEvidence ?? false;

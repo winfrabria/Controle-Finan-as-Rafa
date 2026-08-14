@@ -115,6 +115,9 @@ missingLineNumbers está vazio e a contagem declarada não excede a contagem ext
 Campos de cabeçalho usados apenas para representar um documento composto não são uma inconsistência por si só. Não exponha nomes internos de schema como supplierName, supplierTaxId, issuedAt, invoice ou lineNumber no texto destinado ao usuário.
 Use severity=INFO somente para observações que não comprovam irregularidade; uma observação informativa nunca deve sustentar classificação suspeita.
 Só gere WARNING ou CRITICAL quando a própria evidência comprovar uma inconsistência. Se a justificativa admitir que a diferença pode ser uma agregação, apresentação fiscal ou uso legítimo, use INFO ou peça contexto.
+Variação textual, abreviação ou diferença de razão social entre fornecedor e beneficiário não comprova duas entidades distintas. Só gere achado quando o próprio conjunto documental trouxer identificadores fiscais diferentes e legíveis; sem essa prova, registre apenas limitação de cobertura.
+Associação de placa, veículo ou equipamento só pode gerar achado quando houver cadastro, regra ativa da obra ou fonte oficial fornecida ao Harness. Rótulos operacionais diferentes, sem essa referência, não comprovam incompatibilidade e não devem virar suspeita.
+Diferença de data só é achado quando os dois registros pertencem claramente à mesma transação e não existe no documento conciliação, reemissão, período administrativo ou outra explicação explícita. Cite os dois registros e suas páginas.
 Não trate uma unidade fiscal agregada como divergência quando o detalhamento operacional reconcilia exatamente o mesmo valor total.
 Não recrie como achado livre diferenças residuais de arredondamento que não foram apontadas pelas regras determinísticas.
 Toda contradição verificável dentro do próprio anexo é um achado, não uma pergunta de

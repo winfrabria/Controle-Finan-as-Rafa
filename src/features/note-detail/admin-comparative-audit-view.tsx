@@ -112,6 +112,7 @@ export function AdminComparativeAuditView({
             <NoteDocumentPreview
               documentUrl={documentUrl}
               fileName={data.document.fileName}
+              isDemo={data.isDemo}
               isImage={data.document.mimeType.startsWith("image/")}
               items={data.items}
               number={number}

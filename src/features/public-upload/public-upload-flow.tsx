@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import { WinfraBrand } from "@/components/brand/winfra-brand";
+import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
 import {
   ACCEPTED_FILE_TYPES,
   MAX_FILE_SIZE_BYTES,
@@ -541,6 +542,7 @@ async function requestProjects() {
 
 export function PublicUploadFlow() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const pollingControllerRef = useRef<AbortController | null>(null);
   const contextSubmissionStartedRef = useRef(false);
   const [view, setView] = useState<View>("form");
@@ -570,6 +572,24 @@ export function PublicUploadFlow() {
   const [failureKind, setFailureKind] = useState<FailureKind>("TECHNICAL");
   const [failureMessage, setFailureMessage] = useState("");
   const [canRetryProcessing, setCanRetryProcessing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    const updateConnection = () => setIsOnline(navigator.onLine);
+    updateConnection();
+    window.addEventListener("online", updateConnection);
+    window.addEventListener("offline", updateConnection);
+    return () => {
+      window.removeEventListener("online", updateConnection);
+      window.removeEventListener("offline", updateConnection);
+    };
+  }, []);
+
+  useEffect(() => {
+    const active = view === "sending" || isSubmittingContext;
+    if (!active) return;
+    return beginPwaCriticalActivity();
+  }, [isSubmittingContext, view]);
 
   async function loadProjects() {
     setIsLoading(true);
@@ -771,6 +791,12 @@ export function PublicUploadFlow() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isOnline) {
+      setFileError(
+        "Você está sem conexão. A nota e a obra continuam nesta tela; envie quando voltar a ficar online.",
+      );
+      return;
+    }
     if (!selectedProject) {
       setFileError("Selecione uma obra antes de enviar.");
       return;
@@ -817,6 +843,7 @@ export function PublicUploadFlow() {
     // Reset the native input as well. Without this, choosing the same PDF
     // after a failed attempt does not fire `change` again in the browser.
     if (inputRef.current) inputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
     contextSubmissionStartedRef.current = false;
     setSelectedProject(null);
     setFile(null);
@@ -837,7 +864,7 @@ export function PublicUploadFlow() {
   }
 
   function retryProcessing() {
-    if (!invoiceId) return;
+    if (!invoiceId || !isOnline) return;
     setFailureMessage("");
     setCanRetryProcessing(false);
     setView("processing");
@@ -846,6 +873,12 @@ export function PublicUploadFlow() {
   async function handleContextSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!invoiceId || isSubmittingContext || contextSubmissionStartedRef.current) {
+      return;
+    }
+    if (!isOnline) {
+      setContextError(
+        "Você está sem conexão. Suas respostas permanecem nesta tela e poderão ser enviadas quando a conexão voltar.",
+      );
       return;
     }
 
@@ -958,6 +991,13 @@ export function PublicUploadFlow() {
         </Link>
       </header>
 
+      {!isOnline ? (
+        <div className={styles.offlineBanner} role="status">
+          Você está offline. Os dados desta tela foram mantidos, mas o envio
+          precisa de conexão.
+        </div>
+      ) : null}
+
       {isFormView ? (
         <div
           className={`${styles.content} ${view === "context" ? styles.contextContent : ""}`}
@@ -1054,6 +1094,21 @@ export function PublicUploadFlow() {
                     PNG.
                   </p>
 
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    className={styles.fileInput}
+                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                    onChange={handleFileChange}
+                  />
+                  <input
+                    accept="image/jpeg,image/png"
+                    capture="environment"
+                    className={styles.fileInput}
+                    onChange={handleFileChange}
+                    ref={cameraInputRef}
+                    type="file"
+                  />
                   <div
                     className={`${styles.dropzone} ${isDragging ? styles.dragging : ""}`}
                     onDragEnter={(e) => {
@@ -1067,17 +1122,12 @@ export function PublicUploadFlow() {
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ")
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
                         inputRef.current?.click();
+                      }
                     }}
                   >
-                    <input
-                      ref={inputRef}
-                      type="file"
-                      className={styles.fileInput}
-                      accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                      onChange={handleFileChange}
-                    />
                     <span className={styles.uploadCircle}>
                       <IconCloudUpload />
                     </span>
@@ -1089,6 +1139,21 @@ export function PublicUploadFlow() {
                       Tamanho máximo: {formatBytes(MAX_FILE_SIZE_BYTES)} • Apenas
                       1 nota fiscal por envio
                     </small>
+                  </div>
+
+                  <div className={styles.fileSourceActions}>
+                    <button
+                      onClick={() => cameraInputRef.current?.click()}
+                      type="button"
+                    >
+                      Tirar foto
+                    </button>
+                    <button
+                      onClick={() => inputRef.current?.click()}
+                      type="button"
+                    >
+                      Escolher arquivo
+                    </button>
                   </div>
 
                   {file ? (
@@ -1123,7 +1188,7 @@ export function PublicUploadFlow() {
                   <button
                     className={styles.submitBtn}
                     type="submit"
-                    disabled={!selectedProject || !file}
+                    disabled={!selectedProject || !file || !isOnline}
                   >
                     <IconUpload /> Enviar nota fiscal
                   </button>
@@ -1172,6 +1237,7 @@ export function PublicUploadFlow() {
                   ) : null}
                   <button
                     className={styles.submitBtn}
+                    disabled={!isOnline}
                     onClick={retryProcessing}
                     type="button"
                   >
@@ -1290,7 +1356,7 @@ export function PublicUploadFlow() {
                       ) : null}
                       <button
                         className={styles.submitBtn}
-                        disabled={isSubmittingContext}
+                        disabled={isSubmittingContext || !isOnline}
                         type="submit"
                       >
                         {isSubmittingContext
@@ -1510,10 +1576,20 @@ export function PublicUploadFlow() {
                   {canRetryProcessing ? (
                     <button
                       className={styles.submitBtn}
+                      disabled={!isOnline}
                       onClick={retryProcessing}
                       type="button"
                     >
                       <IconFocus /> Tentar novamente
+                    </button>
+                  ) : null}
+                  {!invoiceId && file ? (
+                    <button
+                      className={styles.btnOutline}
+                      onClick={() => setView("form")}
+                      type="button"
+                    >
+                      Revisar dados do envio
                     </button>
                   ) : null}
                   <button

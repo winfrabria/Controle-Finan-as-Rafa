@@ -472,7 +472,10 @@ export async function processNoteAudit(
           data: supportedFindings.map((finding) => ({
             noteId,
             noteItemId: finding.noteItemLineNumber ? itemIds.get(finding.noteItemLineNumber) : undefined,
-            aiRunId: finding.source === "AI_DISCOVERY" ? aiRun.id : undefined,
+            // Todos os achados desta decisão pertencem à execução que os
+            // consolidou, inclusive os determinísticos. Isso mantém o log
+            // administrativo completo sem alterar a origem da regra.
+            aiRunId: aiRun.id,
             code: finding.code,
             title: finding.title,
             description: finding.description,

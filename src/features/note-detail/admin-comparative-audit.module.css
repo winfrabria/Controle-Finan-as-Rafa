@@ -144,26 +144,26 @@
 .timelinePanel li > i { display: none; }
 
 .actionArea { position: relative; display: flex; flex-direction: column; align-items: flex-end; }
-.moreActions { display: inline-flex; min-height: 38px; align-items: center; gap: 9px; border: 1px solid #cbd7e7; border-radius: 7px; padding: 0 14px; color: #203b63; background: #fff; font: inherit; font-size: 12px; cursor: pointer; }
+.moreActions { display: inline-flex; min-height: 44px; align-items: center; gap: 9px; border: 1px solid #cbd7e7; border-radius: 7px; padding: 0 14px; color: #203b63; background: #fff; font: inherit; font-size: 12px; cursor: pointer; }
 .moreActions svg { width: 13px; height: 13px; transform: rotate(90deg); }
 .actionMenu { position: absolute; z-index: 30; top: 44px; right: 0; width: 220px; overflow: hidden; border: 1px solid #d6dfeb; border-radius: 8px; background: #fff; box-shadow: 0 12px 30px rgb(18 36 70 / 17%); }
-.actionMenu button, .actionMenu a { display: flex; width: 100%; min-height: 42px; align-items: center; gap: 10px; border: 0; padding: 0 13px; color: #1d395f; background: #fff; font: inherit; font-size: 12px; text-align: left; text-decoration: none; cursor: pointer; }
+.actionMenu button, .actionMenu a { display: flex; width: 100%; min-height: 44px; align-items: center; gap: 10px; border: 0; padding: 0 13px; color: #1d395f; background: #fff; font: inherit; font-size: 12px; text-align: left; text-decoration: none; cursor: pointer; }
 .actionMenu button + button, .actionMenu a + button, .actionMenu button + a { border-top: 1px solid #edf0f5; }
 .actionMenu button:hover, .actionMenu a:hover { background: #f2f6fc; }
 .actionMenu svg { width: 15px; height: 15px; }
 .actionFeedback { max-width: 260px; margin: 6px 0 0; color: #31517e; font-size: 10px !important; text-align: right; }
 
-.modalBackdrop { position: fixed; z-index: 200; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(7 22 56 / 45%); backdrop-filter: blur(2px); }
-.costModal { width: min(100%, 480px); border-radius: 12px; padding: 22px; background: #fff; box-shadow: 0 24px 70px rgb(4 18 50 / 28%); }
+.modalBackdrop { position: fixed; z-index: 200; inset: 0; display: grid; place-items: center; padding: calc(20px + env(safe-area-inset-top, 0px)) calc(20px + env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px)); background: rgb(7 22 56 / 45%); backdrop-filter: blur(2px); }
+.costModal { width: min(100%, 480px); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; border-radius: 12px; padding: 22px; background: #fff; box-shadow: 0 24px 70px rgb(4 18 50 / 28%); }
 .costModal header { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
 .costModal h2 { margin: 0; font-size: 20px; }
 .costModal header p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
-.costModal header button { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 50%; color: #2f4568; background: #edf2f8; font-size: 20px; cursor: pointer; }
+.costModal header button { display: grid; min-width: 44px; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 50%; color: #2f4568; background: #edf2f8; font-size: 20px; cursor: pointer; }
 .costModal dl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 20px 0; }
 .costModal dl div { min-width: 0; border: 1px solid #dfe6ef; border-radius: 8px; padding: 11px; }
 .costModal dt { margin-bottom: 5px; color: var(--muted); font-size: 10px; }
 .costModal dd { overflow-wrap: anywhere; margin: 0; color: #17345d; font-size: 12px; font-weight: 700; }
-.costModal > a { display: flex; min-height: 40px; align-items: center; justify-content: center; border-radius: 7px; color: #fff; background: var(--blue); font-size: 12px; font-weight: 700; text-decoration: none; }
+.costModal > a { display: flex; min-height: 44px; align-items: center; justify-content: center; border-radius: 7px; color: #fff; background: var(--blue); font-size: 12px; font-weight: 700; text-decoration: none; }
 .noRun { margin: 20px 0; color: var(--muted); font-size: 12px; }
 
 @media (max-width: 1439px) {

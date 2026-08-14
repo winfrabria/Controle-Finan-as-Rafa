@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
 import { sanitizeReviewerText } from "@/features/note-detail/data/reviewer-data-policy";
 import {
   compactFindingFieldPath,
@@ -283,6 +284,7 @@ export function ReviewerNotesView({
   const [readError, setReadError] = useState<string | null>(null);
   const [readNotice, setReadNotice] = useState<string | null>(null);
   const [isMarkingRead, setIsMarkingRead] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const periods = useMemo(() => {
     const unique = new Set(
@@ -383,6 +385,7 @@ export function ReviewerNotesView({
 
   async function markAsRead() {
     if (!selected || !canMarkRead || isMarkingRead) return;
+    const endCriticalActivity = beginPwaCriticalActivity();
     setReadError(null);
     setIsMarkingRead(true);
     try {
@@ -414,6 +417,7 @@ export function ReviewerNotesView({
       );
     } finally {
       setIsMarkingRead(false);
+      endCriticalActivity();
     }
   }
 
@@ -464,7 +468,12 @@ export function ReviewerNotesView({
           </div>
         </header>
 
-        <section className={styles.filters} aria-label="Filtros de anexos">
+        <section
+          className={styles.filters}
+          aria-label="Filtros de anexos"
+          data-mobile-open={filtersOpen}
+          id="note-secondary-filters"
+        >
           <label className={styles.searchField}>
             <Icon name="search" />
             <span className={styles.visuallyHidden}>Buscar anexo</span>
@@ -474,7 +483,20 @@ export function ReviewerNotesView({
               placeholder={adminHistory ? "Buscar por número, fornecedor ou conteúdo" : "Buscar por número da nota ou fornecedor"}
             />
           </label>
-          <label className={styles.selectField}>
+          <button
+            aria-controls="note-secondary-filters"
+            aria-expanded={filtersOpen}
+            className={styles.mobileFilterToggle}
+            onClick={() => setFiltersOpen((current) => !current)}
+            type="button"
+          >
+            <Icon name="filter" />
+            {filtersOpen ? "Ocultar filtros" : "Filtros"}
+            {period || status || responsible || work || dateFrom || dateTo ? (
+              <span aria-label="Filtros ativos">●</span>
+            ) : null}
+          </button>
+          <label className={`${styles.selectField} ${styles.filterSecondary}`}>
             <Icon name="calendar" />
             <span className={styles.visuallyHidden}>Período</span>
             <select
@@ -495,7 +517,7 @@ export function ReviewerNotesView({
             </select>
           </label>
           {historyMode ? (
-            <label className={styles.selectField}>
+            <label className={`${styles.selectField} ${styles.filterSecondary}`}>
               <Icon name="building" />
               <span className={styles.visuallyHidden}>Obra</span>
               <select
@@ -510,7 +532,7 @@ export function ReviewerNotesView({
               </select>
             </label>
           ) : null}
-          <label className={styles.selectField}>
+          <label className={`${styles.selectField} ${styles.filterSecondary}`}>
             <Icon name="filter" />
             <span className={styles.visuallyHidden}>Status</span>
             <select
@@ -531,7 +553,7 @@ export function ReviewerNotesView({
               <option value="Em análise">Em análise</option>
             </select>
           </label>
-          <label className={styles.selectField}>
+          <label className={`${styles.selectField} ${styles.filterSecondary}`}>
             <Icon name="building" />
             <span className={styles.visuallyHidden}>Responsável</span>
             <select
@@ -545,7 +567,7 @@ export function ReviewerNotesView({
               ))}
             </select>
           </label>
-          <label className={styles.dateField}>
+          <label className={`${styles.dateField} ${styles.filterSecondary}`}>
             <Icon name="calendar" />
             <span className={styles.visuallyHidden}>Data inicial</span>
             <input
@@ -558,7 +580,7 @@ export function ReviewerNotesView({
               value={dateFrom}
             />
           </label>
-          <label className={styles.dateField}>
+          <label className={`${styles.dateField} ${styles.filterSecondary}`}>
             <Icon name="calendar" />
             <span className={styles.visuallyHidden}>Data final</span>
             <input
@@ -573,7 +595,7 @@ export function ReviewerNotesView({
           </label>
           {(query || period || status || responsible || work || dateFrom || dateTo) && (
             <button
-              className={styles.clearButton}
+              className={`${styles.clearButton} ${styles.filterSecondary}`}
               type="button"
               onClick={() => {
                 setQuery("");

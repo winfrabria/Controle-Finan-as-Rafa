@@ -18,6 +18,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const configurationError = params.erro === "configuracao";
   const credentialsError = params.erro === "credenciais";
+  const callbackError = params.erro === "callback";
 
   return (
     <main className={styles.page}>
@@ -30,6 +31,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           nextPath={params.next}
           configurationError={configurationError}
           credentialsError={credentialsError}
+          callbackError={callbackError}
         />
       </div>
     </main>

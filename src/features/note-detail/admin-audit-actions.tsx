@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
 import { Icon } from "@/features/workspace-ui/ui-icons";
 
 import type { AdminNoteAiRun } from "./data";
@@ -21,6 +22,8 @@ export function AdminAuditActions({ isDemo, latestRun, noteId }: Props) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [reprocessing, setReprocessing] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const costModalRef = useRef<HTMLElement>(null);
+  const costTriggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     function close(event: MouseEvent) {
@@ -30,6 +33,48 @@ export function AdminAuditActions({ isDemo, latestRun, noteId }: Props) {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
+  useEffect(() => {
+    if (!costOpen || !costModalRef.current) return;
+    const dialog = costModalRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const frame = window.requestAnimationFrame(() => dialog.focus());
+    const handleKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setCostOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyboard);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", handleKeyboard);
+      document.body.style.overflow = previousOverflow;
+      costTriggerRef.current?.focus();
+      costTriggerRef.current = null;
+    };
+  }, [costOpen]);
+
   async function reprocess() {
     setOpen(false);
     if (isDemo) {
@@ -37,6 +82,7 @@ export function AdminAuditActions({ isDemo, latestRun, noteId }: Props) {
       return;
     }
     if (!window.confirm("Reprocessar esta nota com a política atual?")) return;
+    const endCriticalActivity = beginPwaCriticalActivity();
     setReprocessing(true);
     setFeedback(null);
     try {
@@ -60,6 +106,7 @@ export function AdminAuditActions({ isDemo, latestRun, noteId }: Props) {
       );
     } finally {
       setReprocessing(false);
+      endCriticalActivity();
     }
   }
 
@@ -86,6 +133,7 @@ export function AdminAuditActions({ isDemo, latestRun, noteId }: Props) {
             <button
               type="button"
               onClick={() => {
+                costTriggerRef.current = document.activeElement as HTMLElement;
                 setOpen(false);
                 setCostOpen(true);
               }}
@@ -110,6 +158,8 @@ export function AdminAuditActions({ isDemo, latestRun, noteId }: Props) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="cost-title"
+            ref={costModalRef}
+            tabIndex={-1}
           >
             <header>
               <div>

@@ -17,6 +17,7 @@ type LoginFormProps = {
   nextPath?: string;
   configurationError: boolean;
   credentialsError?: boolean;
+  callbackError?: boolean;
 };
 
 function mapAuthError(message: string) {
@@ -88,6 +89,7 @@ export function LoginForm({
   nextPath,
   configurationError,
   credentialsError = false,
+  callbackError = false,
 }: LoginFormProps) {
   const emailId = useId();
   const passwordId = useId();
@@ -102,7 +104,9 @@ export function LoginForm({
       ? "A autenticação ainda não está configurada neste ambiente."
       : credentialsError
         ? "E-mail ou senha incorretos. Confira os dados e tente novamente."
-        : null,
+        : callbackError
+          ? "O link de autenticação é inválido ou expirou. Solicite um novo link e tente novamente."
+          : null,
   );
 
   useEffect(() => {
@@ -158,7 +162,9 @@ export function LoginForm({
       persistRememberedEmail(normalizedEmail);
       window.location.replace(getAuthLandingPath(nextPath));
     } catch {
-      setError("A autenticação ainda não está configurada neste ambiente.");
+      setError(
+        "Não foi possível conectar ao serviço de autenticação. Verifique sua conexão e tente novamente.",
+      );
     } finally {
       setIsSubmitting(false);
     }

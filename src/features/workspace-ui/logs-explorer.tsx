@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "./ui-icons";
 import { StatusBadge } from "./portal-shell";
@@ -61,7 +61,13 @@ function tone(classification: LogClassification) {
   return "warning" as const;
 }
 
-export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
+export function LogsExplorer({
+  logs,
+  noteFilterLabel,
+}: {
+  logs: AuditLog[];
+  noteFilterLabel?: string;
+}) {
   const [selectedId, setSelectedId] = useState(logs[0]?.id ?? "");
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [user, setUser] = useState("");
@@ -70,6 +76,52 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [query, setQuery] = useState("");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const detailRef = useRef<HTMLElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!mobileDetailOpen || !window.matchMedia("(max-width: 760px)").matches) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    detailRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileDetailOpen(false);
+        previousFocusRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab" || !detailRef.current) return;
+      const focusable = Array.from(
+        detailRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (!focusable.length) {
+        event.preventDefault();
+        detailRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable.at(-1)!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileDetailOpen]);
 
   const users = useMemo(
     () => [...new Set(logs.map((log) => log.user))].sort((a, b) => a.localeCompare(b, "pt-BR")),
@@ -119,13 +171,35 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
 
   function selectLog(id: string) {
     setSelectedId(id);
-    setMobileDetailOpen(true);
+    if (window.matchMedia("(max-width: 760px)").matches) {
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
+      setMobileDetailOpen(true);
+    }
+  }
+
+  function closeMobileDetail() {
+    setMobileDetailOpen(false);
+    window.requestAnimationFrame(() => previousFocusRef.current?.focus());
   }
 
   return (
     <section className={styles.logsLayout}>
       <article>
-        <form className={styles.filterBar} onSubmit={(e) => e.preventDefault()}>
+        {noteFilterLabel ? (
+          <div className={styles.activeLogContext}>
+            <span><Icon name="document" /></span>
+            <div>
+              <strong>Logs filtrados por anexo</strong>
+              <p>{noteFilterLabel}</p>
+            </div>
+            <Link href="/admin/logs">Ver todos os logs</Link>
+          </div>
+        ) : null}
+        <form
+          className={styles.filterBar}
+          data-mobile-open={mobileFiltersOpen}
+          onSubmit={(e) => e.preventDefault()}
+        >
           <label className={styles.logSearchField}>
             Buscar no histórico
             <span>
@@ -138,7 +212,23 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
               />
             </span>
           </label>
-          <fieldset className={styles.periodFieldset}>
+          <button
+            aria-controls="log-secondary-filters"
+            aria-expanded={mobileFiltersOpen}
+            className={styles.mobileLogFilterToggle}
+            onClick={() => setMobileFiltersOpen((current) => !current)}
+            type="button"
+          >
+            <Icon name="filter" />
+            {mobileFiltersOpen ? "Ocultar filtros" : "Filtros"}
+            {user || work || classification || startDate || endDate ? (
+              <span aria-label="Filtros ativos">●</span>
+            ) : null}
+          </button>
+          <fieldset
+            className={`${styles.periodFieldset} ${styles.logFilterSecondary}`}
+            id="log-secondary-filters"
+          >
             <legend>Período</legend>
             <div>
               <Icon name="calendar" />
@@ -157,14 +247,14 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
               />
             </div>
           </fieldset>
-          <label>
+          <label className={styles.logFilterSecondary}>
             Usuário
             <select value={user} onChange={(e) => setUser(e.target.value)}>
               <option value="">Todos</option>
               {users.map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
-          <label>
+          <label className={styles.logFilterSecondary}>
             Obra
             <select value={work} onChange={(e) => setWork(e.target.value)}>
               <option value="">Todas as obras</option>
@@ -173,7 +263,7 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
               ))}
             </select>
           </label>
-          <label>
+          <label className={styles.logFilterSecondary}>
             Classificação
             <select
               value={classification}
@@ -183,7 +273,11 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
               {classifications.map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
-          <button type="button" onClick={clearFilters}>
+          <button
+            className={styles.logFilterSecondary}
+            type="button"
+            onClick={clearFilters}
+          >
             <Icon name="filter" /> Limpar filtros
           </button>
         </form>
@@ -290,12 +384,24 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
           </footer>
         </div>
       </article>
+      {selected && mobileDetailOpen ? (
+        <div
+          className={styles.logDetailBackdrop}
+          onMouseDown={closeMobileDetail}
+          role="presentation"
+        />
+      ) : null}
       {selected ? <aside
         className={`${styles.panel} ${styles.logDetail}`}
         data-mobile-open={mobileDetailOpen}
+        aria-labelledby="log-detail-title"
+        aria-modal={mobileDetailOpen ? "true" : undefined}
+        ref={detailRef}
+        role={mobileDetailOpen ? "dialog" : undefined}
+        tabIndex={mobileDetailOpen ? -1 : undefined}
       >
         <div className={styles.panelHeader}>
-          <h2>Detalhes do log</h2>
+          <h2 id="log-detail-title">Detalhes do log</h2>
           <div className={styles.logDetailActions}>
             <StatusBadge tone={tone(selected.classification)}>
               {selected.classification}
@@ -303,7 +409,7 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
             <button
               type="button"
               aria-label="Fechar detalhes"
-              onClick={() => setMobileDetailOpen(false)}
+              onClick={closeMobileDetail}
             >
               ×
             </button>

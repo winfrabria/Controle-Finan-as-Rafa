@@ -28,4 +28,7 @@ test("separa contradição interna de contexto externo", () => {
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /não use perguntas genéricas/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /nunca peça que ela defina regras/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /"houve desconto\?"[\s\S]*são proibidas/i);
+  assert.match(AUDIT_DISCOVERY_PROMPT.system, /variação textual[\s\S]*identificadores fiscais diferentes/i);
+  assert.match(AUDIT_DISCOVERY_PROMPT.system, /associação de placa[\s\S]*regra ativa da obra/i);
+  assert.match(AUDIT_DISCOVERY_PROMPT.system, /diferença de data[\s\S]*mesma transação/i);
 });

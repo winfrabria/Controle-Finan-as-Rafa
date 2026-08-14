@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@/features/workspace-ui/ui-icons";
 import {
   compactFindingFieldPath,
-  formatFindingParts,
+  formatReviewerFindingParts,
   formatFindingValueLines,
   humanizeFindingText,
 } from "@/features/internal-notes/finding-display";
@@ -36,7 +36,13 @@ export function NoteAnalysisExplorer({
 
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth > 1023) return;
-    detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    detailRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "start",
+    });
   }, [selectedId]);
 
   if (!selected) {
@@ -55,7 +61,7 @@ export function NoteAnalysisExplorer({
     (finding) => finding.id === selected.id,
   );
   const evidenceObservations = extractEvidenceObservations(selected.evidence);
-  const evidenceParts = formatFindingParts(
+  const evidenceParts = formatReviewerFindingParts(
     selected.evidence,
     selected.description,
   ).filter((part) => {
@@ -382,7 +388,7 @@ function EvidenceObservationList({ observations }: { observations: EvidenceObser
   );
 }
 
-function EvidenceFacts({ parts }: { parts: ReturnType<typeof formatFindingParts> }) {
+function EvidenceFacts({ parts }: { parts: ReturnType<typeof formatReviewerFindingParts> }) {
   if (parts.length === 0) return <span>Evidência não detalhada.</span>;
 
   return (

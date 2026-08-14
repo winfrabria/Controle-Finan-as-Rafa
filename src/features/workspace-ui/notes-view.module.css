@@ -5,10 +5,7 @@
   border-radius: 12px;
   display: grid;
   gap: 22px;
-  grid-template-columns: minmax(190px, 1fr) minmax(320px, 1.15fr) minmax(
-      190px,
-      0.95fr
-    ) auto;
+  grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(150px, 0.8fr)) auto;
   margin: 12px 0;
   padding: 12px 18px;
 }
@@ -45,7 +42,8 @@
   pointer-events: none;
 }
 
-.filters select {
+.filters select,
+.filters input[type="search"] {
   background: #fff;
   border: 1px solid #d8e1ed;
   border-radius: 7px;
@@ -55,6 +53,21 @@
   width: 100%;
   cursor: pointer;
   padding: 0 12px 0 38px;
+}
+
+.filters input[type="search"] {
+  padding-right: 12px;
+}
+
+.mobileFilterToggle {
+  display: none !important;
+}
+
+.activeFilterDot {
+  background: #0b5cff;
+  border-radius: 50%;
+  height: 7px;
+  width: 7px;
 }
 
 .filters button {
@@ -109,7 +122,7 @@
 @media (max-width: 1080px) {
   .filters {
     gap: 12px;
-    grid-template-columns: 1fr 1.35fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .filters button {
@@ -127,7 +140,7 @@
     background: transparent;
     border: 0;
     gap: 10px;
-    grid-template-columns: 0.85fr 1.3fr 0.9fr;
+    grid-template-columns: minmax(0, 1fr);
     margin: 8px 0 18px;
     padding: 0;
   }
@@ -138,9 +151,10 @@
   }
 
   .filters select,
+  .filters input[type="search"],
   .dateRange {
-    font-size: 12px;
-    min-height: 43px;
+    font-size: 16px;
+    min-height: 44px;
   }
 
   .dateRange {
@@ -159,8 +173,24 @@
     width: 15px;
   }
 
-  .filters button {
+  .mobileFilterToggle {
+    display: inline-flex !important;
+    min-height: 44px !important;
+    width: 100%;
+  }
+
+  .filters .filterSecondary {
     display: none;
+  }
+
+  .filters[data-mobile-open="true"] .filterSecondary {
+    display: grid;
+    width: 100%;
+  }
+
+  .filters[data-mobile-open="true"] button.filterSecondary {
+    display: inline-flex;
+    min-height: 44px;
   }
 
   .notesPanel {
@@ -191,8 +221,9 @@
   }
 
   .filters select,
+  .filters input[type="search"],
   .dateRange {
-    font-size: 11px;
+    font-size: 16px;
   }
 
   .dateRange {

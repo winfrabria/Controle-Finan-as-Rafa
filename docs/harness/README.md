@@ -10,15 +10,15 @@ O Harness transforma uma extração validada em uma decisão auditável. A ordem
 6. matriz de decisão;
 7. persistência de achados, métricas e diagnóstico.
 
-Política ativa: `2026-08-14.1`; prompt: `2026-08-14.1`; regras: `2026-08-14.1`; schema:
-`2026-08-14.1`. Os artefatos versionados ficam nas pastas
+Política do código: `2026-08-14.2`; prompt: `2026-08-14.2`; regras: `2026-08-14.2`; schema:
+`2026-08-14.2`. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
 versão ativa.
 
 ## Garantias
 
-- `openai/gpt-5.6-terra`, em `high`, é usado na extração e na auditoria. Testes reais mostraram que `max` excede a janela operacional em PDFs longos; o modelo e o esforço efetivamente usados ficam registrados no `AiRun`;
+- `openai/gpt-5.6-terra`, em `high`, é o padrão seguro da extração e da auditoria. O avaliador pode ser trocado somente pela variável explícita de comparação; o modelo e o esforço efetivamente usados ficam registrados no `AiRun`;
 - PDFs usam `mistral-ocr` por padrão antes da estruturação, rota indicada para documentos escaneados e compostos;
 - documentos compostos classificam o tipo e preservam, por linha, observações
   independentes da ficha, venda, recibo, pagamento e desconto. A reconciliação
@@ -55,6 +55,12 @@ versão ativa.
 - regras específicas de obra ficam desativadas por padrão no ciclo de testes
   (`HARNESS_WORK_RULES_ENABLED=false`). A obra selecionada organiza o anexo, mas
   não cria suspeita operacional até a ativação explícita dessa fase.
+- observações livres `INFO` não viram achados do revisor. Variação textual de
+  nomes sem duas identidades fiscais e associação de placa/equipamento sem
+  cadastro ou regra ativa também são descartadas antes da decisão;
+- todos os achados consolidados, inclusive determinísticos, ficam vinculados ao
+  `AiRun` que fechou a decisão para o log administrativo mostrar a execução por
+  inteiro;
 
 Reinicie o servidor após qualquer troca de modelo para limpar os clientes em
 cache. Comparações futuras devem ocorrer em ambiente controlado, nunca por uma

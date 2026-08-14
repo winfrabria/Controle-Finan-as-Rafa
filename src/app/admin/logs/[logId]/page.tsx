@@ -2,7 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { attachmentReference } from "@/features/internal-notes/attachment-reference";
-import { formatFindingParts, formatFindingValue } from "@/features/internal-notes/finding-display";
+import {
+  formatFindingValue,
+  formatReviewerFindingParts,
+  humanizeFindingText,
+} from "@/features/internal-notes/finding-display";
 import { PortalShell, StatusBadge } from "@/features/workspace-ui/portal-shell";
 import { Icon } from "@/features/workspace-ui/ui-icons";
 import { prisma } from "@/server/db/prisma";
@@ -27,6 +31,25 @@ type TimelineEntry = {
 
 type DetailRow = { label: string; value: string };
 
+type HarnessFindingDetail = {
+  actual: string;
+  code: string;
+  confidence: string;
+  description: string;
+  evidence: ReturnType<typeof formatReviewerFindingParts>;
+  expected: string;
+  justification: string;
+  severity: string;
+  title: string;
+};
+
+type HarnessExplanation = {
+  contextQuestionCount: number;
+  coverageAreas: string[];
+  findings: HarnessFindingDetail[];
+  summary: string;
+};
+
 type LoadedLog = {
   at: Date;
   comment: string;
@@ -35,6 +58,7 @@ type LoadedLog = {
   noteNumber: string;
   raw: unknown;
   rows: DetailRow[];
+  harness?: HarnessExplanation;
   status: string;
   title: string;
   user: string;
@@ -113,13 +137,21 @@ export default async function AdminLogDetailPage({ params }: PageProps) {
                     <time>{dateTime.format(entry.at)}</time>
                     <strong>{entry.label}</strong>
                     <p>{entry.detail}</p>
-                    {entry.type === "run" ? <Link href={`/admin/logs/AI-${entry.id}`}>Abrir execução</Link> : null}
+                    {entry.type === "run" ? (
+                      detail.id === `AI-${entry.id}` ? (
+                        <span className={styles.currentRun}>Execução aberta</span>
+                      ) : (
+                        <Link href={`/admin/logs/AI-${entry.id}`}>Abrir esta execução</Link>
+                      )
+                    ) : null}
                   </li>
                 ))}
               </ol>
             ) : <p className={styles.empty}>Nenhuma etapa relacionada foi registrada.</p>}
           </aside>
         </div>
+
+        {detail.harness ? <HarnessExplanationCard explanation={detail.harness} /> : null}
 
         <details className={styles.raw}>
           <summary>Resposta estruturada e dados técnicos persistidos</summary>
@@ -140,6 +172,73 @@ function Summary({ label, value }: { label: string; value: string }) {
   return <dl><dt>{label}</dt><dd>{value}</dd></dl>;
 }
 
+function HarnessExplanationCard({
+  explanation,
+}: {
+  explanation: HarnessExplanation;
+}) {
+  return (
+    <section className={styles.harnessExplanation}>
+      <header className={styles.cardHeader}>
+        <div>
+          <span className={styles.cardIcon}><Icon name="shield" /></span>
+          <div>
+            <h2>Leitura explicável do Harness</h2>
+            <p>Resultado estruturado, evidências e critérios usados — sem raciocínio interno.</p>
+          </div>
+        </div>
+      </header>
+      <div className={styles.harnessSummary}>
+        <div>
+          <span>Conclusão registrada</span>
+          <p>{humanizeFindingText(explanation.summary)}</p>
+        </div>
+        <div>
+          <span>Cobertura</span>
+          {explanation.coverageAreas.length ? (
+            <ul>
+              {explanation.coverageAreas.map((area) => <li key={area}>{humanizeFindingText(area)}</li>)}
+            </ul>
+          ) : <p>Cobertura não detalhada nesta execução.</p>}
+        </div>
+        <div>
+          <span>Perguntas de contexto</span>
+          <strong>{explanation.contextQuestionCount}</strong>
+          <p>{explanation.contextQuestionCount ? "Perguntas externas foram registradas." : "Nenhuma pergunta externa foi necessária."}</p>
+        </div>
+      </div>
+      <div className={styles.harnessFindings}>
+        <div className={styles.harnessFindingsHeader}>
+          <h3>Achados sustentados</h3>
+          <span>{explanation.findings.length}</span>
+        </div>
+        {explanation.findings.length ? explanation.findings.map((finding, index) => (
+          <article key={`${finding.code}-${index}`}>
+            <header>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <div><h4>{humanizeFindingText(finding.title)}</h4><small>{finding.code}</small></div>
+              <strong>{finding.severity} · {finding.confidence}</strong>
+            </header>
+            <p>{humanizeFindingText(finding.description)}</p>
+            {finding.evidence.length ? (
+              <dl className={styles.harnessEvidence}>
+                {finding.evidence.map((part, partIndex) => (
+                  <div key={`${part.label}-${partIndex}`}><dt>{part.label}</dt><dd>{part.value}</dd></div>
+                ))}
+              </dl>
+            ) : null}
+            <div className={styles.harnessComparison}>
+              <div><span>Esperado</span><p>{finding.expected}</p></div>
+              <div><span>Encontrado</span><p>{finding.actual}</p></div>
+            </div>
+            <footer><strong>Por que chamou atenção</strong><p>{humanizeFindingText(finding.justification)}</p></footer>
+          </article>
+        )) : <p className={styles.empty}>Esta execução não persistiu nenhum achado sustentado.</p>}
+      </div>
+    </section>
+  );
+}
+
 async function loadLog(kind: string, id: string): Promise<LoadedLog | null> {
   if (kind === "AI") {
     const run = await prisma.aiRun.findUnique({
@@ -147,30 +246,66 @@ async function loadLog(kind: string, id: string): Promise<LoadedLog | null> {
       include: {
         findings: {
           orderBy: [{ severity: "desc" }, { createdAt: "asc" }],
-          select: { actualValue: true, code: true, confidence: true, evidence: true, expectedValue: true, severity: true, title: true },
+          select: {
+            actualValue: true,
+            code: true,
+            confidence: true,
+            description: true,
+            evidence: true,
+            expectedValue: true,
+            justification: true,
+            severity: true,
+            title: true,
+          },
         },
         note: { select: { documentNumber: true, id: true, work: { select: { name: true } } } },
         processingJob: { select: { attempt: true, lastErrorCode: true, maxAttempts: true, status: true, type: true } },
       },
     });
     if (!run) return null;
-    const findings = run.findings.length
-      ? run.findings.map((finding) => ({
-          achado: finding.title,
-          codigo: finding.code,
-          confianca: `${Math.round(finding.confidence.toNumber() * 100)}%`,
-          evidencia: formatFindingParts(finding.evidence),
-          esperado: formatFindingValue(finding.expectedValue, "Não informado"),
-          encontrado: formatFindingValue(finding.actualValue, "Não informado"),
-          gravidade: finding.severity,
-        }))
-      : [];
+    const findingDetails: HarnessFindingDetail[] = run.findings.map((finding) => ({
+      actual: formatFindingValue(finding.actualValue, "Não informado"),
+      code: finding.code,
+      confidence: `${Math.round(finding.confidence.toNumber() * 100)}%`,
+      description: finding.description,
+      evidence: formatReviewerFindingParts(finding.evidence),
+      expected: formatFindingValue(finding.expectedValue, "Não informado"),
+      justification: finding.justification,
+      severity: severityLabel(finding.severity),
+      title: finding.title,
+    }));
+    const structured = isRecord(run.structuredResponse) ? run.structuredResponse : {};
+    const coverage = isRecord(structured.coverage) ? structured.coverage : {};
+    const coverageAreas = stringList(coverage.areas);
+    const contextQuestionCount = stringList(structured.contextQuestionCodes).length;
+    const summary = typeof structured.summary === "string" && structured.summary.trim()
+      ? structured.summary.trim()
+      : run.kind === "EXTRACTION"
+        ? "O arquivo foi lido e normalizado para a etapa de auditoria."
+        : findingDetails.length
+          ? `A auditoria concluiu ${findingDetails.length} achado(s) sustentado(s).`
+          : "A auditoria não persistiu achados sustentados nesta execução.";
+    const findings = findingDetails.map((finding) => ({
+      achado: finding.title,
+      codigo: finding.code,
+      confianca: finding.confidence,
+      evidencia: finding.evidence,
+      esperado: finding.expected,
+      encontrado: finding.actual,
+      gravidade: finding.severity,
+    }));
     return {
       at: run.createdAt,
       comment: run.kind === "EXTRACTION"
         ? "Leitura e normalização dos campos do documento."
         : "Aplicação das regras do Harness e avaliação estruturada da IA.",
       id: `AI-${run.id}`,
+      harness: {
+        contextQuestionCount,
+        coverageAreas,
+        findings: findingDetails,
+        summary,
+      },
       noteId: run.note.id,
       noteNumber: attachmentReference(run.note.documentNumber, run.note.id),
       raw: { findings, response: run.structuredResponse },
@@ -343,6 +478,18 @@ function safeJson(value: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringList(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function severityLabel(value: string) {
+  if (value === "CRITICAL") return "Alta";
+  if (value === "WARNING") return "Média";
+  return "Informativa";
 }
 
 function numberLabel(value: number | null) {

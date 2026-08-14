@@ -4,12 +4,14 @@ import Image from "next/image";
 import { useState } from "react";
 
 import type { NoteDetailItem } from "./data";
+import { resolveNoteDocumentPreviewKind } from "./note-document-policy";
 import { formatDecimal } from "./note-detail-format";
 import styles from "./note-detail.module.css";
 
 type NoteDocumentPreviewProps = {
   documentUrl: string | null;
   fileName: string;
+  isDemo: boolean;
   isImage: boolean;
   items: NoteDetailItem[];
   number: string;
@@ -20,6 +22,7 @@ type NoteDocumentPreviewProps = {
 export function NoteDocumentPreview({
   documentUrl,
   fileName,
+  isDemo,
   isImage,
   items,
   number,
@@ -27,6 +30,11 @@ export function NoteDocumentPreview({
   total,
 }: NoteDocumentPreviewProps) {
   const [zoom, setZoom] = useState(100);
+  const previewKind = resolveNoteDocumentPreviewKind({
+    documentUrl,
+    isDemo,
+    isImage,
+  });
 
   return (
     <>
@@ -36,7 +44,7 @@ export function NoteDocumentPreview({
           style={{ transform: `scale(${zoom / 100})` }}
         >
           {documentUrl ? (
-            isImage ? (
+            previewKind === "image" ? (
               <Image
                 alt={`Nota fiscal ${number}`}
                 fill
@@ -45,20 +53,49 @@ export function NoteDocumentPreview({
                 unoptimized
               />
             ) : (
-              <iframe src={documentUrl} title={`Nota fiscal ${number}`} />
+              <>
+                <iframe
+                  className={styles.pdfFrame}
+                  src={documentUrl}
+                  title={`Nota fiscal ${number}`}
+                />
+                <div className={styles.pdfMobileFallback}>
+                  <strong>Visualização de PDF no navegador</strong>
+                  <span>
+                    Para uma leitura mais estável no celular, abra o documento
+                    no visualizador do aparelho.
+                  </span>
+                  <a href={documentUrl} rel="noreferrer" target="_blank">
+                    Abrir PDF
+                  </a>
+                </div>
+              </>
             )
-          ) : (
+          ) : previewKind === "demo" ? (
             <DemoDanfe
               items={items}
               number={number}
               supplier={supplier}
               total={total}
             />
+          ) : (
+            <div className={styles.documentUnavailable} role="status">
+              <strong>Documento indisponível</strong>
+              <span>
+                O arquivo real não pôde ser carregado agora. Nenhum documento
+                de demonstração será exibido no lugar dele.
+              </span>
+              <small title={fileName}>{fileName}</small>
+              <button onClick={() => window.location.reload()} type="button">
+                Tentar carregar novamente
+              </button>
+            </div>
           )}
         </div>
       </div>
       <footer className={styles.documentToolbar}>
-        <div className={styles.zoomControls} aria-label="Controle de zoom">
+        {documentUrl || isDemo ? (
+          <div className={styles.zoomControls} aria-label="Controle de zoom">
           <button
             type="button"
             aria-label="Diminuir zoom"
@@ -74,14 +111,17 @@ export function NoteDocumentPreview({
           >
             +
           </button>
-        </div>
-        {documentUrl ? (
-          <a href={documentUrl} target="_blank" rel="noreferrer">
-            Baixar DANFE (PDF)
-          </a>
+          </div>
         ) : (
           <span title={fileName}>{fileName}</span>
         )}
+        {documentUrl ? (
+          <a href={documentUrl} target="_blank" rel="noreferrer">
+            {isImage ? "Abrir imagem" : "Abrir PDF"}
+          </a>
+        ) : isDemo ? (
+          <span title={fileName}>{fileName}</span>
+        ) : null}
       </footer>
     </>
   );

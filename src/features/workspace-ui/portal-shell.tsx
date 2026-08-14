@@ -65,6 +65,7 @@ export function PortalShell({
               key={item.id}
               href={`${basePath}${item.id === "dashboard" ? "" : `/${item.id}`}`}
               className={active === item.id ? styles.navActive : undefined}
+              aria-current={active === item.id ? "page" : undefined}
             >
               <Icon name={item.icon} />
               <span>{item.label}</span>
@@ -94,12 +95,17 @@ export function PortalShell({
         </footer>
       </section>
 
-      <nav className={styles.mobileNav} aria-label="Navegação mobile">
+      <nav
+        className={styles.mobileNav}
+        aria-label="Navegação mobile"
+        data-item-count={mobileMenu.length + (isAdmin ? 1 : 0)}
+      >
         {mobileMenu.map((item) => (
           <Link
             key={item.id}
             href={`${basePath}${item.id === "dashboard" ? "" : `/${item.id}`}`}
             className={active === item.id ? styles.mobileActive : undefined}
+            aria-current={active === item.id ? "page" : undefined}
           >
             <Icon name={item.icon} />
             <span>{item.label}</span>
@@ -108,6 +114,11 @@ export function PortalShell({
         {isAdmin ? (
           <details className={styles.mobileMore}>
             <summary
+              aria-current={
+                adminMoreMenu.some((item) => item.id === active)
+                  ? "page"
+                  : undefined
+              }
               className={
                 adminMoreMenu.some((item) => item.id === active)
                   ? styles.mobileActive
@@ -123,6 +134,7 @@ export function PortalShell({
                   key={item.id}
                   href={`${basePath}/${item.id}`}
                   className={active === item.id ? styles.mobileMoreActive : undefined}
+                  aria-current={active === item.id ? "page" : undefined}
                 >
                   <Icon name={item.icon} />
                   <span>{item.label}</span>

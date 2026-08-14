@@ -276,6 +276,66 @@
   width: 100%;
 }
 
+.pdfMobileFallback {
+  align-items: center;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.pdfMobileFallback strong,
+.documentUnavailable strong {
+  color: #17345e;
+  font-size: 16px;
+}
+
+.pdfMobileFallback span,
+.documentUnavailable span {
+  color: #637493;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 380px;
+}
+
+.pdfMobileFallback a,
+.documentUnavailable button {
+  align-items: center;
+  background: #075cff;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 44px;
+  padding: 9px 14px;
+  text-decoration: none;
+}
+
+.documentUnavailable {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.documentUnavailable small {
+  color: #71809a;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .documentToolbar {
   align-items: center;
   display: flex;
@@ -310,8 +370,8 @@
   color: #1d3a65;
   cursor: pointer;
   font-size: 15px;
-  height: 29px;
-  width: 31px;
+  height: 44px;
+  width: 44px;
 }
 
 .zoomControls span {
@@ -790,7 +850,7 @@
   display: inline-flex;
   font-size: 10px;
   gap: 8px;
-  height: 38px;
+  min-height: 44px;
   padding: 0 13px;
   text-decoration: none;
 }
@@ -935,7 +995,7 @@
   font-size: 12px;
   font-weight: 750;
   gap: 6px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 10px;
 }
 
@@ -1055,7 +1115,12 @@
 .evidenceFacts {
   display: grid;
   gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
+}
+
+.evidenceFacts > div:nth-last-child(1):nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .evidenceFacts > div {
@@ -1796,6 +1861,25 @@
 }
 
 @media (max-width: 760px) {
+  .pdfFrame {
+    display: none;
+  }
+
+  .pdfMobileFallback {
+    display: flex;
+  }
+
+  .documentToolbar {
+    gap: 8px;
+  }
+
+  .documentToolbar > a,
+  .documentToolbar > span {
+    align-items: center;
+    display: inline-flex;
+    min-height: 44px;
+  }
+
   .pageHeader,
   .analysisHeader {
     gap: 12px;
@@ -2110,6 +2194,14 @@
     margin-left: 0;
   }
 
+  .evidenceFacts {
+    grid-template-columns: 1fr;
+  }
+
+  .evidenceFacts > div:nth-last-child(1):nth-child(odd) {
+    grid-column: auto;
+  }
+
   .comparison > div:first-child {
     border-bottom: 1px solid #d9e3ee;
     border-right: 0;
@@ -2139,7 +2231,7 @@
 
   .findingPager button {
     font-size: 0;
-    min-width: 40px;
+    min-width: 44px;
     padding: 0 12px;
   }
 
@@ -2168,6 +2260,17 @@
 
   .sourceText {
     grid-column: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .documentCanvas,
+  .analysisProgress > span {
+    transition: none;
+  }
+
+  .findingDetailPanel {
+    animation: none;
   }
 }
 

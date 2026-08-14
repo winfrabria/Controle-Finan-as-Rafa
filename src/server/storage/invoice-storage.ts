@@ -50,7 +50,7 @@ export async function uploadInvoiceFile(input: {
     path,
     file.bytes,
     {
-      cacheControl: "3600",
+      cacheControl: "0",
       contentType: file.mimeType,
       upsert: false,
     },

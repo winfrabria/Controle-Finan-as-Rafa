@@ -10,6 +10,7 @@
   font-family: var(--font-inter), Inter, Arial, sans-serif;
   grid-template-columns: 184px minmax(0, 1fr);
   min-height: 100vh;
+  min-height: 100dvh;
 }
 .portal * {
   box-sizing: border-box;
@@ -24,6 +25,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 20px 12px 18px;
   position: sticky;
   top: 0;
@@ -552,9 +554,9 @@
   border-radius: 6px;
   color: var(--blue);
   display: inline-flex;
-  height: 29px;
+  height: 44px;
   justify-content: center;
-  width: 30px;
+  width: 44px;
   text-decoration: none;
 }
 .eyeButton svg {
@@ -576,17 +578,27 @@
   display: flex;
   gap: 8px;
 }
-.paginationNumbers span {
+.paginationNumbers button {
   align-items: center;
+  background: transparent;
+  border: 0;
   border-radius: 5px;
+  color: inherit;
+  cursor: pointer;
   display: flex;
-  height: 28px;
+  font: inherit;
+  height: 32px;
   justify-content: center;
-  width: 28px;
+  min-width: 32px;
 }
-.paginationNumbers span.activePage {
+.paginationNumbers button.activePage {
   background: #eaf2ff;
   color: var(--blue);
+}
+
+.paginationNumbers button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 @media (max-width: 1100px) {
   .metrics,
@@ -641,7 +653,10 @@
 @media (max-width: 1023px) {
   .portal {
     display: block;
-    padding-bottom: 64px;
+    padding-bottom: calc(
+      var(--app-mobile-nav-height, 64px) +
+      var(--app-safe-bottom, env(safe-area-inset-bottom, 0px))
+    );
   }
 
   .side {
@@ -650,19 +665,25 @@
 
   .workspace {
     min-height: 100vh;
+    min-height: 100dvh;
   }
 
   .topbar {
-    height: 64px;
-    padding: 0 16px;
+    height: calc(64px + var(--app-safe-top, env(safe-area-inset-top, 0px)));
+    padding: var(--app-safe-top, env(safe-area-inset-top, 0px))
+      max(16px, var(--app-safe-right, env(safe-area-inset-right, 0px))) 0
+      max(16px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
   }
 
   .mobileBrand {
-    display: block;
+    align-items: center;
+    display: flex;
+    min-height: 44px;
   }
 
   .portalContent {
-    padding: 18px 16px 24px;
+    padding: 18px max(16px, var(--app-safe-right, env(safe-area-inset-right, 0px))) 24px
+      max(16px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
   }
 
   .portalFooter {
@@ -674,12 +695,22 @@
     border-top: 1px solid var(--line);
     bottom: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    height: 64px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    height: calc(
+      var(--app-mobile-nav-height, 64px) +
+      var(--app-safe-bottom, env(safe-area-inset-bottom, 0px))
+    );
     left: 0;
     position: fixed;
     right: 0;
+    padding-right: var(--app-safe-right, env(safe-area-inset-right, 0px));
+    padding-bottom: var(--app-safe-bottom, env(safe-area-inset-bottom, 0px));
+    padding-left: var(--app-safe-left, env(safe-area-inset-left, 0px));
     z-index: 30;
+  }
+
+  .mobileNav[data-item-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .mobileNav > a,
@@ -713,7 +744,9 @@
     background: #fff;
     border: 1px solid var(--line);
     border-radius: 14px;
-    bottom: 72px;
+    bottom: calc(
+      72px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px))
+    );
     box-shadow: 0 14px 34px rgb(15 34 73 / 18%);
     display: grid;
     gap: 4px;
@@ -768,20 +801,28 @@
 @media (max-width: 760px) {
   .portal {
     display: block;
-    padding-bottom: 64px;
+    padding-bottom: calc(
+      var(--app-mobile-nav-height, 64px) +
+      var(--app-safe-bottom, env(safe-area-inset-bottom, 0px))
+    );
   }
   .side {
     display: none;
   }
   .workspace {
     min-height: 100vh;
+    min-height: 100dvh;
   }
   .topbar {
-    height: 60px;
-    padding: 0 18px;
+    height: calc(60px + var(--app-safe-top, env(safe-area-inset-top, 0px)));
+    padding: var(--app-safe-top, env(safe-area-inset-top, 0px))
+      max(18px, var(--app-safe-right, env(safe-area-inset-right, 0px))) 0
+      max(18px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
   }
   .mobileBrand {
-    display: block;
+    align-items: center;
+    display: flex;
+    min-height: 44px;
   }
   .mobileBrand :global(.wf-brand) {
     font-size: 20px;
@@ -807,7 +848,8 @@
     display: none;
   }
   .portalContent {
-    padding: 25px 17px 26px;
+    padding: 25px max(17px, var(--app-safe-right, env(safe-area-inset-right, 0px))) 26px
+      max(17px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
   }
   .portalFooter {
     display: none;
@@ -817,12 +859,21 @@
     border-top: 1px solid var(--line);
     bottom: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    height: 64px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    height: calc(
+      var(--app-mobile-nav-height, 64px) +
+      var(--app-safe-bottom, env(safe-area-inset-bottom, 0px))
+    );
     left: 0;
     position: fixed;
     right: 0;
+    padding-right: var(--app-safe-right, env(safe-area-inset-right, 0px));
+    padding-bottom: var(--app-safe-bottom, env(safe-area-inset-bottom, 0px));
+    padding-left: var(--app-safe-left, env(safe-area-inset-left, 0px));
     z-index: 30;
+  }
+  .mobileNav[data-item-count="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .mobileNav > a,
   .mobileMore > summary {
@@ -914,7 +965,7 @@
   .filterBar input,
   .selectLike {
     font-size: 11px;
-    height: 43px;
+    height: 44px;
     min-width: 0;
     padding: 0 8px;
   }
@@ -929,7 +980,21 @@
     gap: 12px;
   }
   .pagination {
-    display: none;
+    align-items: stretch;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 0 4px;
+  }
+  .paginationNumbers {
+    flex: 1 1 100%;
+    justify-content: center;
+    overflow-x: auto;
+  }
+  .paginationNumbers button,
+  .pagination select {
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 @media (max-width: 390px) {
@@ -1614,6 +1679,62 @@
   grid-template-columns: repeat(2, minmax(180px, 1fr));
 }
 
+.activeLogContext {
+  align-items: center;
+  background: #eef5ff;
+  border: 1px solid #cfe0ff;
+  border-radius: 10px;
+  display: grid;
+  gap: 11px;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  margin-bottom: 12px;
+  padding: 11px 13px;
+}
+
+.activeLogContext > span {
+  align-items: center;
+  background: #fff;
+  border-radius: 9px;
+  color: #075cff;
+  display: flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.activeLogContext svg {
+  height: 18px;
+  width: 18px;
+}
+
+.activeLogContext strong {
+  color: #102a55;
+  display: block;
+  font-size: 12px;
+}
+
+.activeLogContext p {
+  color: #5d7294;
+  font-size: 11px;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.activeLogContext a {
+  border: 1px solid #075cff;
+  border-radius: 7px;
+  color: #075cff;
+  font-size: 11px;
+  font-weight: 750;
+  padding: 8px 10px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mobileLogFilterToggle {
+  display: none;
+}
+
 .logSearchField > span {
   align-items: center;
   border: 1px solid #d4ddea;
@@ -1838,6 +1959,10 @@
   font-size: 10px;
   margin: 5px 0 0;
 }
+
+.logDetailBackdrop {
+  display: none;
+}
 @media (max-width: 1200px) {
   .dashboardGrid,
   .adminPanels {
@@ -1952,7 +2077,49 @@
     white-space: normal;
   }
   .logsLayout .filterBar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .activeLogContext {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+  .activeLogContext a {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+  .logsLayout .logSearchField {
+    grid-column: 1 / -1;
+  }
+  .logsLayout .mobileLogFilterToggle {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #d7e0ec;
+    border-radius: 8px;
+    color: #26456f;
+    display: inline-flex;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    gap: 8px;
+    grid-column: 1 / -1;
+    justify-content: center;
+    min-height: 44px;
+    width: 100%;
+  }
+  .logsLayout .mobileLogFilterToggle svg {
+    height: 18px;
+    width: 18px;
+  }
+  .logsLayout .mobileLogFilterToggle span {
+    color: var(--blue);
+    font-size: 9px;
+  }
+  .logsLayout .logFilterSecondary {
+    display: none;
+  }
+  .logsLayout .filterBar[data-mobile-open="true"] .logFilterSecondary {
+    display: flex;
+    grid-column: 1 / -1;
+    width: 100%;
   }
   .logsLayout .periodFieldset {
     grid-column: 1 / -1;
@@ -1966,11 +2133,13 @@
     display: none;
   }
   .logsLayout .periodFieldset input {
+    font-size: 16px;
     min-width: 0;
-    padding: 0 2px;
+    padding: 0 8px;
   }
   .logsLayout .filterBar label,
   .logsLayout .filterBar select {
+    font-size: 16px;
     max-width: 100%;
     min-width: 0;
     width: 100%;
@@ -2007,11 +2176,19 @@
   .logDetail[data-mobile-open="true"] {
     background: #fff;
     border-radius: 18px 18px 0 0;
-    bottom: 72px;
+    bottom: calc(
+      72px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px))
+    );
     box-shadow: 0 -12px 36px #07163b29;
     display: block;
     left: 0;
-    max-height: 62vh;
+    max-height: min(
+      62dvh,
+      calc(
+        100dvh - 96px - var(--app-safe-top, env(safe-area-inset-top, 0px)) -
+        var(--app-safe-bottom, env(safe-area-inset-bottom, 0px))
+      )
+    );
     overflow: auto;
     position: fixed;
     right: 0;
@@ -2025,9 +2202,22 @@
     color: var(--navy);
     display: flex;
     font-size: 26px;
-    height: 34px;
+    height: 44px;
     justify-content: center;
-    width: 34px;
+    width: 44px;
+  }
+  .logDetailBackdrop {
+    background: rgb(7 22 59 / 42%);
+    bottom: calc(
+      var(--app-mobile-nav-height, 64px) +
+      var(--app-safe-bottom, env(safe-area-inset-bottom, 0px))
+    );
+    display: block;
+    left: 0;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 39;
   }
 }
 .workSearch select {

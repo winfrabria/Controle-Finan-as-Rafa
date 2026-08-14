@@ -3,6 +3,8 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
+
 import { Icon } from "./ui-icons";
 import styles from "./validation-decision-form.module.css";
 
@@ -97,6 +99,7 @@ export function ValidationDecisionForm({
       return;
     }
 
+    const endCriticalActivity = beginPwaCriticalActivity();
     try {
       const response = await fetch("/api/validacoes", {
         body: JSON.stringify({ comment, decision, noteId, noteVersion, reason }),
@@ -123,6 +126,7 @@ export function ValidationDecisionForm({
       );
     } finally {
       setSubmitting(false);
+      endCriticalActivity();
     }
   }
 

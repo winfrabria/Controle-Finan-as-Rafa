@@ -247,7 +247,7 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
     )
       ? requestedNoteId
       : undefined;
-  const [runs, validations, administrative, events] = await Promise.all([
+  const [runs, validations, administrative, events, filteredNote] = await Promise.all([
     prisma.aiRun.findMany({
       where: noteId ? { noteId } : undefined,
       orderBy: { createdAt: "desc" },
@@ -308,6 +308,16 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
           },
         },
     }),
+    noteId
+      ? prisma.note.findUnique({
+          where: { id: noteId },
+          select: {
+            documentNumber: true,
+            id: true,
+            work: { select: { name: true } },
+          },
+        })
+      : Promise.resolve(null),
   ]);
 
   const runLogs: AuditLog[] = runs.map((run) => {
@@ -416,5 +426,14 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
     .sort((a, b) => b.dateIso.localeCompare(a.dateIso) || b.at.localeCompare(a.at))
     .slice(0, 100);
 
-  return <LogsView logs={logs} />;
+  return (
+    <LogsView
+      logs={logs}
+      noteFilterLabel={
+        filteredNote
+          ? `${attachmentReference(filteredNote.documentNumber, filteredNote.id)} · ${filteredNote.work.name}`
+          : undefined
+      }
+    />
+  );
 }

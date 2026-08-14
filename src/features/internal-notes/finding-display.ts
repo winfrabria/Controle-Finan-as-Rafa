@@ -1,5 +1,5 @@
 const moneyKeyPattern =
-  /^(?:amount|valor|total|totalAmount|total_amount|price|unitPrice|unit_price|cost|custo|preco|preço|aggregateTotal|supportingTotal|unsupportedAmount)$/i;
+  /^(?:amount|valor|total|totalAmount|total_amount|noteTotal|itemTotalSum|price|unitPrice|unit_price|cost|custo|preco|preço|aggregateTotal|supportingTotal|unsupportedAmount)$/i;
 
 const directTextKeys = new Set([
   "text",
@@ -83,6 +83,17 @@ const technicalTextLabels: Record<string, string> = {
 export type FindingDisplayPart = {
   label: string;
   value: string;
+};
+
+const reviewerHiddenLabels = new Set([
+  "Base da conciliação",
+  "Código da regra",
+  "Tolerância",
+]);
+
+const reviewerLabelOverrides: Record<string, string> = {
+  "Soma dos itens": "Soma dos itens considerados",
+  "Total da nota": "Total do documento",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -293,4 +304,20 @@ export function formatFindingParts(
       };
     })
     .filter((part) => part.value);
+}
+
+/**
+ * Keeps implementation details available to the ADMIN raw log while removing
+ * fields that do not help a financial reviewer decide where the divergence is.
+ */
+export function formatReviewerFindingParts(
+  value: unknown,
+  fallback = "Evidência registrada",
+): FindingDisplayPart[] {
+  return formatFindingParts(value, fallback)
+    .filter((part) => !reviewerHiddenLabels.has(part.label))
+    .map((part) => ({
+      ...part,
+      label: reviewerLabelOverrides[part.label] ?? part.label,
+    }));
 }

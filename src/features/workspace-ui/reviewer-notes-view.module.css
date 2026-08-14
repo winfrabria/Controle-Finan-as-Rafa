@@ -67,6 +67,10 @@
   flex-wrap: nowrap;
 }
 
+.mobileFilterToggle {
+  display: none;
+}
+
 .historyPage .filters {
   display: grid;
   grid-template-columns: minmax(280px, 2fr) repeat(3, minmax(145px, 1fr));
@@ -178,6 +182,7 @@
   gap: 16px;
   grid-template-columns: minmax(330px, 0.72fr) minmax(0, 1.28fr);
   height: calc(100vh - 350px);
+  height: calc(100dvh - 350px);
   max-height: 760px;
   min-height: 620px;
 }
@@ -1298,7 +1303,67 @@
     margin-left: -1px;
     margin-right: -1px;
     padding: 0;
-    flex-wrap: wrap;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .searchField {
+    grid-column: 1 / -1;
+    min-height: 44px;
+  }
+
+  .searchField input,
+  .dateField input,
+  .selectField select {
+    font-size: 16px;
+  }
+
+  .mobileFilterToggle {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #d9e2ee;
+    border-radius: 9px;
+    color: #25446f;
+    display: inline-flex;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    gap: 8px;
+    grid-column: 1 / -1;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 13px;
+  }
+
+  .mobileFilterToggle svg {
+    height: 18px;
+    width: 18px;
+  }
+
+  .mobileFilterToggle span {
+    color: #075cff;
+    font-size: 9px;
+  }
+
+  .filterSecondary {
+    display: none;
+  }
+
+  .filters[data-mobile-open="true"] .filterSecondary {
+    display: flex;
+  }
+
+  .filters[data-mobile-open="true"] .selectField,
+  .filters[data-mobile-open="true"] .dateField,
+  .filters[data-mobile-open="true"] .clearButton,
+  .historyPage .filters[data-mobile-open="true"] .selectField,
+  .historyPage .filters[data-mobile-open="true"] .dateField {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .filters[data-mobile-open="true"] .clearButton {
+    justify-content: center;
   }
 
   .selectField {
@@ -1311,11 +1376,11 @@
   }
 
   .dateField input {
-    font-size: 10px;
+    font-size: 16px;
   }
 
   .selectField select {
-    font-size: 11px;
+    font-size: 16px;
     padding-left: 5px;
   }
 
@@ -1404,8 +1469,14 @@
     padding: 12px;
   }
 
+  .pagination button,
+  .pagination strong {
+    height: 44px;
+    min-width: 44px;
+  }
+
   .historyPage .filters {
-    grid-template-columns: minmax(0, 1fr) minmax(160px, 0.6fr);
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .findingBody {
@@ -1444,7 +1515,7 @@
   .historyReadMeta,
   .readButton {
     justify-content: center;
-    min-height: 42px;
+    min-height: 44px;
   }
 }
 

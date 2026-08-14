@@ -120,6 +120,126 @@ test("observação informativa da IA não transforma uma nota em suspeita", () =
   }), "OK");
 });
 
+test("observação informativa da IA não é persistida como achado do revisor", () => {
+  const result = evaluateHarness({
+    invoice: sparseInvoice,
+    aiDiscovery: {
+      findings: [{
+        code: "FORMAT_NOTE",
+        title: "Observação de formato",
+        description: "O documento usa uma apresentação diferente, mas os valores conferem.",
+        category: "FORMAT",
+        severity: "INFO",
+        source: "AI_DISCOVERY",
+        confidence: 0.95,
+        justification: "Não existe divergência financeira comprovada.",
+        references: ["DOCUMENTO:página:1"],
+        evidence: { field: "formato", summary: "Apresentação agregada e reconciliada." },
+        expectedValue: "Valores reconciliados",
+        actualValue: "Valores reconciliados",
+        noteItemLineNumber: null,
+      }],
+      coverage: { sufficientEvidence: true, checkedAreas: ["FORMAT"], limitations: [] },
+      contextQuestions: [],
+      needsContext: false,
+      summary: "Documento reconciliado.",
+    },
+  });
+
+  assert.equal(result.classification, "OK");
+  assert.equal(result.findings.length, 0);
+});
+
+test("variação textual de nome sem duas identidades fiscais não vira suspeita", () => {
+  const result = evaluateHarness({
+    invoice: sparseInvoice,
+    aiDiscovery: {
+      findings: [{
+        code: "BENEFICIARY_NAME_VARIATION",
+        title: "Nome do beneficiário diverge do fornecedor",
+        description: "O boleto abrevia o nome usado no documento fiscal.",
+        category: "BENEFICIARY",
+        severity: "WARNING",
+        source: "AI_DISCOVERY",
+        confidence: 0.91,
+        justification: "Os nomes têm grafia diferente.",
+        references: ["DOCUMENTO:página:1", "BOLETO:página:2"],
+        evidence: { field: "beneficiário", summary: "Um registro usa nome abreviado." },
+        expectedValue: "Fornecedor Comércio Ltda.",
+        actualValue: "Fornecedor Ltda.",
+        noteItemLineNumber: null,
+      }],
+      coverage: { sufficientEvidence: true, checkedAreas: ["IDENTITY"], limitations: [] },
+      contextQuestions: [],
+      needsContext: false,
+      summary: "Foi observada uma abreviação textual.",
+    },
+  });
+
+  assert.equal(result.classification, "OK");
+  assert.equal(result.findings.length, 0);
+});
+
+test("associação de placa e equipamento sem cadastro ativo não vira suspeita", () => {
+  const result = evaluateHarness({
+    invoice: sparseInvoice,
+    aiDiscovery: {
+      findings: [{
+        code: "ASSET_LABEL_CONFLICT",
+        title: "Placa associada a equipamentos diferentes",
+        description: "O mesmo identificador aparece com dois rótulos operacionais.",
+        category: "EQUIPMENT",
+        severity: "WARNING",
+        source: "AI_DISCOVERY",
+        confidence: 0.88,
+        justification: "Os rótulos do equipamento não são iguais.",
+        references: ["CONTROLE:página:1"],
+        evidence: { field: "placa", summary: "O controle usa dois rótulos para a mesma placa." },
+        expectedValue: "Um equipamento por placa",
+        actualValue: "Dois rótulos operacionais",
+        noteItemLineNumber: null,
+      }],
+      coverage: { sufficientEvidence: true, checkedAreas: ["EQUIPMENT"], limitations: [] },
+      contextQuestions: [],
+      needsContext: false,
+      summary: "O controle usa rótulos operacionais diferentes.",
+    },
+  });
+
+  assert.equal(result.classification, "OK");
+  assert.equal(result.findings.length, 0);
+});
+
+test("divergência objetiva com valores e localização continua sustentando suspeita", () => {
+  const result = evaluateHarness({
+    invoice: sparseInvoice,
+    aiDiscovery: {
+      findings: [{
+        code: "DOCUMENT_AMOUNT_MISMATCH",
+        title: "Valores divergentes no documento",
+        description: "O valor registrado na ficha não coincide com o comprovante.",
+        category: "AMOUNTS",
+        severity: "WARNING",
+        source: "AI_DISCOVERY",
+        confidence: 0.94,
+        justification: "Os dois valores estão legíveis e pertencem à mesma despesa.",
+        references: ["FICHA:página:1", "COMPROVANTE:página:2"],
+        evidence: { field: "valor", page: 2, summary: "Ficha e comprovante registram valores diferentes." },
+        expectedValue: "100.00",
+        actualValue: "120.00",
+        noteItemLineNumber: 1,
+      }],
+      coverage: { sufficientEvidence: true, checkedAreas: ["AMOUNTS"], limitations: [] },
+      contextQuestions: [],
+      needsContext: false,
+      summary: "Uma divergência objetiva foi confirmada.",
+    },
+  });
+
+  assert.equal(result.classification, "SUSPICIOUS");
+  assert.equal(result.findings.length, 1);
+});
+
 test("pergunta de contexto permanece quando a observação da IA é apenas informativa", () => {
   assert.equal(decideClassification({
     readFailed: false,

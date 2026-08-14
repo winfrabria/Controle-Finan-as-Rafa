@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   compactFindingFieldPath,
   formatFindingParts,
+  formatReviewerFindingParts,
   formatFindingValueLines,
   formatFindingValue,
   humanizeFindingText,
@@ -122,6 +123,21 @@ test("separa comparações compostas em linhas legíveis", () => {
       "Total da nota: R$ 44,50",
       "Quantidade: 2",
       "Fornecedor: Mercado Central",
+    ],
+  );
+});
+
+test("formata a conciliação financeira para o revisor sem detalhes internos", () => {
+  assert.deepEqual(
+    formatReviewerFindingParts({
+      noteTotal: "1203.74",
+      tolerance: "0.12",
+      itemTotalSum: "1087.29",
+      reconciliationBasis: "EXPLICIT_NON_OVERLAPPING_LAYER",
+    }),
+    [
+      { label: "Total do documento", value: "R$\u00a01.203,74" },
+      { label: "Soma dos itens considerados", value: "R$\u00a01.087,29" },
     ],
   );
 });

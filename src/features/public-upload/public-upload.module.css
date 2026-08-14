@@ -9,6 +9,7 @@
   --bg-page: #f9fafb;
 
   background-color: var(--bg-page);
+  min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
   display: flex;
@@ -26,8 +27,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 40px;
-  height: 60px;
+  padding: env(safe-area-inset-top, 0px)
+    calc(40px + env(safe-area-inset-right, 0px)) 0
+    calc(40px + env(safe-area-inset-left, 0px));
+  height: calc(60px + env(safe-area-inset-top, 0px));
   background: #ffffff;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
@@ -36,6 +39,9 @@
 }
 
 .header > a {
+  align-items: center;
+  display: inline-flex;
+  min-height: 44px;
   text-decoration: none;
 }
 
@@ -74,6 +80,19 @@
   border-radius: 8px;
   transition: background 0.2s;
   background: #ffffff;
+  min-height: 44px;
+}
+
+.offlineBanner {
+  background: #fff7dd;
+  border-bottom: 1px solid #f1d996;
+  color: #694d00;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+  padding: 10px calc(16px + env(safe-area-inset-right, 0px)) 10px
+    calc(16px + env(safe-area-inset-left, 0px));
+  text-align: center;
 }
 
 .loginLink:hover {
@@ -222,6 +241,7 @@
   background: transparent;
   outline: none;
   font-size: 14px;
+  height: 100%;
   color: var(--text-main);
   width: 100%;
   appearance: none;
@@ -273,6 +293,26 @@
 
 .fileInput {
   display: none;
+}
+
+.fileSourceActions {
+  display: none;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 10px;
+}
+
+.fileSourceActions button {
+  background: #fff;
+  border: 1px solid var(--blue-primary);
+  border-radius: 8px;
+  color: var(--blue-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  min-height: 44px;
+  padding: 8px 10px;
 }
 
 .uploadCircle {
@@ -331,11 +371,15 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .fileName strong {
   font-size: 13px;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fileName small {
@@ -354,12 +398,16 @@
 }
 
 .fileRow button {
+  align-items: center;
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
   padding: 4px;
-  display: flex;
 }
 
 .fileRow button svg {
@@ -446,6 +494,18 @@
   color: #dc2626;
   font-size: 12px;
   margin-top: 6px;
+}
+
+.fieldError button {
+  background: transparent;
+  border: 0;
+  color: currentColor;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 44px;
+  padding: 8px 4px;
+  text-decoration: underline;
 }
 
 /* Sidebar */
@@ -781,6 +841,10 @@
 
 .summaryTextGroup {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
   flex-direction: column;
   min-width: 0;
 }
@@ -1847,6 +1911,7 @@
   font-weight: 700;
   gap: 7px;
   margin: 16px auto 0;
+  min-height: 44px;
   padding: 8px;
 }
 
@@ -2073,13 +2138,17 @@
 
 @media (max-width: 767px) {
   .header {
-    min-height: 56px;
-    padding-inline: 14px;
+    min-height: calc(56px + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px)
+      calc(14px + env(safe-area-inset-right, 0px)) 0
+      calc(14px + env(safe-area-inset-left, 0px));
   }
 
   .content {
     gap: 10px;
-    padding: 14px 12px 18px;
+    padding: 14px calc(12px + env(safe-area-inset-right, 0px))
+      calc(18px + env(safe-area-inset-bottom, 0px))
+      calc(12px + env(safe-area-inset-left, 0px));
   }
 
   .titleBlock h1 {
@@ -2130,7 +2199,15 @@
 
   .selectWrap select,
   .helper {
+    font-size: 16px;
+  }
+
+  .helper {
     font-size: 13px;
+  }
+
+  .fileSourceActions {
+    display: grid;
   }
 
   .dropzone {
@@ -2164,10 +2241,34 @@
 
   .footer {
     min-height: 44px;
-    padding: 10px 14px;
+    padding: 10px calc(14px + env(safe-area-inset-right, 0px))
+      calc(10px + env(safe-area-inset-bottom, 0px))
+      calc(14px + env(safe-area-inset-left, 0px));
   }
 
   .footerRight {
     font-size: 12px;
+  }
+}
+
+@media (max-width: 767px) {
+  .questionField input[type="number"],
+  .questionField select,
+  .questionField textarea {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loginLink,
+  .dropzone,
+  .submitBtn,
+  .btnOutline,
+  .previewDisclosure > summary svg {
+    transition: none;
+  }
+
+  .pulsing {
+    animation: none;
   }
 }

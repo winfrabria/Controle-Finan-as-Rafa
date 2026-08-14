@@ -32,7 +32,38 @@
 .timeline strong { color: #14315e; font-size: 12px; }
 .timeline p { color: #5b6f8f; font-size: 11px; line-height: 1.5; margin: 0; }
 .timeline a { color: #075cff; font-size: 10px; font-weight: 750; justify-self: start; text-decoration: none; }
+.currentRun { background: #eaf2ff; border-radius: 999px; color: #075cff; font-size: 10px; font-weight: 750; justify-self: start; padding: 4px 8px; }
 .empty { color: #71819d; font-size: 12px; padding: 22px; }
+.harnessExplanation { background: #fff; border: 1px solid #dfe7f2; border-radius: 12px; margin-top: 16px; overflow: hidden; }
+.harnessSummary { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(180px, .55fr); }
+.harnessSummary > div { border-right: 1px solid #e7edf5; min-width: 0; padding: 16px 18px; }
+.harnessSummary > div:last-child { border-right: 0; }
+.harnessSummary span { color: #71819d; display: block; font-size: 10px; font-weight: 750; margin-bottom: 6px; text-transform: uppercase; }
+.harnessSummary p { color: #344c70; font-size: 12px; line-height: 1.55; margin: 0; overflow-wrap: anywhere; }
+.harnessSummary strong { color: #075cff; display: block; font-size: 24px; margin-bottom: 3px; }
+.harnessSummary ul { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.harnessSummary li { background: #eef4ff; border-radius: 999px; color: #21416c; font-size: 10px; font-weight: 700; padding: 5px 8px; }
+.harnessFindings { border-top: 1px solid #e7edf5; padding: 16px 18px 18px; }
+.harnessFindingsHeader { align-items: center; display: flex; justify-content: space-between; margin-bottom: 12px; }
+.harnessFindingsHeader h3 { color: #0d2550; font-size: 14px; margin: 0; }
+.harnessFindingsHeader > span { align-items: center; background: #eaf2ff; border-radius: 999px; color: #075cff; display: inline-flex; font-size: 11px; font-weight: 800; height: 26px; justify-content: center; min-width: 26px; padding: 0 8px; }
+.harnessFindings > article { border: 1px solid #e0e8f2; border-radius: 10px; margin-top: 10px; padding: 14px; }
+.harnessFindings > article > header { align-items: center; display: grid; gap: 10px; grid-template-columns: 30px minmax(0, 1fr) auto; }
+.harnessFindings > article > header > span { align-items: center; background: #fff2df; border-radius: 50%; color: #d86c00; display: flex; font-size: 10px; font-weight: 850; height: 28px; justify-content: center; width: 28px; }
+.harnessFindings h4 { color: #102a55; font-size: 13px; margin: 0; }
+.harnessFindings header small { color: #8290aa; display: block; font-size: 9px; margin-top: 3px; overflow-wrap: anywhere; }
+.harnessFindings header > strong { color: #b96000; font-size: 10px; white-space: nowrap; }
+.harnessFindings article > p, .harnessFindings footer p { color: #526788; font-size: 11px; line-height: 1.55; margin: 10px 0 0; }
+.harnessEvidence { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 12px 0 0; }
+.harnessEvidence > div { background: #f7faff; border: 1px solid #e4ebf4; border-radius: 7px; padding: 9px 10px; }
+.harnessEvidence dt, .harnessComparison span { color: #71819d; font-size: 9px; font-weight: 750; text-transform: uppercase; }
+.harnessEvidence dd { color: #17335f; font-size: 11px; line-height: 1.45; margin: 4px 0 0; overflow-wrap: anywhere; }
+.harnessComparison { border: 1px solid #e0e8f2; border-radius: 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 12px; overflow: hidden; }
+.harnessComparison > div { min-width: 0; padding: 10px; }
+.harnessComparison > div:first-child { border-right: 1px solid #e0e8f2; }
+.harnessComparison p { color: #17335f !important; font-weight: 700; margin-top: 5px !important; }
+.harnessFindings footer { border-top: 1px solid #edf1f6; margin-top: 12px; padding-top: 10px; }
+.harnessFindings footer > strong { color: #17335f; font-size: 10px; }
 .raw { background: #fff; border: 1px solid #dfe7f2; border-radius: 12px; margin-top: 16px; overflow: hidden; }
 .raw summary { color: #163560; cursor: pointer; font-size: 13px; font-weight: 750; padding: 14px 18px; }
 .raw > p { color: #71819d; font-size: 11px; margin: 0; padding: 0 18px 12px; }
@@ -41,5 +72,5 @@
 .footer a { align-items: center; display: inline-flex; gap: 6px; }
 .footer a svg { height: 14px; transform: rotate(180deg); width: 14px; }
 .footer small { color: #8290aa; font-size: 10px; word-break: break-all; }
-@media (max-width: 1100px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .summary dl:nth-child(2) { border-right: 0; } .summary dl:nth-child(-n+2) { border-bottom: 1px solid #e7edf5; } .layout { grid-template-columns: 1fr; } }
-@media (max-width: 700px) { .header { align-items: flex-start; flex-direction: column; gap: 12px; } .summary { grid-template-columns: 1fr; } .summary dl { border-bottom: 1px solid #e7edf5; border-right: 0; } .summary dl:last-child { border-bottom: 0; } .detailGrid { grid-template-columns: 1fr; } .actions { display: grid; } .footer { align-items: flex-start; flex-direction: column; gap: 12px; } }
+@media (max-width: 1100px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .summary dl:nth-child(2) { border-right: 0; } .summary dl:nth-child(-n+2) { border-bottom: 1px solid #e7edf5; } .layout { grid-template-columns: 1fr; } .harnessSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .harnessSummary > div:nth-child(2) { border-right: 0; } .harnessSummary > div:last-child { border-top: 1px solid #e7edf5; grid-column: 1 / -1; } }
+@media (max-width: 700px) { .header { align-items: flex-start; flex-direction: column; gap: 12px; } .summary, .harnessSummary { grid-template-columns: 1fr; } .summary dl, .harnessSummary > div { border-bottom: 1px solid #e7edf5; border-right: 0; } .summary dl:last-child, .harnessSummary > div:last-child { border-bottom: 0; grid-column: auto; } .detailGrid, .harnessEvidence, .harnessComparison { grid-template-columns: 1fr; } .harnessComparison > div:first-child { border-bottom: 1px solid #e0e8f2; border-right: 0; } .harnessFindings > article > header { grid-template-columns: 30px minmax(0, 1fr); } .harnessFindings header > strong { grid-column: 2; justify-self: start; } .actions { display: grid; } .footer { align-items: flex-start; flex-direction: column; gap: 12px; } }
