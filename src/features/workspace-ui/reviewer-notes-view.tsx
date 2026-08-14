@@ -16,6 +16,7 @@ import { Icon } from "./ui-icons";
 import { PortalShell, type PortalRole } from "./portal-shell";
 import { filterReviewerNoteRows } from "./reviewer-note-filters";
 import type { NoteFindingVisual, NoteVisualItem } from "./note-types";
+import { ReviewerMobileNotesList } from "./reviewer-mobile-notes-list";
 import styles from "./reviewer-notes-view.module.css";
 
 type ReviewerNotesViewProps = {
@@ -432,7 +433,10 @@ export function ReviewerNotesView({
 
   return (
     <PortalShell active={historyMode ? "historico" : "notas"} role={role}>
-      <div className={`${styles.page} ${historyMode ? styles.historyPage : ""}`}>
+      <div className={`${styles.page} ${historyMode ? styles.historyPage : ""} ${role === "reviewer" ? styles.reviewerPage : ""}`}>
+        {role === "reviewer" ? (
+          <ReviewerMobileNotesList items={items} mode={mode} />
+        ) : null}
         <header className={styles.pageHeader}>
           <div>
             <p className={styles.eyebrow}>{historyMode ? adminHistory ? "HISTÓRICO OPERACIONAL" : "ANEXOS ACOMPANHADOS" : "REVISÃO DE ANEXOS"}</p>

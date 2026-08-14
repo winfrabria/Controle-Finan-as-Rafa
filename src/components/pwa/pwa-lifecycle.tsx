@@ -18,7 +18,7 @@ type DeferredInstallPrompt = Event & {
 
 const LOCAL_PWA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PWA_LOCAL === "true";
 const WINFRA_CACHE_PREFIX = "winfrabr-pwa-";
-const UPDATE_INTERVAL_MS = 60 * 60 * 1_000;
+const UPDATE_INTERVAL_MS = 15 * 60 * 1_000;
 const INSTALL_DISMISS_KEY = "winfrabr.pwa-install-dismissed";
 
 export function isLocalHostname(hostname: string) {
@@ -215,6 +215,7 @@ export function PwaLifecycle() {
         });
         if (!active) return;
         unwatchRegistration = watchRegistration(registration);
+        void registration.update();
         updateTimer = window.setInterval(() => {
           if (document.visibilityState === "visible") void registration.update();
         }, UPDATE_INTERVAL_MS);

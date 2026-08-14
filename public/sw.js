@@ -1,6 +1,6 @@
 /* WinfraBR PWA service worker: cache only explicitly public, same-origin assets. */
 const WINFRA_CACHE_PREFIX = "winfrabr-pwa-";
-const WORKER_VERSION = "2026-08-14.2";
+const WORKER_VERSION = "2026-08-14.3";
 const STATIC_CACHE_NAME = `${WINFRA_CACHE_PREFIX}${WORKER_VERSION}`;
 const MAX_RUNTIME_CACHE_ENTRIES = 80;
 const OFFLINE_URL = "/offline.html";

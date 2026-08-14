@@ -1519,6 +1519,16 @@
   }
 }
 
+@media (max-width: 760px) {
+  .reviewerPage > .pageHeader,
+  .reviewerPage > .filters,
+  .reviewerPage > .filterResult,
+  .reviewerPage > .readNotice,
+  .reviewerPage > .workspaceGrid {
+    display: none;
+  }
+}
+
 .incompleteDiagnosis {
   align-items: center;
   background: #fff8eb;

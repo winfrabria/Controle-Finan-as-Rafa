@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/stamp-pwa-worker.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",

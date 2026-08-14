@@ -122,6 +122,7 @@ export function ReviewerDashboardView({
   const [dateTo, setDateTo] = useState("");
   const [query, setQuery] = useState("");
   const [showAllCauses, setShowAllCauses] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const workOptions = useMemo(
     () => {
@@ -263,7 +264,121 @@ export function ReviewerDashboardView({
 
   return (
     <PortalShell active="dashboard" role={role} userEmail={userEmail}>
-      <div className={styles.page}>
+      <div className={`${styles.page} ${role === "reviewer" ? styles.reviewerPage : ""}`}>
+        {role === "reviewer" ? (
+          <section className={styles.mobileDashboard} aria-label="Dashboard mobile">
+            <header className={styles.mobileHeading}>
+              <h1>Bom dia, Rafael</h1>
+              <p>Resumo dos anexos</p>
+            </header>
+
+            <div className={styles.mobileToolbar}>
+              <label className={styles.mobilePeriod}>
+                <Icon name="calendar" />
+                <span className={styles.mobileSrOnly}>Período</span>
+                <select
+                  aria-label="Período"
+                  onChange={(event) => {
+                    setPeriod(event.target.value);
+                    setDateFrom("");
+                    setDateTo("");
+                  }}
+                  value={period}
+                >
+                  {periodOptions.map((value) => (
+                    <option key={value} value={value}>{periodLabel(value)}</option>
+                  ))}
+                  <option value="todos">Todos os meses</option>
+                </select>
+                <Icon name="chevron" />
+              </label>
+              <button
+                aria-expanded={mobileFiltersOpen}
+                className={styles.mobileFilterButton}
+                onClick={() => setMobileFiltersOpen((current) => !current)}
+                type="button"
+              >
+                <Icon name="filter" /> Filtrar
+              </button>
+            </div>
+
+            {mobileFiltersOpen ? (
+              <div className={styles.mobileFilterSheet}>
+                <label>
+                  <span>Obra</span>
+                  <select onChange={(event) => setWork(event.target.value)} value={work}>
+                    <option value="">Todas as obras</option>
+                    {workOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Responsável</span>
+                  <select onChange={(event) => setResponsible(event.target.value)} value={responsible}>
+                    <option value="">Todos os responsáveis</option>
+                    {responsibleOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Número ou fornecedor</span>
+                  <input onChange={(event) => setQuery(event.target.value)} placeholder="Buscar anexo" value={query} />
+                </label>
+                <div className={styles.mobileDateRange}>
+                  <label>
+                    <span>De</span>
+                    <input onChange={(event) => { setDateFrom(event.target.value); setPeriod("todos"); }} type="date" value={dateFrom} />
+                  </label>
+                  <label>
+                    <span>Até</span>
+                    <input onChange={(event) => { setDateTo(event.target.value); setPeriod("todos"); }} type="date" value={dateTo} />
+                  </label>
+                </div>
+                {(work || responsible || query || period !== defaultPeriod || dateFrom || dateTo) ? (
+                  <button className={styles.mobileClear} onClick={clearFilters} type="button">Limpar filtros</button>
+                ) : null}
+              </div>
+            ) : null}
+
+            <article className={styles.mobileSummaryCard}>
+              <span>Valor total analisado</span>
+              <strong>{formatDashboardMoney(metrics.total)}</strong>
+              <div>
+                <span><b>{metrics.received}</b> anexos</span>
+                <span className={styles.mobileSuspicious}><b>{metrics.suspicious}</b> suspeitas</span>
+                <span className={styles.mobileOk}><b>{filteredNotes.filter((note) => note.classification === "OK").length}</b> OK</span>
+              </div>
+            </article>
+
+            <section className={styles.mobileSection}>
+              <header><h2>Principais desvios</h2><Link href={notesPath}>Ver todos</Link></header>
+              <div className={styles.mobileCauses}>
+                {causes.slice(0, 3).map((cause) => (
+                  <Link href={notesPath} key={cause.label}>
+                    <span className={styles.mobileCauseIcon}><Icon name="warning" /></span>
+                    <span><strong>{cause.label}</strong><small>{cause.count} ocorrência{cause.count === 1 ? "" : "s"}</small></span>
+                    <span className={styles.mobileCausePercent}>{cause.percentage}%</span>
+                    <Icon name="chevron" />
+                  </Link>
+                ))}
+                {!causes.length ? <p className={styles.mobileEmpty}>Nenhum desvio neste período.</p> : null}
+              </div>
+            </section>
+
+            <section className={styles.mobileSection}>
+              <header><h2>Últimos anexos</h2><Link href={notesPath}>Ver todos</Link></header>
+              <div className={styles.mobileLatest}>
+                {filteredNotes.slice(0, 3).map((note) => (
+                  <Link href={`/notas/${note.id}/analise-ia`} key={note.id}>
+                    <span className={`${styles.mobileLatestIcon} ${statusClass(note.classification)}`}><Icon name={statusIcon(note.classification)} /></span>
+                    <span><strong>{note.number}</strong><small>{note.supplier} · {note.date}</small></span>
+                    <em className={statusClass(note.classification)}>{statusLabel(note.classification)}</em>
+                    <Icon name="chevron" />
+                  </Link>
+                ))}
+                {!filteredNotes.length ? <p className={styles.mobileEmpty}>Nenhum anexo neste período.</p> : null}
+              </div>
+            </section>
+          </section>
+        ) : null}
         <header className={styles.pageHeader}>
           <div>
             <h1>Dashboard</h1>
