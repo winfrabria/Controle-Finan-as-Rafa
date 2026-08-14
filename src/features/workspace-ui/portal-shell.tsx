@@ -31,6 +31,7 @@ type PortalShellProps = {
   role: PortalRole;
   userEmail?: string;
   basePath?: string;
+  immersiveMobile?: boolean;
 };
 
 export function PortalShell({
@@ -39,6 +40,7 @@ export function PortalShell({
   role,
   userEmail,
   basePath = role === "admin" ? "/admin" : "/revisao",
+  immersiveMobile = false,
 }: PortalShellProps) {
   const isAdmin = role === "admin";
   const visibleMenu = menu.filter(
@@ -54,7 +56,9 @@ export function PortalShell({
     ["obras", "logs"].includes(item.id),
   );
   return (
-    <div className={styles.portal}>
+    <div
+      className={`${styles.portal} ${immersiveMobile ? styles.mobileImmersive : ""}`}
+    >
       <aside className={styles.side}>
         <Link href={basePath} className={styles.brandLink}>
           <PortalBrand />

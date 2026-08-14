@@ -140,3 +140,39 @@ A hierarquia da opção aprovada foi preservada: sidebar compacta com Dashboard 
 - Os cards exibem dados de demonstração derivados de `noteRows`; a próxima etapa é substituir os agregados por métricas da API quando o contrato do dashboard estiver fechado.
 
 final result: passed
+
+---
+
+## QA adicional — detalhe mobile da nota
+
+### Referência e estado testado
+
+- Referência aprovada: `C:\Users\PdrArth\.codex\generated_images\01a00083-0590-7b23-acee-4174e1357a74\exec-c3f70249-428b-4413-91db-1915bb1d58f7.png`.
+- Rota real autenticada: `/notas/897f8d33-a307-43ab-843e-b171c855df08/analise-ia`.
+- Viewport: `390 × 844`.
+- Estado: nota suspeita real com oito achados, primeiro achado expandido e ação fixa do revisor.
+
+### Resultado visual
+
+- A hierarquia da referência foi preservada: barra compacta, diagnóstico primeiro, um achado expandido, demais achados recolhidos, resumo da nota, dados extraídos e ação fixa.
+- Os comparativos usam rótulo semântico para presença de item contratual (`Item previsto no contrato` / `Item encontrado na nota`) e mantêm `Esperado` / `Encontrado` para valor, quantidade e data.
+- Não houve rolagem horizontal no viewport testado (`scrollWidth` igual ao `clientWidth`).
+- O conteúdo real permaneceu legível com oito achados e textos longos.
+
+### Interações verificadas
+
+- Accordion de achados: passou.
+- Navegação Anterior/Próximo e contador: passou.
+- Abertura e fechamento da nota fiscal: passou.
+- Expansão de dados extraídos: passou.
+- A ação `Marcar como lida` permaneceu visível; o POST não foi disparado para não alterar o dado compartilhado durante o QA.
+
+### Verificação técnica
+
+- `npm run test:note-detail`: 5/5.
+- `npm run test:pwa`: 28/28.
+- `npm run test:upload`: 35/35.
+- `npm run check`: passou.
+- `npm run build`: passou.
+
+final result: passed

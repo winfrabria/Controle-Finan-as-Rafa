@@ -1,0 +1,796 @@
+.mobileDetail {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .mobileDetail {
+    background: #fff;
+    color: #07163b;
+    display: block;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: clip;
+  }
+
+  .appBar {
+    align-items: center;
+    background: rgb(255 255 255 / 96%);
+    border-bottom: 1px solid #dfe7f1;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    min-height: calc(68px + var(--app-safe-top, env(safe-area-inset-top, 0px)));
+    padding: var(--app-safe-top, env(safe-area-inset-top, 0px))
+      max(14px, var(--app-safe-right, env(safe-area-inset-right, 0px))) 0
+      max(14px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .appBar > strong {
+    font-size: clamp(16px, 4.8vw, 21px);
+    letter-spacing: -0.025em;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .backButton {
+    align-items: center;
+    border: 1px solid #d8e1ed;
+    border-radius: 10px;
+    color: #07163b;
+    display: inline-flex;
+    height: 44px;
+    justify-content: center;
+    width: 44px;
+  }
+
+  .backButton svg {
+    height: 21px;
+    transform: rotate(180deg);
+    width: 21px;
+  }
+
+  .classification {
+    align-items: center;
+    border: 1px solid currentColor;
+    border-radius: 10px;
+    display: inline-flex;
+    font-size: 12px;
+    font-weight: 700;
+    gap: 7px;
+    min-height: 36px;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  .classification svg {
+    height: 14px;
+    width: 14px;
+  }
+
+  .classificationWarning {
+    background: #fff8ec;
+    border-color: #ffd69a;
+    color: #d66e00;
+  }
+
+  .classificationOk {
+    background: #effbf4;
+    border-color: #b9e7c9;
+    color: #168942;
+  }
+
+  .classificationDanger {
+    background: #fff4f2;
+    border-color: #ffc8c0;
+    color: #d73826;
+  }
+
+  .classificationInfo {
+    background: #eef5ff;
+    border-color: #c7dcff;
+    color: #075cff;
+  }
+
+  .mobileContent {
+    margin: 0 auto;
+    max-width: 720px;
+    padding: 26px max(14px, var(--app-safe-right, env(safe-area-inset-right, 0px)))
+      calc(104px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)))
+      max(14px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
+  }
+
+  .diagnosisHeader {
+    margin: 0 4px 18px;
+  }
+
+  .diagnosisHeader h1 {
+    font-size: clamp(21px, 6vw, 26px);
+    letter-spacing: -0.035em;
+    line-height: 1.15;
+    margin: 0;
+  }
+
+  .diagnosisHeader p {
+    color: #576b8c;
+    font-size: 15px;
+    margin: 5px 0 0;
+  }
+
+  .findingStack {
+    display: grid;
+    gap: 10px;
+  }
+
+  .findingCard,
+  .noteSummary,
+  .extractedData,
+  .noFindings {
+    background: #fff;
+    border: 1px solid #dce5ef;
+    border-radius: 12px;
+    min-width: 0;
+  }
+
+  .findingCard {
+    overflow: clip;
+  }
+
+  .findingExpanded {
+    border-color: #d2deeb;
+  }
+
+  .findingHeader {
+    align-items: center;
+    background: #fff;
+    border: 0;
+    color: #07163b;
+    cursor: pointer;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 36px 36px minmax(0, 1fr) 24px;
+    min-height: 82px;
+    padding: 12px 14px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .findingHeader:focus-visible,
+  .findingPager button:focus-visible,
+  .openDocument:focus-visible,
+  .readBar button:focus-visible,
+  .backButton:focus-visible,
+  .documentDialog button:focus-visible,
+  .extractedData summary:focus-visible {
+    outline: 3px solid rgb(7 92 255 / 28%);
+    outline-offset: 2px;
+  }
+
+  .warningIcon {
+    align-items: center;
+    color: #f1321d;
+    display: inline-flex;
+    justify-content: center;
+  }
+
+  [data-severity="WARNING"] .warningIcon,
+  [data-severity="WARNING"] .findingHeading small,
+  [data-severity="WARNING"] .findingNumber {
+    color: #ee8500;
+  }
+
+  [data-severity="INFO"] .warningIcon,
+  [data-severity="INFO"] .findingHeading small,
+  [data-severity="INFO"] .findingNumber {
+    color: #075cff;
+  }
+
+  .warningIcon svg {
+    fill: currentColor;
+    height: 32px;
+    stroke: #fff;
+    stroke-width: 1.7;
+    width: 32px;
+  }
+
+  .findingNumber {
+    align-items: center;
+    border: 1px solid #dce5ef;
+    border-radius: 50%;
+    color: #ef2d1b;
+    display: inline-flex;
+    font-size: 16px;
+    font-weight: 800;
+    height: 36px;
+    justify-content: center;
+    width: 36px;
+  }
+
+  .findingHeading {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .findingHeading strong {
+    font-size: 15px;
+    line-height: 1.32;
+    overflow-wrap: anywhere;
+  }
+
+  .findingHeading small {
+    color: #ef2d1b;
+    font-size: 12px;
+  }
+
+  .findingHeader > svg {
+    color: #075cff;
+    height: 20px;
+    transform: rotate(90deg);
+    transition: transform 160ms ease;
+    width: 20px;
+  }
+
+  .findingHeader > .chevronOpen {
+    transform: rotate(-90deg);
+  }
+
+  .findingBody {
+    border-top: 1px solid #e1e8f1;
+  }
+
+  .findingSection {
+    margin: 0 14px;
+    padding: 15px 0;
+  }
+
+  .findingSection + .findingSection,
+  .comparison + .findingSection {
+    border-top: 1px solid #e3e9f1;
+  }
+
+  .findingSection h3,
+  .comparison h3 {
+    color: #3e5275;
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1.35;
+    margin: 0 0 8px;
+  }
+
+  .findingSection p,
+  .findingSection li,
+  .comparison p {
+    color: #13294f;
+    font-size: 14px;
+    line-height: 1.52;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .evidenceList {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .evidenceList > div {
+    background: #f7faff;
+    border: 1px solid #e1e8f1;
+    border-radius: 8px;
+    padding: 9px 10px;
+  }
+
+  .evidenceList dt {
+    color: #607393;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .evidenceList dd {
+    color: #13294f;
+    font-size: 14px;
+    line-height: 1.45;
+    margin: 3px 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .referenceList {
+    display: grid;
+    gap: 6px;
+    list-style: disc;
+    margin: 0;
+    padding-left: 18px;
+  }
+
+  .referenceList li {
+    padding-left: 2px;
+  }
+
+  .comparison {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0 14px;
+    padding: 15px 0;
+  }
+
+  .comparison > div {
+    border: 1px solid #dce5ef;
+    border-radius: 9px;
+    min-width: 0;
+    padding: 11px;
+  }
+
+  .comparison > div:first-child {
+    background: #f3fbf6;
+    border-color: #cfead7;
+  }
+
+  .comparison > div:last-child {
+    background: #fff6f3;
+    border-color: #ffd7cf;
+  }
+
+  .comparison > div:first-child h3 {
+    color: #159447;
+  }
+
+  .comparison > div:last-child h3 {
+    color: #e33120;
+  }
+
+  .comparison p {
+    font-size: 13px;
+  }
+
+  .comparison p span {
+    display: block;
+  }
+
+  .comparison p span + span {
+    border-top: 1px solid rgb(19 41 79 / 9%);
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+
+  .findingPager {
+    border-top: 1px solid #dce5ef;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    min-height: 54px;
+  }
+
+  .findingPager button {
+    align-items: center;
+    background: #fff;
+    border: 0;
+    color: #075cff;
+    cursor: pointer;
+    display: flex;
+    font-size: 13px;
+    font-weight: 750;
+    gap: 6px;
+    justify-content: center;
+    min-height: 54px;
+    padding: 0 10px;
+  }
+
+  .findingPager button:first-child {
+    border-right: 1px solid #dce5ef;
+  }
+
+  .findingPager button:last-child {
+    border-left: 1px solid #dce5ef;
+  }
+
+  .findingPager button:disabled {
+    color: #9eacc0;
+    cursor: default;
+  }
+
+  .findingPager button svg {
+    height: 15px;
+    width: 15px;
+  }
+
+  .findingPager button:first-child svg {
+    transform: rotate(180deg);
+  }
+
+  .findingPager > span {
+    align-items: center;
+    color: #172c51;
+    display: flex;
+    font-size: 13px;
+    font-weight: 750;
+    justify-content: center;
+    min-width: 72px;
+    padding: 0 8px;
+  }
+
+  .noteSummary {
+    margin-top: 12px;
+    padding: 16px;
+  }
+
+  .noteSummary h2 {
+    font-size: 18px;
+    letter-spacing: -0.02em;
+    margin: 0 0 11px;
+  }
+
+  .noteSummary dl {
+    margin: 0;
+  }
+
+  .noteSummary dl > div {
+    align-items: center;
+    display: grid;
+    gap: 11px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    min-height: 57px;
+  }
+
+  .noteSummary dl > div + div {
+    border-top: 1px solid #e4eaf1;
+  }
+
+  .summaryIcon,
+  .summaryIconGreen {
+    align-items: center;
+    background: #edf4ff;
+    border-radius: 50%;
+    color: #075cff;
+    display: inline-flex;
+    height: 36px;
+    justify-content: center;
+    width: 36px;
+  }
+
+  .summaryIconGreen {
+    background: #ebf9ef;
+    color: #119642;
+  }
+
+  .summaryIcon svg,
+  .summaryIconGreen svg {
+    height: 21px;
+    width: 21px;
+  }
+
+  .noteSummary dt {
+    color: #617392;
+    font-size: 11px;
+  }
+
+  .noteSummary dd {
+    color: #07163b;
+    font-size: 14px;
+    font-weight: 750;
+    line-height: 1.35;
+    margin: 2px 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .openDocument {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #d9e3ef;
+    border-radius: 9px;
+    color: #075cff;
+    cursor: pointer;
+    display: grid;
+    font-size: 14px;
+    font-weight: 750;
+    gap: 10px;
+    grid-template-columns: 24px minmax(0, 1fr) 18px;
+    margin-top: 10px;
+    min-height: 52px;
+    padding: 0 13px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .openDocument svg {
+    height: 22px;
+    width: 22px;
+  }
+
+  .openDocument svg:last-child {
+    height: 16px;
+    justify-self: end;
+    width: 16px;
+  }
+
+  .extractedData {
+    margin-top: 10px;
+    overflow: clip;
+  }
+
+  .extractedData summary {
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    list-style: none;
+    min-height: 76px;
+    padding: 12px 16px;
+  }
+
+  .extractedData summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .extractedData summary > span {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .extractedData summary strong {
+    font-size: 17px;
+  }
+
+  .extractedData summary small {
+    color: #607393;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .extractedData summary > svg {
+    color: #075cff;
+    flex: 0 0 auto;
+    height: 20px;
+    transform: rotate(90deg);
+    transition: transform 160ms ease;
+    width: 20px;
+  }
+
+  .extractedData[open] summary > svg {
+    transform: rotate(-90deg);
+  }
+
+  .extractedData > dl {
+    border-top: 1px solid #e1e8f1;
+    display: grid;
+    gap: 9px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+    padding: 14px;
+  }
+
+  .extractedData > dl > div {
+    background: #f7faff;
+    border-radius: 8px;
+    min-width: 0;
+    padding: 9px;
+  }
+
+  .extractedData dt {
+    color: #617392;
+    font-size: 11px;
+  }
+
+  .extractedData dd {
+    color: #142a50;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.4;
+    margin: 4px 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .noFindings {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .noFindings > svg {
+    color: #149342;
+    flex: 0 0 auto;
+    height: 26px;
+    width: 26px;
+  }
+
+  .noFindings strong {
+    font-size: 15px;
+  }
+
+  .noFindings p {
+    color: #607393;
+    font-size: 13px;
+    line-height: 1.45;
+    margin: 4px 0 0;
+  }
+
+  .readError {
+    background: #fff4f2;
+    border: 1px solid #ffc8c0;
+    border-radius: 9px;
+    color: #b52a1a;
+    font-size: 13px;
+    line-height: 1.45;
+    margin: 10px 0 0;
+    padding: 11px 12px;
+  }
+
+  .readBar {
+    background: rgb(255 255 255 / 97%);
+    border-top: 1px solid #dce5ef;
+    bottom: 0;
+    left: 0;
+    padding: 10px max(14px, var(--app-safe-right, env(safe-area-inset-right, 0px)))
+      calc(10px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)))
+      max(14px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
+    position: fixed;
+    right: 0;
+    z-index: 25;
+  }
+
+  .readBar button {
+    align-items: center;
+    background: #075cff;
+    border: 0;
+    border-radius: 10px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    font-size: 16px;
+    font-weight: 750;
+    gap: 9px;
+    justify-content: center;
+    margin: 0 auto;
+    max-width: 692px;
+    min-height: 54px;
+    width: 100%;
+  }
+
+  .readBar button:disabled {
+    cursor: default;
+    opacity: 0.82;
+  }
+
+  .readBar .readDone {
+    background: #168f46;
+  }
+
+  .readBar svg {
+    height: 22px;
+    width: 22px;
+  }
+
+  .documentDialog {
+    background: #fff;
+    border: 0;
+    border-radius: 14px;
+    box-shadow: 0 24px 70px rgb(7 22 59 / 28%);
+    color: #07163b;
+    height: min(
+      760px,
+      calc(
+        100dvh - var(--app-safe-top, env(safe-area-inset-top, 0px)) -
+          var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)) - 16px
+      )
+    );
+    margin: calc(8px + var(--app-safe-top, env(safe-area-inset-top, 0px))) auto
+      calc(8px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)));
+    max-height: calc(
+      100dvh - var(--app-safe-top, env(safe-area-inset-top, 0px)) -
+        var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)) - 16px
+    );
+    max-width: 720px;
+    overflow: hidden;
+    padding: 0;
+    width: calc(100% - 20px);
+  }
+
+  .documentDialog::backdrop {
+    background: rgb(7 22 59 / 48%);
+  }
+
+  .documentDialog > header {
+    align-items: center;
+    border-bottom: 1px solid #dce5ef;
+    display: flex;
+    justify-content: space-between;
+    min-height: 66px;
+    padding: 8px 12px 8px 16px;
+  }
+
+  .documentDialog > header span {
+    color: #607393;
+    font-size: 11px;
+  }
+
+  .documentDialog > header h2 {
+    font-size: 17px;
+    margin: 2px 0 0;
+  }
+
+  .documentDialog > header button {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #dce5ef;
+    border-radius: 9px;
+    color: #233b64;
+    cursor: pointer;
+    display: inline-flex;
+    height: 44px;
+    justify-content: center;
+    width: 44px;
+  }
+
+  .documentDialog > header button svg {
+    height: 22px;
+    width: 22px;
+  }
+
+  .documentDialogBody {
+    height: calc(100% - 66px);
+    overflow: auto;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 350px) {
+  .appBar {
+    gap: 7px;
+    padding-left: max(10px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
+    padding-right: max(10px, var(--app-safe-right, env(safe-area-inset-right, 0px)));
+  }
+
+  .appBar > strong {
+    font-size: 15px;
+  }
+
+  .classification {
+    font-size: 11px;
+    padding: 0 8px;
+  }
+
+  .findingHeader {
+    gap: 8px;
+    grid-template-columns: 30px 32px minmax(0, 1fr) 18px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .warningIcon svg {
+    height: 28px;
+    width: 28px;
+  }
+
+  .findingNumber {
+    height: 32px;
+    width: 32px;
+  }
+
+  .comparison,
+  .extractedData > dl {
+    grid-template-columns: 1fr;
+  }
+
+  .findingPager button {
+    font-size: 0;
+    min-width: 44px;
+  }
+
+  .findingPager button svg {
+    height: 18px;
+    width: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .findingHeader > svg,
+  .extractedData summary > svg {
+    transition: none;
+  }
+}

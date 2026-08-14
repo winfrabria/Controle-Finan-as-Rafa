@@ -796,6 +796,20 @@
   .mobileNav .mobileActive {
     color: var(--blue);
   }
+
+  .portal.mobileImmersive {
+    padding-bottom: 0;
+  }
+
+  .mobileImmersive .topbar,
+  .mobileImmersive .mobileNav,
+  .mobileImmersive .portalFooter {
+    display: none;
+  }
+
+  .mobileImmersive .portalContent {
+    padding: 0;
+  }
 }
 
 @media (max-width: 760px) {

@@ -16,6 +16,7 @@ import type { NoteDetailData } from "./data";
 import { NoteAnalysisExplorer } from "./note-analysis-explorer";
 import { NoteDocumentPreview } from "./note-document-preview";
 import { formatCurrency, formatDate, formatDecimal } from "./note-detail-format";
+import { ReviewerMobileNoteDetail } from "./reviewer-mobile-note-detail";
 import styles from "./note-detail.module.css";
 
 export function NoteAnalysisView({
@@ -45,8 +46,35 @@ export function NoteAnalysisView({
   const backLabel = role === "admin" ? "Voltar ao detalhe da nota" : "Voltar para notas";
 
   return (
-    <PortalShell active="notas" role={role} userEmail={userEmail}>
-      <div className={styles.analysisPage}>
+    <PortalShell
+      active="notas"
+      immersiveMobile={role === "reviewer"}
+      role={role}
+      userEmail={userEmail}
+    >
+      {role === "reviewer" ? (
+        <ReviewerMobileNoteDetail
+          classification={classification}
+          document={{
+            fileName: data.document.fileName,
+            isDemo: data.isDemo,
+            isImage: data.document.mimeType.startsWith("image/"),
+            url: documentUrl,
+          }}
+          findings={data.analysis.findings}
+          issuedAt={formatDate(data.issuedAt)}
+          items={data.items}
+          noteId={data.id}
+          number={number}
+          supplier={supplier}
+          supplierTaxId={data.supplier.taxId ?? "Não identificado"}
+          total={total}
+          work={data.work.name}
+        />
+      ) : null}
+      <div
+        className={`${styles.analysisPage} ${role === "reviewer" ? styles.reviewerDesktopAnalysis : ""}`}
+      >
         <nav className={styles.breadcrumb} aria-label="Navegação estrutural">
           <Link href={`${basePath}/notas`}>Notas</Link>
           {role === "admin" ? (

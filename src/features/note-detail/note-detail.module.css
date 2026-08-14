@@ -764,6 +764,10 @@
   padding-bottom: 8px;
 }
 
+.reviewerDesktopAnalysis {
+  display: block;
+}
+
 .analysisPage .metadataStrip {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -1826,6 +1830,10 @@
 }
 
 @media (max-width: 1023px) {
+  .reviewerDesktopAnalysis {
+    display: none;
+  }
+
   .detailGrid,
   .analysisLayout,
   .reviewColumn,
