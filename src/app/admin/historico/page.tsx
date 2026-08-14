@@ -17,7 +17,7 @@ export default async function AdminHistoryPage({ searchParams }: PageProps) {
     rawSelected && /^[0-9a-f-]{36}$/i.test(rawSelected) ? rawSelected : undefined;
   const result = await listNotes(filters, {
     all: true,
-    readMode: "read",
+    completedOnly: true,
   });
 
   return (

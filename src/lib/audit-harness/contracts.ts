@@ -219,6 +219,15 @@ export type HarnessInvoice = {
   readConfidence: number;
   warnings: string[];
   markdown: string;
+  itemCoverage?: {
+    status: "COMPLETE" | "INCOMPLETE" | "UNKNOWN";
+    declaredItemCount: number | null;
+    extractedItemCount: number;
+    firstLineNumber: number | null;
+    lastLineNumber: number | null;
+    missingLineNumbers: number[];
+    evidence: string | null;
+  };
   requiredFieldChecks?: Array<{
     field: string;
     label: string;

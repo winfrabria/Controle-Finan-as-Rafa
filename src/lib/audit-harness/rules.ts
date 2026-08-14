@@ -77,6 +77,20 @@ function sumItemTotals(items: HarnessInvoice["items"]) {
   return totals.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 }
 
+function hasCompleteItemCoverage(invoice: HarnessInvoice) {
+  const coverage = invoice.itemCoverage;
+  if (!coverage || coverage.status !== "COMPLETE") return false;
+  if (coverage.extractedItemCount <= 0) return false;
+  if (coverage.missingLineNumbers.length > 0) return false;
+  if (
+    coverage.declaredItemCount !== null &&
+    coverage.extractedItemCount < coverage.declaredItemCount
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function reconcilesTotal(items: HarnessInvoice["items"], noteTotal: number) {
   const sum = sumItemTotals(items);
   return sum !== null && Math.abs(sum - noteTotal) <= moneyTolerance(noteTotal);
@@ -576,7 +590,11 @@ export function evaluateUniversalRules(input: {
   const totalSelection =
     noteTotal === null ? null : selectItemsForDocumentTotal(invoice, noteTotal);
   const itemTotalSum = totalSelection ? sumItemTotals(totalSelection.items) : null;
-  if (noteTotal !== null && itemTotalSum !== null) {
+  if (
+    noteTotal !== null &&
+    itemTotalSum !== null &&
+    hasCompleteItemCoverage(invoice)
+  ) {
     coveredAreas.add("TOTALS");
     const tolerance = moneyTolerance(noteTotal);
     if (Math.abs(itemTotalSum - noteTotal) > tolerance) {

@@ -8,6 +8,11 @@ import {
 } from "@/features/workspace-ui/audit-result-label";
 import type { Prisma } from "@/generated/prisma/client";
 import { attachmentReference } from "@/features/internal-notes/attachment-reference";
+import {
+  formatFindingParts,
+  formatFindingValue,
+  humanizeFindingText,
+} from "@/features/internal-notes/finding-display";
 
 import type { AdminNoteDetail, AdminNoteDetailFinding } from "./data";
 import { AdminAuditActions } from "./admin-audit-actions";
@@ -17,7 +22,6 @@ import {
   formatDate,
   formatDateTime,
   formatDecimal,
-  jsonSummary,
 } from "./note-detail-format";
 import { NoteDocumentPreview } from "./note-document-preview";
 
@@ -35,6 +39,7 @@ export function AdminComparativeAuditView({
   const raw = data.analysis.rawExtraction;
   const latestValidation = data.validations.at(-1) ?? null;
   const latestRun = data.technical.aiRuns[0] ?? null;
+  const timelineEntries = buildTimelineEntries(data);
   const number = attachmentReference(data.number, data.id);
   const series = rawValue(raw, ["serie", "series"]) ?? "Não identificada";
   const supplier = data.supplier.name ?? "Fornecedor não identificado";
@@ -165,16 +170,20 @@ export function AdminComparativeAuditView({
         </div>
 
         <section className={`${styles.panel} ${styles.timelinePanel}`}>
-          <header><h2>5. Linha do tempo de eventos</h2></header>
+          <header>
+            <h2>5. Como o Harness processou este anexo</h2>
+            <p>Eventos, modelos, versões e critérios registrados em ordem cronológica.</p>
+          </header>
           <ol>
-            {data.history.map((entry, index) => (
+            {timelineEntries.map((entry, index) => (
               <li key={entry.id}>
-                <span className={styles.timelineIcon}><Icon name={timelineIcon(entry.type)} /></span>
+                <span className={styles.timelineIcon}><Icon name={entry.icon} /></span>
                 <time>{formatDateTime(entry.createdAt)}</time>
-                <small>{entry.actor?.fullName ?? entry.actor?.email ?? "Sistema"}</small>
+                <small>{entry.actor}</small>
                 <strong>{entry.label}</strong>
-                <p>{timelineDescription(entry)}</p>
-                {index < data.history.length - 1 ? <i /> : null}
+                <p>{entry.description}</p>
+                {entry.href ? <Link className={styles.timelineLink} href={entry.href}>Abrir log completo</Link> : null}
+                {index < timelineEntries.length - 1 ? <i /> : null}
               </li>
             ))}
           </ol>
@@ -193,7 +202,55 @@ function ItemsTable({ data }: { data: AdminNoteDetail }) {
 }
 
 function FindingCard({ finding }: { finding: AdminNoteDetailFinding }) {
-  return <article><header><Icon name="warning" /><div><span>Regra</span><strong>{finding.title}</strong></div><dl><dt>Confiança</dt><dd>{formatConfidence(finding.confidence)}</dd></dl></header><div><span>Evidência</span><p>{jsonSummary(finding.evidence, finding.description)}</p></div><footer><dl><div><dt>Esperado</dt><dd>{jsonSummary(finding.expectedValue, "Conforme regra")}</dd></div><div><dt>Extraído</dt><dd>{jsonSummary(finding.actualValue, "Não informado")}</dd></div><div><dt>Impacto</dt><dd>{severityLabel(finding.severity)}</dd></div></dl></footer><details><summary>Justificativa e rastreabilidade</summary><p>{finding.justification}</p><small>{sourceLabel(finding.source)} · Regra {finding.ruleVersion ?? "sem versão"}</small></details></article>;
+  const hiddenEvidenceLabels = new Set([
+    "Base da conciliação",
+    "Código da regra",
+    "Tolerância",
+  ]);
+  const evidence = formatFindingParts(finding.evidence).filter(
+    (part) => !hiddenEvidenceLabels.has(part.label),
+  );
+  return (
+    <article className={styles.findingCard}>
+      <header className={styles.findingHeader}>
+        <Icon name="warning" />
+        <div>
+          <span>{sourceLabel(finding.source)}</span>
+          <strong>{humanizeFindingText(finding.title)}</strong>
+          <p>{humanizeFindingText(finding.description)}</p>
+        </div>
+        <StatusBadge tone="warning">{severityLabel(finding.severity)}</StatusBadge>
+      </header>
+      {evidence.length ? (
+        <section className={styles.findingEvidence}>
+          <h3>Evidência no documento</h3>
+          <dl className={styles.evidenceGrid}>
+            {evidence.slice(0, 6).map((part, index) => (
+              <div key={`${part.label}-${index}`}>
+                <dt>{part.label}</dt>
+                <dd>{humanizeFindingText(part.value)}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
+      <section className={styles.findingReason}>
+        <h3>Por que merece atenção</h3>
+        <p>{humanizeFindingText(finding.justification)}</p>
+      </section>
+      <footer className={styles.findingFooter}>
+        <dl className={styles.comparisonGrid}>
+          <div><dt>Esperado</dt><dd>{formatFindingValue(finding.expectedValue, "Conforme o documento")}</dd></div>
+          <div><dt>Encontrado</dt><dd>{formatFindingValue(finding.actualValue, "Não informado")}</dd></div>
+        </dl>
+      </footer>
+      <details className={styles.findingTrace}>
+        <summary>Rastreabilidade técnica</summary>
+        <p>Confiança: {formatConfidence(finding.confidence)}</p>
+        <small>Regra {finding.ruleVersion ?? "sem versão"}</small>
+      </details>
+    </article>
+  );
 }
 
 function rawValue(value: Prisma.JsonValue | null, keys: string[]) { if (!value || Array.isArray(value) || typeof value !== "object") return null; for (const key of keys) { const entry = value[key]; if (typeof entry === "string" || typeof entry === "number") return String(entry); } return null; }
@@ -204,7 +261,6 @@ function validationLabel(value: string) { return value === "SUSPICION_CONFIRMED"
 function validationTone(value: string): "ok" | "warning" { return value === "SUSPICION_CONFIRMED" || value === "FINDING_CORRECT" ? "warning" : "ok"; }
 function severityLabel(value: string) { return value === "CRITICAL" ? "Alto" : value === "WARNING" ? "Médio" : "Baixo"; }
 function sourceLabel(value: string) { return value === "WORK_RULE" ? "Regra da obra" : value === "AI_DISCOVERY" ? "Descoberta da IA" : "Regra universal"; }
-function timelineIcon(type: string): "document" | "money" | "warning" | "help" { return type.includes("VALIDATION") ? "help" : type.includes("ANALYSIS") ? "warning" : type.includes("EXTRACTION") ? "money" : "document"; }
 function timelineDescription(entry: AdminNoteDetail["history"][number]) {
   const descriptions: Record<string, string> = {
     AUDIT_COMPLETED: "As regras e a análise da IA foram concluídas.",
@@ -222,4 +278,71 @@ function timelineDescription(entry: AdminNoteDetail["history"][number]) {
     VALIDATION_RECORDED: "A decisão humana foi registrada no histórico.",
   };
   return descriptions[entry.type] ?? "Evento registrado no sistema.";
+}
+
+function buildTimelineEntries(data: AdminNoteDetail) {
+  const events = data.history.map((entry) => ({
+    actor: entry.actor?.fullName ?? entry.actor?.email ?? "Sistema",
+    createdAt: entry.createdAt,
+    description: timelineDescription(entry),
+    href: null as string | null,
+    icon: timelineIcon(entry.type),
+    id: `event-${entry.id}`,
+    label: entry.label,
+  }));
+  const runs = data.technical.aiRuns.map((run) => ({
+    actor: "Harness",
+    createdAt: run.createdAt,
+    description:
+      run.kind === "EXTRACTION"
+        ? `Leitura estruturada com ${run.model}. Prompt ${run.promptVersion ?? "não informado"}, schema ${run.schemaVersion ?? "não informado"} e ${run.attempts} tentativa(s). ${runCoverageSummary(run.structuredResponse)}`
+        : `Política ${run.policyVersion} aplicada por ${run.model} com esforço ${run.reasoningEffort}. ${run.status === "SUCCEEDED" ? "A resposta foi validada e persistida." : `A execução terminou como ${run.status}${run.errorCode ? ` (${run.errorCode})` : ""}.`} ${runCriteriaSummary(run.structuredResponse)}`,
+    href: `/admin/logs/AI-${run.id}`,
+    icon: run.kind === "EXTRACTION" ? "money" as const : "warning" as const,
+    id: `run-${run.id}`,
+    label: run.kind === "EXTRACTION" ? "Execução da leitura da IA" : "Execução da auditoria do Harness",
+  }));
+  return [...events, ...runs].sort(
+    (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
+  );
+}
+
+function jsonRecord(value: Prisma.JsonValue | null | undefined) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : null;
+}
+
+function runCriteriaSummary(value: Prisma.JsonValue | null | undefined) {
+  const response = jsonRecord(value);
+  const codes = response && Array.isArray(response.findingCodes)
+    ? response.findingCodes.filter((code): code is string => typeof code === "string")
+    : [];
+  if (codes.length === 0) return "Nenhum critério produziu achado nessa execução.";
+  return `Critérios acionados: ${codes.map(humanizeFindingText).join(", ")}.`;
+}
+
+function runCoverageSummary(value: Prisma.JsonValue | null | undefined) {
+  const response = jsonRecord(value);
+  const coverage = response ? jsonRecord(response.itemCoverage) : null;
+  if (!coverage || typeof coverage.status !== "string") {
+    return "A cobertura da tabela de itens não foi comprovada.";
+  }
+  if (coverage.status === "COMPLETE") {
+    return "A camada de itens usada na conciliação foi registrada como completa.";
+  }
+  if (coverage.status === "INCOMPLETE") {
+    return "A extração registrou cobertura incompleta; diferenças do total não são concluídas com essa soma parcial.";
+  }
+  return "A cobertura da tabela de itens permaneceu desconhecida.";
+}
+
+function timelineIcon(type: string): "document" | "money" | "warning" | "help" {
+  return type.includes("VALIDATION")
+    ? "help"
+    : type.includes("ANALYSIS") || type.includes("AUDIT")
+      ? "warning"
+      : type.includes("EXTRACTION")
+        ? "money"
+        : "document";
 }

@@ -325,6 +325,7 @@ async function persistExtraction(input: {
         status: AiRunStatus.SUCCEEDED,
         structuredResponse: toJsonValue({
           documentNumber: input.extraction.documentNumber,
+          itemCoverage: input.extraction.itemCoverage,
           itemCount: input.extraction.items.length,
           readConfidence: input.extraction.readConfidence,
           warnings: input.extraction.warnings,

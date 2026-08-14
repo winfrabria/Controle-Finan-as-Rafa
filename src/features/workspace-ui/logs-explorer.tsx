@@ -241,14 +241,14 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
                   <td>{log.reason}</td>
                   <td>{log.status}</td>
                   <td>
-                    <button
+                    <Link
                       className={styles.eyeButton}
-                      type="button"
                       aria-label={`Ver log ${log.id}`}
-                      onClick={() => selectLog(log.id)}
+                      href={`/admin/logs/${encodeURIComponent(log.id)}`}
+                      onClick={(event) => event.stopPropagation()}
                     >
                       <Icon name="eye" />
-                    </button>
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -344,6 +344,12 @@ export function LogsExplorer({ logs }: { logs: AuditLog[] }) {
             Abrir anexo relacionado <Icon name="chevron" />
           </Link>
         ) : null}
+        <Link
+          className={styles.logFullLink}
+          href={`/admin/logs/${encodeURIComponent(selected.id)}`}
+        >
+          Abrir log técnico completo <Icon name="chevron" />
+        </Link>
         <h3>Linha do tempo</h3>
         <ol className={styles.timeline}>
           <li>

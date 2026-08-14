@@ -60,3 +60,29 @@ test("combina busca, status e intervalo de datas sem filtros desconexos", () => 
 
   assert.deepEqual(result.map((row) => row.item.id), ["note-2"]);
 });
+
+test("busca também no diagnóstico e na justificativa do achado", () => {
+  const rowsWithFinding = [
+    {
+      displayDate: "09/08/2026",
+      item: item({
+        findings: [
+          {
+            description: "O valor do pagamento diverge do recibo.",
+            justification: "Diferença registrada no próprio anexo.",
+            title: "Valor divergente",
+          },
+        ],
+      }),
+      status: "Suspeita",
+    },
+  ];
+
+  assert.equal(
+    filterReviewerNoteRows(rowsWithFinding, {
+      ...emptyFilters,
+      query: "diferença registrada",
+    }).length,
+    1,
+  );
+});

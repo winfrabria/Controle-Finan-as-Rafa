@@ -97,24 +97,25 @@
 .rightColumn { display: grid; min-width: 0; gap: 12px; grid-template-rows: minmax(0, 1fr) auto; }
 .findingsPanel { min-height: 0; }
 .findingsPanel .panelHeader p { color: #ec8500; }
-.findingList { display: grid; gap: 7px; padding: 0 12px 12px; }
-.findingList > article { min-width: 0; border: 1px solid #efbd61; border-radius: 7px; padding: 10px; background: #fffcf7; }
-.findingList article > header { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: start; }
-.findingList article > header > svg { width: 16px; height: 16px; color: #f29700; }
-.findingList article span, .findingList dt { display: block; margin-bottom: 2px; color: #6f7e97; font-size: 10px; }
-.findingList article strong { display: block; overflow-wrap: anywhere; color: #142b51; font-size: 12px; line-height: 1.35; }
-.findingList article header dl { margin: 0; text-align: right; }
-.findingList article header dd { margin: 0; color: #142b51; font-size: 12px; font-weight: 750; }
-.findingList article > div { margin: 8px 0; padding-left: 26px; }
-.findingList article p { margin: 0; color: #344c70; font-size: 11px; line-height: 1.42; overflow-wrap: anywhere; }
-.findingList article > footer { border-top: 1px solid #eadfca; padding: 8px 0 0 26px; }
-.findingList article > footer dl { display: grid; grid-template-columns: 1fr 1fr .55fr; gap: 8px; margin: 0; }
-.findingList article > footer dl > div { min-width: 0; }
-.findingList article > footer dd { overflow: hidden; overflow-wrap: anywhere; margin: 0; color: #273e63; font-size: 10px; font-weight: 650; text-overflow: ellipsis; white-space: normal; }
-.findingList details { margin: 8px 0 0 26px; font-size: 10px; }
-.findingList summary { color: #315b91; cursor: pointer; }
-.findingList details p { margin-top: 6px; }
-.findingList details small { display: block; margin-top: 5px; color: var(--muted); }
+.findingList { display: grid; gap: 10px; padding: 0 12px 12px; }
+.findingCard { min-width: 0; overflow: hidden; border: 1px solid #efbd61; border-radius: 9px; background: #fffcf7; }
+.findingHeader { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 9px; align-items: start; padding: 12px; }
+.findingHeader > svg { width: 18px; height: 18px; color: #f29700; }
+.findingHeader span, .findingCard dt { display: block; margin-bottom: 3px; color: #6f7e97; font-size: 10px; }
+.findingHeader strong { display: block; overflow-wrap: anywhere; color: #142b51; font-size: 13px; line-height: 1.35; }
+.findingHeader p, .findingReason p { margin: 4px 0 0; color: #344c70; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.findingEvidence, .findingReason, .findingFooter { border-top: 1px solid #eadfca; padding: 10px 12px; }
+.findingEvidence h3, .findingReason h3 { margin: 0 0 8px; color: #243f68; font-size: 11px; }
+.evidenceGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 0; }
+.evidenceGrid > div { min-width: 0; border-radius: 7px; padding: 8px 9px; background: #fff; }
+.evidenceGrid dd { margin: 0; color: #18345d; font-size: 11px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
+.comparisonGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.comparisonGrid > div { min-width: 0; border-radius: 7px; padding: 8px 9px; background: #fff3df; }
+.comparisonGrid dd { margin: 0; color: #b55b00; font-size: 11px; font-weight: 750; line-height: 1.4; overflow-wrap: anywhere; }
+.findingTrace { border-top: 1px solid #eadfca; padding: 9px 12px 11px; font-size: 10px; }
+.findingTrace summary { color: #315b91; cursor: pointer; }
+.findingTrace p { margin: 7px 0 0; color: #344c70; }
+.findingTrace small { display: block; margin-top: 5px; color: var(--muted); }
 .emptyState { display: flex; align-items: center; gap: 8px; margin: 0; padding: 24px; color: #14864d; font-size: 12px; }
 .emptyState svg { width: 20px; height: 20px; }
 
@@ -129,16 +130,18 @@
 .noDecision { margin: 0; padding: 18px 12px; color: var(--muted); font-size: 11px; }
 
 .timelinePanel { margin-top: 12px; padding: 14px; }
-.timelinePanel header { margin-bottom: 10px; }
-.timelinePanel ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 24px; margin: 0; padding: 0; list-style: none; }
-.timelinePanel li { position: relative; display: grid; min-height: 92px; grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; column-gap: 9px; border: 1px solid #9abcf7; border-radius: 7px; padding: 10px; }
+.timelinePanel header { margin-bottom: 12px; }
+.timelinePanel header p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+.timelinePanel ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(225px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+.timelinePanel li { position: relative; display: grid; min-height: 150px; grid-template-columns: 32px minmax(0, 1fr); grid-template-rows: auto auto auto 1fr auto; column-gap: 10px; border: 1px solid #b7cced; border-radius: 9px; padding: 12px; background: #fbfdff; }
 .timelineIcon { display: grid; width: 27px; height: 27px; grid-row: 1 / 5; place-items: center; border-radius: 50%; color: #075cf6; background: #edf4ff; }
 .timelineIcon svg { width: 15px; height: 15px; }
 .timelinePanel time { color: #556987; font-size: 10px; }
 .timelinePanel small { color: #31517e; font-size: 10px; font-weight: 650; }
-.timelinePanel strong { color: #142d54; font-size: 11px; }
-.timelinePanel p { overflow: hidden; margin: 3px 0 0; color: #596c8b; font-size: 10px; line-height: 1.35; text-overflow: ellipsis; }
-.timelinePanel li > i { position: absolute; top: 50%; right: -25px; width: 25px; height: 2px; background: #075cf6; }
+.timelinePanel strong { margin-top: 3px; color: #142d54; font-size: 12px; }
+.timelinePanel p { margin: 6px 0 0; color: #596c8b; font-size: 11px; line-height: 1.48; overflow-wrap: anywhere; }
+.timelineLink { grid-column: 2; align-self: end; margin-top: 9px; color: var(--blue); font-size: 10px; font-weight: 700; text-decoration: none; }
+.timelinePanel li > i { display: none; }
 
 .actionArea { position: relative; display: flex; flex-direction: column; align-items: flex-end; }
 .moreActions { display: inline-flex; min-height: 38px; align-items: center; gap: 9px; border: 1px solid #cbd7e7; border-radius: 7px; padding: 0 14px; color: #203b63; background: #fff; font: inherit; font-size: 12px; cursor: pointer; }
@@ -200,8 +203,7 @@
   .itemCards dt { color: var(--muted); font-size: 9px; }
   .itemCards dd { margin: 3px 0 0; color: #18345d; font-size: 10px; }
   .extractionFooter { align-items: flex-start; flex-direction: column; }
-  .findingList article > footer dl { grid-template-columns: 1fr; }
-  .findingList article > footer dd { white-space: normal; }
+  .evidenceGrid, .comparisonGrid { grid-template-columns: 1fr; }
   .decisionPanel dl { grid-template-columns: 1fr; }
   .decisionPanel dl > div + div { border-top: 1px solid #e4eaf2; border-left: 0; padding-top: 8px; }
   .timelinePanel ol { grid-template-columns: 1fr; }

@@ -183,8 +183,11 @@ async function loadAuditContext(noteId: string, contextSubmissionId?: string) {
     throw new AuditPipelineError("AUDIT_INVALID_EXTRACTION", "Os dados extraídos não são válidos.", { cause: parsed.error });
   }
   const invoice: HarnessInvoice = parsed.data;
+  const workRulesEnabled = process.env.HARNESS_WORK_RULES_ENABLED === "true";
   const activeRules = await prisma.auditRule.findMany({
-    where: { active: true, OR: [{ workId: null }, { workId: note.workId }] },
+    where: workRulesEnabled
+      ? { active: true, OR: [{ workId: null }, { workId: note.workId }] }
+      : { active: true, workId: null },
     orderBy: [{ priority: "asc" }, { code: "asc" }],
     select: { category: true, code: true, configuration: true, name: true, severity: true },
   });

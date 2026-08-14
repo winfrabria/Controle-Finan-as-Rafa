@@ -68,11 +68,21 @@
 }
 
 .historyPage .filters {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(280px, 2fr) repeat(3, minmax(145px, 1fr));
 }
 
 .historyPage .searchField {
-  flex-basis: 280px;
+  width: 100%;
+}
+
+.historyPage .selectField,
+.historyPage .dateField {
+  width: 100%;
+}
+
+.historyPage .clearButton {
+  justify-self: start;
 }
 
 .searchField,
@@ -1392,6 +1402,10 @@
 
   .findingCard {
     padding: 12px;
+  }
+
+  .historyPage .filters {
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 0.6fr);
   }
 
   .findingBody {

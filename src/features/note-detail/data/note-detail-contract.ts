@@ -84,12 +84,17 @@ export type AdminNoteAiRun = {
   kind: AiRunKind;
   latencyMs: number | null;
   model: string;
+  errorCode?: string | null;
+  errorMessage?: string | null;
   policyVersion: string;
+  promptVersion?: string;
   promptTokens: number | null;
   provider: string | null;
   reasoningEffort: ReasoningEffort;
+  schemaVersion?: string;
   startedAt: Date;
   status: AiRunStatus;
+  structuredResponse?: Prisma.JsonValue | null;
   totalTokens: number | null;
 };
 

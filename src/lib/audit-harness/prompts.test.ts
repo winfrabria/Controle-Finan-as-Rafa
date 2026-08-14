@@ -12,6 +12,8 @@ test("exige cobertura completa de fichas de reembolso e valores concorrentes", (
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /pagamento for agregado/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /reunir vários documentos/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /não conclua TOTAL_MISMATCH/i);
+  assert.match(AUDIT_DISCOVERY_PROMPT.system, /invoice\.itemCoverage/i);
+  assert.match(INVOICE_EXTRACTION_PROMPT.system, /Use COMPLETE somente/i);
   assert.match(INVOICE_EXTRACTION_PROMPT.system, /documentRole/i);
   assert.match(INVOICE_EXTRACTION_PROMPT.system, /requiredFieldChecks/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /não depende de fornecedor/i);

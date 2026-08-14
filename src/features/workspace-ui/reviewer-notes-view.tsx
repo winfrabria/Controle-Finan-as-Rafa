@@ -262,6 +262,8 @@ export function ReviewerNotesView({
   const router = useRouter();
   const pathname = usePathname();
   const historyMode = mode === "history";
+  const adminHistory = historyMode && role === "admin";
+  const useReadHistoryDates = historyMode && !adminHistory;
   const currentPeriod = useMemo(() => currentPeriodValue(), []);
   const [query, setQuery] = useState(initialQuery);
   const [period, setPeriod] = useState(historyMode ? "" : currentPeriod);
@@ -285,7 +287,7 @@ export function ReviewerNotesView({
   const periods = useMemo(() => {
     const unique = new Set(
       [currentPeriod, ...items.map((item) => {
-        const parts = itemDate(item, historyMode).split("/");
+        const parts = itemDate(item, useReadHistoryDates).split("/");
         return parts.length === 3 ? `${parts[1]}/${parts[2]}` : "";
       })],
     );
@@ -304,18 +306,18 @@ export function ReviewerNotesView({
         }).format(new Date(year, month - 1, 1));
         return { label: label.charAt(0).toUpperCase() + label.slice(1), value };
       });
-  }, [currentPeriod, historyMode, items]);
+  }, [currentPeriod, items, useReadHistoryDates]);
 
   const filteredItems = useMemo(() => {
     return filterReviewerNoteRows(
       items.map((item) => ({
-        displayDate: itemDate(item, historyMode),
+        displayDate: itemDate(item, useReadHistoryDates),
         item,
         status: statusLabel(item),
       })),
       { dateFrom, dateTo, period, query, responsible, status, work },
     ).map((row) => row.item);
-  }, [dateFrom, dateTo, historyMode, items, period, query, responsible, status, work]);
+  }, [dateFrom, dateTo, items, period, query, responsible, status, useReadHistoryDates, work]);
 
   const responsibles = useMemo(
     () =>
@@ -344,7 +346,9 @@ export function ReviewerNotesView({
   const displayedPage = hasLocalFilter ? 1 : page;
   const displayedPageCount = hasLocalFilter ? 1 : pageCount;
   const secondaryStatCount = historyMode
-    ? visibleItems.filter((item) => Boolean(item.readAt)).length
+    ? adminHistory
+      ? visibleItems.filter((item) => statusLabel(item) === "Suspeita").length
+      : visibleItems.filter((item) => Boolean(item.readAt)).length
     : visibleItems.filter((item) => statusLabel(item) === "Suspeita").length;
 
   const selected =
@@ -427,11 +431,13 @@ export function ReviewerNotesView({
       <div className={`${styles.page} ${historyMode ? styles.historyPage : ""}`}>
         <header className={styles.pageHeader}>
           <div>
-            <p className={styles.eyebrow}>{historyMode ? "ANEXOS ACOMPANHADOS" : "REVISÃO DE ANEXOS"}</p>
+            <p className={styles.eyebrow}>{historyMode ? adminHistory ? "HISTÓRICO OPERACIONAL" : "ANEXOS ACOMPANHADOS" : "REVISÃO DE ANEXOS"}</p>
             <h1>{historyMode ? "Histórico" : "Notas"}</h1>
             <p className={styles.subtitle}>
               {historyMode
-                ? "Consulte tudo o que já foi marcado como lido."
+                ? adminHistory
+                  ? "Consulte todos os anexos com processamento concluído, inclusive falhas e suspeitas."
+                  : "Consulte tudo o que já foi marcado como lido."
                 : "Acompanhe os anexos recebidos e o diagnóstico da IA."}
             </p>
           </div>
@@ -444,9 +450,13 @@ export function ReviewerNotesView({
             <span>
               <strong>{secondaryStatCount}</strong>{" "}
               {historyMode
-                ? secondaryStatCount === 1
-                  ? "lido"
-                  : "lidos"
+                ? adminHistory
+                  ? secondaryStatCount === 1
+                    ? "suspeito"
+                    : "suspeitos"
+                  : secondaryStatCount === 1
+                    ? "lido"
+                    : "lidos"
                 : secondaryStatCount === 1
                   ? "suspeito"
                   : "suspeitos"}
@@ -461,7 +471,7 @@ export function ReviewerNotesView({
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar por número da nota ou fornecedor"
+              placeholder={adminHistory ? "Buscar por número, fornecedor ou conteúdo" : "Buscar por número da nota ou fornecedor"}
             />
           </label>
           <label className={styles.selectField}>
@@ -596,7 +606,7 @@ export function ReviewerNotesView({
           <section className={styles.attachmentsPanel} aria-labelledby="attachments-title">
             <div className={styles.panelHeader}>
               <div>
-                <h2 id="attachments-title">{historyMode ? "Anexos lidos" : "Anexos recebidos"}</h2>
+                <h2 id="attachments-title">{historyMode ? adminHistory ? "Processamentos concluídos" : "Anexos lidos" : "Anexos recebidos"}</h2>
                 <p>
                   {visibleItems.length}{" "}
                   {visibleItems.length === 1
@@ -617,7 +627,9 @@ export function ReviewerNotesView({
                   <strong>{historyMode ? "Nenhum anexo no histórico" : "Nenhum anexo encontrado"}</strong>
                   <span>
                     {historyMode
-                      ? "Os anexos aparecem aqui depois de serem marcados como lidos."
+                      ? adminHistory
+                        ? "Os anexos aparecem aqui quando o processamento termina."
+                        : "Os anexos aparecem aqui depois de serem marcados como lidos."
                       : "Ajuste a busca ou os filtros para continuar."}
                   </span>
                 </div>
@@ -626,7 +638,9 @@ export function ReviewerNotesView({
                   .slice()
                   .sort((a, b) =>
                     historyMode
-                      ? Date.parse(b.readAt ?? "") - Date.parse(a.readAt ?? "")
+                      ? adminHistory
+                        ? dateSortKey(b.date) - dateSortKey(a.date)
+                        : Date.parse(b.readAt ?? "") - Date.parse(a.readAt ?? "")
                       : dateSortKey(b.date) - dateSortKey(a.date),
                   )
                   .map((item) => {
@@ -648,7 +662,7 @@ export function ReviewerNotesView({
                           <strong>{item.number}</strong>
                           <span>{item.supplier}</span>
                           <small>
-                            {historyMode && item.readAtLabel
+                            {historyMode && !adminHistory && item.readAtLabel
                               ? `Lida em ${item.readAtLabel}${item.readBy ? ` por ${item.readBy}` : ""}`
                               : `${item.date}${item.work ? ` • ${item.work}` : ""}`}
                           </small>

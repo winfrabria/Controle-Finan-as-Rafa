@@ -106,16 +106,16 @@
 .metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  margin-bottom: 22px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .metricCard {
   display: flex;
-  min-height: 122px;
+  min-height: 88px;
   align-items: center;
-  gap: 17px;
-  padding: 22px;
+  gap: 13px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fff;
@@ -140,13 +140,13 @@
 }
 
 .metricCard strong {
-  font-size: 1.75rem;
+  font-size: 1.45rem;
   line-height: 1.15;
 }
 
 .metricCard small {
   overflow: hidden;
-  margin-top: 7px;
+  margin-top: 4px;
   font-size: 0.73rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -161,13 +161,13 @@
 }
 
 .metricIcon {
-  width: 53px;
-  height: 53px;
+  width: 42px;
+  height: 42px;
 }
 
 .metricIcon svg {
-  width: 25px;
-  height: 25px;
+  width: 21px;
+  height: 21px;
 }
 
 .blueIcon {
@@ -534,6 +534,46 @@
   min-width: 0;
 }
 
+.cityCombobox {
+  position: relative;
+}
+
+.cityOptions {
+  position: absolute;
+  z-index: 25;
+  top: calc(100% + 5px);
+  right: 0;
+  left: 0;
+  max-height: 224px;
+  overflow-y: auto;
+  border: 1px solid #ccd8e8;
+  border-radius: 8px;
+  padding: 5px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgb(18 36 70 / 16%);
+}
+
+.cityOptions button {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 9px;
+  color: #213b61;
+  background: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cityOptions button:hover,
+.cityOptions button[aria-selected="true"] {
+  color: var(--blue);
+  background: #edf4ff;
+}
+
 .fieldHint {
   margin: 7px 0 0;
   color: #6d7d99;
@@ -730,7 +770,7 @@
   }
 
   .metricCard {
-    padding: 17px;
+    padding: 13px;
   }
 
   .metricIcon {
@@ -769,7 +809,7 @@
   }
 
   .metricCard {
-    min-height: 110px;
+    min-height: 86px;
   }
 
   .mobileFormBackdrop {
@@ -836,7 +876,7 @@
   }
 
   .metricCard {
-    min-height: 145px;
+    min-height: 124px;
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;

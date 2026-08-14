@@ -37,7 +37,22 @@ export function filterReviewerNoteRows(
   const hasCustomRange = Boolean(filters.dateFrom || filters.dateTo);
 
   return rows.filter(({ displayDate, item, status }) => {
-    const searchable = [item.number, item.supplier, item.work, item.responsible]
+    const findingContent = (item.findings ?? []).flatMap((finding) => [
+      finding.title,
+      finding.description,
+      finding.justification,
+      finding.evidence,
+      finding.expectedValue,
+      finding.actualValue,
+    ]);
+    const searchable = [
+      item.number,
+      item.supplier,
+      item.work,
+      item.responsible,
+      item.finding,
+      ...findingContent,
+    ]
       .filter(Boolean)
       .join(" ")
       .toLocaleLowerCase("pt-BR");

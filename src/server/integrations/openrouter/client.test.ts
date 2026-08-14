@@ -75,7 +75,43 @@ test("normaliza formatos monetários e campos ausentes sem inventar conteúdo", 
   assert.equal(parsed.totalAmount, "1148.5");
   assert.equal(parsed.items[0]?.totalAmount, "1148.50");
   assert.equal(parsed.items[0]?.quantity, null);
+  assert.equal(parsed.itemCoverage.status, "UNKNOWN");
   assert.deepEqual(parsed.warnings, []);
+});
+
+test("normaliza cobertura parcial e impede que uma contagem declarada maior pareça completa", () => {
+  const parsed = parseInvoiceExtractionPayload({
+    documentKind: "FISCAL_INVOICE",
+    documentNumber: "352564",
+    issuedAt: "2026-08-01",
+    itemCoverage: {
+      status: "COMPLETE",
+      declaredItemCount: 50,
+      extractedItemCount: 50,
+      firstLineNumber: 1,
+      lastLineNumber: 44,
+      missingLineNumbers: [45, 46, 47, 48, 49, 50],
+      evidence: "Tabela continua após a última linha extraída.",
+    },
+    items: Array.from({ length: 44 }, (_, index) => ({
+      countsTowardDocumentTotal: true,
+      description: `Produto ${index + 1}`,
+      totalAmount: "10.00",
+    })),
+    markdown: "Nota com tabela de cinquenta produtos.",
+    readConfidence: 0.9,
+    supplierName: "Fornecedor",
+    supplierTaxId: null,
+    totalAmount: "500.00",
+    warnings: [],
+  });
+
+  assert.equal(parsed.success, true);
+  if (!parsed.success) return;
+  assert.equal(parsed.data.itemCoverage.status, "INCOMPLETE");
+  assert.equal(parsed.data.itemCoverage.declaredItemCount, 50);
+  assert.equal(parsed.data.itemCoverage.extractedItemCount, 44);
+  assert.deepEqual(parsed.data.itemCoverage.missingLineNumbers, [45, 46, 47, 48, 49, 50]);
 });
 
 test("recupera desvios estruturais seguros sem uma nova chamada", () => {

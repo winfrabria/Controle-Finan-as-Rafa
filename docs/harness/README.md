@@ -10,8 +10,8 @@ O Harness transforma uma extração validada em uma decisão auditável. A ordem
 6. matriz de decisão;
 7. persistência de achados, métricas e diagnóstico.
 
-Política ativa: `2026-08-13.3`; prompt: `2026-08-13.3`; regras: `2026-08-13.3`; schema:
-`2026-08-13.3`. Os artefatos versionados ficam nas pastas
+Política ativa: `2026-08-14.1`; prompt: `2026-08-14.1`; regras: `2026-08-14.1`; schema:
+`2026-08-14.1`. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
 versão ativa.
@@ -31,8 +31,9 @@ versão ativa.
   suportes presentes, sem regra específica por fornecedor, número ou valor;
 - campos vazios só viram achado quando o próprio documento declarar a
   obrigatoriedade; a regra vale para qualquer formulário;
-- lacunas de cobertura impedem `TOTAL_MISMATCH` até que a camada totalizadora
-  esteja completa;
+- `itemCoverage` registra se a camada totalizadora está completa, incompleta ou
+  desconhecida. `TOTAL_MISMATCH` só é permitido com cobertura explicitamente
+  completa, sem linhas faltantes e sem déficit entre itens declarados e extraídos;
 - uma resposta estruturalmente inválida permite uma única reconstrução com o OCR ou rascunho já obtido; sem material reutilizável, o mesmo Terra é repetido uma vez. Não existe cadeia silenciosa entre modelos;
 - a auditoria faz no máximo duas chamadas e o `ProcessingJob` não repete externamente a rota já concluída;
 - `reasoning.exclude=true`; chain-of-thought nunca é solicitado ou persistido;
@@ -51,6 +52,9 @@ versão ativa.
 - em estado terminal, o preview é negado imediatamente; o primeiro status genérico consome a capability com CAS, limpa o cookie e expira a capability antes da resposta. Repetições retornam 404;
 - perguntas e respostas ficam na trilha ADMIN; o REVIEWER recebe apenas o diagnóstico final. O endpoint legado de decisão retorna bloqueio e preserva o histórico;
 - reprocessamento preserva execuções e validações anteriores. Quando a extração já existe, recupera apenas a auditoria; uma extração nova só ocorre quando realmente necessária.
+- regras específicas de obra ficam desativadas por padrão no ciclo de testes
+  (`HARNESS_WORK_RULES_ENABLED=false`). A obra selecionada organiza o anexo, mas
+  não cria suspeita operacional até a ativação explícita dessa fase.
 
 Reinicie o servidor após qualquer troca de modelo para limpar os clientes em
 cache. Comparações futuras devem ocorrer em ambiente controlado, nunca por uma

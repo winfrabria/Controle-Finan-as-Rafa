@@ -165,6 +165,7 @@ export async function listNotes(
   filters: NoteListFilters,
   options: {
     all?: boolean;
+    completedOnly?: boolean;
     profileId?: string;
     readMode?: NoteReadMode;
     sanitizeForReviewer?: boolean;
@@ -185,6 +186,20 @@ export async function listNotes(
   } satisfies Prisma.FindingWhereInput;
   const where = {
     ...buildWhere(filters, validationOnly),
+    ...(options.completedOnly && !filters.status
+      ? {
+          status: {
+            in: [
+              NoteStatus.OK,
+              NoteStatus.PENDING_VALIDATION,
+              NoteStatus.APPROVED,
+              NoteStatus.REJECTED,
+              NoteStatus.READ_FAILED,
+              NoteStatus.FAILED,
+            ],
+          },
+        }
+      : {}),
     ...buildNoteReadFilter(options.profileId, readMode),
   } satisfies Prisma.NoteWhereInput;
   const [total, notes, works] = await Promise.all([

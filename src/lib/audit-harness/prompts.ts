@@ -25,6 +25,13 @@ Leia todas as páginas do arquivo, não apenas a capa ou a primeira nota. Em uma
 reembolso, trate cada despesa e cada comprovante legível como um item próprio e preserve
 no markdown a página, o estabelecimento, a data e o valor correspondentes. Não pare após
 encontrar o primeiro comprovante.
+Preencha itemCoverage para a camada única e não sobreposta que será usada na conciliação
+do total. Use COMPLETE somente depois de verificar visualmente a primeira e a última linha,
+todas as páginas de itens e a ausência de linhas intermediárias faltantes. Quando o
+documento declarar a quantidade de itens, preserve-a em declaredItemCount. Use INCOMPLETE
+se houver página, continuação ou linha cortada, ausente ou não extraída; liste os números
+conhecidos em missingLineNumbers. Use UNKNOWN quando não for possível provar a cobertura.
+Nunca use COMPLETE apenas porque o JSON terminou sem erro.
 Quando o arquivo reunir vários comprovantes, os campos gerais podem representar a ficha
 consolidada; não descarte os itens individuais por não existir um único fornecedor.
 Em cada página de reembolso, preserve todos os valores monetários visíveis e identifique
@@ -103,6 +110,8 @@ Gere um achado separado para cada divergência material sustentada. Consolide ap
 Uma limitação de cobertura da extração não prova divergência do total. Se faltarem linhas
 ou comprovantes anunciados, registre a cobertura incompleta e não conclua TOTAL_MISMATCH
 até que a camada que compõe o total esteja completa.
+Respeite invoice.itemCoverage: TOTAL_MISMATCH só é permitido quando status=COMPLETE,
+missingLineNumbers está vazio e a contagem declarada não excede a contagem extraída.
 Campos de cabeçalho usados apenas para representar um documento composto não são uma inconsistência por si só. Não exponha nomes internos de schema como supplierName, supplierTaxId, issuedAt, invoice ou lineNumber no texto destinado ao usuário.
 Use severity=INFO somente para observações que não comprovam irregularidade; uma observação informativa nunca deve sustentar classificação suspeita.
 Só gere WARNING ou CRITICAL quando a própria evidência comprovar uma inconsistência. Se a justificativa admitir que a diferença pode ser uma agregação, apresentação fiscal ou uso legítimo, use INFO ou peça contexto.

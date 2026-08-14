@@ -130,6 +130,7 @@ export function AdminWorksClient() {
   const [formOpen, setFormOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState<string | null>(null);
   const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [cityOpen, setCityOpen] = useState(false);
   const [cityLoading, setCityLoading] = useState(false);
   const [cityWarning, setCityWarning] = useState<string | null>(null);
   const [importCsv, setImportCsv] = useState("");
@@ -570,20 +571,44 @@ export function AdminWorksClient() {
         </label>
         <label>
           Cidade <b>*</b>
-          <input
-            required
-            maxLength={200}
-            list="work-city-options"
-            disabled={!form.uf}
-            placeholder={form.uf ? "Busque ou digite a cidade" : "Selecione a UF"}
-            value={form.cidade}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, cidade: event.target.value }))
-            }
-          />
-          <datalist id="work-city-options">
-            {citySuggestions.map((city) => <option key={city} value={city} />)}
-          </datalist>
+          <div className={styles.cityCombobox}>
+            <input
+              required
+              maxLength={200}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="work-city-options"
+              aria-expanded={cityOpen && citySuggestions.length > 0}
+              disabled={!form.uf}
+              placeholder={form.uf ? "Busque ou digite a cidade" : "Selecione a UF"}
+              value={form.cidade}
+              onFocus={() => setCityOpen(true)}
+              onBlur={() => window.setTimeout(() => setCityOpen(false), 120)}
+              onChange={(event) => {
+                setCityOpen(true);
+                setForm((current) => ({ ...current, cidade: event.target.value }));
+              }}
+            />
+            {cityOpen && citySuggestions.length > 0 ? (
+              <div className={styles.cityOptions} id="work-city-options" role="listbox">
+                {citySuggestions.slice(0, 8).map((city) => (
+                  <button
+                    key={city}
+                    type="button"
+                    role="option"
+                    aria-selected={form.cidade === city}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setForm((current) => ({ ...current, cidade: city }));
+                      setCityOpen(false);
+                    }}
+                  >
+                    {city}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </label>
       </div>
       {cityLoading ? <p className={styles.fieldHint}>Buscando cidades no IBGE…</p> : null}

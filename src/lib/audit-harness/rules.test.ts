@@ -15,6 +15,15 @@ function invoice(overrides: Partial<HarnessInvoice> = {}): HarnessInvoice {
     readConfidence: 0.95,
     warnings: [],
     markdown: "Cupom fiscal",
+    itemCoverage: {
+      status: "COMPLETE",
+      declaredItemCount: 1,
+      extractedItemCount: 1,
+      firstLineNumber: 1,
+      lastLineNumber: 1,
+      missingLineNumbers: [],
+      evidence: "Camada fiscal integralmente conferida.",
+    },
     items: [{ lineNumber: 1, description: "Parafuso", quantity: "2", unitPrice: "10.00", totalAmount: "20.00" }],
     ...overrides,
   };
@@ -33,6 +42,40 @@ test("detecta divergência do total e de quantidade vezes preço", () => {
     invoice: invoice({ totalAmount: "30.00", items: [{ lineNumber: 1, description: "Cimento", quantity: "2", unitPrice: "10.00", totalAmount: "25.00" }] }),
   });
   assert.deepEqual(result.findings.map((item) => item.code).sort(), ["ITEM_ARITHMETIC_MISMATCH", "TOTAL_MISMATCH"]);
+});
+
+test("não conclui divergência de total quando a cobertura de itens é desconhecida ou incompleta", () => {
+  for (const status of ["UNKNOWN", "INCOMPLETE"] as const) {
+    const result = evaluateUniversalRules({
+      invoice: invoice({
+        totalAmount: "1203.74",
+        itemCoverage: {
+          status,
+          declaredItemCount: 50,
+          extractedItemCount: 44,
+          firstLineNumber: 1,
+          lastLineNumber: 44,
+          missingLineNumbers: [45, 46, 47, 48, 49, 50],
+          evidence: "A extração terminou antes do fim da tabela.",
+        },
+        items: [
+          {
+            lineNumber: 1,
+            description: "Camada fiscal parcial",
+            countsTowardDocumentTotal: true,
+            quantity: "1",
+            unitPrice: "1087.29",
+            totalAmount: "1087.29",
+          },
+        ],
+      }),
+    });
+
+    assert.equal(
+      result.findings.some((item) => item.code === "TOTAL_MISMATCH"),
+      false,
+    );
+  }
 });
 
 test("não soma NF-e, resumo e detalhamento diário como três despesas", () => {

@@ -64,6 +64,28 @@ export const documentKindSchema = z.enum([
   "OTHER",
 ]);
 
+export const invoiceItemCoverageSchema = z
+  .object({
+    status: z.enum(["COMPLETE", "INCOMPLETE", "UNKNOWN"]),
+    declaredItemCount: z.number().int().nonnegative().nullable().default(null),
+    extractedItemCount: z.number().int().nonnegative(),
+    firstLineNumber: z.number().int().positive().nullable().default(null),
+    lastLineNumber: z.number().int().positive().nullable().default(null),
+    missingLineNumbers: z.array(z.number().int().positive()).max(500).default([]),
+    evidence: nullableText,
+  })
+  .strict();
+
+const UNKNOWN_ITEM_COVERAGE = {
+  status: "UNKNOWN" as const,
+  declaredItemCount: null,
+  extractedItemCount: 0,
+  firstLineNumber: null,
+  lastLineNumber: null,
+  missingLineNumbers: [] as number[],
+  evidence: null,
+};
+
 export const invoiceEvidenceObservationSchema = z
   .object({
     kind: z.enum(["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"]),
@@ -149,6 +171,7 @@ export const invoiceExtractionSchema = z
     totalAmount: decimalText,
     currency: z.string().trim().length(3).default("BRL"),
     items: z.array(invoiceExtractionItemSchema).max(500),
+    itemCoverage: invoiceItemCoverageSchema.default(UNKNOWN_ITEM_COVERAGE),
     requiredFieldChecks: z
       .array(invoiceRequiredFieldCheckSchema)
       .max(50)
@@ -209,6 +232,67 @@ function normalizedWarnings(value: unknown) {
     .map((warning) => warning.trim())
     .filter(Boolean)
     .slice(0, 50);
+}
+
+function normalizedItemCoverage(
+  value: unknown,
+  items: Array<{ countsTowardDocumentTotal?: unknown }>,
+) {
+  if (!isRecord(value)) {
+    return { ...UNKNOWN_ITEM_COVERAGE, extractedItemCount: items.length };
+  }
+
+  const rawStatus =
+    typeof value.status === "string" ? value.status.trim().toUpperCase() : "UNKNOWN";
+  let status: "COMPLETE" | "INCOMPLETE" | "UNKNOWN" =
+    rawStatus === "COMPLETE" || rawStatus === "INCOMPLETE" ? rawStatus : "UNKNOWN";
+  const numberOrNull = (candidate: unknown) =>
+    typeof candidate === "number" && Number.isSafeInteger(candidate) && candidate >= 0
+      ? candidate
+      : null;
+  const positiveOrNull = (candidate: unknown) => {
+    const number = numberOrNull(candidate);
+    return number !== null && number > 0 ? number : null;
+  };
+  const missingLineNumbers = Array.isArray(value.missingLineNumbers)
+    ? value.missingLineNumbers
+        .filter(
+          (candidate): candidate is number =>
+            typeof candidate === "number" && Number.isSafeInteger(candidate) && candidate > 0,
+        )
+        .slice(0, 500)
+    : [];
+  const derivedTotalLayerCount = items.filter(
+    (item) => item.countsTowardDocumentTotal === true,
+  ).length;
+  const extractedItemCount =
+    derivedTotalLayerCount > 0
+      ? derivedTotalLayerCount
+      : numberOrNull(value.extractedItemCount ?? value.extracted_item_count) ?? items.length;
+  const declaredItemCount = numberOrNull(
+    value.declaredItemCount ?? value.declared_item_count,
+  );
+
+  if (
+    missingLineNumbers.length > 0 ||
+    (declaredItemCount !== null && extractedItemCount < declaredItemCount)
+  ) {
+    status = "INCOMPLETE";
+  }
+
+  return {
+    status,
+    declaredItemCount,
+    extractedItemCount,
+    firstLineNumber: positiveOrNull(
+      value.firstLineNumber ?? value.first_line_number,
+    ),
+    lastLineNumber: positiveOrNull(
+      value.lastLineNumber ?? value.last_line_number,
+    ),
+    missingLineNumbers,
+    evidence: normalizeNullableText(value.evidence ?? value.summary),
+  };
 }
 
 function normalizedDocumentKind(value: unknown, searchableText: string) {
@@ -444,6 +528,10 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
     totalAmount: payload.totalAmount ?? payload.total_amount,
     currency: normalizedCurrency(payload.currency),
     items,
+    itemCoverage: normalizedItemCoverage(
+      payload.itemCoverage ?? payload.item_coverage,
+      items,
+    ),
     requiredFieldChecks: normalizedRequiredFieldChecks(
       payload.requiredFieldChecks ??
         payload.required_field_checks ??
@@ -490,6 +578,7 @@ export function createOcrFallbackExtraction(
     documentNumber: null,
     issuedAt: null,
     items: [],
+    itemCoverage: UNKNOWN_ITEM_COVERAGE,
     markdown,
     readConfidence: hasFinancialSignal ? 0.65 : 0.6,
     supplierName: null,
@@ -515,6 +604,7 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
     "totalAmount",
     "currency",
     "items",
+    "itemCoverage",
     "requiredFieldChecks",
     "markdown",
     "readConfidence",
@@ -615,6 +705,37 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
             },
           },
         },
+      },
+    },
+    itemCoverage: {
+      type: "object",
+      additionalProperties: false,
+      description:
+        "Coverage of the single non-overlapping item layer used to reconcile the document total.",
+      required: [
+        "status",
+        "declaredItemCount",
+        "extractedItemCount",
+        "firstLineNumber",
+        "lastLineNumber",
+        "missingLineNumbers",
+        "evidence",
+      ],
+      properties: {
+        status: {
+          type: "string",
+          enum: ["COMPLETE", "INCOMPLETE", "UNKNOWN"],
+        },
+        declaredItemCount: { type: ["integer", "null"], minimum: 0 },
+        extractedItemCount: { type: "integer", minimum: 0 },
+        firstLineNumber: { type: ["integer", "null"], minimum: 1 },
+        lastLineNumber: { type: ["integer", "null"], minimum: 1 },
+        missingLineNumbers: {
+          type: "array",
+          maxItems: 500,
+          items: { type: "integer", minimum: 1 },
+        },
+        evidence: { type: ["string", "null"] },
       },
     },
     requiredFieldChecks: {
