@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types";
 import { type ReactNode, useEffect } from "react";
 
 import { PortalShell, type PortalSection } from "./portal-shell";
@@ -29,10 +30,13 @@ export function ReviewerPortalFrame({
     const warmup = window.setTimeout(() => {
       routes.forEach((route, index) => {
         timers.push(
-          window.setTimeout(() => router.prefetch(route), index * 350),
+          window.setTimeout(
+            () => router.prefetch(route, { kind: PrefetchKind.FULL }),
+            index * 160,
+          ),
         );
       });
-    }, 1_200);
+    }, 120);
 
     return () => {
       window.clearTimeout(warmup);

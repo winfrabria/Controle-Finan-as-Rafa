@@ -202,8 +202,10 @@ export async function listNotes(
       : {}),
     ...buildNoteReadFilter(options.profileId, readMode),
   } satisfies Prisma.NoteWhereInput;
-  const [total, notes, works] = await Promise.all([
-    prisma.note.count({ where }),
+  const [count, notes] = await Promise.all([
+    options.all
+      ? Promise.resolve<number | null>(null)
+      : prisma.note.count({ where }),
     prisma.note.findMany({
       where,
       orderBy: validationOnly
@@ -250,7 +252,11 @@ export async function listNotes(
         id: true,
         issuedAt: true,
         noteReads: {
+          ...(options.profileId
+            ? { where: { profileId: options.profileId } }
+            : {}),
           orderBy: { readAt: "desc" },
+          take: 1,
           select: {
             profileId: true,
             readAt: true,
@@ -275,12 +281,8 @@ export async function listNotes(
         },
       },
     }),
-    prisma.work.findMany({
-      where: { active: true },
-      orderBy: [{ name: "asc" }, { id: "asc" }],
-      select: { id: true, name: true },
-    }),
   ]);
+  const total = count ?? notes.length;
 
   const rawItems: NoteListItem[] = notes.map((note) => {
     const read = options.profileId
@@ -350,7 +352,6 @@ export async function listNotes(
     page: filters.pagina,
     pageCount: options.all ? 1 : Math.max(1, Math.ceil(total / NOTES_PAGE_SIZE)),
     total,
-    works,
   };
 }
 

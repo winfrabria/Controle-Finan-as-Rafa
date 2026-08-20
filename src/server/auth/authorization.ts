@@ -25,14 +25,26 @@ type AuthenticationContext =
 
 export const getAuthenticationContext = cache(async (): Promise<AuthenticationContext> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  let userId =
+    typeof claimsData?.claims?.sub === "string"
+      ? claimsData.claims.sub
+      : null;
 
-  if (!user) return { kind: "unauthenticated" };
+  // `getClaims` valida a assinatura localmente quando o projeto usa chaves
+  // assimétricas e evita uma chamada ao Auth em toda troca de tela. Mantemos
+  // o caminho remoto como compatibilidade para sessões legadas.
+  if (!userId) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
+  }
+
+  if (!userId) return { kind: "unauthenticated" };
 
   const profile = await prisma.profile.findFirst({
-    where: { active: true, id: user.id },
+    where: { active: true, id: userId },
     select: {
       active: true,
       email: true,

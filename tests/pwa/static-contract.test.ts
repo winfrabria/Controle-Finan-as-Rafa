@@ -73,3 +73,20 @@ test("proxy ignora os arquivos públicos essenciais da PWA", () => {
   assert.equal(matcherAccepts("/admin"), true);
   assert.equal(matcherAccepts("/api/health"), true);
 });
+
+test("navegação do Rafael aquece rotas completas somente na memória da sessão", async () => {
+  const source = await readFile(
+    path.join(
+      workspace,
+      "src",
+      "features",
+      "workspace-ui",
+      "reviewer-portal-frame.tsx",
+    ),
+    "utf8",
+  );
+
+  assert.match(source, /PrefetchKind\.FULL/);
+  assert.match(source, /router\.prefetch\(route,/);
+  assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB|caches\./i);
+});

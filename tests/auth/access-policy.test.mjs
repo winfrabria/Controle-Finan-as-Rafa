@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -73,4 +74,17 @@ test("REVIEWER recebe o equivalente de revisão e não entra em áreas ADMIN", (
   for (const [requested, expected] of cases) {
     assert.equal(getRoleDestination("REVIEWER", requested), expected);
   }
+});
+
+test("sessão autenticada prioriza claims verificadas antes do fallback remoto", () => {
+  const source = readFileSync(
+    new URL("../../src/server/auth/authorization.ts", import.meta.url),
+    "utf8",
+  );
+  const claimsIndex = source.indexOf("supabase.auth.getClaims()");
+  const userIndex = source.indexOf("supabase.auth.getUser()");
+
+  assert.ok(claimsIndex >= 0);
+  assert.ok(userIndex > claimsIndex);
+  assert.match(source, /claimsData\?\.claims\?\.sub/);
 });
