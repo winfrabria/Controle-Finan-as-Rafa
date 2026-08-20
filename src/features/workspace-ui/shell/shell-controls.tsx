@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { LogoutButton } from "@/components/auth/logout-button";
+import { PushNotificationSettings } from "@/components/pwa/push-notification-settings";
 
 import type { PortalRole } from "../portal-shell";
 import { Icon, type IconName } from "../ui-icons";
@@ -55,6 +56,7 @@ export function ShellControls({
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -66,14 +68,29 @@ export function ShellControls({
     })
       .then(async (response) => {
         if (!response.ok) return null;
-        const payload = (await response.json()) as { notificacoes?: Notification[] };
-        return Array.isArray(payload.notificacoes) ? payload.notificacoes : [];
+        const payload = (await response.json()) as {
+          naoLidas?: number;
+          notificacoes?: Notification[];
+        };
+        return {
+          notifications: Array.isArray(payload.notificacoes)
+            ? payload.notificacoes
+            : [],
+          unreadCount:
+            typeof payload.naoLidas === "number" ? payload.naoLidas : 0,
+        };
       })
       .then((next) => {
-        if (active && next) setNotifications(next);
+        if (active && next) {
+          setNotifications(next.notifications);
+          setUnreadCount(next.unreadCount);
+        }
       })
       .catch(() => {
-        if (active) setNotifications([]);
+        if (active) {
+          setNotifications([]);
+          setUnreadCount(0);
+        }
       });
     return () => {
       active = false;
@@ -138,9 +155,18 @@ export function ShellControls({
     );
   }, [query, searchTargets]);
 
-  const unreadCount = notifications.filter(
-    (notification) => !notification.readAt,
-  ).length;
+  useEffect(() => {
+    if (!isMounted) return;
+    const badgeNavigator = navigator as Navigator & {
+      clearAppBadge?: () => Promise<void>;
+      setAppBadge?: (contents?: number) => Promise<void>;
+    };
+    const operation =
+      unreadCount > 0
+        ? badgeNavigator.setAppBadge?.(unreadCount)
+        : badgeNavigator.clearAppBadge?.();
+    void operation?.catch(() => undefined);
+  }, [isMounted, unreadCount]);
 
   useEffect(() => {
     const closeOnOutsideClick = (event: MouseEvent) => {
@@ -201,6 +227,7 @@ export function ShellControls({
           item.id === notification.id ? { ...item, readAt } : item,
         ),
       );
+      setUnreadCount((current) => Math.max(0, current - 1));
       void fetch("/api/notificacoes", {
         body: JSON.stringify({ id: notification.id }),
         headers: { "Content-Type": "application/json" },
@@ -215,6 +242,7 @@ export function ShellControls({
     setNotifications((current) =>
       current.map((notification) => ({ ...notification, readAt })),
     );
+    setUnreadCount(0);
     void fetch("/api/notificacoes", {
       body: JSON.stringify({ all: true }),
       headers: { "Content-Type": "application/json" },
@@ -419,6 +447,7 @@ export function ShellControls({
                   <span>Acesso ativo</span>
                   <strong>{roleName}</strong>
                 </div>
+                {!isAdmin ? <PushNotificationSettings /> : null}
                 <nav className={styles.profileNav} aria-label="Atalhos do perfil">
                   <Link href={basePath} onClick={() => setOpenPanel(null)}>
                     <Icon name="home" />

@@ -47,6 +47,10 @@ import {
   terminalPublicCapabilityFields,
 } from "@/server/notes/public-capability";
 import { invalidateNoteReads } from "@/server/notes/note-read-invalidation";
+import {
+  createNotificationWithPushDeliveries,
+  dispatchPendingPushDeliveries,
+} from "@/server/push/delivery-service";
 
 export class AuditPipelineError extends Error {
   constructor(public readonly code: string, message: string, options?: ErrorOptions) {
@@ -427,7 +431,7 @@ export async function processNoteAudit(
           : 1
         : context.contextRound;
 
-    return await prisma.$transaction(async (tx) => {
+    const finalizedNote = await prisma.$transaction(async (tx) => {
       const finalized = await tx.note.updateMany({
         where: {
           id: noteId,
@@ -522,16 +526,19 @@ export async function processNoteAudit(
 
       if (finalClassification === "SUSPICIOUS") {
         const reviewers = await tx.profile.findMany({ where: { active: true, role: UserRole.REVIEWER }, select: { id: true } });
-        if (reviewers.length > 0) {
-          await tx.notification.createMany({
-            data: reviewers.map((reviewer) => ({
-              recipientId: reviewer.id,
-              noteId,
-              type: NotificationType.NOTE_PROCESSED,
-              title: "Novo diagnóstico disponível",
-              body: "O anexo recebeu um diagnóstico que requer consulta.",
-              data: toJson({ auditResult: finalClassification, aiRunId: aiRun.id, policyVersion: HARNESS_VERSIONS.policy }),
-            })),
+        for (const reviewer of reviewers) {
+          await createNotificationWithPushDeliveries(tx, {
+            body: "O anexo recebeu um diagnóstico que requer consulta.",
+            data: toJson({
+              auditResult: finalClassification,
+              aiRunId: aiRun.id,
+              policyVersion: HARNESS_VERSIONS.policy,
+            }),
+            eventKey: `audit:${aiRun.id}:suspicious`,
+            noteId,
+            recipientId: reviewer.id,
+            title: "Novo diagnóstico disponível",
+            type: NotificationType.NOTE_PROCESSED,
           });
         }
       }
@@ -591,6 +598,20 @@ export async function processNoteAudit(
         },
       });
     });
+
+    if (finalClassification === "SUSPICIOUS") {
+      try {
+        await dispatchPendingPushDeliveries({ noteId });
+      } catch {
+        // A fila mantém a entrega pendente. O diagnóstico nunca falha por causa do push.
+        console.error("Push delivery dispatch failed", {
+          code: "PUSH_DISPATCH_FAILED",
+          noteId,
+        });
+      }
+    }
+
+    return finalizedNote;
   } catch (error) {
     const failure = getAuditFailureDetails(error);
     await prisma.$transaction(async (transaction) => {

@@ -402,7 +402,8 @@ export const ModelName = {
   NoteEvent: 'NoteEvent',
   Notification: 'Notification',
   NoteRead: 'NoteRead',
-  PushSubscription: 'PushSubscription'
+  PushSubscription: 'PushSubscription',
+  PushDelivery: 'PushDelivery'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -418,7 +419,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "profile" | "work" | "note" | "noteItem" | "auditParameter" | "auditRule" | "ruleParameter" | "finding" | "validation" | "processingJob" | "noteContextQuestion" | "noteContextSubmission" | "noteContextAnswer" | "aiRun" | "adminAuditLog" | "noteEvent" | "notification" | "noteRead" | "pushSubscription"
+    modelProps: "profile" | "work" | "note" | "noteItem" | "auditParameter" | "auditRule" | "ruleParameter" | "finding" | "validation" | "processingJob" | "noteContextQuestion" | "noteContextSubmission" | "noteContextAnswer" | "aiRun" | "adminAuditLog" | "noteEvent" | "notification" | "noteRead" | "pushSubscription" | "pushDelivery"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1828,6 +1829,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PushDelivery: {
+      payload: Prisma.$PushDeliveryPayload<ExtArgs>
+      fields: Prisma.PushDeliveryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PushDeliveryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PushDeliveryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload>
+        }
+        findFirst: {
+          args: Prisma.PushDeliveryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PushDeliveryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload>
+        }
+        findMany: {
+          args: Prisma.PushDeliveryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload>[]
+        }
+        create: {
+          args: Prisma.PushDeliveryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload>
+        }
+        createMany: {
+          args: Prisma.PushDeliveryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PushDeliveryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload>[]
+        }
+        delete: {
+          args: Prisma.PushDeliveryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload>
+        }
+        update: {
+          args: Prisma.PushDeliveryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload>
+        }
+        deleteMany: {
+          args: Prisma.PushDeliveryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PushDeliveryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PushDeliveryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload>[]
+        }
+        upsert: {
+          args: Prisma.PushDeliveryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PushDeliveryPayload>
+        }
+        aggregate: {
+          args: Prisma.PushDeliveryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePushDelivery>
+        }
+        groupBy: {
+          args: Prisma.PushDeliveryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PushDeliveryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PushDeliveryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PushDeliveryCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -2211,6 +2286,28 @@ export const PushSubscriptionScalarFieldEnum = {
 export type PushSubscriptionScalarFieldEnum = (typeof PushSubscriptionScalarFieldEnum)[keyof typeof PushSubscriptionScalarFieldEnum]
 
 
+export const PushDeliveryScalarFieldEnum = {
+  id: 'id',
+  notificationId: 'notificationId',
+  subscriptionId: 'subscriptionId',
+  eventKey: 'eventKey',
+  status: 'status',
+  attempt: 'attempt',
+  maxAttempts: 'maxAttempts',
+  availableAt: 'availableAt',
+  lockedAt: 'lockedAt',
+  lockedBy: 'lockedBy',
+  acceptedAt: 'acceptedAt',
+  completedAt: 'completedAt',
+  lastErrorCode: 'lastErrorCode',
+  lastError: 'lastError',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PushDeliveryScalarFieldEnum = (typeof PushDeliveryScalarFieldEnum)[keyof typeof PushDeliveryScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -2269,28 +2366,28 @@ export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof Json
  * Reference to a field of type 'String'
  */
 export type StringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'String'>
-    
+
 
 
 /**
  * Reference to a field of type 'String[]'
  */
 export type ListStringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'String[]'>
-    
+
 
 
 /**
  * Reference to a field of type 'UserRole'
  */
 export type EnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UserRole'>
-    
+
 
 
 /**
  * Reference to a field of type 'UserRole[]'
  */
 export type ListEnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UserRole[]'>
-    
+
 
 
 /**
@@ -2595,6 +2692,20 @@ export type ListEnumNotificationTypeFieldRefInput<$PrismaModel> = FieldRefInputT
 
 
 /**
+ * Reference to a field of type 'PushDeliveryStatus'
+ */
+export type EnumPushDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PushDeliveryStatus'>
+
+
+
+/**
+ * Reference to a field of type 'PushDeliveryStatus[]'
+ */
+export type ListEnumPushDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PushDeliveryStatus[]'>
+
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -2736,6 +2847,7 @@ export type GlobalOmitConfig = {
   notification?: Prisma.NotificationOmit
   noteRead?: Prisma.NoteReadOmit
   pushSubscription?: Prisma.PushSubscriptionOmit
+  pushDelivery?: Prisma.PushDeliveryOmit
 }
 
 /* Types for Logging */
@@ -2798,4 +2910,3 @@ export type PrismaAction =
  * `PrismaClient` proxy available in interactive transactions.
  */
 export type TransactionClient = Omit<DefaultPrismaClient, runtime.ITXClientDenyList>
-

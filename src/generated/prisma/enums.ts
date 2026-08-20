@@ -157,6 +157,17 @@ export const NotificationType = {
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]
 
 
+export const PushDeliveryStatus = {
+  PENDING: 'PENDING',
+  SENDING: 'SENDING',
+  ACCEPTED: 'ACCEPTED',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED'
+} as const
+
+export type PushDeliveryStatus = (typeof PushDeliveryStatus)[keyof typeof PushDeliveryStatus]
+
+
 export const ContextQuestionType = {
   TEXT: 'TEXT',
   NUMBER: 'NUMBER',

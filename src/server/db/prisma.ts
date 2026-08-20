@@ -27,7 +27,11 @@ function hasCurrentSchema(
 
   // During `next dev`, the global client can survive a Prisma regeneration.
   // Reusing that stale instance leaves newly added model delegates undefined.
-  return "noteRead" in client && "pushSubscription" in client;
+  return (
+    "noteRead" in client &&
+    "pushSubscription" in client &&
+    "pushDelivery" in client
+  );
 }
 
 export const prisma = hasCurrentSchema(globalForPrisma.prisma)

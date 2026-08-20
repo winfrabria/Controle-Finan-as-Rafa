@@ -107,7 +107,10 @@ export function createServiceWorkerHarness(
   const listeners = new Map<string, WorkerListener[]>();
   const operations: CacheOperation[] = [];
   const fetchCalls: Array<WorkerRequest | string> = [];
+  const notifications: Array<{ options: NotificationOptions; title: string }> = [];
+  const openedWindows: string[] = [];
   const stores = new Map<string, Map<string, Response>>();
+  let badgeCount: number | null = null;
   let claimCount = 0;
   let skipWaitingCount = 0;
 
@@ -196,11 +199,29 @@ export function createServiceWorkerHarness(
       async claim() {
         claimCount += 1;
       },
+      async matchAll() {
+        return [];
+      },
+      async openWindow(url: string) {
+        openedWindows.push(url);
+        return null;
+      },
     },
     fetch: trackedFetch,
     location: new URL("/sw.js", origin),
     registration: {
+      async showNotification(title: string, notificationOptions: NotificationOptions) {
+        notifications.push({ options: notificationOptions, title });
+      },
       scope: `${origin}/`,
+    },
+    navigator: {
+      async clearAppBadge() {
+        badgeCount = 0;
+      },
+      async setAppBadge(value?: number) {
+        badgeCount = value ?? 1;
+      },
     },
     async skipWaiting() {
       skipWaitingCount += 1;
@@ -256,15 +277,26 @@ export function createServiceWorkerHarness(
     dispatchFetch: (request: WorkerRequest) => dispatch("fetch", { request }),
     dispatchInstall: () => dispatch("install"),
     dispatchMessage: (data: unknown) => dispatch("message", { data }),
+    dispatchNotificationClick: (data: unknown) =>
+      dispatch("notificationclick", {
+        notification: { close() {}, data },
+      }),
+    dispatchPush: (data: unknown) =>
+      dispatch("push", { data: { json: () => data } }),
     evaluate<T>(expression: string, bindings: Record<string, unknown> = {}) {
       Object.assign(context, bindings);
       return vm.runInContext(expression, context) as T;
     },
     fetchCalls,
+    get badgeCount() {
+      return badgeCount;
+    },
     get claimCount() {
       return claimCount;
     },
     operations,
+    notifications,
+    openedWindows,
     stores,
     get skipWaitingCount() {
       return skipWaitingCount;

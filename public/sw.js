@@ -11,6 +11,10 @@ const PRECACHE_URLS = [
   "/brand/icon-512.png",
   "/brand/winfra-mark-64.png",
 ];
+const DEFAULT_PUSH_PATH = "/revisao/notas";
+const DEFAULT_PUSH_TITLE = "Novo diagnóstico no WinfraBR";
+const DEFAULT_PUSH_BODY =
+  "Um anexo requer sua consulta. Abra o aplicativo para ver os detalhes.";
 
 const PRIVATE_PATH_PREFIXES = [
   "/api",
@@ -52,6 +56,65 @@ function isPrivatePath(pathname) {
 
 function isExplicitPublicAsset(pathname) {
   return pathname === "/brand" || pathname.startsWith("/brand/");
+}
+
+function isAllowedPushPath(path) {
+  return /^(?:\/(?:admin|revisao)\/(?:notas|historico)|\/notas\/[^/?#]+)(?:[/?#]|$)/.test(
+    path,
+  );
+}
+
+function safePushPayload(event) {
+  let payload = {};
+  try {
+    payload = event.data?.json() || {};
+  } catch {
+    payload = {};
+  }
+
+  return {
+    body:
+      typeof payload.body === "string" && payload.body.length <= 180
+        ? payload.body
+        : DEFAULT_PUSH_BODY,
+    notificationId:
+      typeof payload.notificationId === "string"
+        ? payload.notificationId
+        : null,
+    path:
+      typeof payload.path === "string" && isAllowedPushPath(payload.path)
+        ? payload.path
+        : DEFAULT_PUSH_PATH,
+    tag:
+      typeof payload.tag === "string" && payload.tag.length <= 100
+        ? payload.tag
+        : "winfrabr-diagnostic",
+    title:
+      typeof payload.title === "string" && payload.title.length <= 80
+        ? payload.title
+        : DEFAULT_PUSH_TITLE,
+    unreadCount:
+      Number.isInteger(payload.unreadCount) && payload.unreadCount >= 0
+        ? payload.unreadCount
+        : null,
+  };
+}
+
+async function setApplicationBadge(count) {
+  const badgeTarget =
+    typeof self.navigator?.setAppBadge === "function" ||
+    typeof self.navigator?.clearAppBadge === "function"
+      ? self.navigator
+      : self.registration;
+  try {
+    if (count > 0 && typeof badgeTarget?.setAppBadge === "function") {
+      await badgeTarget.setAppBadge(count);
+    } else if (count === 0 && typeof badgeTarget?.clearAppBadge === "function") {
+      await badgeTarget.clearAppBadge();
+    }
+  } catch {
+    // O badge é complementar; a notificação continua válida sem ele.
+  }
 }
 
 function responseAllowsCache(response) {
@@ -208,4 +271,66 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     event.waitUntil(self.skipWaiting());
   }
+});
+
+self.addEventListener("push", (event) => {
+  const payload = safePushPayload(event);
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(payload.title, {
+        badge: "/brand/icon-192.png",
+        body: payload.body,
+        data: {
+          notificationId: payload.notificationId,
+          path: payload.path,
+          unreadCount: payload.unreadCount,
+        },
+        icon: "/brand/icon-192.png",
+        renotify: false,
+        tag: payload.tag,
+      }),
+      payload.unreadCount === null
+        ? Promise.resolve()
+        : setApplicationBadge(payload.unreadCount),
+    ]),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const data = event.notification.data || {};
+  const path = isAllowedPushPath(data.path) ? data.path : DEFAULT_PUSH_PATH;
+  const targetUrl = new URL(path, self.location.origin).href;
+
+  event.waitUntil(
+    Promise.allSettled([
+      typeof data.notificationId === "string"
+        ? fetch(new URL("/api/notificacoes", self.location.origin).href, {
+            body: JSON.stringify({ id: data.notificationId }),
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          })
+        : Promise.resolve(),
+      typeof data.unreadCount === "number"
+        ? setApplicationBadge(Math.max(0, data.unreadCount - 1))
+        : Promise.resolve(),
+      self.clients
+        .matchAll({ includeUncontrolled: true, type: "window" })
+        .then(async (clientList) => {
+          const appClient = clientList.find((client) => {
+            try {
+              return new URL(client.url).origin === self.location.origin;
+            } catch {
+              return false;
+            }
+          });
+          if (appClient) {
+            if ("navigate" in appClient) await appClient.navigate(targetUrl);
+            return appClient.focus();
+          }
+          return self.clients.openWindow(targetUrl);
+        }),
+    ]),
+  );
 });

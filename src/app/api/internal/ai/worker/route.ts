@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { authorizeProcessingWorker } from "@/server/notes/processing-worker-auth";
 import { drainProcessingQueue } from "@/server/notes/processing-worker";
+import { dispatchPendingPushDeliveries } from "@/server/push/delivery-service";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -42,12 +43,14 @@ async function runWorker(request: Request) {
       batchSize,
       workerId: `scheduled:${requestId}`,
     });
+    const push = await dispatchPendingPushDeliveries({ batchSize: 12 });
 
     return NextResponse.json(
       {
         durationMs: result.durationMs,
         executions: result.executions,
         processed: result.processed,
+        push,
         recovery: result.recovery,
         requestId,
       },

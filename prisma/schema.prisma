@@ -110,6 +110,14 @@ enum NotificationType {
   PROCESSING_FAILED
 }
 
+enum PushDeliveryStatus {
+  PENDING
+  SENDING
+  ACCEPTED
+  FAILED
+  CANCELLED
+}
+
 enum ContextQuestionType {
   TEXT
   NUMBER
@@ -516,19 +524,20 @@ model NoteEvent {
 }
 
 model Notification {
-  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  recipientId String           @map("recipient_id") @db.Uuid
-  noteId      String?          @map("note_id") @db.Uuid
-  findingId   String?          @map("finding_id") @db.Uuid
-  type        NotificationType
-  title       String
-  body        String
-  data        Json?            @db.JsonB
-  readAt      DateTime?        @map("read_at") @db.Timestamptz(6)
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  recipient   Profile          @relation(fields: [recipientId], references: [id], onDelete: Cascade)
-  note        Note?            @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  finding     Finding?         @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipientId    String           @map("recipient_id") @db.Uuid
+  noteId         String?          @map("note_id") @db.Uuid
+  findingId      String?          @map("finding_id") @db.Uuid
+  type           NotificationType
+  title          String
+  body           String
+  data           Json?            @db.JsonB
+  readAt         DateTime?        @map("read_at") @db.Timestamptz(6)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  recipient      Profile          @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  note           Note?            @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  finding        Finding?         @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  pushDeliveries PushDelivery[]
 
   @@index([recipientId, readAt, createdAt(sort: Desc)])
   @@index([noteId])
@@ -548,17 +557,45 @@ model NoteRead {
 }
 
 model PushSubscription {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  profileId String    @map("profile_id") @db.Uuid
-  endpoint  String    @unique
-  p256dh    String
-  auth      String
-  userAgent String?   @map("user_agent")
-  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId  String         @map("profile_id") @db.Uuid
+  endpoint   String         @unique
+  p256dh     String
+  auth       String
+  userAgent  String?        @map("user_agent")
+  expiresAt  DateTime?      @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  profile    Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  deliveries PushDelivery[]
 
   @@index([profileId])
   @@map("push_subscriptions")
+}
+
+model PushDelivery {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notificationId String             @map("notification_id") @db.Uuid
+  subscriptionId String             @map("subscription_id") @db.Uuid
+  eventKey       String             @map("event_key")
+  status         PushDeliveryStatus @default(PENDING)
+  attempt        Int                @default(0)
+  maxAttempts    Int                @default(4) @map("max_attempts")
+  availableAt    DateTime           @default(now()) @map("available_at") @db.Timestamptz(6)
+  lockedAt       DateTime?          @map("locked_at") @db.Timestamptz(6)
+  lockedBy       String?            @map("locked_by")
+  acceptedAt     DateTime?          @map("accepted_at") @db.Timestamptz(6)
+  completedAt    DateTime?          @map("completed_at") @db.Timestamptz(6)
+  lastErrorCode  String?            @map("last_error_code")
+  lastError      String?            @map("last_error")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  notification   Notification       @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  subscription   PushSubscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, subscriptionId])
+  @@unique([eventKey, subscriptionId])
+  @@index([status, availableAt, createdAt])
+  @@index([subscriptionId, createdAt(sort: Desc)])
+  @@map("push_deliveries")
 }

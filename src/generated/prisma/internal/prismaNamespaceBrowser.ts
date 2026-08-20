@@ -69,7 +69,8 @@ export const ModelName = {
   NoteEvent: 'NoteEvent',
   Notification: 'Notification',
   NoteRead: 'NoteRead',
-  PushSubscription: 'PushSubscription'
+  PushSubscription: 'PushSubscription',
+  PushDelivery: 'PushDelivery'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -430,6 +431,28 @@ export const PushSubscriptionScalarFieldEnum = {
 } as const
 
 export type PushSubscriptionScalarFieldEnum = (typeof PushSubscriptionScalarFieldEnum)[keyof typeof PushSubscriptionScalarFieldEnum]
+
+
+export const PushDeliveryScalarFieldEnum = {
+  id: 'id',
+  notificationId: 'notificationId',
+  subscriptionId: 'subscriptionId',
+  eventKey: 'eventKey',
+  status: 'status',
+  attempt: 'attempt',
+  maxAttempts: 'maxAttempts',
+  availableAt: 'availableAt',
+  lockedAt: 'lockedAt',
+  lockedBy: 'lockedBy',
+  acceptedAt: 'acceptedAt',
+  completedAt: 'completedAt',
+  lastErrorCode: 'lastErrorCode',
+  lastError: 'lastError',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PushDeliveryScalarFieldEnum = (typeof PushDeliveryScalarFieldEnum)[keyof typeof PushDeliveryScalarFieldEnum]
 
 
 export const SortOrder = {

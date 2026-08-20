@@ -36,33 +36,39 @@ export async function GET(request: Request) {
     : 20;
   const basePath = access.profile.role === "ADMIN" ? "/admin" : "/revisao";
 
-  const rows = await prisma.notification.findMany({
-    where: { recipientId: access.profile.id },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: limit,
-    select: {
-      body: true,
-      createdAt: true,
-      id: true,
-      note: {
-        select: {
-          documentNumber: true,
-          id: true,
-          noteReads: {
-            where: { profileId: access.profile.id },
-            select: { readAt: true },
-            take: 1,
+  const [rows, unreadCount] = await Promise.all([
+    prisma.notification.findMany({
+      where: { recipientId: access.profile.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit,
+      select: {
+        body: true,
+        createdAt: true,
+        id: true,
+        note: {
+          select: {
+            documentNumber: true,
+            id: true,
+            noteReads: {
+              where: { profileId: access.profile.id },
+              select: { readAt: true },
+              take: 1,
+            },
           },
         },
+        readAt: true,
+        title: true,
+        type: true,
       },
-      readAt: true,
-      title: true,
-      type: true,
-    },
-  });
+    }),
+    prisma.notification.count({
+      where: { readAt: null, recipientId: access.profile.id },
+    }),
+  ]);
 
   return NextResponse.json(
     {
+      naoLidas: unreadCount,
       notificacoes: rows.map((notification) => {
         const noteId = notification.note?.id;
         return {

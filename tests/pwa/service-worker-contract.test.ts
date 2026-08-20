@@ -397,3 +397,52 @@ test("precache contém somente recursos públicos same-origin", async () => {
     );
   }
 });
+
+test("push mostra texto genérico, atualiza badge e abre somente rota permitida", async () => {
+  const harness = createServiceWorkerHarness(workerSource, { origin });
+  const path = "/revisao/notas?anexo=123";
+
+  await harness.dispatchPush({
+    body: "Um anexo requer sua consulta. Abra o aplicativo para ver os detalhes.",
+    notificationId: "notification-123",
+    path,
+    tag: "winfrabr-note-123",
+    title: "Novo diagnóstico no WinfraBR",
+    unreadCount: 3,
+  });
+
+  assert.equal(harness.notifications.length, 1);
+  assert.equal(harness.notifications[0]?.title, "Novo diagnóstico no WinfraBR");
+  assert.equal(harness.notifications[0]?.options.body?.includes("fornecedor"), false);
+  assert.equal(harness.badgeCount, 3);
+
+  await harness.dispatchNotificationClick(
+    harness.notifications[0]?.options.data,
+  );
+  assert.deepEqual(harness.openedWindows, [`${origin}${path}`]);
+  assert.equal(harness.badgeCount, 2);
+  assert.ok(
+    harness.fetchCalls.some((call) =>
+      typeof call === "string" && call === `${origin}/api/notificacoes`
+    ),
+  );
+});
+
+test("push malformado não injeta URL externa nem dados do documento", async () => {
+  const harness = createServiceWorkerHarness(workerSource, { origin });
+  await harness.dispatchPush({
+    body: 10,
+    path: "https://evil.example/roubo",
+    title: null,
+    unreadCount: -1,
+  });
+
+  assert.equal(harness.notifications.length, 1);
+  assert.match(harness.notifications[0]?.title ?? "", /WinfraBR/);
+  assert.doesNotMatch(
+    harness.notifications[0]?.options.body ?? "",
+    /fornecedor|valor|arquivo/i,
+  );
+  await harness.dispatchNotificationClick(harness.notifications[0]?.options.data);
+  assert.deepEqual(harness.openedWindows, [`${origin}/revisao/notas`]);
+});

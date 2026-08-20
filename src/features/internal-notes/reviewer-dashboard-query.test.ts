@@ -29,6 +29,7 @@ test("inclui no período de recebimento uma nota emitida em mês antigo", async 
       ],
     },
     noteRead: {},
+    pushDelivery: {},
     pushSubscription: {},
   };
 
