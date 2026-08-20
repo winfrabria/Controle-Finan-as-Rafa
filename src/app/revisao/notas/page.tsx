@@ -26,6 +26,7 @@ export default async function ReviewerNotesPage({ searchParams }: PageProps) {
   });
   return (
     <NotesView
+      embedded
       initialQuery={filters.documentNumber}
       initialSelectedId={initialSelectedId}
       initialPage={result.page}

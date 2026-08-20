@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
 import { sanitizeReviewerText } from "@/features/note-detail/data/reviewer-data-policy";
@@ -20,6 +20,7 @@ import { ReviewerMobileNotesList } from "./reviewer-mobile-notes-list";
 import styles from "./reviewer-notes-view.module.css";
 
 type ReviewerNotesViewProps = {
+  embedded?: boolean;
   initialQuery?: string;
   initialSelectedId?: string;
   items: NoteVisualItem[];
@@ -252,6 +253,7 @@ function compactFindingDescription(value: string) {
 }
 
 export function ReviewerNotesView({
+  embedded = false,
   initialQuery = "",
   initialSelectedId,
   items,
@@ -431,8 +433,10 @@ export function ReviewerNotesView({
     router.push(queryString ? `${pathname}?${queryString}` : pathname);
   }
 
+  const Shell = embedded ? EmbeddedShell : PortalShell;
+
   return (
-    <PortalShell active={historyMode ? "historico" : "notas"} role={role}>
+    <Shell active={historyMode ? "historico" : "notas"} role={role}>
       <div className={`${styles.page} ${historyMode ? styles.historyPage : ""} ${role === "reviewer" ? styles.reviewerPage : ""}`}>
         {role === "reviewer" ? (
           <ReviewerMobileNotesList items={items} mode={mode} />
@@ -994,6 +998,10 @@ export function ReviewerNotesView({
           </section>
         </div>
       </div>
-    </PortalShell>
+    </Shell>
   );
+}
+
+function EmbeddedShell({ children }: { children: ReactNode }) {
+  return children;
 }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   isPwaCriticalActivityActive,
   PWA_CRITICAL_ACTIVITY_EVENT,
   type PwaCriticalActivityDetail,
 } from "./pwa-critical-activity";
+import { shouldAutoApplyPwaUpdate } from "./pwa-update-policy";
 import styles from "./pwa-lifecycle.module.css";
 
 type InstallChoice = { outcome: "accepted" | "dismissed"; platform: string };
@@ -19,6 +20,7 @@ type DeferredInstallPrompt = Event & {
 const LOCAL_PWA_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PWA_LOCAL === "true";
 const WINFRA_CACHE_PREFIX = "winfrabr-pwa-";
 const UPDATE_INTERVAL_MS = 15 * 60 * 1_000;
+const AUTO_UPDATE_DELAY_MS = 2_000;
 const INSTALL_DISMISS_KEY = "winfrabr.pwa-install-dismissed";
 
 export function isLocalHostname(hostname: string) {
@@ -66,6 +68,7 @@ async function clearDisabledLocalWorker() {
 
 export function PwaLifecycle() {
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  const waitingWorkerRef = useRef<ServiceWorker | null>(null);
   const updateApplyRequestedRef = useRef(false);
   const [criticalActivity, setCriticalActivity] = useState(false);
   const [deferredInstall, setDeferredInstall] =
@@ -113,6 +116,15 @@ export function PwaLifecycle() {
       displayMode.removeEventListener("change", onDisplayModeChange);
     };
   }, []);
+
+  const applyUpdate = useCallback(() => {
+    const busy = criticalActivity || isPwaCriticalActivityActive();
+    const waiting =
+      registrationRef.current?.waiting ?? waitingWorkerRef.current;
+    if (busy || !online || !waiting || updateApplyRequestedRef.current) return;
+    updateApplyRequestedRef.current = true;
+    waiting.postMessage({ type: "SKIP_WAITING" });
+  }, [criticalActivity, online]);
 
   useEffect(() => {
     let active = true;
@@ -183,6 +195,7 @@ export function PwaLifecycle() {
     const watchRegistration = (registration: ServiceWorkerRegistration) => {
       registrationRef.current = registration;
       if (registration.waiting && navigator.serviceWorker.controller) {
+        waitingWorkerRef.current = registration.waiting;
         setUpdateAvailable(true);
       }
 
@@ -194,6 +207,7 @@ export function PwaLifecycle() {
             installing.state === "installed" &&
             navigator.serviceWorker.controller
           ) {
+            waitingWorkerRef.current = installing;
             setUpdateAvailable(true);
           }
         };
@@ -232,6 +246,7 @@ export function PwaLifecycle() {
     const onControllerChange = () => {
       if (!updateApplyRequestedRef.current) return;
       updateApplyRequestedRef.current = false;
+      waitingWorkerRef.current = null;
       window.location.reload();
     };
 
@@ -257,6 +272,19 @@ export function PwaLifecycle() {
     };
   }, []);
 
+  useEffect(() => {
+    const canApply = shouldAutoApplyPwaUpdate({
+      criticalActivity,
+      online,
+      updateAlreadyRequested: updateApplyRequestedRef.current,
+      updateAvailable,
+    });
+    if (!canApply) return;
+
+    const timer = window.setTimeout(applyUpdate, AUTO_UPDATE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [applyUpdate, criticalActivity, online, updateAvailable]);
+
   async function requestInstall() {
     if (!deferredInstall) return;
     try {
@@ -275,14 +303,6 @@ export function PwaLifecycle() {
       // A dispensa ainda vale enquanto este componente permanecer montado.
     }
     setInstallDismissed(true);
-  }
-
-  function applyUpdate() {
-    const busy = criticalActivity || isPwaCriticalActivityActive();
-    const waiting = registrationRef.current?.waiting;
-    if (busy || !online || !waiting) return;
-    updateApplyRequestedRef.current = true;
-    waiting.postMessage({ type: "SKIP_WAITING" });
   }
 
   const showInstall =
@@ -314,7 +334,11 @@ export function PwaLifecycle() {
         <section className={styles.notice} role="status" aria-live="polite">
           <div>
             <strong>Nova versão disponível</strong>
-            <p>Atualize quando terminar o que está fazendo.</p>
+            <p>
+              {criticalActivity
+                ? "A atualização será aplicada assim que você terminar a ação atual."
+                : "O aplicativo será atualizado automaticamente."}
+            </p>
             {criticalActivity ? (
               <p className={styles.busyMessage}>
                 Conclua o envio ou a alteração atual antes de atualizar.

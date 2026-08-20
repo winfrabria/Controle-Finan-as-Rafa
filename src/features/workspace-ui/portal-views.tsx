@@ -141,11 +141,13 @@ function NotesFilterBar({
 }
 
 export function DashboardView({
+  embedded = false,
   role,
   reviewerNotes,
   userEmail,
   works = [],
 }: {
+  embedded?: boolean;
   role: PortalRole;
   userEmail?: string;
   works?: { id: string; name: string }[];
@@ -153,6 +155,7 @@ export function DashboardView({
 }) {
   return (
     <ReviewerDashboardView
+      embedded={embedded}
       role={role}
       userEmail={userEmail}
       works={works}
@@ -400,6 +403,7 @@ export function AdminDashboardPanels() {
 }
 
 export function NotesView({
+  embedded = false,
   historyMode = false,
   initialQuery,
   initialSelectedId,
@@ -409,6 +413,7 @@ export function NotesView({
   total,
   items,
 }: {
+  embedded?: boolean;
   historyMode?: boolean;
   initialQuery?: string;
   initialSelectedId?: string;
@@ -536,6 +541,7 @@ export function NotesView({
   if (role === "reviewer" || historyMode) {
     return (
       <ReviewerNotesView
+        embedded={embedded}
         initialQuery={initialQuery}
         initialSelectedId={initialSelectedId}
         items={rows}

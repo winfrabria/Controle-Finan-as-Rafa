@@ -27,6 +27,7 @@ export default async function ReviewerHistoryPage({ searchParams }: PageProps) {
 
   return (
     <NotesView
+      embedded
       historyMode
       initialQuery={filters.documentNumber}
       initialSelectedId={initialSelectedId}

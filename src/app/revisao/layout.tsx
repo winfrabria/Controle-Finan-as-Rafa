@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { ReviewerPortalFrame } from "@/features/workspace-ui/reviewer-portal-frame";
 import { REVIEW_ROLES } from "@/server/auth/access-policy";
 import { requirePageRoles } from "@/server/auth/authorization";
 
@@ -8,7 +9,11 @@ export default async function ReviewLayout({
 }: {
   children: ReactNode;
 }) {
-  await requirePageRoles("/revisao", REVIEW_ROLES);
+  const profile = await requirePageRoles("/revisao", REVIEW_ROLES);
 
-  return children;
+  return (
+    <ReviewerPortalFrame userEmail={profile.email}>
+      {children}
+    </ReviewerPortalFrame>
+  );
 }

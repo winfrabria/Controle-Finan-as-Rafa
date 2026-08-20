@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import type { UserRole } from "@/generated/prisma/enums";
 import { createClient } from "@/lib/supabase/server";
@@ -22,7 +23,7 @@ type AuthenticationContext =
   | { kind: "forbidden" }
   | { kind: "unauthenticated" };
 
-export async function getAuthenticationContext(): Promise<AuthenticationContext> {
+export const getAuthenticationContext = cache(async (): Promise<AuthenticationContext> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -47,7 +48,7 @@ export async function getAuthenticationContext(): Promise<AuthenticationContext>
     kind: "authenticated",
     profile: { ...profile, active: true },
   };
-}
+});
 
 export async function requirePageRoles(
   nextPath: string,

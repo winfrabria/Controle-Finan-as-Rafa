@@ -80,6 +80,21 @@ export function ShellControls({
       window.clearTimeout(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      openPanel !== "profile" ||
+      !window.matchMedia("(max-width: 760px)").matches
+    ) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [openPanel]);
   const isAdmin = role === "admin";
   const displayName = isAdmin ? "Administrador WinfraBR" : "Rafael";
   const roleName = isAdmin ? "Administrador" : "Gerente Financeiro";
@@ -354,6 +369,7 @@ export function ShellControls({
 
         <div className={`${styles.toolWrap} ${styles.profileWrap}`}>
           <button
+            aria-label="Abrir meu perfil"
             aria-expanded={openPanel === "profile"}
             className={styles.profileButton}
             onClick={() => togglePanel("profile")}
@@ -369,20 +385,82 @@ export function ShellControls({
             <Icon name="chevron" className={styles.chevron} />
           </button>
           {openPanel === "profile" ? (
-            <section className={`${styles.dropdown} ${styles.profilePanel}`}>
-              <div className={styles.profileSummary}>
-                <span className={styles.avatar}>{isAdmin ? "AW" : "R"}</span>
-                <span>
-                  <strong>{displayName}</strong>
-                  <small>{userEmail ?? "Usuário autenticado"}</small>
-                  <em>{roleName}</em>
-                </span>
-              </div>
-              <Link href={basePath} onClick={() => setOpenPanel(null)}>
-                <Icon name="home" /> Meu painel
-              </Link>
-              <LogoutButton className={styles.logout} />
-            </section>
+            <>
+              <button
+                aria-label="Fechar meu perfil"
+                className={styles.profileBackdrop}
+                onClick={() => setOpenPanel(null)}
+                type="button"
+              />
+              <section
+                aria-label="Meu perfil"
+                className={`${styles.dropdown} ${styles.profilePanel}`}
+                role="dialog"
+              >
+                <header className={styles.profileMobileHeader}>
+                  <strong>Meu perfil</strong>
+                  <button
+                    aria-label="Fechar"
+                    onClick={() => setOpenPanel(null)}
+                    type="button"
+                  >
+                    <Icon name="close" />
+                  </button>
+                </header>
+                <div className={styles.profileSummary}>
+                  <span className={styles.avatar}>{isAdmin ? "AW" : "R"}</span>
+                  <span>
+                    <strong>{displayName}</strong>
+                    <small>{userEmail ?? "Usuário autenticado"}</small>
+                    <em>{roleName}</em>
+                  </span>
+                </div>
+                <div className={styles.profileAccess}>
+                  <span>Acesso ativo</span>
+                  <strong>{roleName}</strong>
+                </div>
+                <nav className={styles.profileNav} aria-label="Atalhos do perfil">
+                  <Link href={basePath} onClick={() => setOpenPanel(null)}>
+                    <Icon name="home" />
+                    <span>
+                      <strong>Meu painel</strong>
+                      <small>Resumo da operação</small>
+                    </span>
+                    <Icon name="chevron" />
+                  </Link>
+                  <Link href={`${basePath}/notas`} onClick={() => setOpenPanel(null)}>
+                    <Icon name="document" />
+                    <span>
+                      <strong>Notas</strong>
+                      <small>Diagnósticos da IA</small>
+                    </span>
+                    <Icon name="chevron" />
+                  </Link>
+                  <Link
+                    href={`${basePath}/historico`}
+                    onClick={() => setOpenPanel(null)}
+                  >
+                    <Icon name="clock" />
+                    <span>
+                      <strong>Histórico</strong>
+                      <small>Anexos acompanhados</small>
+                    </span>
+                    <Icon name="chevron" />
+                  </Link>
+                  {isAdmin ? (
+                    <Link href={`${basePath}/obras`} onClick={() => setOpenPanel(null)}>
+                      <Icon name="building" />
+                      <span>
+                        <strong>Obras</strong>
+                        <small>Cadastros ativos</small>
+                      </span>
+                      <Icon name="chevron" />
+                    </Link>
+                  ) : null}
+                </nav>
+                <LogoutButton className={styles.logout} />
+              </section>
+            </>
           ) : null}
         </div>
       </div>

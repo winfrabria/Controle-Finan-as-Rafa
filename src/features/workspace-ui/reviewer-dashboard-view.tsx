@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 import { Icon } from "./ui-icons";
 import { PortalShell, type PortalRole } from "./portal-shell";
@@ -13,6 +13,7 @@ import {
 import styles from "./reviewer-dashboard-view.module.css";
 
 type ReviewerDashboardViewProps = {
+  embedded?: boolean;
   role: PortalRole;
   userEmail?: string;
   works?: { id: string; name: string }[];
@@ -100,6 +101,7 @@ function comparison(current: number, previous: number) {
 }
 
 export function ReviewerDashboardView({
+  embedded = false,
   notes = [],
   role,
   userEmail,
@@ -262,8 +264,10 @@ export function ReviewerDashboardView({
     setQuery("");
   }
 
+  const Shell = embedded ? EmbeddedShell : PortalShell;
+
   return (
-    <PortalShell active="dashboard" role={role} userEmail={userEmail}>
+    <Shell active="dashboard" role={role} userEmail={userEmail}>
       <div className={`${styles.page} ${role === "reviewer" ? styles.reviewerPage : ""}`}>
         {role === "reviewer" ? (
           <section className={styles.mobileDashboard} aria-label="Dashboard mobile">
@@ -591,8 +595,12 @@ export function ReviewerDashboardView({
           </article>
         </section>
       </div>
-    </PortalShell>
+    </Shell>
   );
+}
+
+function EmbeddedShell({ children }: { children: ReactNode }) {
+  return children;
 }
 
 function Metric({
