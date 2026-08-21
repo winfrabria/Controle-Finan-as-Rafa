@@ -1,0 +1,548 @@
+{
+  "contractVersion": "1.0.0",
+  "cases": [
+    {
+      "contractVersion": "1.0.0",
+      "id": "nfe-simple-consistent",
+      "title": "NF-e sintetica simples com totais consistentes",
+      "category": "FISCAL_INVOICE_SIMPLE",
+      "input": {
+        "invoice": {
+          "documentKind": "FISCAL_INVOICE",
+          "documentNumber": "NFE-EXEMPLO-0001",
+          "supplierName": "Fornecedor Exemplo Ltda",
+          "supplierTaxId": "11222333000181",
+          "issuedAt": "2026-08-10",
+          "totalAmount": "150.00",
+          "readConfidence": 0.98,
+          "warnings": [],
+          "markdown": "# Nota fiscal sintetica de exemplo\n\nDocumento gerado apenas para teste offline do runner. Totais e itens sao coerentes.",
+          "itemCoverage": {
+            "status": "COMPLETE",
+            "declaredItemCount": 2,
+            "extractedItemCount": 2,
+            "firstLineNumber": 1,
+            "lastLineNumber": 2,
+            "missingLineNumbers": [],
+            "evidence": "Duas linhas declaradas e duas linhas extraidas."
+          },
+          "items": [
+            {
+              "lineNumber": 1,
+              "description": "Material eletrico exemplo A",
+              "quantity": "2",
+              "unitPrice": "25.00",
+              "totalAmount": "50.00"
+            },
+            {
+              "lineNumber": 2,
+              "description": "Material eletrico exemplo B",
+              "quantity": "1",
+              "unitPrice": "100.00",
+              "totalAmount": "100.00"
+            }
+          ]
+        },
+        "now": "2026-08-21"
+      },
+      "expectations": {
+        "acceptableClassifications": ["OK"],
+        "forbiddenFindingCodes": ["TOTAL_MISMATCH", "POSSIBLE_DUPLICATE"],
+        "maxSemanticDuplicates": 0
+      }
+    },
+    {
+      "contractVersion": "1.0.0",
+      "id": "alcohol-item-suspicious",
+      "title": "Nota de conveniencia com bebida alcoolica sempre suspeita",
+      "category": "MEALS_LODGING_SUPPLIES",
+      "input": {
+        "invoice": {
+          "documentKind": "FISCAL_INVOICE",
+          "documentNumber": "NFE-EXEMPLO-0002",
+          "supplierName": "Mercado Exemplo Sintetico Ltda",
+          "supplierTaxId": "11222333000181",
+          "issuedAt": "2026-08-12",
+          "totalAmount": "60.00",
+          "readConfidence": 0.97,
+          "warnings": [],
+          "markdown": "# Cupom sintetico de conveniencia\n\nItens de teste offline, sem qualquer caso real.",
+          "itemCoverage": {
+            "status": "COMPLETE",
+            "declaredItemCount": 2,
+            "extractedItemCount": 2,
+            "firstLineNumber": 1,
+            "lastLineNumber": 2,
+            "missingLineNumbers": [],
+            "evidence": "Cupom com duas linhas."
+          },
+          "items": [
+            {
+              "lineNumber": 1,
+              "description": "Cerveja lata 350ml",
+              "quantity": "12",
+              "unitPrice": "3.00",
+              "totalAmount": "36.00"
+            },
+            {
+              "lineNumber": 2,
+              "description": "Refrigerante lata 350ml",
+              "quantity": "6",
+              "unitPrice": "4.00",
+              "totalAmount": "24.00"
+            }
+          ]
+        },
+        "now": "2026-08-21"
+      },
+      "expectations": {
+        "acceptableClassifications": ["SUSPICIOUS"],
+        "requiredFindingCodes": ["ALCOHOL_ITEM"],
+        "forbiddenFindingCodes": ["TOTAL_MISMATCH"],
+        "maxSemanticDuplicates": 0
+      }
+    },
+    {
+      "contractVersion": "1.0.0",
+      "id": "hygiene-item-suspicious",
+      "title": "Nota de mercado com item de higiene pessoal sempre suspeito",
+      "category": "MEALS_LODGING_SUPPLIES",
+      "input": {
+        "invoice": {
+          "documentKind": "FISCAL_INVOICE",
+          "documentNumber": "NFE-EXEMPLO-0003",
+          "supplierName": "Mercado Exemplo Sintetico Ltda",
+          "supplierTaxId": "11222333000181",
+          "issuedAt": "2026-08-13",
+          "totalAmount": "30.00",
+          "readConfidence": 0.97,
+          "warnings": [],
+          "markdown": "# Cupom sintetico de mercado\n\nItens de teste offline.",
+          "itemCoverage": {
+            "status": "COMPLETE",
+            "declaredItemCount": 2,
+            "extractedItemCount": 2,
+            "firstLineNumber": 1,
+            "lastLineNumber": 2,
+            "missingLineNumbers": [],
+            "evidence": "Cupom com duas linhas."
+          },
+          "items": [
+            {
+              "lineNumber": 1,
+              "description": "Shampoo 400ml",
+              "quantity": "1",
+              "unitPrice": "18.00",
+              "totalAmount": "18.00"
+            },
+            {
+              "lineNumber": 2,
+              "description": "Arroz pacote 5kg",
+              "quantity": "1",
+              "unitPrice": "12.00",
+              "totalAmount": "12.00"
+            }
+          ]
+        },
+        "now": "2026-08-21"
+      },
+      "expectations": {
+        "acceptableClassifications": ["SUSPICIOUS"],
+        "requiredFindingCodes": ["PERSONAL_HYGIENE_ITEM"],
+        "forbiddenFindingCodes": ["TOTAL_MISMATCH", "ALCOHOL_ITEM"],
+        "maxSemanticDuplicates": 0
+      }
+    },
+    {
+      "contractVersion": "1.0.0",
+      "id": "partially-illegible-read-failed",
+      "title": "Documento parcialmente ilegivel termina em limitacao, nao em divergencia",
+      "category": "PARTIALLY_ILLEGIBLE",
+      "input": {
+        "invoice": {
+          "documentKind": "OTHER",
+          "documentNumber": null,
+          "supplierName": null,
+          "supplierTaxId": null,
+          "issuedAt": null,
+          "totalAmount": "80.00",
+          "readConfidence": 0.42,
+          "warnings": [],
+          "markdown": "Trecho parcialmente ilegivel.",
+          "items": []
+        },
+        "now": "2026-08-21"
+      },
+      "expectations": {
+        "acceptableClassifications": ["READ_FAILED"],
+        "forbiddenFindingCodes": ["TOTAL_MISMATCH", "ALCOHOL_ITEM", "PERSONAL_HYGIENE_ITEM"],
+        "maxSemanticDuplicates": 0
+      }
+    },
+    {
+      "contractVersion": "1.0.0",
+      "id": "composite-partial-coverage-no-total-mismatch",
+      "title": "Reembolso composto com cobertura parcial nao pode emitir TOTAL_MISMATCH",
+      "category": "COMPOSITE_REIMBURSEMENT",
+      "input": {
+        "invoice": {
+          "documentKind": "COMPOSITE",
+          "documentNumber": "REEMB-SINTETICO-01",
+          "supplierName": null,
+          "supplierTaxId": null,
+          "issuedAt": "2026-08-05",
+          "totalAmount": "300.00",
+          "readConfidence": 0.9,
+          "warnings": [
+            "Documento composto: reembolso com comprovantes de varios fornecedores."
+          ],
+          "markdown": "# Reembolso sintetico multipagina\n\nFicha de reembolso acompanhada de tres recibos sinteticos e comprovantes de pagamento.\nA quarta pagina esta parcialmente ilegivel no fixture.\nEste documento existe apenas para validar offline a regra de cobertura parcial.",
+          "itemCoverage": {
+            "status": "INCOMPLETE",
+            "declaredItemCount": 4,
+            "extractedItemCount": 3,
+            "firstLineNumber": 1,
+            "lastLineNumber": 3,
+            "missingLineNumbers": [4],
+            "evidence": "Quarta pagina parcialmente ilegivel no fixture."
+          },
+          "items": [
+            {
+              "lineNumber": 1,
+              "description": "Recibo sintetico A",
+              "quantity": "1",
+              "unitPrice": "90.00",
+              "totalAmount": "90.00"
+            },
+            {
+              "lineNumber": 2,
+              "description": "Recibo sintetico B",
+              "quantity": "1",
+              "unitPrice": "90.00",
+              "totalAmount": "90.00"
+            },
+            {
+              "lineNumber": 3,
+              "description": "Recibo sintetico C",
+              "quantity": "1",
+              "unitPrice": "90.00",
+              "totalAmount": "90.00"
+            }
+          ]
+        },
+        "now": "2026-08-21"
+      },
+      "expectations": {
+        "acceptableClassifications": ["OK"],
+        "forbiddenFindingCodes": ["TOTAL_MISMATCH"],
+        "maxSemanticDuplicates": 0
+      }
+    },
+    {
+      "contractVersion": "1.0.0",
+      "id": "complete-coverage-total-mismatch",
+      "title": "TOTAL_MISMATCH so pode existir com cobertura COMPLETE dos itens",
+      "category": "FISCAL_INVOICE_SIMPLE",
+      "input": {
+        "invoice": {
+          "documentKind": "FISCAL_INVOICE",
+          "documentNumber": "NFE-EXEMPLO-0004",
+          "supplierName": "Fornecedor Exemplo Ltda",
+          "supplierTaxId": "11222333000181",
+          "issuedAt": "2026-08-14",
+          "totalAmount": "50.00",
+          "readConfidence": 0.98,
+          "warnings": [],
+          "markdown": "# Nota fiscal sintetica com divergencia de total\n\nFixture offline para o gate TOTAL_MISMATCH x cobertura.",
+          "itemCoverage": {
+            "status": "COMPLETE",
+            "declaredItemCount": 2,
+            "extractedItemCount": 2,
+            "firstLineNumber": 1,
+            "lastLineNumber": 2,
+            "missingLineNumbers": [],
+            "evidence": "Duas linhas completas."
+          },
+          "items": [
+            {
+              "lineNumber": 1,
+              "description": "Material sintetico A",
+              "quantity": "2",
+              "unitPrice": "10.00",
+              "totalAmount": "20.00"
+            },
+            {
+              "lineNumber": 2,
+              "description": "Material sintetico B",
+              "quantity": "1",
+              "unitPrice": "20.00",
+              "totalAmount": "20.00"
+            }
+          ]
+        },
+        "now": "2026-08-21"
+      },
+      "expectations": {
+        "acceptableClassifications": ["SUSPICIOUS"],
+        "requiredFindingCodes": ["TOTAL_MISMATCH"],
+        "maxSemanticDuplicates": 0
+      }
+    },
+    {
+      "contractVersion": "1.0.0",
+      "id": "explicit-contradiction-becomes-finding",
+      "title": "Contradicao objetiva entre venda e pagamento vira achado, nunca pergunta",
+      "category": "EXPLICIT_CONTRADICTION",
+      "input": {
+        "invoice": {
+          "documentKind": "REIMBURSEMENT",
+          "documentNumber": "RECIBO-SINTETICO-07",
+          "supplierName": "Prestador Sintetico ME",
+          "supplierTaxId": "11222333000181",
+          "issuedAt": "2026-08-11",
+          "totalAmount": "150.00",
+          "readConfidence": 0.95,
+          "warnings": [],
+          "markdown": "# Recibo sintetico com contradicao interna\n\nVenda registrada em uma pagina e pagamento registrado em outra com valores diferentes.",
+          "itemCoverage": {
+            "status": "COMPLETE",
+            "declaredItemCount": 1,
+            "extractedItemCount": 1,
+            "firstLineNumber": 1,
+            "lastLineNumber": 1,
+            "missingLineNumbers": [],
+            "evidence": "Uma linha com duas observacoes conflitantes."
+          },
+          "items": [
+            {
+              "lineNumber": 1,
+              "description": "Servico sintetico prestado",
+              "quantity": "1",
+              "unitPrice": "150.00",
+              "totalAmount": "150.00",
+              "evidenceObservations": [
+                {
+                  "kind": "SALE",
+                  "label": "Venda",
+                  "amount": "100.00",
+                  "date": "2026-08-01",
+                  "page": 1,
+                  "text": "Venda registrada no fixture."
+                },
+                {
+                  "kind": "PAYMENT",
+                  "label": "Pagamento",
+                  "amount": "150.00",
+                  "date": "2026-08-02",
+                  "page": 2,
+                  "text": "Pagamento registrado no fixture."
+                }
+              ]
+            }
+          ]
+        },
+        "aiDiscovery": {
+          "findings": [],
+          "coverage": {
+            "sufficientEvidence": true,
+            "checkedAreas": ["valores da venda e do pagamento"],
+            "limitations": []
+          },
+          "needsContext": true,
+          "contextQuestions": [
+            {
+              "code": "VALOR_VENDA_PAGAMENTO",
+              "options": [],
+              "prompt": "A venda registra R$ 100,00 enquanto o pagamento registra R$ 150,00. Qual valor deve prevalecer?",
+              "rationale": "Tentativa de converter divergencia objetiva do anexo em pergunta externa.",
+              "required": true,
+              "type": "TEXT"
+            }
+          ],
+          "summary": "Resumo sintetico gravado para replay offline."
+        },
+        "now": "2026-08-21"
+      },
+      "expectations": {
+        "acceptableClassifications": ["SUSPICIOUS"],
+        "requiredFindingCodes": [
+          "EVIDENCE_AMOUNT_MISMATCH_1",
+          "INTERNAL_CONTRADICTION_VALOR_VENDA_PAGAMENTO"
+        ],
+        "forbiddenContextQuestionCodes": ["VALOR_VENDA_PAGAMENTO"],
+        "maxSemanticDuplicates": 0
+      }
+    },
+    {
+      "contractVersion": "1.0.0",
+      "id": "external-context-legitimate-question",
+      "title": "Fato externo legitimo gera NEEDS_CONTEXT com pergunta permitida",
+      "category": "EXTERNAL_CONTEXT",
+      "input": {
+        "invoice": {
+          "documentKind": "FISCAL_INVOICE",
+          "documentNumber": "NFE-EXEMPLO-0005",
+          "supplierName": "Posto Sintetico Ltda",
+          "supplierTaxId": "11222333000181",
+          "issuedAt": "2026-08-15",
+          "totalAmount": "600.00",
+          "readConfidence": 0.96,
+          "warnings": [],
+          "markdown": "# Nota fiscal sintetica de combustivel\n\nAbastecimentos consolidados em uma linha, sem relatorio detalhado no fixture.",
+          "itemCoverage": {
+            "status": "COMPLETE",
+            "declaredItemCount": 1,
+            "extractedItemCount": 1,
+            "firstLineNumber": 1,
+            "lastLineNumber": 1,
+            "missingLineNumbers": [],
+            "evidence": "Linha unica consolidada."
+          },
+          "items": [
+            {
+              "lineNumber": 1,
+              "description": "Combustivel diesel sintetico",
+              "quantity": "100",
+              "unitPrice": "6.00",
+              "totalAmount": "600.00"
+            }
+          ]
+        },
+        "aiDiscovery": {
+          "findings": [],
+          "coverage": {
+            "sufficientEvidence": true,
+            "checkedAreas": ["itens", "totais", "datas"],
+            "limitations": []
+          },
+          "needsContext": true,
+          "contextQuestions": [
+            {
+              "code": "OBRA_LIMITE_COMBUSTIVEL",
+              "options": [],
+              "prompt": "A obra possui limite vigente para despesas de combustivel nesta competencia?",
+              "rationale": "Fato externo que mudaria a conclusao e nao pode ser inferido do anexo.",
+              "required": true,
+              "type": "BOOLEAN"
+            }
+          ],
+          "summary": "Resumo sintetico gravado para replay offline."
+        },
+        "now": "2026-08-21"
+      },
+      "expectations": {
+        "acceptableClassifications": ["NEEDS_CONTEXT"],
+        "requiredContextQuestionCodes": ["OBRA_LIMITE_COMBUSTIVEL"],
+        "forbiddenFindingCodes": ["TOTAL_MISMATCH", "ALCOHOL_ITEM"],
+        "maxSemanticDuplicates": 0
+      }
+    },
+    {
+      "contractVersion": "1.0.0",
+      "id": "possible-duplicate-detected",
+      "title": "Duplicidade real de identidade fiscal e financeira e achado obrigatorio",
+      "category": "DUPLICATE",
+      "input": {
+        "invoice": {
+          "documentKind": "FISCAL_INVOICE",
+          "documentNumber": "NFE-DUP-0001",
+          "supplierName": "Fornecedor Exemplo Ltda",
+          "supplierTaxId": "11222333000181",
+          "issuedAt": "2026-08-01",
+          "totalAmount": "120.00",
+          "readConfidence": 0.98,
+          "warnings": [],
+          "markdown": "# Nota fiscal sintetica duplicada\n\nMesma identidade fiscal e financeira de registro anterior sintetico.",
+          "itemCoverage": {
+            "status": "COMPLETE",
+            "declaredItemCount": 1,
+            "extractedItemCount": 1,
+            "firstLineNumber": 1,
+            "lastLineNumber": 1,
+            "missingLineNumbers": [],
+            "evidence": "Linha unica completa."
+          },
+          "items": [
+            {
+              "lineNumber": 1,
+              "description": "Locacao de equipamento sintetico",
+              "quantity": "1",
+              "unitPrice": "120.00",
+              "totalAmount": "120.00"
+            }
+          ]
+        },
+        "duplicates": [
+          {
+            "noteId": "nota-sintetica-anterior",
+            "documentNumber": "NFE-DUP-0001",
+            "supplierTaxId": "11222333000181",
+            "issuedAt": "2026-08-01",
+            "totalAmount": "120.00"
+          }
+        ],
+        "now": "2026-08-21"
+      },
+      "expectations": {
+        "acceptableClassifications": ["SUSPICIOUS"],
+        "requiredFindingCodes": ["POSSIBLE_DUPLICATE"],
+        "maxSemanticDuplicates": 0
+      }
+    },
+    {
+      "contractVersion": "1.0.0",
+      "id": "work-rule-forbidden-term-supplied",
+      "title": "Regra de obra so se aplica quando o parametro foi fornecido",
+      "category": "MEALS_LODGING_SUPPLIES",
+      "input": {
+        "invoice": {
+          "documentKind": "FISCAL_INVOICE",
+          "documentNumber": "NFE-EXEMPLO-0006",
+          "supplierName": "Mercado Exemplo Sintetico Ltda",
+          "supplierTaxId": "11222333000181",
+          "issuedAt": "2026-08-16",
+          "totalAmount": "16.00",
+          "readConfidence": 0.97,
+          "warnings": [],
+          "markdown": "# Cupom sintetico\n\nItem restrito por regra de obra fornecida no fixture.",
+          "itemCoverage": {
+            "status": "COMPLETE",
+            "declaredItemCount": 1,
+            "extractedItemCount": 1,
+            "firstLineNumber": 1,
+            "lastLineNumber": 1,
+            "missingLineNumbers": [],
+            "evidence": "Linha unica completa."
+          },
+          "items": [
+            {
+              "lineNumber": 1,
+              "description": "Bebida energetica lata 250ml",
+              "quantity": "2",
+              "unitPrice": "8.00",
+              "totalAmount": "16.00"
+            }
+          ]
+        },
+        "workRules": [
+          {
+            "code": "OBRA_SEM_ENERGETICOS",
+            "name": "Sem bebidas energeticamente estimulantes na obra (fixture)",
+            "category": "RESTRICAO_CONSUMO",
+            "severity": "WARNING",
+            "configuration": {
+              "forbiddenTerms": ["bebida energetica"]
+            }
+          }
+        ],
+        "now": "2026-08-21"
+      },
+      "expectations": {
+        "acceptableClassifications": ["SUSPICIOUS"],
+        "requiredFindingCodes": ["OBRA_SEM_ENERGETICOS_FORBIDDEN_TERM"],
+        "forbiddenFindingCodes": ["ALCOHOL_ITEM", "PERSONAL_HYGIENE_ITEM"],
+        "maxSemanticDuplicates": 0
+      }
+    }
+  ]
+}
