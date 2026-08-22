@@ -37,7 +37,7 @@ Um arquivo de casos contém `{ contractVersion, cases: [...] }`. Cada caso:
 | `input.duplicates` | candidatos de duplicidade sintéticos |
 | `input.aiDiscovery` | resposta gravada para replay offline (opcional) |
 | `input.now` | data fixa (`YYYY-MM-DD`) que garante determinismo |
-| `expectations` | classificação aceitável, achados obrigatórios/proibidos, perguntas obrigatórias/proibidas, `maxSemanticDuplicates` |
+| `expectations` | classificação aceitável, achados e perguntas obrigatórios/proibidos, cobertura mínima, fragmentos OCR proibidos na saída e `maxSemanticDuplicates` |
 | `onlineBudget` | opcional; custo/latência máximos para execução online opt-in (ignorado offline) |
 
 Regras do contrato:
@@ -70,6 +70,10 @@ Por caso, além das expectativas declaradas:
    (mesma chave de deduplicação do engine).
 9. `noSecretOrInternalReasoning` — payload público persistido não contém
    chaves sensíveis nem raciocínio interno (`sanitizeForPersistence`).
+10. `requiredCoverageAreas` — comprova que o cenário exercitou as áreas
+    declaradas, evitando fixture que passa sem testar a regra pretendida.
+11. `forbiddenOutputFragments` — texto não confiável do OCR, como instruções
+    injetadas no documento, não pode reaparecer no payload público do Harness.
 
 O relatório JSON agrega as métricas do PRD §5 que são computáveis offline:
 acurácia de classificação, validade de schema, violações de evidência, achados
@@ -79,16 +83,17 @@ false`) no modo offline; nenhum provedor é chamado.
 
 ## Fixtures atuais
 
-`src/lib/audit-harness/evals/__fixtures__/golden-cases.v1.json` — 10 casos
+`src/lib/audit-harness/evals/__fixtures__/golden-cases.v1.json` — 20 casos
 sintéticos cobrindo: NF-e consistente, bebida alcoólica, higiene pessoal,
 documento ilegível (`READ_FAILED`), reembolso composto com cobertura parcial
 sem `TOTAL_MISMATCH`, `TOTAL_MISMATCH` com cobertura completa, contradição
 objetiva promovida a achado, pergunta de contexto externo legítima,
 duplicidade real e regra de obra com parâmetro fornecido.
-
-Categorias do corpus ainda sem fixture dedicado podem ser acrescentadas como
-novos casos no mesmo arquivo (ou arquivo novo passado por `--cases`), sem
-mudar código.
+Também há fixtures dedicados para nota de serviço, nota com comprovante,
+combustível com relatório, near-duplicate legítimo, bruto/líquido com retenção,
+resumo multipágina sem dupla contagem, item bônus de valor zero com desconto
+global, prompt injection no OCR, múltiplos CNPJs em papéis legítimos e fronteira
+de data/fuso. Todos usam dados genéricos e executam sem rede.
 
 ## Garantias
 
@@ -99,3 +104,12 @@ mudar código.
 - Execução online opt-in ficará em rodada futura: o contrato já carrega os
   campos opcionais de orçamento, mas o runner atual recusa-se a chamar
   provedores.
+
+## Relatório offline verificado — 2026-08-21
+
+- Corpus: 20 casos, 20 aprovados e 0 reprovados.
+- Acurácia declarada: 100%; validade de schema: 100%.
+- Violações de evidência, achados proibidos, perguntas, cobertura e propagação
+  de texto OCR: 0.
+- Duplicação semântica acima do limite: 0%.
+- Telemetria: 0 chamadas de provedor; custo e latência não avaliados offline.

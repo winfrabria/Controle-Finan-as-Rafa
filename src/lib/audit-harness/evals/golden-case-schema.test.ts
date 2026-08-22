@@ -21,6 +21,27 @@ test("contrato versionado aceita o arquivo de fixtures sintéticas", () => {
   assert.equal(parsed.success, true);
 });
 
+test("corpus inclui todas as categorias genericas da rodada de estabilizacao", () => {
+  const file = loadFixture();
+  const categories = new Set(
+    file.cases.map((goldenCase: { category: string }) => goldenCase.category),
+  );
+  for (const category of [
+    "SERVICE_INVOICE",
+    "INVOICE_WITH_PAYMENT_PROOF",
+    "FUEL_WITH_REPORT",
+    "LEGITIMATE_NEAR_DUPLICATE",
+    "GROSS_NET_WITHHOLDING",
+    "MULTIPAGE_RECONCILIATION",
+    "ZERO_VALUE_AND_GLOBAL_DISCOUNT",
+    "OCR_PROMPT_INJECTION",
+    "MULTIPLE_LEGITIMATE_TAX_IDS",
+    "TIMEZONE_DATE_BOUNDARY",
+  ]) {
+    assert.equal(categories.has(category), true, `Categoria ausente: ${category}`);
+  }
+});
+
 test("versão do contrato é fixada em 1.0.0", () => {
   assert.equal(GOLDEN_CASES_CONTRACT_VERSION, "1.0.0");
   const file = loadFixture();

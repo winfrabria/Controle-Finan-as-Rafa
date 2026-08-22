@@ -26,6 +26,7 @@ export type GoldenCaseResult = {
   findingCodes: string[];
   contextQuestionCodes: string[];
   semanticDuplicateCount: number;
+  coverageAreas: string[];
   checks: GoldenCaseCheck[];
 };
 
@@ -45,6 +46,8 @@ export type GoldenCasesReport = {
     forbiddenFindingViolations: number;
     semanticDuplicationRate: number;
     contextQuestionViolations: number;
+    coverageAreaViolations: number;
+    forbiddenOutputViolations: number;
   };
   /** Campos de custo/latência só têm valor em execução online opt-in. */
   onlineTelemetry: {
@@ -172,6 +175,40 @@ function checkSecretLeak(result: {
   };
 }
 
+function checkRequiredCoverageAreas(
+  requiredAreas: string[],
+  actualAreas: string[],
+): GoldenCaseCheck {
+  const actual = new Set(actualAreas);
+  const missing = requiredAreas.filter((area) => !actual.has(area));
+  return {
+    name: "requiredCoverageAreas",
+    passed: missing.length === 0,
+    details:
+      missing.length > 0
+        ? `Areas obrigatorias nao exercitadas: ${missing.join(", ")}.`
+        : undefined,
+  };
+}
+
+function checkForbiddenOutputFragments(
+  forbiddenFragments: string[],
+  publicResult: unknown,
+): GoldenCaseCheck {
+  const serialized = JSON.stringify(publicResult).toLocaleLowerCase("pt-BR");
+  const leaked = forbiddenFragments.filter((fragment) =>
+    serialized.includes(fragment.toLocaleLowerCase("pt-BR")),
+  );
+  return {
+    name: "forbiddenOutputFragments",
+    passed: leaked.length === 0,
+    details:
+      leaked.length > 0
+        ? `Conteudo nao confiavel do OCR propagado (${leaked.length} ocorrencia(s)).`
+        : undefined,
+  };
+}
+
 function checkContextQuestions(
   expectations: GoldenCaseExpectations,
   questions: ContextQuestion[],
@@ -285,6 +322,20 @@ function runGoldenCase(goldenCase: GoldenCase): GoldenCaseResult {
   });
 
   checks.push(checkSecretLeak(result));
+  checks.push(
+    checkRequiredCoverageAreas(
+      expectations.requiredCoverageAreas,
+      result.coverage.areas,
+    ),
+  );
+  checks.push(
+    checkForbiddenOutputFragments(expectations.forbiddenOutputFragments, {
+      classification: result.classification,
+      findings: result.findings,
+      contextQuestions: result.contextQuestions,
+      coverage: result.coverage,
+    }),
+  );
 
   return {
     id: goldenCase.id,
@@ -297,6 +348,7 @@ function runGoldenCase(goldenCase: GoldenCase): GoldenCaseResult {
       (question) => question.code,
     ),
     semanticDuplicateCount,
+    coverageAreas: result.coverage.areas,
     checks,
   };
 }
@@ -351,6 +403,17 @@ export function runGoldenCases(cases: GoldenCase[]): GoldenCasesReport {
           !result.checks.find((check) => check.name === "requiredContextQuestions")
             ?.passed,
       ).length,
+      coverageAreaViolations: results.filter(
+        (result) =>
+          !result.checks.find((check) => check.name === "requiredCoverageAreas")
+            ?.passed,
+      ).length,
+      forbiddenOutputViolations: results.filter(
+        (result) =>
+          !result.checks.find(
+            (check) => check.name === "forbiddenOutputFragments",
+          )?.passed,
+      ).length,
     },
     // Execução offline: nenhum provedor é chamado; telemetria fica nula.
     onlineTelemetry: {
@@ -392,6 +455,12 @@ export function formatReadableSummary(report: GoldenCasesReport): string {
   );
   lines.push(
     `  casos com violação em perguntas de contexto: ${report.metrics.contextQuestionViolations}`,
+  );
+  lines.push(
+    `  casos sem cobertura obrigatoria: ${report.metrics.coverageAreaViolations}`,
+  );
+  lines.push(
+    `  casos com propagacao de texto OCR proibido: ${report.metrics.forbiddenOutputViolations}`,
   );
   lines.push(
     "Telemetria online: não avaliada no modo offline (0 chamadas de provedor).",

@@ -47,11 +47,13 @@ function finding(overrides: Partial<HarnessFinding>): HarnessFinding {
 
 test("todos os casos dourados do fixture passam no modo offline", () => {
   const report = runGoldenCases(loadCases());
-  assert.equal(report.totals.cases, 10);
+  assert.equal(report.totals.cases, 20);
   assert.equal(report.totals.failed, 0);
   assert.equal(report.mode, "offline");
   assert.equal(report.metrics.classificationAccuracy, 1);
   assert.equal(report.metrics.schemaValidityRate, 1);
+  assert.equal(report.metrics.coverageAreaViolations, 0);
+  assert.equal(report.metrics.forbiddenOutputViolations, 0);
 });
 
 test("execução é determinística entre chamadas", () => {
@@ -148,10 +150,34 @@ test("contradição objetiva é detectada em perguntas emitidas", () => {
   assert.equal(legitimate, false);
 });
 
+test("area obrigatoria ausente reprova o caso", () => {
+  const cases = loadCases();
+  cases[0].expectations.requiredCoverageAreas.push("AREA_INEXISTENTE");
+  const result = runGoldenCases(cases).results[0];
+  assert.equal(result.passed, false);
+  assert.equal(
+    result.checks.find((check) => check.name === "requiredCoverageAreas")
+      ?.passed,
+    false,
+  );
+});
+
+test("fragmento proibido no payload publico reprova o caso", () => {
+  const cases = loadCases();
+  cases[0].expectations.forbiddenOutputFragments.push("classification");
+  const result = runGoldenCases(cases).results[0];
+  assert.equal(result.passed, false);
+  assert.equal(
+    result.checks.find((check) => check.name === "forbiddenOutputFragments")
+      ?.passed,
+    false,
+  );
+});
+
 test("resumo legível menciona totais, métricas e casos reprovados", () => {
   const report = runGoldenCases(loadCases());
   const summary = formatReadableSummary(report);
-  assert.match(summary, /Casos: 10 · aprovados: 10 · reprovados: 0/);
+  assert.match(summary, /Casos: 20 · aprovados: 20 · reprovados: 0/);
   assert.match(summary, /acurácia de classificação: 100\.0%/);
   assert.doesNotMatch(summary, /\[FAIL\]/);
 

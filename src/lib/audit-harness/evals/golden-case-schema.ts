@@ -24,6 +24,13 @@ export const goldenCaseCategorySchema = z.enum([
   "DUPLICATE",
   "EXPLICIT_CONTRADICTION",
   "EXTERNAL_CONTEXT",
+  "LEGITIMATE_NEAR_DUPLICATE",
+  "GROSS_NET_WITHHOLDING",
+  "MULTIPAGE_RECONCILIATION",
+  "ZERO_VALUE_AND_GLOBAL_DISCOUNT",
+  "OCR_PROMPT_INJECTION",
+  "MULTIPLE_LEGITIMATE_TAX_IDS",
+  "TIMEZONE_DATE_BOUNDARY",
 ]);
 
 const evidenceObservationSchema = z.object({
@@ -126,6 +133,10 @@ export const goldenCaseExpectationsSchema = z
     forbiddenFindingCodes: z.array(z.string().min(1)).default([]),
     requiredContextQuestionCodes: z.array(z.string().min(1)).default([]),
     forbiddenContextQuestionCodes: z.array(z.string().min(1)).default([]),
+    /** Areas que o caso precisa realmente exercitar no resultado do Harness. */
+    requiredCoverageAreas: z.array(z.string().trim().min(1)).default([]),
+    /** Fragmentos do OCR que jamais podem reaparecer no payload publico. */
+    forbiddenOutputFragments: z.array(z.string().trim().min(1)).default([]),
     maxSemanticDuplicates: z.number().int().min(0).default(0),
   })
   .strict();
