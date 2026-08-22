@@ -89,8 +89,8 @@ test("trata opções opacas antigas como texto livre em vez de exibi-las", async
   const question = {
     ...questions[2],
     options: [
-      { label: "All Violet", value: "all_violet" },
-      { label: "All Filet", value: "all_filet" },
+      { label: "Unknown option A", value: "unknown_a" },
+      { label: "Unknown option B", value: "unknown_b" },
     ],
   } as const;
 
@@ -103,8 +103,8 @@ test("trata opções opacas antigas como texto livre em vez de exibi-las", async
   });
   assert.deepEqual(
     validateContextAnswers([question] as never, [
-      { perguntaId: question.id, valor: "Placa GWI-62-07" },
+      { perguntaId: question.id, valor: "Identificador sintético 07" },
     ]),
-    [{ questionId: question.id, value: "Placa GWI-62-07" }],
+    [{ questionId: question.id, value: "Identificador sintético 07" }],
   );
 });

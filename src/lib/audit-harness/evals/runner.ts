@@ -41,6 +41,21 @@ export type GoldenCasesReport = {
   };
   metrics: {
     classificationAccuracy: number;
+    classificationMacroPrecision: number;
+    classificationMacroRecall: number;
+    classificationMacroF1: number;
+    classificationByLabel: Record<
+      string,
+      {
+        support: number;
+        truePositives: number;
+        falsePositives: number;
+        falseNegatives: number;
+        precision: number;
+        recall: number;
+        f1: number;
+      }
+    >;
     schemaValidityRate: number;
     evidenceTraceabilityViolations: number;
     forbiddenFindingViolations: number;
@@ -357,12 +372,83 @@ function rate(numerator: number, denominator: number) {
   return denominator === 0 ? 1 : numerator / denominator;
 }
 
+function classificationMetrics(
+  cases: GoldenCase[],
+  results: GoldenCaseResult[],
+) {
+  const pairs = results.map((result, index) => {
+    const acceptable = cases[index]?.expectations.acceptableClassifications ?? [];
+    // Quando o contrato permite mais de uma saída, uma saída aceita vira a
+    // referência daquela execução. Se houve erro, a primeira opção declarada
+    // continua sendo a verdade de referência canônica.
+    const expected = (acceptable as readonly string[]).includes(
+      result.classification,
+    )
+      ? result.classification
+      : (acceptable[0] ?? "UNKNOWN");
+    return { actual: result.classification, expected };
+  });
+  const labels = [
+    ...new Set(pairs.flatMap((pair) => [pair.expected, pair.actual])),
+  ].sort();
+  const byLabel = Object.fromEntries(
+    labels.map((label) => {
+      const truePositives = pairs.filter(
+        (pair) => pair.expected === label && pair.actual === label,
+      ).length;
+      const falsePositives = pairs.filter(
+        (pair) => pair.expected !== label && pair.actual === label,
+      ).length;
+      const falseNegatives = pairs.filter(
+        (pair) => pair.expected === label && pair.actual !== label,
+      ).length;
+      const support = pairs.filter((pair) => pair.expected === label).length;
+      const precision =
+        truePositives + falsePositives === 0
+          ? 0
+          : truePositives / (truePositives + falsePositives);
+      const recall =
+        truePositives + falseNegatives === 0
+          ? 0
+          : truePositives / (truePositives + falseNegatives);
+      const f1 =
+        precision + recall === 0
+          ? 0
+          : (2 * precision * recall) / (precision + recall);
+      return [
+        label,
+        {
+          support,
+          truePositives,
+          falsePositives,
+          falseNegatives,
+          precision,
+          recall,
+          f1,
+        },
+      ];
+    }),
+  );
+  const values = Object.values(byLabel);
+  const macro = (field: "precision" | "recall" | "f1") =>
+    values.length === 0
+      ? 1
+      : values.reduce((sum, value) => sum + value[field], 0) / values.length;
+  return {
+    byLabel,
+    macroF1: macro("f1"),
+    macroPrecision: macro("precision"),
+    macroRecall: macro("recall"),
+  };
+}
+
 export function runGoldenCases(cases: GoldenCase[]): GoldenCasesReport {
   const results = cases.map(runGoldenCase);
   const passed = results.filter((result) => result.passed).length;
   const schemaValidResults = results.filter((result) =>
     result.checks.find((check) => check.name === "schemaValidity")?.passed,
   ).length;
+  const classifications = classificationMetrics(cases, results);
 
   return {
     contractVersion: cases[0]?.contractVersion ?? "unknown",
@@ -380,6 +466,10 @@ export function runGoldenCases(cases: GoldenCase[]): GoldenCasesReport {
         ).length,
         results.length,
       ),
+      classificationMacroPrecision: classifications.macroPrecision,
+      classificationMacroRecall: classifications.macroRecall,
+      classificationMacroF1: classifications.macroF1,
+      classificationByLabel: classifications.byLabel,
       schemaValidityRate: rate(schemaValidResults, results.length),
       evidenceTraceabilityViolations: results.filter(
         (result) =>
@@ -442,6 +532,9 @@ export function formatReadableSummary(report: GoldenCasesReport): string {
   lines.push("Métricas:");
   lines.push(
     `  acurácia de classificação: ${(report.metrics.classificationAccuracy * 100).toFixed(1)}%`,
+  );
+  lines.push(
+    `  precisão macro: ${(report.metrics.classificationMacroPrecision * 100).toFixed(1)}% · recall macro: ${(report.metrics.classificationMacroRecall * 100).toFixed(1)}% · F1 macro: ${(report.metrics.classificationMacroF1 * 100).toFixed(1)}%`,
   );
   lines.push(`  validade de schema: ${(report.metrics.schemaValidityRate * 100).toFixed(1)}%`);
   lines.push(

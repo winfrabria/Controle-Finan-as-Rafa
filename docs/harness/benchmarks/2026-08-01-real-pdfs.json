@@ -22,7 +22,7 @@
         "totalTokens": 69615,
         "warningCount": 5
       },
-      "fileName": "Reembolso Roger  Costa - 551,90.pdf",
+      "fileName": "benchmark-composite-01.pdf",
       "totalLatencyMs": 154897
     },
     {
@@ -46,7 +46,7 @@
         "totalTokens": 21186,
         "warningCount": 2
       },
-      "fileName": "NF 5249 VEREDAS DA SERRA COMBUSTIVEL LTDA.pdf",
+      "fileName": "benchmark-fiscal-02.pdf",
       "totalLatencyMs": 24652
     },
     {
@@ -70,7 +70,7 @@
         "totalTokens": 20581,
         "warningCount": 1
       },
-      "fileName": "NF 5361 VEREDAS DA SERRA COMBUSTIVEL.pdf",
+      "fileName": "benchmark-fiscal-03.pdf",
       "totalLatencyMs": 90294
     },
     {
@@ -94,7 +94,7 @@
         "totalTokens": 20466,
         "warningCount": 2
       },
-      "fileName": "NF 352080 MEDEIROS E MOURA LTDA.pdf",
+      "fileName": "benchmark-fiscal-04.pdf",
       "totalLatencyMs": 152329
     },
     {
@@ -118,7 +118,7 @@
         "totalTokens": 11921,
         "warningCount": 3
       },
-      "fileName": "NFS-4 PABLA ALVES GOMES MARQUES.pdf",
+      "fileName": "benchmark-service-05.pdf",
       "totalLatencyMs": 118740
     }
   ]

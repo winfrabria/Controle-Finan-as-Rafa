@@ -37,6 +37,63 @@ test("álcool e higiene pessoal são sempre suspeitos", () => {
   }
 });
 
+test("cobertura parcial só confirma álcool ou higiene quando o item aparece", () => {
+  const partial = evaluateUniversalRules({
+    invoice: invoice({
+      itemCoverage: {
+        status: "INCOMPLETE",
+        declaredItemCount: 3,
+        extractedItemCount: 1,
+        firstLineNumber: 1,
+        lastLineNumber: 1,
+        missingLineNumbers: [2, 3],
+        evidence: "Somente a primeira linha foi extraída.",
+      },
+      items: [{
+        lineNumber: 1,
+        description: "Material de construção sintético",
+        quantity: "1",
+        unitPrice: "20.00",
+        totalAmount: "20.00",
+      }],
+    }),
+  });
+
+  assert.equal(partial.coveredAreas.includes("ALCOHOL"), false);
+  assert.equal(partial.coveredAreas.includes("PERSONAL_HYGIENE"), false);
+
+  const positive = evaluateUniversalRules({
+    invoice: invoice({
+      itemCoverage: {
+        status: "INCOMPLETE",
+        declaredItemCount: 3,
+        extractedItemCount: 1,
+        firstLineNumber: 1,
+        lastLineNumber: 1,
+        missingLineNumbers: [2, 3],
+        evidence: "Somente a primeira linha foi extraída.",
+      },
+      items: [{
+        lineNumber: 1,
+        description: "Cerveja sintética",
+        quantity: "1",
+        unitPrice: "20.00",
+        totalAmount: "20.00",
+      }],
+    }),
+  });
+
+  assert.equal(positive.coveredAreas.includes("ALCOHOL"), true);
+  assert.equal(positive.findings.some((finding) => finding.code === "ALCOHOL_ITEM"), true);
+  assert.equal(positive.coveredAreas.includes("PERSONAL_HYGIENE"), false);
+});
+
+test("cobertura completa permite registrar ausência verificada nas categorias universais", () => {
+  const complete = evaluateUniversalRules({ invoice: invoice() });
+  assert.equal(complete.coveredAreas.includes("ALCOHOL"), true);
+  assert.equal(complete.coveredAreas.includes("PERSONAL_HYGIENE"), true);
+});
+
 test("detecta divergência do total e de quantidade vezes preço", () => {
   const result = evaluateUniversalRules({
     invoice: invoice({ totalAmount: "30.00", items: [{ lineNumber: 1, description: "Cimento", quantity: "2", unitPrice: "10.00", totalAmount: "25.00" }] }),
@@ -199,15 +256,15 @@ test("não sinaliza como erro aritmético um desconto explícito e reconciliado"
   );
 });
 
-test("não inventa divergência de data ou valor no item 19 conciliado", () => {
+test("não inventa divergência de data ou valor em item sintético conciliado", () => {
   const result = evaluateUniversalRules({
     invoice: invoice({
       documentKind: "REIMBURSEMENT",
-      totalAmount: "551.90",
+      totalAmount: "180.00",
       items: [
         {
-          lineNumber: 19,
-          description: "Casa da Uva — lanche",
+          lineNumber: 7,
+          description: "Lanche sintético",
           countsTowardDocumentTotal: true,
           quantity: "1",
           unitPrice: "18.00",
@@ -217,24 +274,24 @@ test("não inventa divergência de data ou valor no item 19 conciliado", () => {
               kind: "SHEET",
               label: "Ficha de reembolso",
               amount: "18.00",
-              date: "2026-05-27",
-              page: 1,
-              text: "Item 19 — R$ 18,00",
+              date: "2026-08-10",
+              page: 2,
+              text: "Item 7 — R$ 18,00",
             },
             {
               kind: "RECEIPT",
               label: "Recibo manuscrito",
               amount: "18.00",
-              date: "2026-05-27",
-              page: 20,
+              date: "2026-08-10",
+              page: 3,
               text: "Lanche — R$ 18,00",
             },
             {
               kind: "PAYMENT",
-              label: "Cartão Casa da Uva",
+              label: "Cartão sintético",
               amount: "18.00",
-              date: "2026-05-27",
-              page: 20,
+              date: "2026-08-10",
+              page: 3,
               text: "Valor R$ 18,00",
             },
           ],
@@ -246,8 +303,8 @@ test("não inventa divergência de data ou valor no item 19 conciliado", () => {
   assert.equal(
     result.findings.some(
       (finding) =>
-        finding.code === "EVIDENCE_AMOUNT_MISMATCH_19" ||
-        finding.code === "EVIDENCE_DATE_MISMATCH_19",
+        finding.code === "EVIDENCE_AMOUNT_MISMATCH_7" ||
+        finding.code === "EVIDENCE_DATE_MISMATCH_7",
     ),
     false,
   );
@@ -638,8 +695,8 @@ test("reconcilia datas internas como achado objetivo, não contexto", () => {
       documentKind: "REIMBURSEMENT",
       items: [
         {
-          lineNumber: 8,
-          description: "Restaurante Fazendinha",
+          lineNumber: 4,
+          description: "Despesa sintética de alimentação",
           quantity: "1",
           unitPrice: "15.00",
           totalAmount: "15.00",
@@ -648,17 +705,17 @@ test("reconcilia datas internas como achado objetivo, não contexto", () => {
               kind: "SHEET",
               label: "Ficha",
               amount: "15.00",
-              date: "2026-05-19",
-              page: 9,
-              text: "Data 19/05/2026",
+              date: "2026-08-11",
+              page: 4,
+              text: "Data 11/08/2026",
             },
             {
               kind: "PAYMENT",
               label: "Pagamento",
               amount: "15.00",
-              date: "2026-05-18",
-              page: 9,
-              text: "Pagamento 18/05/2026",
+              date: "2026-08-10",
+              page: 4,
+              text: "Pagamento 10/08/2026",
             },
           ],
         },
@@ -668,7 +725,7 @@ test("reconcilia datas internas como achado objetivo, não contexto", () => {
 
   assert.equal(
     result.findings.some(
-      (finding) => finding.code === "EVIDENCE_DATE_MISMATCH_8",
+      (finding) => finding.code === "EVIDENCE_DATE_MISMATCH_4",
     ),
     true,
   );

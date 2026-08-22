@@ -23,11 +23,22 @@ const finding = {
   noteItemLineNumber: 1,
 };
 
+const aiFinding = {
+  ...finding,
+  evidence: {
+    summary: "O valor observado foi R$ 120,00.",
+    field: "items[0].unitPrice",
+    source: "documento:página:1",
+    page: 1,
+    lineNumber: 1,
+  },
+};
+
 test("aceita descoberta explicável e rejeita campos extras", () => {
   assert.equal(harnessFindingSchema.safeParse(finding).success, true);
   assert.equal(harnessFindingSchema.safeParse({ ...finding, chainOfThought: "segredo" }).success, false);
   assert.equal(aiDiscoveryResponseSchema.safeParse({
-  findings: [finding],
+  findings: [aiFinding],
   coverage: { sufficientEvidence: true, checkedAreas: ["PRICE"], limitations: [] },
     contextQuestions: [],
     needsContext: false,
@@ -66,7 +77,35 @@ test("JSON Schema replica os limites defensivos centrais do contrato Zod", () =>
     maximum: 1,
   });
   assert.equal(findingProperties.references.maxItems, 100);
+  assert.equal(AI_DISCOVERY_JSON_SCHEMA.properties.findings.maxItems, 50);
+  assert.equal(findingProperties.noteItemLineNumber.minimum, 1);
+  assert.equal(findingProperties.evidence.properties.page.minimum, 1);
+  assert.equal(findingProperties.expectedValue.maxLength, 1000);
   assert.equal(coverageProperties.checkedAreas.maxItems, 30);
   assert.equal(coverageProperties.limitations.maxItems, 30);
   assert.equal(AI_DISCOVERY_JSON_SCHEMA.properties.summary.maxLength, 4000);
+});
+
+test("contrato de descoberta rejeita evidência arbitrária e valores não textuais", () => {
+  const base = {
+    findings: [aiFinding],
+    coverage: { sufficientEvidence: true, checkedAreas: ["PRICE"], limitations: [] },
+    contextQuestions: [],
+    needsContext: false,
+    summary: "Auditoria concluída.",
+  };
+
+  assert.equal(aiDiscoveryResponseSchema.safeParse(base).success, true);
+  assert.equal(aiDiscoveryResponseSchema.safeParse({
+    ...base,
+    findings: [{ ...aiFinding, evidence: { observed: "120.00" } }],
+  }).success, false);
+  assert.equal(aiDiscoveryResponseSchema.safeParse({
+    ...base,
+    findings: [{ ...aiFinding, expectedValue: 80 }],
+  }).success, false);
+  assert.equal(aiDiscoveryResponseSchema.safeParse({
+    ...base,
+    findings: [{ ...aiFinding, noteItemLineNumber: 0 }],
+  }).success, false);
 });

@@ -14,7 +14,7 @@ import {
 const validExtraction = {
   currency: "BRL",
   documentKind: "FISCAL_INVOICE",
-  documentNumber: "1322",
+  documentNumber: "SYNTH-001",
   issuedAt: "2026-07-31",
   items: [
     {
@@ -31,10 +31,10 @@ const validExtraction = {
       unitPrice: "7.00",
     },
   ],
-  markdown: "NF-e 1322 com total de R$ 1.148,50.",
+  markdown: "NF-e sintética com total de R$ 1.148,50.",
   readConfidence: 0.99,
   requiredFieldChecks: [],
-  supplierName: "NEURACY ARGOLO COSTA",
+  supplierName: "Fornecedor Sintético Ltda.",
   supplierTaxId: null,
   totalAmount: "1148.50",
   warnings: [],
@@ -225,28 +225,28 @@ test("preserva separadamente ficha, venda e pagamento em documento composto", ()
     currency: "BRL",
     documentKind: "REEMBOLSO",
     documentNumber: null,
-    issuedAt: "27/05/2026",
+    issuedAt: "10/08/2026",
     items: [
       {
-        code: "19",
+        code: "7",
         countsTowardDocumentTotal: true,
-        description: "Casa da Uva",
+        description: "Despesa sintética",
         evidenceObservations: [
-          { kind: "FICHA", documentGroup: "casa-uva-19", amount: "18,00", date: "27/05/2026", page: 20 },
-          { kind: "CARTAO", document_group: "casa-uva-19", amount: "28,00", date: "27/05/2026", page: 20 },
+          { kind: "FICHA", documentGroup: "grupo-sintetico-7", amount: "18,00", date: "10/08/2026", page: 3 },
+          { kind: "CARTAO", document_group: "grupo-sintetico-7", amount: "28,00", date: "10/08/2026", page: 3 },
         ],
-        lineNumber: 19,
+        lineNumber: 7,
         quantity: "1",
         totalAmount: "18,00",
         unit: null,
         unitPrice: "18,00",
       },
     ],
-    markdown: "Ficha de reembolso — item 19 — Casa da Uva.",
+    markdown: "Ficha sintética de reembolso — item 7.",
     readConfidence: 0.98,
     supplierName: null,
     supplierTaxId: null,
-    totalAmount: "551,90",
+    totalAmount: "180,00",
     warnings: [],
   });
 
@@ -265,7 +265,7 @@ test("preserva separadamente ficha, venda e pagamento em documento composto", ()
   );
   assert.deepEqual(
     parsed.data.items[0]?.evidenceObservations.map((entry) => entry.documentGroup),
-    ["casa-uva-19", "casa-uva-19"],
+    ["grupo-sintetico-7", "grupo-sintetico-7"],
   );
 });
 

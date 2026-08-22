@@ -82,15 +82,9 @@ function optionLabels(options: unknown) {
   });
 }
 
-/**
- * Some early provider responses produced opaque placeholder labels (for
- * example "All Violet"/"All Filet") instead of a question-specific choice.
- * They are not useful to the sender and should never be rendered as a
- * select.  Keeping this normalization at the public boundary also makes old
- * rows safe without requiring a destructive data migration.
- */
+/** Opaque provider placeholders are never useful as public select options. */
 function isOpaqueOptionLabel(label: string) {
-  return /^(?:all\s+(?:violet|filet)|option\s*\d+|choice\s*[a-z]|value\s*\d+)$/i.test(
+  return /^(?:(?:all|any|unknown|undefined|null)\b.*|option\s*\d+|choice\s*[a-z0-9]+|value\s*\d+)$/i.test(
     label.trim(),
   );
 }

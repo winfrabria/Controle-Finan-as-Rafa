@@ -1,8 +1,8 @@
 export const HARNESS_VERSIONS = {
-  policy: "2026-08-14.2",
-  prompt: "2026-08-14.2",
-  schema: "2026-08-14.2",
-  rules: "2026-08-14.2",
+  policy: "2026-08-21.1",
+  prompt: "2026-08-21.1",
+  schema: "2026-08-21.1",
+  rules: "2026-08-21.1",
 } as const;
 
 export const HARNESS_MODEL = "openai/gpt-5.6-terra" as const;
@@ -11,6 +11,7 @@ export const HARNESS_PDF_MODEL = "openai/gpt-5.6-terra" as const;
 export const AUDIT_EVALUATOR_MODELS = [
   HARNESS_MODEL,
   "openai/gpt-5.6-luna",
+  "google/gemini-3.7-flash",
   "google/gemini-3.6-flash",
   "openai/gpt-5.6-sol",
 ] as const;

@@ -36,3 +36,37 @@ test("remove segredos e raciocínio embutidos em contextSummary e outros textos 
   assert.match(serialized, /Análise concluída/);
 });
 
+test("remove credenciais genéricas sem apagar métricas de tokens", () => {
+  const sanitized = sanitizeForPersistence({
+    token: "token-field",
+    access_token: "access-field",
+    refreshToken: "refresh-field",
+    authToken: "auth-field",
+    jwt: "jwt-field",
+    csrf_token: "csrf-field",
+    nonce: "nonce-field",
+    secret: "secret-field",
+    client_secret: "client-field",
+    password: "password-field",
+    cookie: "session=field",
+    nested: [{ sessionId: "session-field", safe: "preservado" }],
+    promptTokens: 120,
+    completionTokens: 30,
+    totalTokens: 150,
+    text: [
+      "token=token-text",
+      "secret: secret-text",
+      "password=password-text",
+      "cookie: cookie-text",
+      "Métrica totalTokens=150 permanece apenas como texto comum.",
+    ].join("\n"),
+  });
+  const serialized = JSON.stringify(sanitized);
+
+  assert.doesNotMatch(serialized, /token-field|access-field|refresh-field|auth-field|jwt-field|csrf-field|nonce-field|secret-field|client-field|password-field|session=field|session-field|token-text|secret-text|password-text|cookie-text/);
+  assert.match(serialized, /preservado/);
+  assert.match(serialized, /"promptTokens":120/);
+  assert.match(serialized, /"completionTokens":30/);
+  assert.match(serialized, /"totalTokens":150/);
+});
+

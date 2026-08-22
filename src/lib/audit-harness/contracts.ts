@@ -70,13 +70,26 @@ export const harnessFindingSchema = z
   })
   .strict();
 
+const aiDiscoveryEvidenceSchema = z
+  .object({
+    summary: z.string().trim().min(1).max(2_000),
+    field: z.string().trim().min(1).max(200).nullable(),
+    source: z.string().trim().min(1).max(500).nullable(),
+    page: z.number().int().positive().nullable(),
+    lineNumber: z.number().int().positive().nullable(),
+  })
+  .strict();
+
+export const aiDiscoveryFindingSchema = harnessFindingSchema.extend({
+  source: z.literal("AI_DISCOVERY"),
+  evidence: aiDiscoveryEvidenceSchema,
+  expectedValue: z.string().trim().max(1_000).nullable(),
+  actualValue: z.string().trim().max(1_000).nullable(),
+});
+
 export const aiDiscoveryResponseSchema = z
   .object({
-    findings: z.array(
-      harnessFindingSchema.extend({
-        source: z.literal("AI_DISCOVERY"),
-      }),
-    ).max(50),
+    findings: z.array(aiDiscoveryFindingSchema).max(50),
     coverage: z
       .object({
         sufficientEvidence: z.boolean(),
@@ -102,12 +115,16 @@ export const aiDiscoveryResponseSchema = z
   });
 
 export const AI_DISCOVERY_JSON_SCHEMA = {
+  // O schema enviado ao provedor fixa forma, tipos e limites suportados por
+  // Structured Outputs. Regras cruzadas (options por tipo e needsContext)
+  // passam pela normalização canônica e pelo Zod antes de qualquer uso.
   type: "object",
   additionalProperties: false,
   required: ["findings", "coverage", "needsContext", "contextQuestions", "summary"],
   properties: {
     findings: {
       type: "array",
+      maxItems: 50,
       items: {
         type: "object",
         additionalProperties: false,
@@ -135,16 +152,16 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
             additionalProperties: false,
             required: ["summary", "field", "source", "page", "lineNumber"],
             properties: {
-              summary: { type: "string" },
-              field: { type: ["string", "null"] },
-              source: { type: ["string", "null"] },
-              page: { type: ["integer", "null"] },
-              lineNumber: { type: ["integer", "null"] },
+              summary: { type: "string", minLength: 1, maxLength: 2000 },
+              field: { type: ["string", "null"], minLength: 1, maxLength: 200 },
+              source: { type: ["string", "null"], minLength: 1, maxLength: 500 },
+              page: { type: ["integer", "null"], minimum: 1 },
+              lineNumber: { type: ["integer", "null"], minimum: 1 },
             },
           },
-          expectedValue: { type: ["string", "null"] },
-          actualValue: { type: ["string", "null"] },
-          noteItemLineNumber: { type: ["integer", "null"] },
+          expectedValue: { type: ["string", "null"], maxLength: 1000 },
+          actualValue: { type: ["string", "null"], maxLength: 1000 },
+          noteItemLineNumber: { type: ["integer", "null"], minimum: 1 },
         },
       },
     },
@@ -179,6 +196,7 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
           options: {
             type: "array",
             maxItems: 10,
+            uniqueItems: true,
             items: {
               type: "object",
               additionalProperties: false,

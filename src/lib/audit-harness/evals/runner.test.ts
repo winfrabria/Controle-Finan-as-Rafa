@@ -51,6 +51,10 @@ test("todos os casos dourados do fixture passam no modo offline", () => {
   assert.equal(report.totals.failed, 0);
   assert.equal(report.mode, "offline");
   assert.equal(report.metrics.classificationAccuracy, 1);
+  assert.equal(report.metrics.classificationMacroPrecision, 1);
+  assert.equal(report.metrics.classificationMacroRecall, 1);
+  assert.equal(report.metrics.classificationMacroF1, 1);
+  assert.ok(Object.keys(report.metrics.classificationByLabel).length >= 4);
   assert.equal(report.metrics.schemaValidityRate, 1);
   assert.equal(report.metrics.coverageAreaViolations, 0);
   assert.equal(report.metrics.forbiddenOutputViolations, 0);
@@ -103,7 +107,9 @@ test("pergunta de contexto proibida reprova o caso", () => {
     (goldenCase) => goldenCase.id === "external-context-legitimate-question",
   );
   assert.ok(target);
-  target.expectations.forbiddenContextQuestionCodes.push("OBRA_LIMITE_COMBUSTIVEL");
+  const emittedCode = target.input.aiDiscovery?.contextQuestions[0]?.code;
+  assert.ok(emittedCode);
+  target.expectations.forbiddenContextQuestionCodes.push(emittedCode);
   const report = runGoldenCases(cases);
   const result = report.results.find((entry) => entry.id === target.id);
   assert.equal(result?.passed, false);
@@ -179,6 +185,9 @@ test("resumo legível menciona totais, métricas e casos reprovados", () => {
   const summary = formatReadableSummary(report);
   assert.match(summary, /Casos: 20 · aprovados: 20 · reprovados: 0/);
   assert.match(summary, /acurácia de classificação: 100\.0%/);
+  assert.match(summary, /precisão macro: 100\.0%/);
+  assert.match(summary, /recall macro: 100\.0%/);
+  assert.match(summary, /F1 macro: 100\.0%/);
   assert.doesNotMatch(summary, /\[FAIL\]/);
 
   const failing = structuredClone(loadCases());

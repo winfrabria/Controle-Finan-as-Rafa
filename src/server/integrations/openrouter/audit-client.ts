@@ -49,12 +49,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 const POLICY_QUESTION_PATTERN =
-  /\b(?:quais?|qual)\s+(?:regras?|pol[ií]ticas?|crit[eé]rios?|par[aâ]metros?|limites?)\b|\b(?:defina|estabele[çc]a|informe)\s+(?:as?\s+)?(?:regras?|pol[ií]ticas?|crit[eé]rios?|par[aâ]metros?|limites?)\b/i;
+  /\b(?:quais?|qual)\s+(?:regras?|pol[ií]ticas?|crit[eé]rios?|par[aâ]metros?|limites?)\b|\b(?:defina|estabele[çc]a|informe)\s+(?:as?\s+)?(?:regras?|pol[ií]ticas?|crit[eé]rios?|par[aâ]metros?|limites?)\b|\b(?:what|which)\s+(?:rules?|polic(?:y|ies)|criteria|parameters?|limits?)\b|\b(?:define|establish|provide|set)\s+(?:the\s+)?(?:rules?|polic(?:y|ies)|criteria|parameters?|limits?)\b/i;
 const OPAQUE_OPTION_PATTERN = /^(?:all|any|unknown|undefined|null)\b/i;
 
 function usableSelectOptions(options: unknown) {
   if (!Array.isArray(options)) return [];
-  const seen = new Set<string>();
+  const seenLabels = new Set<string>();
+  const seenValues = new Set<string>();
   return options.flatMap((option) => {
     if (!isRecord(option)) return [];
     const label = typeof option.label === "string" ? option.label.trim() : "";
@@ -65,11 +66,14 @@ function usableSelectOptions(options: unknown) {
       label.length > 160 ||
       value.length > 80 ||
       OPAQUE_OPTION_PATTERN.test(label) ||
-      seen.has(label.toLocaleLowerCase("pt-BR"))
+      OPAQUE_OPTION_PATTERN.test(value) ||
+      seenLabels.has(label.toLocaleLowerCase("pt-BR")) ||
+      seenValues.has(value.toLocaleLowerCase("pt-BR"))
     ) {
       return [];
     }
-    seen.add(label.toLocaleLowerCase("pt-BR"));
+    seenLabels.add(label.toLocaleLowerCase("pt-BR"));
+    seenValues.add(value.toLocaleLowerCase("pt-BR"));
     return [{ label, value }];
   });
 }

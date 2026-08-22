@@ -245,16 +245,53 @@ test("descarta pergunta que transfere a definição de política para quem envia
   assert.equal(normalized.needsContext, false);
 });
 
+test("descarta também pergunta de política equivalente em inglês", () => {
+  const normalized = normalizeAuditContent({
+    contextQuestions: [{
+      code: "CTX-POLICY-EN",
+      options: [],
+      prompt: "Which policies should be applied to meal expenses?",
+      rationale: "The policy is not present in the document.",
+      required: true,
+      type: "TEXT",
+    }],
+    needsContext: true,
+  }) as { contextQuestions: unknown[]; needsContext: boolean };
+
+  assert.deepEqual(normalized.contextQuestions, []);
+  assert.equal(normalized.needsContext, false);
+});
+
 test("converte seleção com opções opacas em resposta de texto", () => {
   const normalized = normalizeAuditContent({
     contextQuestions: [{
       code: "CTX-VEHICLE",
       options: [
-        { label: "All Violet", value: "all-violet" },
-        { label: "All Filet", value: "all-filet" },
+        { label: "Unknown option A", value: "unknown-a" },
+        { label: "Unknown option B", value: "unknown-b" },
       ],
       prompt: "Qual placa aparece no controle de abastecimento?",
       rationale: "A placa identifica o veículo.",
+      required: true,
+      type: "SINGLE_SELECT",
+    }],
+    needsContext: true,
+  }) as { contextQuestions: Array<{ options: unknown[]; type: string }> };
+
+  assert.equal(normalized.contextQuestions[0]?.type, "TEXT");
+  assert.deepEqual(normalized.contextQuestions[0]?.options, []);
+});
+
+test("deduplica opções também pelo valor antes da validação estrutural", () => {
+  const normalized = normalizeAuditContent({
+    contextQuestions: [{
+      code: "CTX-SYNTHETIC",
+      options: [
+        { label: "Primeira opção", value: "same-value" },
+        { label: "Segunda opção", value: "same-value" },
+      ],
+      prompt: "Qual alternativa consta no controle externo?",
+      rationale: "A alternativa depende de um cadastro externo.",
       required: true,
       type: "SINGLE_SELECT",
     }],

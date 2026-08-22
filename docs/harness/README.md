@@ -10,8 +10,8 @@ O Harness transforma uma extração validada em uma decisão auditável. A ordem
 6. matriz de decisão;
 7. persistência de achados, métricas e diagnóstico.
 
-Política do código: `2026-08-14.2`; prompt: `2026-08-14.2`; regras: `2026-08-14.2`; schema:
-`2026-08-14.2`. Os artefatos versionados ficam nas pastas
+Política do código: `2026-08-21.1`; prompt: `2026-08-21.1`; regras: `2026-08-21.1`; schema:
+`2026-08-21.1`. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
 versão ativa.

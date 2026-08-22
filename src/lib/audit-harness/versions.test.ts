@@ -32,6 +32,10 @@ test("modelos explicitamente diferentes continuam configuráveis", () => {
 test("troca o avaliador somente pela variável experimental explícita", () => {
   assert.equal(resolveAuditEvaluatorModel(undefined), HARNESS_MODEL);
   assert.equal(
+    resolveAuditEvaluatorModel("google/gemini-3.7-flash"),
+    "google/gemini-3.7-flash",
+  );
+  assert.equal(
     resolveAuditEvaluatorModel("google/gemini-3.6-flash"),
     "google/gemini-3.6-flash",
   );

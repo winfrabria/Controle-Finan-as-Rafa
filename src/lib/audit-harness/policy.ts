@@ -45,10 +45,28 @@ export function selectReasoningEffort(
     triggers.push("MULTIPLE_EXTRACTION_WARNINGS");
   }
 
-  return { effort: AUDIT_POLICY.defaultReasoningEffort, triggers };
+  return {
+    effort: triggers.length > 0 ? "xhigh" : AUDIT_POLICY.defaultReasoningEffort,
+    triggers,
+  };
+}
+
+function hasInvalidExplicitTotalLayer(invoice: HarnessInvoice) {
+  if (invoice.totalAmount === null || invoice.items.length === 0) return false;
+  const hasExplicitLayer = invoice.items.some(
+    (item) => item.countsTowardDocumentTotal !== undefined,
+  );
+  return (
+    hasExplicitLayer &&
+    !invoice.items.some((item) => item.countsTowardDocumentTotal === true)
+  );
 }
 
 export function isReadFailure(invoice: HarnessInvoice) {
+  // A total sem nenhuma linha contabilizável é uma extração estruturalmente
+  // inválida. Encerrar como OK esconderia a falta de cobertura; o anexo deve
+  // ser reprocessado ou revisado como falha de leitura.
+  if (hasInvalidExplicitTotalLayer(invoice)) return true;
   const ocrFallback = isOcrFallbackExtraction(invoice);
   const ocrHasFinancialSignal =
     ocrFallback &&

@@ -382,13 +382,13 @@
         "invoice": {
           "documentKind": "FISCAL_INVOICE",
           "documentNumber": "NFE-EXEMPLO-0005",
-          "supplierName": "Posto Sintetico Ltda",
+          "supplierName": "Restaurante Sintetico Ltda",
           "supplierTaxId": "11222333000181",
           "issuedAt": "2026-08-15",
-          "totalAmount": "600.00",
+          "totalAmount": "800.00",
           "readConfidence": 0.96,
           "warnings": [],
-          "markdown": "# Nota fiscal sintetica de combustivel\n\nAbastecimentos consolidados em uma linha, sem relatorio detalhado no fixture.",
+          "markdown": "# Nota fiscal sintetica de alimentacao\n\nForam registradas 40 refeicoes para a equipe da obra. O documento nao informa quantas pessoas foram atendidas nem o periodo de consumo.",
           "itemCoverage": {
             "status": "COMPLETE",
             "declaredItemCount": 1,
@@ -401,10 +401,10 @@
           "items": [
             {
               "lineNumber": 1,
-              "description": "Combustivel diesel sintetico",
-              "quantity": "100",
-              "unitPrice": "6.00",
-              "totalAmount": "600.00"
+              "description": "Refeicoes para equipe da obra",
+              "quantity": "40",
+              "unitPrice": "20.00",
+              "totalAmount": "800.00"
             }
           ]
         },
@@ -418,12 +418,12 @@
           "needsContext": true,
           "contextQuestions": [
             {
-              "code": "OBRA_LIMITE_COMBUSTIVEL",
+              "code": "QUANTIDADE_PESSOAS_ATENDIDAS",
               "options": [],
-              "prompt": "A obra possui limite vigente para despesas de combustivel nesta competencia?",
-              "rationale": "Fato externo que mudaria a conclusao e nao pode ser inferido do anexo.",
+              "prompt": "Quantas pessoas foram atendidas por essas 40 refeicoes e em qual periodo?",
+              "rationale": "A quantidade de pessoas e o periodo de consumo sao fatos operacionais externos que mudam a avaliacao e nao constam no anexo.",
               "required": true,
-              "type": "BOOLEAN"
+              "type": "TEXT"
             }
           ],
           "summary": "Resumo sintetico gravado para replay offline."
@@ -432,7 +432,6 @@
       },
       "expectations": {
         "acceptableClassifications": ["NEEDS_CONTEXT"],
-        "requiredContextQuestionCodes": ["OBRA_LIMITE_COMBUSTIVEL"],
         "forbiddenFindingCodes": ["TOTAL_MISMATCH", "ALCOHOL_ITEM"],
         "maxSemanticDuplicates": 0
       }

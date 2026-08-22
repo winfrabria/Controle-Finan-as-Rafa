@@ -852,7 +852,7 @@ export function evaluateUniversalRules(input: {
       }));
     }
   }
-  if (invoice.items.length > 0) {
+  if (hasCompleteItemCoverage(invoice)) {
     coveredAreas.add("ALCOHOL");
     coveredAreas.add("PERSONAL_HYGIENE");
   }

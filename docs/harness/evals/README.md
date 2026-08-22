@@ -15,6 +15,9 @@ npx tsx scripts/run-harness-evals.ts --cases <caminho.json> --out <relatorio.jso
 
 # Testes unitários do contrato e do runner
 npm run test:harness-evals
+
+# Benchmark online controlado (gera custo e exige chave no ambiente)
+npm run evals:harness:online -- --models openai/gpt-5.6-luna,openai/gpt-5.6-terra,google/gemini-3.7-flash,openai/gpt-5.6-sol
 ```
 
 Código de saída: `0` quando todos os casos passam; `1` quando algum caso
@@ -78,8 +81,29 @@ Por caso, além das expectativas declaradas:
 O relatório JSON agrega as métricas do PRD §5 que são computáveis offline:
 acurácia de classificação, validade de schema, violações de evidência, achados
 proibidos, taxa de duplicação semântica e violações de perguntas de contexto.
+O relatório também publica precisão, recall e F1 macro multiclasses, além da
+matriz por classificação. O comando `npm run test:harness` incorpora os testes
+do contrato, runner e red-team RT1–RT9; os evals deixam de ser um gate separado
+e opcional.
 Campos de custo/latência aparecem como telemetria não avaliada (`evaluated:
 false`) no modo offline; nenhum provedor é chamado.
+
+## Benchmark online controlado
+
+`scripts/benchmark-harness-models.ts` compara somente o avaliador sobre as
+mesmas entradas sintéticas estruturadas. Ele não envia PDF real, não lê o
+banco e não altera o modelo de produção. Para evitar gasto acidental, a flag
+`--online` é obrigatória; o script de `package.json` já a fornece.
+
+A comparação fixa esforço `high`, desliga pesquisa web, usa duas tentativas
+por modelo e proíbe fallback entre modelos. O relatório fica em
+`.codex/benchmarks/` e registra aprovação por caso, checks reprovados, modelo
+efetivamente atendido, tentativas, p50/p95, tokens e custo. Por padrão são
+usados quatro casos sentinela; `--case-ids` permite selecionar outros casos do
+mesmo corpus, e `--repetitions 1..5` mede estabilidade sem paralelizar chamadas.
+Isso mede a etapa de avaliação. Extração multimodal de PDF deve
+ser comparada separadamente, com o mesmo arquivo sanitizado e verdade de
+referência, para não confundir erro de leitura com erro de decisão.
 
 ## Fixtures atuais
 

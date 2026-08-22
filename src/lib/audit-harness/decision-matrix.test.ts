@@ -90,6 +90,44 @@ test("confiança baixa continua falhando quando não há evidência estrutural s
   );
 });
 
+test("camada total explicitamente vazia nunca encerra a auditoria como OK", () => {
+  const invalidLayer: HarnessInvoice = {
+    ...sparseInvoice,
+    totalAmount: "100.00",
+    markdown: "Documento sintético com total e duas linhas extraídas.",
+    itemCoverage: {
+      status: "COMPLETE",
+      declaredItemCount: 2,
+      extractedItemCount: 2,
+      firstLineNumber: 1,
+      lastLineNumber: 2,
+      missingLineNumbers: [],
+      evidence: "A extração declarou cobertura completa.",
+    },
+    items: [
+      {
+        lineNumber: 1,
+        description: "Linha sintética A",
+        countsTowardDocumentTotal: false,
+        quantity: "1",
+        unitPrice: "60.00",
+        totalAmount: "60.00",
+      },
+      {
+        lineNumber: 2,
+        description: "Linha sintética B",
+        countsTowardDocumentTotal: false,
+        quantity: "1",
+        unitPrice: "30.00",
+        totalAmount: "30.00",
+      },
+    ],
+  };
+
+  assert.equal(isReadFailure(invalidLayer), true);
+  assert.equal(evaluateHarness({ invoice: invalidLayer }).classification, "READ_FAILED");
+});
+
 test("achado sustentado warning exige classificação suspeita", () => {
   assert.equal(decideClassification({
     readFailed: false,
@@ -134,7 +172,7 @@ test("observação informativa da IA não é persistida como achado do revisor",
         confidence: 0.95,
         justification: "Não existe divergência financeira comprovada.",
         references: ["DOCUMENTO:página:1"],
-        evidence: { field: "formato", summary: "Apresentação agregada e reconciliada." },
+        evidence: { field: "formato", source: "DOCUMENTO:página:1", page: 1, lineNumber: null, summary: "Apresentação agregada e reconciliada." },
         expectedValue: "Valores reconciliados",
         actualValue: "Valores reconciliados",
         noteItemLineNumber: null,
@@ -164,7 +202,7 @@ test("variação textual de nome sem duas identidades fiscais não vira suspeita
         confidence: 0.91,
         justification: "Os nomes têm grafia diferente.",
         references: ["DOCUMENTO:página:1", "BOLETO:página:2"],
-        evidence: { field: "beneficiário", summary: "Um registro usa nome abreviado." },
+        evidence: { field: "beneficiário", source: "DOCUMENTO:página:1", page: 1, lineNumber: null, summary: "Um registro usa nome abreviado." },
         expectedValue: "Fornecedor Comércio Ltda.",
         actualValue: "Fornecedor Ltda.",
         noteItemLineNumber: null,
@@ -194,7 +232,7 @@ test("associação de placa e equipamento sem cadastro ativo não vira suspeita"
         confidence: 0.88,
         justification: "Os rótulos do equipamento não são iguais.",
         references: ["CONTROLE:página:1"],
-        evidence: { field: "placa", summary: "O controle usa dois rótulos para a mesma placa." },
+        evidence: { field: "identificador", source: "CONTROLE:página:1", page: 1, lineNumber: null, summary: "O controle usa dois rótulos para o mesmo identificador." },
         expectedValue: "Um equipamento por placa",
         actualValue: "Dois rótulos operacionais",
         noteItemLineNumber: null,
@@ -224,7 +262,7 @@ test("divergência objetiva com valores e localização continua sustentando sus
         confidence: 0.94,
         justification: "Os dois valores estão legíveis e pertencem à mesma despesa.",
         references: ["FICHA:página:1", "COMPROVANTE:página:2"],
-        evidence: { field: "valor", page: 2, summary: "Ficha e comprovante registram valores diferentes." },
+        evidence: { field: "valor", source: "COMPROVANTE:página:2", page: 2, lineNumber: null, summary: "Ficha e comprovante registram valores diferentes." },
         expectedValue: "100.00",
         actualValue: "120.00",
         noteItemLineNumber: 1,
@@ -303,7 +341,7 @@ test("lacuna de cobertura impede falso total divergente e deduplica a mesma dife
         confidence: 1,
         justification: "A extração termina antes das linhas referenciadas.",
         references: ["DOCUMENTO:página:1"],
-        evidence: { page: 1, summary: "Faltam linhas 25 a 37." },
+        evidence: { field: null, source: "DOCUMENTO:página:1", page: 1, lineNumber: null, summary: "Faltam linhas 25 a 37." },
         expectedValue: "Linhas 1 a 37",
         actualValue: "Linhas 1 a 24",
         noteItemLineNumber: null,
@@ -384,25 +422,25 @@ test("reanálise após contexto sempre termina em OK ou suspeita", () => {
 
 const objectiveQuestions = [
   {
-    code: "CTX-DATE-FAZENDINHA",
+    code: "CTX-INTERNAL-DATE",
     options: [],
-    prompt: "Por que a ficha registra a despesa do Restaurante Fazendinha em 19/05/2026, se o pedido e o pagamento de R$ 15,00 são de 18/05/2026?",
+    prompt: "Por que a ficha sintética registra a despesa em 11/08/2026, se o pedido e o pagamento de R$ 10,00 são de 10/08/2026?",
     rationale: "A ficha e o comprovante apresentam datas diferentes.",
     required: true,
     type: "TEXT" as const,
   },
   {
-    code: "CTX-AMOUNT-JEQUITAI",
+    code: "CTX-INTERNAL-AMOUNT-A",
     options: [],
-    prompt: "A venda da trena no Depósito Jequitaí, de R$ 44,50, recebeu desconto, cancelamento parcial ou outro ajuste para resultar no pagamento de R$ 40,00?",
+    prompt: "A venda sintética de R$ 45,00 recebeu desconto, cancelamento parcial ou outro ajuste para resultar no pagamento de R$ 40,00?",
     rationale: "O valor da venda e o valor pago divergem.",
     required: true,
     type: "TEXT" as const,
   },
   {
-    code: "CTX-AMOUNT-UVA",
+    code: "CTX-INTERNAL-AMOUNT-B",
     options: [],
-    prompt: "Por que o cartão da Casa da Uva registra R$ 28,00 em 27/05/2026, enquanto o recibo e a ficha solicitam R$ 18,00?",
+    prompt: "Por que o cartão sintético registra R$ 30,00 em 12/08/2026, enquanto o recibo e a ficha solicitam R$ 20,00?",
     rationale: "Os valores do cartão e da ficha são diferentes.",
     required: true,
     type: "TEXT" as const,
