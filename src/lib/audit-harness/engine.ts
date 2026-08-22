@@ -70,11 +70,71 @@ function findingAlreadyCoversValues(
   findings: HarnessFinding[],
   values: string[],
 ) {
-  return findings.some((finding) => {
-    const serialized = normalizeComparableToken(JSON.stringify(finding) ?? "");
-    return values.every((value) =>
-      serialized.includes(normalizeComparableToken(value)),
+  const comparableValue = (value: string | number) => {
+    const raw = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return `date:${raw}`;
+    const localDate = raw.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/,
     );
+    if (localDate) {
+      const year =
+        localDate[3].length === 2 ? `20${localDate[3]}` : localDate[3];
+      const month = localDate[2].padStart(2, "0");
+      const day = localDate[1].padStart(2, "0");
+      return `date:${year}-${month}-${day}`;
+    }
+
+    const normalized = raw
+      .replace(/^R\$\s*/i, "")
+      .replace(/\s+/g, "");
+    const monetary = normalized.includes(",")
+      ? normalized.replaceAll(".", "").replace(",", ".")
+      : normalized;
+    if (/^-?\d+(?:\.\d+)?$/.test(monetary)) {
+      const parsed = Number(monetary);
+      if (Number.isFinite(parsed)) return `number:${parsed.toFixed(2)}`;
+    }
+
+    return `text:${normalizeComparableToken(raw)}`;
+  };
+
+  const collectComparableValues = (value: unknown, output: Set<string>) => {
+    if (typeof value === "number") {
+      output.add(comparableValue(value));
+      return;
+    }
+    if (typeof value === "string") {
+      const moneyMatches = value.match(MONEY_TOKEN_PATTERN) ?? [];
+      const dateMatches = value.match(DATE_TOKEN_PATTERN) ?? [];
+      for (const match of [...moneyMatches, ...dateMatches]) {
+        output.add(comparableValue(match));
+      }
+      if (/^(?:R\$\s*)?-?\d+(?:[.,]\d+)?$/i.test(value.trim())) {
+        output.add(comparableValue(value));
+      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+        output.add(comparableValue(value));
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const entry of value) collectComparableValues(entry, output);
+      return;
+    }
+    if (value && typeof value === "object") {
+      for (const entry of Object.values(value as Record<string, unknown>)) {
+        collectComparableValues(entry, output);
+      }
+    }
+  };
+
+  const expected = new Set(values.map(comparableValue));
+  return findings.some((finding) => {
+    const actual = new Set<string>();
+    collectComparableValues(finding.expectedValue, actual);
+    collectComparableValues(finding.actualValue, actual);
+    collectComparableValues(finding.evidence, actual);
+    return [...expected].every((value) => actual.has(value));
   });
 }
 
@@ -184,7 +244,7 @@ function reconcileFindingPrecedence<T extends {
   evidence: Record<string, unknown>;
   noteItemLineNumber: number | null;
 }>(findings: T[]) {
-  const hasCoverageGap = findings.some(
+  const coverageGaps = findings.filter(
     (finding) =>
       finding.code === "COMPOSITE_DETAIL_COVERAGE_GAP" ||
       finding.code.startsWith("COMPOSITE_PAYMENT_DOCUMENT_GAP"),
@@ -203,7 +263,45 @@ function reconcileFindingPrecedence<T extends {
   );
 
   return findings.filter((finding) => {
-    if (hasCoverageGap && finding.code === "TOTAL_MISMATCH") return false;
+    if (finding.code === "TOTAL_MISMATCH" && coverageGaps.length > 0) {
+      const selectedLineNumbers = Array.isArray(finding.evidence.selectedLineNumbers)
+        ? finding.evidence.selectedLineNumbers.filter(
+            (value): value is number => typeof value === "number",
+          )
+        : [];
+      const documentGroups = Array.isArray(finding.evidence.documentGroups)
+        ? finding.evidence.documentGroups
+            .filter((value): value is string => typeof value === "string")
+            .map(normalizeComparableToken)
+        : [];
+
+      const overlapsGap = coverageGaps.some((gap) => {
+        const gapLineNumber =
+          gap.noteItemLineNumber ??
+          (typeof gap.evidence.lineNumber === "number"
+            ? gap.evidence.lineNumber
+            : null);
+        const gapGroup =
+          typeof gap.evidence.documentGroup === "string"
+            ? normalizeComparableToken(gap.evidence.documentGroup)
+            : null;
+
+        if (
+          gapLineNumber !== null &&
+          selectedLineNumbers.includes(gapLineNumber)
+        ) {
+          return true;
+        }
+        if (gapGroup !== null && documentGroups.includes(gapGroup)) {
+          return true;
+        }
+
+        // Um TOTAL_MISMATCH sem localização não pode prevalecer sobre uma
+        // lacuna de cobertura, pois não é possível provar que são camadas distintas.
+        return selectedLineNumbers.length === 0 && documentGroups.length === 0;
+      });
+      if (overlapsGap) return false;
+    }
     if (finding.code !== "ITEM_ARITHMETIC_MISMATCH") return true;
     const lineNumber =
       finding.noteItemLineNumber ??
@@ -324,7 +422,7 @@ export function evaluateHarness(input: {
   );
   const routedContext = routeContextQuestions(
     input.aiDiscovery?.contextQuestions ?? [],
-    aiFindings,
+    [...universal.findings, ...work.findings, ...aiFindings],
   );
   const findings = deduplicateHarnessFindings(
     reconcileFindingPrecedence([
@@ -333,7 +431,11 @@ export function evaluateHarness(input: {
       ...reconciliationSignals,
       ...aiFindings,
       ...routedContext.promotedFindings,
-    ]),
+    ]).filter(
+      (finding) =>
+        finding.code !== "TOTAL_MISMATCH" ||
+        input.invoice.itemCoverage?.status === "COMPLETE",
+    ),
   ).filter(
     (finding) =>
       finding.source !== "AI_DISCOVERY" || finding.severity !== "INFO",

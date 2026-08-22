@@ -53,12 +53,7 @@ function discountReconcilesItem(
   const discountMatch = description.match(
     /desconto[^\d]{0,12}(?:r\$\s*)?(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:\.\d{1,2})?)/i,
   );
-  if (!discountMatch) {
-    // A descrição confirma que o total é líquido de desconto, mas não permite
-    // uma conferência determinística. A auditoria da IA continua responsável
-    // por validar o comprovante sem gerar um falso positivo aritmético local.
-    return true;
-  }
+  if (!discountMatch) return false;
 
   const normalized = discountMatch[1].includes(",")
     ? discountMatch[1].replaceAll(".", "").replace(",", ".")
@@ -111,9 +106,22 @@ function selectItemsForDocumentTotal(
     (item) => item.countsTowardDocumentTotal !== undefined,
   );
   if (hasExplicitSelection) {
+    const selectedItems = invoice.items.filter(
+      (item) => item.countsTowardDocumentTotal === true,
+    );
+    if (selectedItems.length > 0) {
+      return {
+        basis: "EXPLICIT_NON_OVERLAPPING_LAYER",
+        items: selectedItems,
+      };
+    }
+
+    // Uma camada explicitamente vazia invalida a alegação de cobertura
+    // completa. Sem uma camada contabilizável não existe base determinística
+    // segura para comparar a soma com o total declarado.
     return {
-      basis: "EXPLICIT_NON_OVERLAPPING_LAYER",
-      items: invoice.items.filter((item) => item.countsTowardDocumentTotal === true),
+      basis: "INVALID_EMPTY_EXPLICIT_LAYER",
+      items: selectedItems,
     };
   }
 
@@ -322,28 +330,66 @@ function groupedAggregatePaymentFindings(
   const findings: HarnessFinding[] = [];
 
   for (const [group, entries] of groups) {
-    const uniqueItems = [...new Map(entries.map((entry) => [entry.item.lineNumber, entry.item])).values()];
+    const aggregateEntries = entries.filter(
+      ({ item }) =>
+        item.documentRole === "AGGREGATE_PAYMENT" || legacyAggregateCharge(item),
+    );
+    const uniqueItems = [
+      ...new Map(
+        entries
+          .filter(
+            ({ item }) =>
+              item.documentRole !== "AGGREGATE_PAYMENT" &&
+              item.documentRole !== "SUMMARY" &&
+              !legacyAggregateCharge(item),
+          )
+          .map((entry) => [entry.item.lineNumber, entry.item]),
+      ).values(),
+    ];
     const paymentEntries = entries.filter(
       ({ observation }) => observation.kind === "PAYMENT" && decimal(observation.amount) !== null,
     );
-    if (uniqueItems.length < 2 || paymentEntries.length === 0) continue;
+    if (
+      uniqueItems.length === 0 ||
+      (uniqueItems.length < 2 && aggregateEntries.length === 0) ||
+      paymentEntries.length === 0
+    ) {
+      continue;
+    }
 
-    const itemTotal = uniqueItems.reduce((sum, item) => {
-      const total = decimal(item.totalAmount);
-      return total === null ? sum : sum + total;
-    }, 0);
+    const itemTotal = sumItemTotals(uniqueItems);
+    if (itemTotal === null || itemTotal === 0) continue;
+
+    const aggregatePaymentEntries = paymentEntries.filter(({ item }) =>
+      item.documentRole === "AGGREGATE_PAYMENT" || legacyAggregateCharge(item),
+    );
+    const comparedPaymentEntries =
+      aggregatePaymentEntries.length > 0
+        ? aggregatePaymentEntries
+        : paymentEntries;
     const uniquePayments = [
       ...new Map(
-        paymentEntries.map((entry) => [
-          `${entry.observation.page ?? ""}:${entry.observation.amount}`,
+        comparedPaymentEntries.map((entry) => [
+          [
+            entry.observation.documentGroup ?? "",
+            entry.observation.page ?? "",
+            entry.observation.date ?? "",
+            entry.observation.amount ?? "",
+            entry.observation.label ?? "",
+            entry.observation.text ?? "",
+          ].join(":"),
           entry,
         ]),
       ).values(),
     ];
-    const paymentTotal = decimal(uniquePayments[0]?.observation.amount);
-    if (paymentTotal === null || itemTotal === 0) continue;
+    const paymentTotal = uniquePayments.reduce((sum, entry) => {
+      return sum + (decimal(entry.observation.amount) ?? 0);
+    }, 0);
+    if (paymentTotal === 0) continue;
 
-    for (const entry of paymentEntries) reconciledObservations.add(entry.observation);
+    for (const entry of comparedPaymentEntries) {
+      reconciledObservations.add(entry.observation);
+    }
 
     const tolerance = moneyTolerance(paymentTotal);
     if (Math.abs(itemTotal - paymentTotal) <= tolerance) continue;
@@ -371,7 +417,7 @@ function groupedAggregatePaymentFindings(
           field: "valor",
           documentGroup: group,
           pages: [...new Set(entries.map(({ observation }) => observation.page).filter(Boolean))],
-          summary: `${uniqueItems.length} itens somam R$ ${itemTotal.toFixed(2)}; pagamento de R$ ${paymentTotal.toFixed(2)}.`,
+          summary: `${uniqueItems.length} itens somam R$ ${itemTotal.toFixed(2)}; ${uniquePayments.length} pagamento(s) somam R$ ${paymentTotal.toFixed(2)}.`,
         },
         expectedValue: itemTotal.toFixed(2),
         actualValue: paymentTotal.toFixed(2),
@@ -607,6 +653,16 @@ export function evaluateUniversalRules(input: {
           itemTotalSum: itemTotalSum.toFixed(2),
           noteTotal: noteTotal.toFixed(2),
           reconciliationBasis: totalSelection?.basis,
+          selectedLineNumbers: totalSelection?.items.map(
+            (item) => item.lineNumber,
+          ),
+          documentGroups: [
+            ...new Set(
+              totalSelection?.items
+                .map((item) => normalizedItemGroup(item))
+                .filter((group): group is string => group !== null),
+            ),
+          ],
           tolerance: tolerance.toFixed(2),
         },
         expectedValue: itemTotalSum.toFixed(2), actualValue: noteTotal.toFixed(2), noteItemLineNumber: null,
@@ -672,12 +728,29 @@ export function evaluateUniversalRules(input: {
 
   if (input.duplicates) {
     coveredAreas.add("DUPLICATE");
-    const duplicate = input.duplicates.find((candidate) =>
-      candidate.documentNumber === invoice.documentNumber &&
-      candidate.supplierTaxId === invoice.supplierTaxId &&
-      candidate.totalAmount === invoice.totalAmount &&
-      candidate.issuedAt === invoice.issuedAt,
-    );
+    const invoiceTotal = decimal(invoice.totalAmount);
+    const normalizedDocumentNumber = invoice.documentNumber
+      ?.replace(/[^\p{L}\p{N}]+/gu, "")
+      .toLocaleLowerCase("pt-BR") || null;
+    const normalizedSupplierTaxId = invoice.supplierTaxId?.replace(/\D/g, "") || null;
+    const duplicate = input.duplicates.find((candidate) => {
+      const candidateTotal = decimal(candidate.totalAmount);
+      const candidateDocumentNumber = candidate.documentNumber
+        ?.replace(/[^\p{L}\p{N}]+/gu, "")
+        .toLocaleLowerCase("pt-BR") || null;
+      const candidateSupplierTaxId = candidate.supplierTaxId?.replace(/\D/g, "") || null;
+      const sameAmount =
+        invoiceTotal !== null &&
+        candidateTotal !== null &&
+        Math.abs(invoiceTotal - candidateTotal) <= moneyTolerance(invoiceTotal);
+
+      return (
+        candidateDocumentNumber === normalizedDocumentNumber &&
+        candidateSupplierTaxId === normalizedSupplierTaxId &&
+        candidate.issuedAt === invoice.issuedAt &&
+        sameAmount
+      );
+    });
     if (duplicate && (invoice.documentNumber || invoice.supplierTaxId)) {
       findings.push(finding({
         code: "POSSIBLE_DUPLICATE", title: "Possível nota duplicada",

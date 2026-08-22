@@ -365,8 +365,8 @@
       },
       "expectations": {
         "acceptableClassifications": ["SUSPICIOUS"],
-        "requiredFindingCodes": [
-          "EVIDENCE_AMOUNT_MISMATCH_1",
+        "requiredFindingCodes": ["EVIDENCE_AMOUNT_MISMATCH_1"],
+        "forbiddenFindingCodes": [
           "INTERNAL_CONTRADICTION_VALOR_VENDA_PAGAMENTO"
         ],
         "forbiddenContextQuestionCodes": ["VALOR_VENDA_PAGAMENTO"],

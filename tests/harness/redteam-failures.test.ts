@@ -115,7 +115,7 @@ test("RT2 falso positivo: dois pagamentos parciais comparados só com a primeira
   assert.equal(mismatch.length, 0, `pagamentos 60+40=100 reconciliam; obtido: ${mismatch.map((f) => f.code).join(", ")}`);
 });
 
-test("RT3 falso negativo: camada explícita toda false silencia TOTAL_MISMATCH mesmo com cobertura COMPLETE", () => {
+test("RT3 estado inseguro: camada explícita vazia invalida cobertura para TOTAL_MISMATCH", () => {
   const invoice = baseInvoice({
     itemCoverage: {
       status: "COMPLETE",
@@ -146,9 +146,15 @@ test("RT3 falso negativo: camada explícita toda false silencia TOTAL_MISMATCH m
     ],
   });
   const result = evaluateUniversalRules({ invoice });
-  assert.ok(
+  assert.equal(
     result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"),
-    "TOTAL_MISMATCH deveria disparar (60+30 != 100) com cobertura COMPLETE",
+    false,
+    "camada contabilizável vazia deve bloquear TOTAL_MISMATCH e exigir reextração",
+  );
+  assert.equal(
+    result.coveredAreas.includes("TOTALS"),
+    false,
+    "a reconciliação de totais não pode ser declarada coberta nesse estado",
   );
 });
 
