@@ -367,21 +367,81 @@ function groupedAggregatePaymentFindings(
       aggregatePaymentEntries.length > 0
         ? aggregatePaymentEntries
         : paymentEntries;
-    const uniquePayments = [
-      ...new Map(
-        comparedPaymentEntries.map((entry) => [
-          [
-            entry.observation.documentGroup ?? "",
-            entry.observation.page ?? "",
-            entry.observation.date ?? "",
-            entry.observation.amount ?? "",
-            entry.observation.label ?? "",
-            entry.observation.text ?? "",
-          ].join(":"),
-          entry,
-        ]),
-      ).values(),
-    ];
+    const paymentInstances = new Map<
+      string,
+      typeof comparedPaymentEntries
+    >();
+    for (const entry of comparedPaymentEntries) {
+      const identity = [
+        entry.observation.documentGroup ?? "",
+        entry.observation.page ?? "",
+        entry.observation.date ?? "",
+        entry.observation.amount ?? "",
+        entry.observation.label ?? "",
+        entry.observation.text ?? "",
+      ].join(":");
+      const instances = paymentInstances.get(identity) ?? [];
+      instances.push(entry);
+      paymentInstances.set(identity, instances);
+    }
+
+    const ambiguousInstances = [...paymentInstances.values()].filter(
+      (instances) => instances.length > 1,
+    );
+    if (ambiguousInstances.length > 0) {
+      const occurrences = ambiguousInstances.flat();
+      for (const entry of occurrences) {
+        // A associação do pagamento a uma linha também é incerta. Evita
+        // compará-lo como se fosse o pagamento individual daquele item.
+        reconciledObservations.add(entry.observation);
+      }
+      findings.push(
+        finding({
+          code: `AGGREGATE_PAYMENT_INSTANCE_AMBIGUITY_${group.replace(/[^a-z0-9]+/g, "_").slice(0, 48)}`,
+          title: "Quantidade de pagamentos não pôde ser confirmada",
+          description:
+            "Há registros de pagamento estruturalmente idênticos sem identificador que permita confirmar se são parcelas distintas ou repetição da extração.",
+          category: "DOCUMENT_COVERAGE",
+          severity: "INFO",
+          confidence: 0.99,
+          justification:
+            "Somar ou eliminar esses registros exigiria presumir uma identidade que não está comprovada no documento.",
+          references: [
+            ...new Set(
+              occurrences.map(
+                ({ observation }) =>
+                  `DOCUMENTO:página:${observation.page ?? "não identificada"}:PAYMENT`,
+              ),
+            ),
+          ],
+          evidence: {
+            documentGroup: group,
+            ambiguousIdentityCount: ambiguousInstances.length,
+            occurrenceCount: occurrences.length,
+            lineNumbers: [
+              ...new Set(occurrences.map(({ item }) => item.lineNumber)),
+            ],
+            pages: [
+              ...new Set(
+                occurrences
+                  .map(({ observation }) => observation.page)
+                  .filter((page): page is number => page !== null),
+              ),
+            ],
+            summary:
+              "A reconciliação agregada foi interrompida porque a quantidade de instâncias de pagamento é ambígua.",
+          },
+          expectedValue: "INSTANCIAS_DE_PAGAMENTO_IDENTIFICAVEIS",
+          actualValue: `${occurrences.length} ocorrências sem identidade distinta`,
+          noteItemLineNumber: null,
+        }),
+      );
+      continue;
+    }
+
+    const uniquePayments = [...paymentInstances.values()].map(
+      (instances) => instances[0],
+    );
     const paymentTotal = uniquePayments.reduce((sum, entry) => {
       return sum + (decimal(entry.observation.amount) ?? 0);
     }, 0);

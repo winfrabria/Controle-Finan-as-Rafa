@@ -25,3 +25,12 @@ itens como fallback poderia reintroduzir dupla contagem em documentos compostos.
 ## Fora do escopo
 
 RT7 e o fluxo de perguntas de contexto não foram alterados nesta branch.
+
+## Limitação de identidade de parcelas
+
+Dois registros de pagamento com o mesmo grupo, página, data, valor, rótulo e
+texto não permitem provar se existem duas parcelas ou uma observação repetida
+pela extração. O Harness não soma nem elimina silenciosamente essas ocorrências:
+interrompe a reconciliação agregada do grupo e registra uma limitação
+informativa. Uma conclusão determinística só volta a ser possível quando o
+documento oferece algum identificador distinto de instância.

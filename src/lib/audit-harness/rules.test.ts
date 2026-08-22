@@ -296,6 +296,65 @@ test("reconcilia pagamento agregado com a soma dos produtos do mesmo documento",
   );
 });
 
+test("não presume se pagamentos estruturalmente idênticos são parcelas ou repetição da extração", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      totalAmount: "100.00",
+      itemCoverage: {
+        status: "COMPLETE",
+        declaredItemCount: 2,
+        extractedItemCount: 2,
+        firstLineNumber: 1,
+        lastLineNumber: 2,
+        missingLineNumbers: [],
+        evidence: "Duas linhas integralmente extraídas.",
+      },
+      items: [1, 2].map((lineNumber) => ({
+        lineNumber,
+        description: `Documento de suporte ${lineNumber}`,
+        documentRole: "SUPPORTING_DOCUMENT" as const,
+        documentGroup: "grupo-sintetico",
+        countsTowardDocumentTotal: true,
+        quantity: "1",
+        unitPrice: "50.00",
+        totalAmount: "50.00",
+        evidenceObservations: [
+          {
+            kind: "PAYMENT" as const,
+            documentGroup: "grupo-sintetico",
+            label: "Pagamento sem identificador de parcela",
+            amount: "50.00",
+            date: "2026-07-10",
+            page: 1,
+            text: "Pagamento de R$ 50,00",
+          },
+        ],
+      })),
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_"),
+    ),
+    false,
+    "sem identidade de instância, não é seguro concluir que existe apenas uma parcela",
+  );
+  const limitation = result.findings.find((finding) =>
+    finding.code.startsWith("AGGREGATE_PAYMENT_INSTANCE_AMBIGUITY_"),
+  );
+  assert.ok(
+    limitation,
+    "a incerteza deve permanecer registrada como limitação informativa",
+  );
+  assert.equal(limitation.severity, "INFO");
+  assert.equal(
+    result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"),
+    false,
+  );
+});
+
 test("sinaliza uma vez quando pagamento agregado não reconcilia com os produtos", () => {
   const result = evaluateUniversalRules({
     invoice: invoice({
