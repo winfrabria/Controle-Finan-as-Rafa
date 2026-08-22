@@ -729,11 +729,26 @@ export function evaluateUniversalRules(input: {
 
 export function evaluateWorkRules(invoice: HarnessInvoice, rules: WorkRuleInput[]) {
   const findings: HarnessFinding[] = [];
+  const invalidRules: Array<{ code: string; issuePaths: string[] }> = [];
   let evaluated = 0;
 
   for (const rule of rules) {
     const parsed = workRuleConfigurationSchema.safeParse(rule.configuration);
-    if (!parsed.success) continue;
+    if (!parsed.success) {
+      // Somente o identificador e os caminhos inválidos são retornados. A
+      // configuração pode conter dados internos e nunca entra no diagnóstico.
+      invalidRules.push({
+        code: rule.code.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 100),
+        issuePaths: [
+          ...new Set(
+            parsed.error.issues.map(
+              (issue) => issue.path.join(".") || "configuration",
+            ),
+          ),
+        ],
+      });
+      continue;
+    }
     const configuration = parsed.data;
     evaluated += 1;
     const severity = rule.severity;
@@ -807,5 +822,10 @@ export function evaluateWorkRules(invoice: HarnessInvoice, rules: WorkRuleInput[
     }
   }
 
-  return { findings, covered: evaluated > 0, evaluatedRules: evaluated };
+  return {
+    findings,
+    covered: evaluated > 0,
+    evaluatedRules: evaluated,
+    invalidRules,
+  };
 }

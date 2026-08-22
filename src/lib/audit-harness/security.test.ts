@@ -17,3 +17,22 @@ test("remove segredo, URL assinada e reasoning em qualquer profundidade", () => 
   });
 });
 
+test("remove segredos e raciocínio embutidos em contextSummary e outros textos livres", () => {
+  const sanitized = sanitizeForPersistence({
+    contextSummary: [
+      "Análise concluída.",
+      "api_key=sk-test-only",
+      "Authorization: Bearer should-not-persist",
+      "reasoning: raciocínio interno não deve persistir",
+      "Fonte https://storage.example.test/file?token=signed-secret&download=1",
+    ].join("\n"),
+  });
+  const serialized = JSON.stringify(sanitized);
+
+  assert.doesNotMatch(
+    serialized,
+    /sk-test-only|should-not-persist|raciocínio interno|signed-secret/,
+  );
+  assert.match(serialized, /Análise concluída/);
+});
+

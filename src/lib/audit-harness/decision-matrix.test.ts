@@ -473,6 +473,22 @@ test("pergunta sobre fato externo continua como contexto", () => {
   assert.equal(result.contextQuestions.length, 1);
 });
 
+test("dois valores em pergunta de autorização externa não viram contradição", () => {
+  const externalQuestion = {
+    code: "CTX-LIMIT-AUTHORIZATION",
+    options: [],
+    prompt:
+      "Se a obra autorizou limite de R$ 500,00 e a nota totaliza R$ 480,00, existe aprovação adicional pendente?",
+    rationale: "Fato externo: parâmetro da obra não presente no anexo.",
+    required: true,
+    type: "TEXT" as const,
+  };
+
+  const routed = routeContextQuestions([externalQuestion]);
+  assert.deepEqual(routed.contextQuestions, [externalQuestion]);
+  assert.deepEqual(routed.promotedFindings, []);
+});
+
 test("resposta genérica não apaga contradição objetiva já comprovada", () => {
   const routed = routeContextQuestions(objectiveQuestions);
   assert.equal(resolvePostContextClassification({

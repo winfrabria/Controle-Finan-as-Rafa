@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { aiDiscoveryResponseSchema, harnessFindingSchema } from "./contracts";
+import {
+  AI_DISCOVERY_JSON_SCHEMA,
+  aiDiscoveryResponseSchema,
+  harnessFindingSchema,
+} from "./contracts";
 
 const finding = {
   code: "AI_PRICE_OUTLIER",
@@ -48,4 +52,21 @@ test("aceita referências extensas de reembolso composto dentro do limite", () =
     }).success,
     false,
   );
+});
+
+test("JSON Schema replica os limites defensivos centrais do contrato Zod", () => {
+  const findingProperties =
+    AI_DISCOVERY_JSON_SCHEMA.properties.findings.items.properties;
+  const coverageProperties =
+    AI_DISCOVERY_JSON_SCHEMA.properties.coverage.properties;
+
+  assert.deepEqual(findingProperties.confidence, {
+    type: "number",
+    minimum: 0,
+    maximum: 1,
+  });
+  assert.equal(findingProperties.references.maxItems, 100);
+  assert.equal(coverageProperties.checkedAreas.maxItems, 30);
+  assert.equal(coverageProperties.limitations.maxItems, 30);
+  assert.equal(AI_DISCOVERY_JSON_SCHEMA.properties.summary.maxLength, 4000);
 });

@@ -27,7 +27,9 @@ const MONEY_TOKEN_PATTERN =
 const DATE_TOKEN_PATTERN =
   /\b(?:0?[1-9]|[12]\d|3[01])\/(?:0?[1-9]|1[0-2])\/(?:\d{2}|\d{4})\b/gu;
 const INTERNAL_CONTRADICTION_PATTERN =
-  /\b(?:diverg\w*|diferen\w*|enquanto|versus|vs\.?|n[aã]o\s+(?:confere|corresponde|bate)|para\s+resultar|se\s+(?:o|a|os|as))\b/iu;
+  /\b(?:diverg\w*|diferen\w*|enquanto|versus|vs\.?|n[aã]o\s+(?:confere|corresponde|bate)|para\s+resultar)\b/iu;
+const EXTERNAL_CONTEXT_PATTERN =
+  /\b(?:fato|dado|informa[çc][aã]o|par[aâ]metro|cadastro|autoriza[çc][aã]o|aprova[çc][aã]o)\s+extern\w*\b|\b(?:n[aã]o|sem)\s+(?:consta\w*|informa\w*|presen\w*|dispon[ií]v\w*|cadastr\w*)\s+(?:no|na|nos|nas|em)\s+(?:anexo|documento|nota|comprovante|sistema|cadastro)\b|\b(?:autoriza[çc][aã]o|aprova[çc][aã]o)[\s\S]{0,60}\b(?:pendente|extern\w*|da\s+obra)\b/iu;
 
 function normalizeComparableToken(value: string) {
   return value.replace(/\s+/g, " ").trim().toLocaleLowerCase("pt-BR");
@@ -45,6 +47,10 @@ function distinctMatches(value: string, pattern: RegExp) {
 
 function objectiveContradiction(question: ContextQuestion) {
   const text = `${question.prompt} ${question.rationale}`;
+  // Dois números não transformam uma dúvida sobre autorização, cadastro ou
+  // outro fato ausente em contradição documental. Esses dados só podem ser
+  // confirmados fora do conjunto enviado.
+  if (EXTERNAL_CONTEXT_PATTERN.test(text)) return null;
   if (!INTERNAL_CONTRADICTION_PATTERN.test(text)) return null;
 
   const moneyValues = distinctMatches(question.prompt, MONEY_TOKEN_PATTERN);

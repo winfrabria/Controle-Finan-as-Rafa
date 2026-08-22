@@ -119,6 +119,11 @@ function toJson(value: unknown) {
   return sanitizeForPersistence(value) as Prisma.InputJsonValue;
 }
 
+function sanitizedText(value: string) {
+  const sanitized = sanitizeForPersistence(value);
+  return typeof sanitized === "string" ? sanitized : "Resumo indisponível.";
+}
+
 function nullableJson(value: unknown) {
   return value === null ? Prisma.JsonNull : toJson(value);
 }
@@ -443,7 +448,7 @@ export async function processNoteAudit(
           auditResult,
           classification: classificationValue(finalClassification),
           contextRound: targetContextRound,
-          contextSummary: discovery.data.summary,
+          contextSummary: sanitizedText(discovery.data.summary),
           failureCode: null,
           failureMessage: null,
           processedAt: new Date(),
@@ -581,6 +586,7 @@ export async function processNoteAudit(
             contextQuestionCodes: finalContextQuestions.map((question) => question.code),
             coverage: result.coverage,
             findingCodes: supportedFindings.map((finding) => finding.code),
+            invalidWorkRules: work.invalidRules,
             summary: discovery.data.summary,
             webSources: discovery.webSources ?? [],
             webSearchRequests: discovery.usage?.webSearchRequests ?? 0,

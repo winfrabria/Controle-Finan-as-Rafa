@@ -117,18 +117,18 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
           "actualValue", "noteItemLineNumber", "references",
         ],
         properties: {
-          code: { type: "string" },
-          title: { type: "string" },
-          description: { type: "string" },
-          category: { type: "string" },
+          code: { type: "string", minLength: 1, maxLength: 100 },
+          title: { type: "string", minLength: 1, maxLength: 180 },
+          description: { type: "string", minLength: 1, maxLength: 2000 },
+          category: { type: "string", minLength: 1, maxLength: 100 },
           severity: { type: "string", enum: ["INFO", "WARNING", "CRITICAL"] },
           source: { type: "string", enum: ["AI_DISCOVERY"] },
-          confidence: { type: "number" },
-          justification: { type: "string" },
+          confidence: { type: "number", minimum: 0, maximum: 1 },
+          justification: { type: "string", minLength: 1, maxLength: 2000 },
           references: {
             type: "array",
             maxItems: 100,
-            items: { type: "string" },
+            items: { type: "string", minLength: 1, maxLength: 500 },
           },
           evidence: {
             type: "object",
@@ -154,8 +154,16 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
       required: ["sufficientEvidence", "checkedAreas", "limitations"],
       properties: {
         sufficientEvidence: { type: "boolean" },
-        checkedAreas: { type: "array", items: { type: "string" } },
-        limitations: { type: "array", items: { type: "string" } },
+        checkedAreas: {
+          type: "array",
+          maxItems: 30,
+          items: { type: "string", minLength: 1 },
+        },
+        limitations: {
+          type: "array",
+          maxItems: 30,
+          items: { type: "string", minLength: 1 },
+        },
       },
     },
     needsContext: { type: "boolean" },
@@ -188,7 +196,7 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
         },
       },
     },
-    summary: { type: "string" },
+    summary: { type: "string", minLength: 1, maxLength: 4000 },
   },
 } as const;
 

@@ -743,3 +743,23 @@ test("aplica regra da obra sem inventar configuração desconhecida", () => {
   }]).covered, false);
 });
 
+test("diagnostica regra inválida sem expor sua configuração", () => {
+  const result = evaluateWorkRules(invoice(), [
+    {
+      code: "WORK-INVALID",
+      name: "Regra sintética inválida",
+      category: "WORK",
+      severity: "WARNING",
+      configuration: {
+        maxTotalAmount: "segredo-que-nao-deve-ser-retornado",
+      },
+    },
+  ]);
+
+  assert.deepEqual(result.invalidRules, [
+    { code: "WORK-INVALID", issuePaths: ["maxTotalAmount"] },
+  ]);
+  assert.doesNotMatch(JSON.stringify(result.invalidRules), /segredo/);
+  assert.equal(result.covered, false);
+});
+
