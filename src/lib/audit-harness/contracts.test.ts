@@ -86,6 +86,55 @@ test("JSON Schema replica os limites defensivos centrais do contrato Zod", () =>
   assert.equal(AI_DISCOVERY_JSON_SCHEMA.properties.summary.maxLength, 4000);
 });
 
+test("JSON Schema enviado ao provedor evita palavras-chave não suportadas", () => {
+  const serializedSchema = JSON.stringify(AI_DISCOVERY_JSON_SCHEMA);
+
+  assert.equal(serializedSchema.includes('"uniqueItems"'), false);
+  assert.equal(
+    AI_DISCOVERY_JSON_SCHEMA.properties.contextQuestions.items.properties.options.maxItems,
+    10,
+  );
+});
+
+test("contrato Zod continua rejeitando valores duplicados nas opções", () => {
+  const response = {
+    findings: [],
+    coverage: {
+      sufficientEvidence: false,
+      checkedAreas: ["IDENTIFICAÇÃO"],
+      limitations: ["É necessário confirmar a obra."],
+    },
+    contextQuestions: [
+      {
+        code: "CONFIRM_WORK",
+        options: [
+          { label: "Sim", value: "yes" },
+          { label: "Sim novamente", value: "yes" },
+        ],
+        prompt: "A nota pertence à obra selecionada?",
+        rationale: "O documento não permite confirmar a obra com segurança.",
+        required: true,
+        type: "SINGLE_SELECT",
+      },
+    ],
+    needsContext: true,
+    summary: "A auditoria precisa de contexto.",
+  };
+
+  const parsed = aiDiscoveryResponseSchema.safeParse(response);
+
+  assert.equal(parsed.success, false);
+  if (!parsed.success) {
+    assert.equal(
+      parsed.error.issues.some((issue) =>
+        issue.path.join(".") === "contextQuestions.0.options" &&
+        issue.message === "Question options must be unique."
+      ),
+      true,
+    );
+  }
+});
+
 test("contrato de descoberta rejeita evidência arbitrária e valores não textuais", () => {
   const base = {
     findings: [aiFinding],

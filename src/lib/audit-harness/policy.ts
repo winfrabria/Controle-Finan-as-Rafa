@@ -67,6 +67,14 @@ export function isReadFailure(invoice: HarnessInvoice) {
   // inválida. Encerrar como OK esconderia a falta de cobertura; o anexo deve
   // ser reprocessado ou revisado como falha de leitura.
   if (hasInvalidExplicitTotalLayer(invoice)) return true;
+  if (
+    (invoice.documentKind === "FISCAL_INVOICE" ||
+      invoice.documentKind === "REIMBURSEMENT" ||
+      invoice.documentKind === "COMPOSITE") &&
+    invoice.items.length === 0
+  ) {
+    return true;
+  }
   const ocrFallback = isOcrFallbackExtraction(invoice);
   const ocrHasFinancialSignal =
     ocrFallback &&
@@ -86,6 +94,7 @@ export function isReadFailure(invoice: HarnessInvoice) {
   const compositeDocument = [...invoice.warnings, invoice.markdown].some((value) =>
     /reembolso|reimbursement|múltiplos? fornecedores|vários fornecedores|multiple suppliers|comprovantes?|prestação de contas|expense report/i.test(value),
   );
+  if (compositeDocument && invoice.items.length === 0) return true;
 
   // Provider confidence is useful telemetry, but it is not sufficient on its
   // own to discard a materially complete extraction. Some multimodal models

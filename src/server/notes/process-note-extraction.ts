@@ -20,7 +20,9 @@ import {
 import type { InvoiceExtraction } from "@/lib/integrations/openrouter/extraction-contract";
 import { prisma } from "@/server/db/prisma";
 import {
+  getInvoiceExtractionLimitation,
   getOpenRouterInvoiceExtractionClient,
+  isInvoiceExtractionLimitationDiagnostic,
   type InvoiceExtractionClient,
   OpenRouterClientError,
 } from "@/server/integrations/openrouter";
@@ -35,6 +37,7 @@ const SUPPORTED_MIME_TYPES: ReadonlySet<string> = new Set([
 export type ExtractionPipelineErrorCode =
   | "EXTRACTION_CONFLICT"
   | "EXTRACTION_CREDIT_EXHAUSTED"
+  | "EXTRACTION_INCOMPLETE"
   | "EXTRACTION_INVALID_RESPONSE"
   | "EXTRACTION_NOT_ALLOWED"
   | "EXTRACTION_PROVIDER_ERROR"
@@ -59,24 +62,54 @@ function isRetryableFailedNote(failureCode: string | null) {
 }
 
 type ExtractionFailureDetails = {
+  attempts?: number;
   code: ExtractionPipelineErrorCode;
+  completionTokens?: number;
+  costUsd?: number;
   diagnostic?: string;
+  diagnosticDetails?: Record<string, unknown>;
+  latencyMs?: number;
   message: string;
+  model?: string;
+  promptTokens?: number;
+  provider?: string;
   providerStatus?: number;
   retryable?: boolean;
+  totalTokens?: number;
 };
 
 function getFailureDetails(error: unknown): ExtractionFailureDetails {
   if (error instanceof OpenRouterClientError) {
     const providerDetails = {
+      attempts: error.attempts,
+      completionTokens: error.usage?.completionTokens,
+      costUsd: error.usage?.costUsd,
       diagnostic: error.diagnostic,
+      diagnosticDetails: error.diagnosticDetails,
+      latencyMs: error.latencyMs,
+      model: error.model,
+      promptTokens: error.usage?.promptTokens,
+      provider: error.provider,
       providerStatus: error.status,
       retryable: error.retryable,
+      totalTokens: error.usage?.totalTokens,
     };
     if (error.kind === "timeout") {
       return {
         code: "EXTRACTION_TIMEOUT",
         message: "A extração excedeu o tempo limite.",
+        ...providerDetails,
+      };
+    }
+
+    if (
+      error.kind === "invalid-response" &&
+      isInvoiceExtractionLimitationDiagnostic(error.diagnostic)
+    ) {
+      return {
+        code: "EXTRACTION_INCOMPLETE",
+        message:
+          "A extração não cobriu o anexo integralmente; uma nova leitura é necessária.",
         ...providerDetails,
       };
     }
@@ -406,6 +439,32 @@ export async function processNoteExtraction(
       signedUrl,
     });
 
+    const limitation = getInvoiceExtractionLimitation(
+      result.data,
+      note.originalMimeType as
+        | "application/pdf"
+        | "image/jpeg"
+        | "image/png",
+    );
+    if (limitation) {
+      throw new OpenRouterClientError(
+        "invalid-response",
+        limitation.message,
+        true,
+        undefined,
+        undefined,
+        {
+          attempts: result.attempts,
+          diagnostic: limitation.diagnostic,
+          diagnosticDetails: limitation.details,
+          latencyMs: result.latencyMs,
+          model: result.model,
+          provider: result.provider,
+          usage: result.usage,
+        },
+      );
+    }
+
     return await persistExtraction({
       aiRunId: aiRun.id,
       attempts: result.attempts,
@@ -428,22 +487,36 @@ export async function processNoteExtraction(
         : getFailureDetails(error);
 
     await recordExtractionFailure(note.id, note.claimedVersion, failure);
+    const hasFailureDiagnostics = Boolean(
+      failure.diagnostic ||
+        failure.diagnosticDetails ||
+        failure.providerStatus,
+    );
     await prisma.aiRun.update({
       where: { id: aiRun.id },
       data: {
+        attempts: failure.attempts,
+        completionTokens: failure.completionTokens,
         completedAt: new Date(),
+        costUsd: failure.costUsd,
         errorCode: failure.code,
         errorMessage: failure.message,
+        latencyMs: failure.latencyMs,
+        model: failure.model,
+        promptTokens: failure.promptTokens,
+        provider: failure.provider,
         status: AiRunStatus.FAILED,
-        ...(failure.diagnostic || failure.providerStatus
+        ...(hasFailureDiagnostics
           ? {
               structuredResponse: toJsonValue({
                 diagnostic: failure.diagnostic ?? null,
+                details: failure.diagnosticDetails ?? null,
                 providerStatus: failure.providerStatus ?? null,
                 retryable: failure.retryable ?? null,
               }),
             }
           : {}),
+        totalTokens: failure.totalTokens,
       },
     });
 

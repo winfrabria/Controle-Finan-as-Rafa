@@ -22,9 +22,12 @@ const responseSchema = z
   .object({
     choices: z
       .array(
-        z.object({
-          message: z.object({ content: z.string() }).passthrough(),
-        }),
+        z
+          .object({
+            finish_reason: z.string().nullable().optional(),
+            message: z.object({ content: z.string() }).passthrough(),
+          })
+          .passthrough(),
       )
       .min(1),
     model: z.string(),
@@ -72,10 +75,23 @@ export type OpenRouterClientErrorKind =
   | "provider"
   | "timeout";
 
+export type InvoiceExtractionUsage = {
+  completionTokens?: number;
+  promptTokens?: number;
+  totalTokens?: number;
+  costUsd?: number;
+};
+
 export class OpenRouterClientError extends Error {
   public readonly diagnostic?: string;
+  public readonly diagnosticDetails?: Record<string, unknown>;
   public readonly recoveryDraft?: string;
   public readonly recoveryText?: string;
+  public readonly attempts?: number;
+  public readonly latencyMs?: number;
+  public readonly model?: string;
+  public readonly provider?: string;
+  public readonly usage?: InvoiceExtractionUsage;
 
   constructor(
     public readonly kind: OpenRouterClientErrorKind,
@@ -85,15 +101,27 @@ export class OpenRouterClientError extends Error {
     public readonly retryAfterMs?: number,
     options?: ErrorOptions & {
       diagnostic?: string;
+      diagnosticDetails?: Record<string, unknown>;
       recoveryDraft?: string;
       recoveryText?: string;
+      attempts?: number;
+      latencyMs?: number;
+      model?: string;
+      provider?: string;
+      usage?: InvoiceExtractionUsage;
     },
   ) {
     super(message, options);
     this.name = "OpenRouterClientError";
     this.diagnostic = options?.diagnostic;
+    this.diagnosticDetails = options?.diagnosticDetails;
     this.recoveryDraft = options?.recoveryDraft;
     this.recoveryText = options?.recoveryText;
+    this.attempts = options?.attempts;
+    this.latencyMs = options?.latencyMs;
+    this.model = options?.model;
+    this.provider = options?.provider;
+    this.usage = options?.usage;
   }
 }
 
@@ -108,12 +136,7 @@ export type InvoiceExtractionResult = {
   data: InvoiceExtraction;
   model: string;
   provider?: string;
-  usage?: {
-    completionTokens?: number;
-    promptTokens?: number;
-    totalTokens?: number;
-    costUsd?: number;
-  };
+  usage?: InvoiceExtractionUsage;
   latencyMs: number;
 };
 
@@ -242,6 +265,246 @@ function parseJsonContent(content: string) {
   }
 }
 
+type ExtractionLimitation = {
+  diagnostic: string;
+  details: Record<string, unknown>;
+  message: string;
+};
+
+export function isInvoiceExtractionLimitationDiagnostic(
+  diagnostic: string | undefined,
+) {
+  return (
+    diagnostic === "completion-token-limit" ||
+    diagnostic === "ocr-only-partial" ||
+    diagnostic?.startsWith("pdf-") === true
+  );
+}
+
+/**
+ * PDFs only advance when the model proves that the reconciliation layer is
+ * complete. Composite documents also need page-level provenance so a later
+ * audit cannot associate evidence from different pages by guesswork.
+ */
+export function getInvoiceExtractionLimitation(
+  extraction: InvoiceExtraction,
+  mimeType: InvoiceExtractionRequest["mimeType"],
+): ExtractionLimitation | null {
+  if (mimeType !== "application/pdf") return null;
+
+  const coverage = extraction.itemCoverage;
+  if (coverage.status === "UNKNOWN") {
+    return {
+      diagnostic: "pdf-item-coverage-unknown",
+      details: { itemCoverage: coverage },
+      message: "A cobertura integral do PDF não pôde ser comprovada.",
+    };
+  }
+  if (coverage.status === "INCOMPLETE") {
+    return {
+      diagnostic: "pdf-item-coverage-incomplete",
+      details: { itemCoverage: coverage },
+      message: "A extração identificou páginas ou itens ainda não cobertos.",
+    };
+  }
+
+  const hasExplicitLayerSelection = extraction.items.some(
+    (item) => item.countsTowardDocumentTotal !== undefined,
+  );
+  const hasCompleteExplicitLayerSelection = extraction.items.every(
+    (item) => typeof item.countsTowardDocumentTotal === "boolean",
+  );
+  const hasCompositeStructure =
+    extraction.documentKind === "REIMBURSEMENT" ||
+    extraction.documentKind === "COMPOSITE" ||
+    extraction.items.some(
+      (item) =>
+        item.documentGroup !== null ||
+        item.documentRole === "AGGREGATE_PAYMENT" ||
+        item.documentRole === "SUPPORTING_DOCUMENT",
+    );
+  const selectedLayerCount = extraction.items.filter(
+    (item) => item.countsTowardDocumentTotal === true,
+  ).length;
+  const selectedItems =
+    selectedLayerCount > 0
+      ? extraction.items.filter(
+          (item) => item.countsTowardDocumentTotal === true,
+        )
+      : extraction.items;
+  const observedItemCount =
+    selectedLayerCount > 0 ? selectedLayerCount : extraction.items.length;
+  const allLineNumbers = new Set(
+    extraction.items.map((item) => item.lineNumber),
+  );
+  const selectedLineNumbers = selectedItems
+    .map((item) => item.lineNumber)
+    .sort((left, right) => left - right);
+  const selectedFirstLine = selectedLineNumbers[0] ?? null;
+  const selectedLastLine = selectedLineNumbers.at(-1) ?? null;
+  const unreportedInternalGaps: number[] = [];
+  if (coverage.firstLineNumber !== null && coverage.lastLineNumber !== null) {
+    for (
+      let lineNumber = coverage.firstLineNumber;
+      lineNumber <= coverage.lastLineNumber;
+      lineNumber += 1
+    ) {
+      if (!allLineNumbers.has(lineNumber)) unreportedInternalGaps.push(lineNumber);
+    }
+  }
+  const coverageIsInconsistent =
+    extraction.items.length === 0 ||
+    (extraction.items.length > 0 &&
+      !hasCompleteExplicitLayerSelection) ||
+    (extraction.items.length > 0 &&
+      hasExplicitLayerSelection &&
+      selectedLayerCount === 0) ||
+    coverage.extractedItemCount !== observedItemCount ||
+    coverage.missingLineNumbers.length > 0 ||
+    unreportedInternalGaps.length > 0 ||
+    (coverage.declaredItemCount !== null &&
+      coverage.declaredItemCount > coverage.extractedItemCount) ||
+    (coverage.extractedItemCount > 0 &&
+      (coverage.firstLineNumber === null || coverage.lastLineNumber === null)) ||
+    (coverage.firstLineNumber !== null &&
+      coverage.lastLineNumber !== null &&
+      coverage.firstLineNumber > coverage.lastLineNumber) ||
+    (selectedFirstLine !== null &&
+      coverage.firstLineNumber !== selectedFirstLine) ||
+    (selectedLastLine !== null && coverage.lastLineNumber !== selectedLastLine);
+
+  if (coverageIsInconsistent) {
+    return {
+      diagnostic: "pdf-item-coverage-inconsistent",
+      details: {
+        allLineNumbers: [...allLineNumbers].sort((left, right) => left - right),
+        hasExplicitLayerSelection,
+        hasCompleteExplicitLayerSelection,
+        hasCompositeStructure,
+        itemCoverage: coverage,
+        selectedLayerCount,
+        selectedLineNumbers,
+        unreportedInternalGaps,
+      },
+      message: "A declaração de cobertura não corresponde aos itens extraídos.",
+    };
+  }
+
+  if (hasCompositeStructure) {
+    if (
+      extraction.items.some((item) => item.evidenceObservations.length === 0)
+    ) {
+      return {
+        diagnostic: "pdf-evidence-observations-missing",
+        details: {
+          itemCoverage: coverage,
+          itemLineNumbersWithoutEvidence: extraction.items
+            .filter((item) => item.evidenceObservations.length === 0)
+            .map((item) => item.lineNumber),
+        },
+        message: "O PDF composto contém itens sem evidência documental associada.",
+      };
+    }
+  }
+
+  if (
+    extraction.items.some((item) =>
+      item.evidenceObservations.some((observation) => observation.page === null),
+    ) ||
+    extraction.requiredFieldChecks.some((check) => check.page === null)
+  ) {
+    return {
+      diagnostic: "pdf-evidence-page-missing",
+      details: {
+        itemCoverage: coverage,
+        itemLineNumbersWithMissingEvidencePage: extraction.items
+          .filter((item) =>
+            item.evidenceObservations.some(
+              (observation) => observation.page === null,
+            ),
+          )
+          .map((item) => item.lineNumber),
+        requiredFieldsWithMissingPage: extraction.requiredFieldChecks
+          .filter((check) => check.page === null)
+          .map((check) => check.field),
+      },
+      message: "O PDF contém evidências sem página de origem.",
+    };
+  }
+
+  return null;
+}
+
+function normalizeUsage(
+  usage:
+    | {
+        completion_tokens?: number;
+        cost?: number;
+        prompt_tokens?: number;
+        total_tokens?: number;
+      }
+    | undefined,
+): InvoiceExtractionUsage | undefined {
+  if (!usage) return undefined;
+  return {
+    completionTokens: usage.completion_tokens,
+    costUsd: usage.cost,
+    promptTokens: usage.prompt_tokens,
+    totalTokens: usage.total_tokens,
+  };
+}
+
+function mergeUsage(
+  accumulated: InvoiceExtractionUsage | undefined,
+  next: InvoiceExtractionUsage | undefined,
+): InvoiceExtractionUsage | undefined {
+  if (!accumulated && !next) return undefined;
+  const sum = (left: number | undefined, right: number | undefined) =>
+    left === undefined && right === undefined
+      ? undefined
+      : (left ?? 0) + (right ?? 0);
+  return {
+    completionTokens: sum(
+      accumulated?.completionTokens,
+      next?.completionTokens,
+    ),
+    costUsd: sum(accumulated?.costUsd, next?.costUsd),
+    promptTokens: sum(accumulated?.promptTokens, next?.promptTokens),
+    totalTokens: sum(accumulated?.totalTokens, next?.totalTokens),
+  };
+}
+
+function withRunTelemetry(
+  error: OpenRouterClientError,
+  input: {
+    attempts: number;
+    latencyMs: number;
+    model?: string;
+    provider?: string;
+    usage?: InvoiceExtractionUsage;
+  },
+) {
+  return new OpenRouterClientError(
+    error.kind,
+    error.message,
+    error.retryable,
+    error.status,
+    error.retryAfterMs,
+    {
+      cause: error,
+      diagnostic: error.diagnostic,
+      diagnosticDetails: error.diagnosticDetails,
+      recoveryDraft: error.recoveryDraft,
+      recoveryText: error.recoveryText,
+      attempts: input.attempts,
+      latencyMs: input.latencyMs,
+      model: error.model ?? input.model,
+      provider: error.provider ?? input.provider,
+      usage: input.usage,
+    },
+  );
+}
+
 export class OpenRouterInvoiceExtractionClient
   implements InvoiceExtractionClient
 {
@@ -261,6 +524,9 @@ export class OpenRouterInvoiceExtractionClient
   ): Promise<InvoiceExtractionResult> {
     const extractionStartedAt = Date.now();
     let lastError: OpenRouterClientError | undefined;
+    let accumulatedUsage: InvoiceExtractionUsage | undefined;
+    let lastModel: string | undefined;
+    let lastProvider: string | undefined;
     let calls = 0;
     const primaryModel =
       request.mimeType === "application/pdf"
@@ -288,9 +554,18 @@ export class OpenRouterInvoiceExtractionClient
       try {
         calls += 1;
         const result = await this.performRequest(request, selectedModel);
-        return { ...result, attempts: calls };
+        accumulatedUsage = mergeUsage(accumulatedUsage, result.usage);
+        return {
+          ...result,
+          attempts: calls,
+          latencyMs: Date.now() - extractionStartedAt,
+          ...(accumulatedUsage ? { usage: accumulatedUsage } : {}),
+        };
       } catch (error) {
         let normalizedError = this.normalizeError(error);
+        accumulatedUsage = mergeUsage(accumulatedUsage, normalizedError.usage);
+        lastModel = normalizedError.model ?? selectedModel;
+        lastProvider = normalizedError.provider ?? lastProvider;
 
         // Mistral OCR returns reusable text. Prefer it; otherwise repair the
         // structured draft returned by the model. If neither is available,
@@ -299,42 +574,75 @@ export class OpenRouterInvoiceExtractionClient
           normalizedError.kind === "invalid-response" &&
           calls < callBudget
         ) {
-          const originalRecoveryText = normalizedError.recoveryText;
+          const isStructuralFailure =
+            !isInvoiceExtractionLimitationDiagnostic(
+              normalizedError.diagnostic,
+            );
+          const originalRecoveryText = isStructuralFailure
+            ? normalizedError.recoveryText
+            : undefined;
           try {
             calls += 1;
             const recovered = await this.performRequest(
               request,
               selectedModel,
-              normalizedError.recoveryText
+              isStructuralFailure && normalizedError.recoveryText
                 ? { kind: "ocr", text: normalizedError.recoveryText }
-                : normalizedError.recoveryDraft
+                : isStructuralFailure && normalizedError.recoveryDraft
                   ? { kind: "draft", text: normalizedError.recoveryDraft }
                   : undefined,
             );
-            return { ...recovered, attempts: calls };
+            accumulatedUsage = mergeUsage(accumulatedUsage, recovered.usage);
+            return {
+              ...recovered,
+              attempts: calls,
+              latencyMs: Date.now() - extractionStartedAt,
+              ...(accumulatedUsage ? { usage: accumulatedUsage } : {}),
+            };
           } catch (recoveryError) {
             normalizedError = this.normalizeError(recoveryError);
+            accumulatedUsage = mergeUsage(
+              accumulatedUsage,
+              normalizedError.usage,
+            );
+            lastModel = normalizedError.model ?? selectedModel;
+            lastProvider = normalizedError.provider ?? lastProvider;
             const ocrFallback = originalRecoveryText
               ? createOcrFallbackExtraction(originalRecoveryText)
               : null;
             if (ocrFallback) {
-              return {
-                attempts: calls,
-                data: ocrFallback,
-                latencyMs: Date.now() - extractionStartedAt,
-                model: selectedModel,
-                provider: "mistral-ocr",
-              };
+              normalizedError = new OpenRouterClientError(
+                "invalid-response",
+                "O OCR foi recuperado, mas a estrutura integral do PDF não pôde ser validada.",
+                true,
+                undefined,
+                undefined,
+                {
+                  cause: normalizedError,
+                  diagnostic: "ocr-only-partial",
+                  model: selectedModel,
+                  provider: "mistral-ocr",
+                },
+              );
+              lastProvider = "mistral-ocr";
             }
           }
         }
 
         lastError = normalizedError;
         const hasAnotherModel =
-          index < modelsToTry.length - 1 && calls < callBudget;
+          (normalizedError.retryable || normalizedError.status === 400) &&
+          index < modelsToTry.length - 1 &&
+          calls < callBudget;
 
         if (!hasAnotherModel) {
-          throw normalizedError;
+          throw withRunTelemetry(normalizedError, {
+            attempts: calls,
+            latencyMs: Date.now() - extractionStartedAt,
+            model: lastModel ?? selectedModel,
+            provider: lastProvider,
+            usage: accumulatedUsage,
+          });
         }
 
         const retryDelay =
@@ -343,7 +651,16 @@ export class OpenRouterInvoiceExtractionClient
       }
     }
 
-    throw lastError ?? new OpenRouterClientError("provider", "Extraction failed.", false);
+    const error =
+      lastError ??
+      new OpenRouterClientError("provider", "Extraction failed.", false);
+    throw withRunTelemetry(error, {
+      attempts: calls,
+      latencyMs: Date.now() - extractionStartedAt,
+      model: lastModel,
+      provider: lastProvider,
+      usage: accumulatedUsage,
+    });
   }
 
   private async performRequest(
@@ -487,6 +804,39 @@ export class OpenRouterInvoiceExtractionClient
         );
       }
 
+      const usage = normalizeUsage(envelope.data.usage);
+      const responseTelemetry = {
+        latencyMs: Date.now() - startedAt,
+        model: envelope.data.model,
+        provider: envelope.data.provider,
+        usage,
+      };
+
+      const completionTokenLimit = this.options.maxTokens ?? 8_192;
+      const finishReason = envelope.data.choices[0].finish_reason;
+      if (
+        finishReason === "length" ||
+        (usage?.completionTokens !== undefined &&
+          usage.completionTokens >= completionTokenLimit)
+      ) {
+        throw new OpenRouterClientError(
+          "invalid-response",
+          "A resposta atingiu o limite de saída antes de comprovar a extração integral.",
+          true,
+          undefined,
+          undefined,
+          {
+            diagnostic: "completion-token-limit",
+            diagnosticDetails: {
+              completionTokenLimit,
+              completionTokens: usage?.completionTokens ?? null,
+              finishReason: finishReason ?? null,
+            },
+            ...responseTelemetry,
+          },
+        );
+      }
+
       let parsedContent: unknown;
 
       try {
@@ -508,6 +858,7 @@ export class OpenRouterInvoiceExtractionClient
               200_000,
             ),
             recoveryText,
+            ...responseTelemetry,
           },
         );
       }
@@ -533,27 +884,36 @@ export class OpenRouterInvoiceExtractionClient
               200_000,
             ),
             recoveryText,
+            ...responseTelemetry,
           },
         );
       }
 
-      const usage = envelope.data.usage;
+      const limitation = getInvoiceExtractionLimitation(
+        extraction.data,
+        request.mimeType,
+      );
+      if (limitation) {
+        throw new OpenRouterClientError(
+          "invalid-response",
+          limitation.message,
+          true,
+          undefined,
+          undefined,
+          {
+            diagnostic: limitation.diagnostic,
+            diagnosticDetails: limitation.details,
+            ...responseTelemetry,
+          },
+        );
+      }
 
       return {
         data: extraction.data,
         latencyMs: Date.now() - startedAt,
         model: envelope.data.model,
         provider: envelope.data.provider,
-        ...(usage
-          ? {
-              usage: {
-                completionTokens: usage.completion_tokens,
-                costUsd: usage.cost,
-                promptTokens: usage.prompt_tokens,
-                totalTokens: usage.total_tokens,
-              },
-            }
-          : {}),
+        ...(usage ? { usage } : {}),
       };
     } finally {
       clearTimeout(timeout);

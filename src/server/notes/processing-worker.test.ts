@@ -31,6 +31,19 @@ test("falha antes do limite mantém a nota processável e a capability ativa", (
   assert.equal(lifecycle.contextSubmissionStatus, null);
 });
 
+test("extração integral já repetida pelo cliente não dispara nova rodada paga no job", () => {
+  const lifecycle = processingFailureLifecycle({
+    attempt: 1,
+    failureCode: "EXTRACTION_INCOMPLETE",
+    maxAttempts: 3,
+    type: ProcessingJobType.FULL_AUDIT,
+  });
+
+  assert.equal(lifecycle.attemptsExhausted, true);
+  assert.equal(lifecycle.noteStatus, NoteStatus.FAILED);
+  assert.equal(lifecycle.noteStage, ProcessingStage.FAILED);
+});
+
 test("reanálise só termina e libera a submissão quando esgota tentativas", () => {
   const retryable = processingFailureLifecycle({
     attempt: 2,

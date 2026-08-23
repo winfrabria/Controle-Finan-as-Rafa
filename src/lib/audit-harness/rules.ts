@@ -77,6 +77,38 @@ function hasCompleteItemCoverage(invoice: HarnessInvoice) {
   if (!coverage || coverage.status !== "COMPLETE") return false;
   if (coverage.extractedItemCount <= 0) return false;
   if (coverage.missingLineNumbers.length > 0) return false;
+  if (coverage.firstLineNumber === null || coverage.lastLineNumber === null) {
+    return false;
+  }
+  if (coverage.firstLineNumber > coverage.lastLineNumber) return false;
+
+  const allLineNumbers = new Set(invoice.items.map((item) => item.lineNumber));
+  for (
+    let lineNumber = coverage.firstLineNumber;
+    lineNumber <= coverage.lastLineNumber;
+    lineNumber += 1
+  ) {
+    if (!allLineNumbers.has(lineNumber)) return false;
+  }
+
+  const hasExplicitLayer = invoice.items.some(
+    (item) => item.countsTowardDocumentTotal !== undefined,
+  );
+  const selectedItems = hasExplicitLayer
+    ? invoice.items.filter((item) => item.countsTowardDocumentTotal === true)
+    : [...invoice.items];
+  selectedItems.sort((left, right) => left.lineNumber - right.lineNumber);
+  if (hasExplicitLayer && selectedItems.length === 0) return false;
+  if (
+    (invoice.documentKind === "REIMBURSEMENT" ||
+      invoice.documentKind === "COMPOSITE") &&
+    !hasExplicitLayer
+  ) {
+    return false;
+  }
+  if (coverage.extractedItemCount !== selectedItems.length) return false;
+  if (selectedItems[0]?.lineNumber !== coverage.firstLineNumber) return false;
+  if (selectedItems.at(-1)?.lineNumber !== coverage.lastLineNumber) return false;
   if (
     coverage.declaredItemCount !== null &&
     coverage.extractedItemCount < coverage.declaredItemCount
@@ -89,6 +121,38 @@ function hasCompleteItemCoverage(invoice: HarnessInvoice) {
 function reconcilesTotal(items: HarnessInvoice["items"], noteTotal: number) {
   const sum = sumItemTotals(items);
   return sum !== null && Math.abs(sum - noteTotal) <= moneyTolerance(noteTotal);
+}
+
+function hasCompositeEvidenceShape(invoice: HarnessInvoice) {
+  if (
+    invoice.documentKind === "REIMBURSEMENT" ||
+    invoice.documentKind === "COMPOSITE"
+  ) {
+    return true;
+  }
+
+  const text = [...invoice.warnings, invoice.markdown].join(" ");
+  if (
+    /reembolso|reimbursement|comprovantes?|prestação de contas|expense report/i.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+
+  const groups = new Map<string, Set<EvidenceObservation["kind"]>>();
+  for (const item of invoice.items) {
+    for (const observation of item.evidenceObservations ?? []) {
+      const group = normalizeDocumentGroup(
+        observation.documentGroup ?? item.documentGroup,
+      );
+      if (!group) continue;
+      const kinds = groups.get(group) ?? new Set<EvidenceObservation["kind"]>();
+      kinds.add(observation.kind);
+      groups.set(group, kinds);
+    }
+  }
+  return [...groups.values()].some((kinds) => kinds.size >= 2);
 }
 
 /**
@@ -122,6 +186,16 @@ function selectItemsForDocumentTotal(
     return {
       basis: "INVALID_EMPTY_EXPLICIT_LAYER",
       items: selectedItems,
+    };
+  }
+
+  if (hasCompositeEvidenceShape(invoice)) {
+    // Em documentos compostos, ficha, recibo, pagamento e resumo podem
+    // representar a mesma despesa. Sem uma camada não sobreposta marcada pela
+    // extração, somar todas as linhas inventa valores como 3 x R$ 20,00.
+    return {
+      basis: "MISSING_EXPLICIT_NON_OVERLAPPING_LAYER",
+      items: [],
     };
   }
 
@@ -318,7 +392,9 @@ function groupedAggregatePaymentFindings(
 
   for (const item of items) {
     for (const observation of item.evidenceObservations ?? []) {
-      const group = normalizeDocumentGroup(observation.documentGroup);
+      const group = normalizeDocumentGroup(
+        observation.documentGroup ?? item.documentGroup,
+      );
       if (!group) continue;
       const entries = groups.get(group) ?? [];
       entries.push({ item, observation });
@@ -330,34 +406,72 @@ function groupedAggregatePaymentFindings(
   const findings: HarnessFinding[] = [];
 
   for (const [group, entries] of groups) {
-    const aggregateEntries = entries.filter(
-      ({ item }) =>
-        item.documentRole === "AGGREGATE_PAYMENT" || legacyAggregateCharge(item),
-    );
-    const uniqueItems = [
+    const groupItems = [
       ...new Map(
-        entries
-          .filter(
-            ({ item }) =>
-              item.documentRole !== "AGGREGATE_PAYMENT" &&
-              item.documentRole !== "SUMMARY" &&
-              !legacyAggregateCharge(item),
-          )
-          .map((entry) => [entry.item.lineNumber, entry.item]),
+        entries.map(({ item }) => [item.lineNumber, item]),
       ).values(),
     ];
+    const aggregateItems = groupItems.filter(
+      (item) =>
+        item.documentRole === "AGGREGATE_PAYMENT" || legacyAggregateCharge(item),
+    );
+    const explicitlySelectedItems = groupItems.filter(
+      (item) =>
+        item.countsTowardDocumentTotal === true &&
+        item.documentRole !== "AGGREGATE_PAYMENT" &&
+        item.documentRole !== "SUMMARY" &&
+        !legacyAggregateCharge(item),
+    );
+    // Uma comparação agregada só é segura quando a camada econômica foi
+    // selecionada explicitamente. Sem essa marcação, LINE_ITEM pode ser apenas
+    // o default do parser para ficha, recibo e pagamento sobrepostos.
+    const economicItems = explicitlySelectedItems;
     const paymentEntries = entries.filter(
       ({ observation }) => observation.kind === "PAYMENT" && decimal(observation.amount) !== null,
     );
+
+    const aggregateEconomicLines =
+      economicItems.length > 0 &&
+      (aggregateItems.length > 0 || economicItems.length >= 2);
+    if (!aggregateEconomicLines) {
+      const observations = [
+        ...new Set(entries.map(({ observation }) => observation)),
+      ];
+      const comparableKinds = new Set(
+        observations
+          .filter((observation) => observation.kind !== "DISCOUNT")
+          .map((observation) => observation.kind),
+      );
+
+      // Uma ficha de reembolso, a venda/recibo e o pagamento representam
+      // camadas de evidência do mesmo evento. Sem uma cobrança agregada ou
+      // várias linhas econômicas explícitas, somá-las inventaria despesas.
+      if (comparableKinds.size >= 2) {
+        const anchorItem =
+          explicitlySelectedItems[0] ?? groupItems[0];
+        if (anchorItem) {
+          findings.push(
+            ...reconcileEvidenceObservations({
+              ...anchorItem,
+              evidenceObservations: observations,
+            }),
+          );
+          for (const observation of observations) {
+            reconciledObservations.add(observation);
+          }
+        }
+      }
+      continue;
+    }
+
     if (
-      uniqueItems.length === 0 ||
-      (uniqueItems.length < 2 && aggregateEntries.length === 0) ||
+      economicItems.length === 0 ||
       paymentEntries.length === 0
     ) {
       continue;
     }
 
-    const itemTotal = sumItemTotals(uniqueItems);
+    const itemTotal = sumItemTotals(economicItems);
     if (itemTotal === null || itemTotal === 0) continue;
 
     const aggregatePaymentEntries = paymentEntries.filter(({ item }) =>
@@ -477,7 +591,7 @@ function groupedAggregatePaymentFindings(
           field: "valor",
           documentGroup: group,
           pages: [...new Set(entries.map(({ observation }) => observation.page).filter(Boolean))],
-          summary: `${uniqueItems.length} itens somam R$ ${itemTotal.toFixed(2)}; ${uniquePayments.length} pagamento(s) somam R$ ${paymentTotal.toFixed(2)}.`,
+          summary: `${economicItems.length} itens somam R$ ${itemTotal.toFixed(2)}; ${uniquePayments.length} pagamento(s) somam R$ ${paymentTotal.toFixed(2)}.`,
         },
         expectedValue: itemTotal.toFixed(2),
         actualValue: paymentTotal.toFixed(2),
@@ -576,6 +690,12 @@ function reconcileEvidenceObservations(
             ),
           ],
           evidence: {
+            documentGroup:
+              item.documentGroup ??
+              comparableAmounts.find(
+                ({ observation }) => observation.documentGroup !== null,
+              )?.observation.documentGroup ??
+              null,
             field: "valor",
             lineNumber: item.lineNumber,
             observations: comparableAmounts.map(({ observation }) => ({
@@ -626,6 +746,12 @@ function reconcileEvidenceObservations(
             `DOCUMENTO:página:${observation.page ?? "não identificada"}:${observationIdentity(observation)}`,
         ),
         evidence: {
+          documentGroup:
+            item.documentGroup ??
+            distinctDates.find(
+              ({ observation }) => observation.documentGroup !== null,
+            )?.observation.documentGroup ??
+            null,
           field: "data",
           lineNumber: item.lineNumber,
           observations: distinctDates.map(({ observation }) => ({

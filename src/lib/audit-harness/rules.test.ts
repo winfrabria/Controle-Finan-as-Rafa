@@ -135,6 +135,32 @@ test("não conclui divergência de total quando a cobertura de itens é desconhe
   }
 });
 
+test("cobertura COMPLETE com lacuna interna não autoriza divergência de total", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      totalAmount: "100.00",
+      itemCoverage: {
+        status: "COMPLETE",
+        declaredItemCount: 2,
+        extractedItemCount: 2,
+        firstLineNumber: 1,
+        lastLineNumber: 3,
+        missingLineNumbers: [],
+        evidence: "Linhas 1 e 3 declaradas como completas.",
+      },
+      items: [
+        { lineNumber: 1, description: "Item A", quantity: "1", unitPrice: "20.00", totalAmount: "20.00" },
+        { lineNumber: 3, description: "Item C", quantity: "1", unitPrice: "20.00", totalAmount: "20.00" },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"),
+    false,
+  );
+});
+
 test("não soma NF-e, resumo e detalhamento diário como três despesas", () => {
   const result = evaluateUniversalRules({
     invoice: invoice({
@@ -310,6 +336,512 @@ test("não inventa divergência de data ou valor em item sintético conciliado",
   );
 });
 
+test("não soma ficha, recibo e pagamento de R$ 20,00 como R$ 60,00", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "REIMBURSEMENT",
+      totalAmount: "20.00",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Despesa registrada na ficha",
+          documentGroup: "evento-20",
+          documentRole: "LINE_ITEM",
+          countsTowardDocumentTotal: true,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "20.00",
+          evidenceObservations: [
+            { kind: "SHEET", documentGroup: "evento-20", label: "Ficha", amount: "20.00", date: "2026-05-19", page: 1, text: "R$ 20,00" },
+          ],
+        },
+        {
+          lineNumber: 2,
+          description: "Pagamento da mesma despesa",
+          documentGroup: "evento-20",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "20.00",
+          evidenceObservations: [
+            { kind: "PAYMENT", documentGroup: "evento-20", label: "Cartão", amount: "20.00", date: "2026-05-19", page: 2, text: "Débito R$ 20,00" },
+          ],
+        },
+        {
+          lineNumber: 3,
+          description: "Recibo da mesma despesa",
+          documentGroup: "evento-20",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "20.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "evento-20", label: "Recibo", amount: "20.00", date: "2026-05-19", page: 2, text: "Total R$ 20,00" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_") ||
+      finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_")
+    ),
+    false,
+  );
+});
+
+test("não soma três camadas de R$ 35,90 como R$ 107,70", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "REIMBURSEMENT",
+      totalAmount: "35.90",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Ficha da despesa",
+          documentGroup: "evento-3590",
+          documentRole: "LINE_ITEM",
+          countsTowardDocumentTotal: true,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "35.90",
+          evidenceObservations: [
+            { kind: "SHEET", documentGroup: "evento-3590", label: "Ficha", amount: "35.90", date: "2026-05-15", page: 1, text: "R$ 35,90" },
+          ],
+        },
+        {
+          lineNumber: 2,
+          description: "Pagamento da despesa",
+          documentGroup: "evento-3590",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "35.90",
+          evidenceObservations: [
+            { kind: "PAYMENT", documentGroup: "evento-3590", label: "Cartão", amount: "35.90", date: "2026-05-15", page: 2, text: "R$ 35,90" },
+          ],
+        },
+        {
+          lineNumber: 3,
+          description: "Venda da despesa",
+          documentGroup: "evento-3590",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "35.90",
+          evidenceObservations: [
+            { kind: "SALE", documentGroup: "evento-3590", label: "Pedido", amount: "35.90", date: "2026-05-15", page: 2, text: "Total R$ 35,90" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_") ||
+      finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_")
+    ),
+    false,
+  );
+});
+
+test("documento composto legado sem camada explícita não soma evidências sobrepostas", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "REIMBURSEMENT",
+      totalAmount: "20.00",
+      itemCoverage: {
+        status: "COMPLETE",
+        declaredItemCount: 3,
+        extractedItemCount: 3,
+        firstLineNumber: 1,
+        lastLineNumber: 3,
+        missingLineNumbers: [],
+        evidence: "Três camadas documentais extraídas.",
+      },
+      items: [
+        {
+          lineNumber: 1,
+          description: "Ficha da despesa",
+          documentGroup: "evento-legado",
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "20.00",
+          evidenceObservations: [
+            { kind: "SHEET", documentGroup: "evento-legado", label: "Ficha", amount: "20.00", date: "2026-05-19", page: 1, text: "R$ 20,00" },
+          ],
+        },
+        {
+          lineNumber: 2,
+          description: "Recibo da mesma despesa",
+          documentGroup: "evento-legado",
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "20.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "evento-legado", label: "Recibo", amount: "20.00", date: "2026-05-19", page: 2, text: "R$ 20,00" },
+          ],
+        },
+        {
+          lineNumber: 3,
+          description: "Pagamento da mesma despesa",
+          documentGroup: "evento-legado",
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "20.00",
+          evidenceObservations: [
+            { kind: "PAYMENT", documentGroup: "evento-legado", label: "Cartão", amount: "20.00", date: "2026-05-19", page: 2, text: "R$ 20,00" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some(
+      (finding) =>
+        finding.code === "TOTAL_MISMATCH" ||
+        finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_"),
+    ),
+    false,
+  );
+});
+
+test("ficha legada classificada como nota fiscal não soma camadas sobrepostas", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "FISCAL_INVOICE",
+      markdown: "Ficha de reembolso com recibo e comprovante de pagamento.",
+      totalAmount: "20.00",
+      itemCoverage: {
+        status: "COMPLETE",
+        declaredItemCount: 3,
+        extractedItemCount: 3,
+        firstLineNumber: 1,
+        lastLineNumber: 3,
+        missingLineNumbers: [],
+        evidence: "Três linhas extraídas.",
+      },
+      items: [1, 2, 3].map((lineNumber) => ({
+        lineNumber,
+        description: `Camada ${lineNumber}`,
+        quantity: null,
+        unitPrice: null,
+        totalAmount: "20.00",
+      })),
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"),
+    false,
+  );
+});
+
+test("gera um único achado para divergência real de R$ 18,00 e R$ 28,00", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "REIMBURSEMENT",
+      totalAmount: "18.00",
+      items: [
+        {
+          lineNumber: 19,
+          description: "Despesa registrada na ficha",
+          documentGroup: "evento-divergente",
+          documentRole: "LINE_ITEM",
+          countsTowardDocumentTotal: true,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "18.00",
+          evidenceObservations: [
+            { kind: "SHEET", documentGroup: "evento-divergente", label: "Ficha", amount: "18.00", date: "2026-05-27", page: 1, text: "R$ 18,00" },
+          ],
+        },
+        {
+          lineNumber: 20,
+          description: "Comprovante de pagamento",
+          documentGroup: "evento-divergente",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "28.00",
+          evidenceObservations: [
+            { kind: "PAYMENT", documentGroup: "evento-divergente", label: "Débito", amount: "28.00", date: "2026-05-27", page: 2, text: "R$ 28,00" },
+          ],
+        },
+        {
+          lineNumber: 21,
+          description: "Recibo da despesa",
+          documentGroup: "evento-divergente",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "18.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "evento-divergente", label: "Recibo", amount: "18.00", date: "2026-05-27", page: 2, text: "R$ 18,00" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  const amountFindings = result.findings.filter((finding) =>
+    finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
+    finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_")
+  );
+  assert.equal(amountFindings.length, 1);
+  assert.equal(amountFindings[0]?.code, "EVIDENCE_AMOUNT_MISMATCH_19");
+  assert.equal(amountFindings[0]?.expectedValue, "18.00");
+  assert.equal(amountFindings[0]?.actualValue, "28.00");
+});
+
+test("desconto explícito reconcilia as camadas do mesmo evento", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "REIMBURSEMENT",
+      totalAmount: "38.00",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Ficha da despesa",
+          documentGroup: "evento-desconto",
+          documentRole: "LINE_ITEM",
+          countsTowardDocumentTotal: true,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "38.00",
+          evidenceObservations: [
+            { kind: "SHEET", documentGroup: "evento-desconto", label: "Ficha", amount: "38.00", date: "2026-05-21", page: 1, text: "R$ 38,00" },
+          ],
+        },
+        {
+          lineNumber: 2,
+          description: "Venda com desconto",
+          documentGroup: "evento-desconto",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "38.00",
+          evidenceObservations: [
+            { kind: "SALE", documentGroup: "evento-desconto", label: "Venda", amount: "42.60", date: "2026-05-21", page: 2, text: "Soma R$ 42,60" },
+            { kind: "DISCOUNT", documentGroup: "evento-desconto", label: "Desconto", amount: "4.60", date: "2026-05-21", page: 2, text: "Desconto R$ 4,60" },
+          ],
+        },
+        {
+          lineNumber: 3,
+          description: "Pagamento líquido",
+          documentGroup: "evento-desconto",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "38.00",
+          evidenceObservations: [
+            { kind: "PAYMENT", documentGroup: "evento-desconto", label: "Pagamento", amount: "38.00", date: "2026-05-21", page: 2, text: "Pago R$ 38,00" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_")
+    ),
+    false,
+  );
+});
+
+test("suporte sem observação não altera a reconciliação do evento", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "REIMBURSEMENT",
+      totalAmount: "10.00",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Ficha da despesa",
+          documentGroup: "evento-sem-observacao",
+          documentRole: "LINE_ITEM",
+          countsTowardDocumentTotal: true,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "10.00",
+          evidenceObservations: [
+            { kind: "SHEET", documentGroup: "evento-sem-observacao", label: "Ficha", amount: "10.00", date: "2026-05-19", page: 1, text: "R$ 10,00" },
+          ],
+        },
+        {
+          lineNumber: 2,
+          description: "Pagamento da despesa",
+          documentGroup: "evento-sem-observacao",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "10.00",
+          evidenceObservations: [
+            { kind: "PAYMENT", documentGroup: "evento-sem-observacao", label: "Pagamento", amount: "10.00", date: "2026-05-19", page: 2, text: "R$ 10,00" },
+          ],
+        },
+        {
+          lineNumber: 3,
+          description: "Documento de venda sem observação estruturada",
+          documentGroup: "evento-sem-observacao",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "10.00",
+          evidenceObservations: [],
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_")
+    ),
+    false,
+  );
+});
+
+test("preserva cobrança agregada explícita com linhas econômicas independentes", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      totalAmount: "100.00",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Cobrança consolidada",
+          documentGroup: "lote-explicito",
+          documentRole: "AGGREGATE_PAYMENT",
+          countsTowardDocumentTotal: true,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "100.00",
+          evidenceObservations: [
+            { kind: "PAYMENT", documentGroup: "lote-explicito", label: "Cobrança", amount: "100.00", date: "2026-05-31", page: 1, text: "R$ 100,00" },
+          ],
+        },
+        {
+          lineNumber: 2,
+          description: "Documento econômico A",
+          documentGroup: "lote-explicito",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "60.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "lote-explicito", label: "Documento A", amount: "60.00", date: "2026-05-30", page: 2, text: "R$ 60,00" },
+          ],
+        },
+        {
+          lineNumber: 3,
+          description: "Documento econômico B",
+          documentGroup: "lote-explicito",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "40.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "lote-explicito", label: "Documento B", amount: "40.00", date: "2026-05-30", page: 3, text: "R$ 40,00" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_")
+    ),
+    false,
+  );
+});
+
+test("suporte marcado como não econômico não é somado ao pagamento agregado", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      totalAmount: "100.00",
+      itemCoverage: {
+        status: "COMPLETE",
+        declaredItemCount: 3,
+        extractedItemCount: 2,
+        firstLineNumber: 1,
+        lastLineNumber: 2,
+        missingLineNumbers: [],
+        evidence: "Duas linhas econômicas selecionadas; uma camada de apoio excluída.",
+      },
+      items: [
+        {
+          lineNumber: 1,
+          description: "Cobrança agregada",
+          documentGroup: "lote-cem",
+          documentRole: "AGGREGATE_PAYMENT",
+          countsTowardDocumentTotal: true,
+          quantity: "1",
+          unitPrice: "100.00",
+          totalAmount: "100.00",
+          evidenceObservations: [
+            { kind: "PAYMENT", documentGroup: "lote-cem", label: "Pagamento", amount: "100.00", date: null, page: 1, text: "R$ 100,00" },
+          ],
+        },
+        {
+          lineNumber: 2,
+          description: "Linha econômica",
+          documentGroup: "lote-cem",
+          documentRole: "LINE_ITEM",
+          countsTowardDocumentTotal: true,
+          quantity: "1",
+          unitPrice: "100.00",
+          totalAmount: "100.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "lote-cem", label: "Item", amount: "100.00", date: null, page: 2, text: "R$ 100,00" },
+          ],
+        },
+        {
+          lineNumber: 3,
+          description: "Cópia de apoio da linha econômica",
+          documentGroup: "lote-cem",
+          documentRole: "SUPPORTING_DOCUMENT",
+          countsTowardDocumentTotal: false,
+          quantity: "1",
+          unitPrice: "100.00",
+          totalAmount: "100.00",
+          evidenceObservations: [
+            { kind: "SHEET", documentGroup: "lote-cem", label: "Apoio", amount: "100.00", date: null, page: 3, text: "R$ 100,00" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_"),
+    ),
+    false,
+  );
+});
+
 test("reconcilia pagamento agregado com a soma dos produtos do mesmo documento", () => {
   const result = evaluateUniversalRules({
     invoice: invoice({
@@ -408,6 +940,13 @@ test("não presume se pagamentos estruturalmente idênticos são parcelas ou rep
   assert.equal(limitation.severity, "INFO");
   assert.equal(
     result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"),
+    false,
+  );
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_") ||
+      finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_"),
+    ),
     false,
   );
 });
@@ -509,6 +1048,9 @@ test("aplica a conciliação documental a outro fornecedor, outra cobrança e ou
           quantity: "1",
           unitPrice: "950.00",
           totalAmount: "950.00",
+          evidenceObservations: [
+            { kind: "PAYMENT", documentGroup: "MEDICAO-AGOSTO", label: "Cobrança", amount: "950.00", date: null, page: 1, text: "R$ 950,00" },
+          ],
         },
         {
           lineNumber: 2,
@@ -568,6 +1110,9 @@ test("preserva o achado de cobertura e elimina o total genérico duplicado", () 
           quantity: "1",
           unitPrice: "550.00",
           totalAmount: "550.00",
+          evidenceObservations: [
+            { kind: "RECEIPT", documentGroup: "MEDICAO-AGOSTO", label: "Documento fiscal", amount: "550.00", date: null, page: 2, text: "R$ 550,00" },
+          ],
         },
       ],
     }),
@@ -581,6 +1126,13 @@ test("preserva o achado de cobertura e elimina o total genérico duplicado", () 
   );
   assert.equal(
     result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"),
+    false,
+  );
+  assert.equal(
+    result.findings.some((finding) =>
+      finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_") ||
+      finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_"),
+    ),
     false,
   );
 });

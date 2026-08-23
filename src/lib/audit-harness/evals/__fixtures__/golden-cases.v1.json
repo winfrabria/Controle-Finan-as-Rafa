@@ -589,7 +589,7 @@
           "readConfidence": 0.97,
           "warnings": [],
           "markdown": "# Documento composto sintetico\n\nNota fiscal acompanhada do respectivo comprovante de pagamento.",
-          "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 2, "extractedItemCount": 2, "firstLineNumber": 1, "lastLineNumber": 2, "missingLineNumbers": [], "evidence": "Nota e comprovante identificados como camadas sobrepostas." },
+          "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 1, "extractedItemCount": 1, "firstLineNumber": 1, "lastLineNumber": 1, "missingLineNumbers": [], "evidence": "A linha fiscal e a camada economica integral; o comprovante e suporte sobreposto." },
           "items": [
             { "lineNumber": 1, "description": "Linha fiscal sintetica", "documentGroup": "GRUPO-A", "documentRole": "LINE_ITEM", "countsTowardDocumentTotal": true, "quantity": "1", "unitPrice": "320.00", "totalAmount": "320.00" },
             { "lineNumber": 2, "description": "Comprovante de pagamento da linha fiscal", "documentGroup": "GRUPO-A", "documentRole": "SUPPORTING_DOCUMENT", "countsTowardDocumentTotal": false, "quantity": "1", "unitPrice": "320.00", "totalAmount": "320.00" }
@@ -620,7 +620,7 @@
           "readConfidence": 0.96,
           "warnings": [],
           "markdown": "# Combustivel sintetico\n\nNota fiscal acompanhada de relatorio operacional com o mesmo total.",
-          "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 2, "extractedItemCount": 2, "firstLineNumber": 1, "lastLineNumber": 2, "missingLineNumbers": [], "evidence": "Camada fiscal e relatorio identificados separadamente." },
+          "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 1, "extractedItemCount": 1, "firstLineNumber": 1, "lastLineNumber": 1, "missingLineNumbers": [], "evidence": "A linha fiscal e a camada economica integral; o relatorio e suporte sobreposto." },
           "items": [
             { "lineNumber": 1, "description": "Linha fiscal de combustivel sintetico", "documentGroup": "ABASTECIMENTO-A", "documentRole": "LINE_ITEM", "countsTowardDocumentTotal": true, "quantity": "20", "unitPrice": "10.00", "totalAmount": "200.00" },
             { "lineNumber": 2, "description": "Resumo do relatorio de abastecimento", "documentGroup": "ABASTECIMENTO-A", "documentRole": "SUMMARY", "countsTowardDocumentTotal": false, "quantity": null, "unitPrice": null, "totalAmount": "200.00" }
@@ -714,7 +714,7 @@
           "readConfidence": 0.95,
           "warnings": [],
           "markdown": "# Documento multipagina sintetico\n\nPagina de resumo seguida por dois comprovantes que formam o mesmo total.",
-          "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 3, "extractedItemCount": 3, "firstLineNumber": 1, "lastLineNumber": 3, "missingLineNumbers": [], "evidence": "Resumo e comprovantes extraidos com papeis explicitos." },
+          "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 1, "extractedItemCount": 1, "firstLineNumber": 1, "lastLineNumber": 1, "missingLineNumbers": [], "evidence": "O resumo e a camada economica integral; os comprovantes sao suportes sobrepostos." },
           "items": [
             { "lineNumber": 1, "description": "Resumo consolidado multipagina", "documentGroup": "PACOTE-A", "documentRole": "SUMMARY", "countsTowardDocumentTotal": true, "quantity": "1", "unitPrice": "300.00", "totalAmount": "300.00" },
             { "lineNumber": 2, "description": "Comprovante sintetico da pagina dois", "documentGroup": "PACOTE-A", "documentRole": "SUPPORTING_DOCUMENT", "countsTowardDocumentTotal": false, "quantity": "1", "unitPrice": "100.00", "totalAmount": "100.00" },
@@ -810,7 +810,7 @@
           "markdown": "# Documento sintetico com partes distintas\n\nCNPJ-SINTETICO-EMITENTE identifica o emissor e CNPJ-SINTETICO-TOMADOR identifica o destinatario.",
           "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 1, "extractedItemCount": 1, "firstLineNumber": 1, "lastLineNumber": 1, "missingLineNumbers": [], "evidence": "Papeis fiscais distintos identificados no documento." },
           "items": [
-            { "lineNumber": 1, "description": "Servico sintetico entre partes identificadas", "quantity": "1", "unitPrice": "180.00", "totalAmount": "180.00" }
+            { "lineNumber": 1, "description": "Servico sintetico entre partes identificadas", "documentRole": "LINE_ITEM", "countsTowardDocumentTotal": true, "quantity": "1", "unitPrice": "180.00", "totalAmount": "180.00" }
           ]
         },
         "now": "2026-08-21"

@@ -5,17 +5,28 @@ import { HARNESS_PDF_MODEL } from "@/lib/audit-harness/versions";
 import {
   invoiceExtractionSchema,
   parseInvoiceExtractionPayload,
+  type InvoiceExtraction,
 } from "@/lib/integrations/openrouter/extraction-contract";
 import {
+  getInvoiceExtractionLimitation,
   OpenRouterClientError,
   OpenRouterInvoiceExtractionClient,
 } from "./client";
 
-const validExtraction = {
+const validExtraction: InvoiceExtraction = {
   currency: "BRL",
   documentKind: "FISCAL_INVOICE",
   documentNumber: "SYNTH-001",
   issuedAt: "2026-07-31",
+  itemCoverage: {
+    status: "COMPLETE",
+    declaredItemCount: 1,
+    extractedItemCount: 1,
+    firstLineNumber: 1,
+    lastLineNumber: 1,
+    missingLineNumbers: [],
+    evidence: "Primeira e última linha conferidas.",
+  },
   items: [
     {
       code: null,
@@ -40,15 +51,35 @@ const validExtraction = {
   warnings: [],
 };
 
-function successResponse(model: string) {
+function successResponse(
+  model: string,
+  options: {
+    completionTokens?: number;
+    costUsd?: number;
+    extraction?: unknown;
+    finishReason?: string | null;
+  } = {},
+) {
+  const completionTokens = options.completionTokens ?? 10;
+  const promptTokens = 20;
   return new Response(
     JSON.stringify({
       choices: [
-        { message: { content: JSON.stringify(validExtraction) } },
+        {
+          finish_reason: options.finishReason ?? "stop",
+          message: {
+            content: JSON.stringify(options.extraction ?? validExtraction),
+          },
+        },
       ],
       model,
       provider: "test-provider",
-      usage: { completion_tokens: 10, prompt_tokens: 20, total_tokens: 30 },
+      usage: {
+        completion_tokens: completionTokens,
+        cost: options.costUsd,
+        prompt_tokens: promptTokens,
+        total_tokens: promptTokens + completionTokens,
+      },
     }),
     { headers: { "content-type": "application/json" }, status: 200 },
   );
@@ -329,6 +360,444 @@ test("PDF usa o modelo estável configurado e aceita a reconciliação por camad
   assert.equal("temperature" in (requestedPayload ?? {}), false);
 });
 
+test("não aceita silenciosamente PDF que atinge exatamente 8192 tokens e relê o original", async () => {
+  let calls = 0;
+  const payloads: Array<Record<string, unknown>> = [];
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async (_url, init) => {
+      calls += 1;
+      payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return successResponse(HARNESS_PDF_MODEL, {
+        completionTokens: 8_192,
+        costUsd: 0.02,
+      });
+    },
+    maxAttempts: 2,
+    maxTokens: 8_192,
+    model: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_PDF_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "native",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  await assert.rejects(
+    client.extractInvoice({
+      fileName: "documento-longo.pdf",
+      mimeType: "application/pdf",
+      signedUrl: "https://storage.test/documento-longo.pdf?token=redacted",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof OpenRouterClientError);
+      assert.equal(error.kind, "invalid-response");
+      assert.equal(error.diagnostic, "completion-token-limit");
+      assert.equal(error.attempts, 2);
+      assert.equal(error.usage?.completionTokens, 16_384);
+      assert.equal(error.usage?.costUsd, 0.04);
+      assert.ok(error.latencyMs !== undefined);
+      return true;
+    },
+  );
+
+  assert.equal(calls, 2);
+  for (const payload of payloads) {
+    assert.match(JSON.stringify(payload.messages), /file_data/);
+    assert.deepEqual(payload.plugins, [
+      { id: "file-parser", pdf: { engine: "native" } },
+      { id: "response-healing" },
+    ]);
+  }
+});
+
+test("detecta finish_reason length antes de tentar reparar o JSON truncado", async () => {
+  const payloads: Array<Record<string, unknown>> = [];
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async (_url, init) => {
+      payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      if (payloads.length === 2) return successResponse(HARNESS_PDF_MODEL);
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              finish_reason: "length",
+              message: { content: "{\"items\":[{\"lineNumber\":1" },
+            },
+          ],
+          model: HARNESS_PDF_MODEL,
+          provider: "test-provider",
+          usage: {
+            completion_tokens: 8_192,
+            cost: 0.01,
+            prompt_tokens: 20,
+            total_tokens: 8_212,
+          },
+        }),
+        { headers: { "content-type": "application/json" }, status: 200 },
+      );
+    },
+    maxAttempts: 2,
+    maxTokens: 8_192,
+    model: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_PDF_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "native",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  const result = await client.extractInvoice({
+    fileName: "documento-truncado.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento-truncado.pdf?token=redacted",
+  });
+
+  assert.equal(result.attempts, 2);
+  assert.equal(payloads.length, 2);
+  assert.match(JSON.stringify(payloads[1]?.messages), /file_data/);
+  assert.doesNotMatch(JSON.stringify(payloads[1]?.messages), /extraction_draft/);
+});
+
+test("rejeita cobertura COMPLETE com seleção explícita totalmente vazia", () => {
+  const limitation = getInvoiceExtractionLimitation(
+    {
+      ...validExtraction,
+      itemCoverage: {
+        ...validExtraction.itemCoverage,
+        extractedItemCount: 1,
+      },
+      items: validExtraction.items.map((item) => ({
+        ...item,
+        countsTowardDocumentTotal: false,
+      })),
+    },
+    "application/pdf",
+  );
+
+  assert.equal(limitation?.diagnostic, "pdf-item-coverage-inconsistent");
+  assert.equal(limitation?.details.selectedLayerCount, 0);
+});
+
+test("rejeita PDF composto sem camada econômica explícita", () => {
+  const limitation = getInvoiceExtractionLimitation(
+    {
+      ...validExtraction,
+      documentKind: "REIMBURSEMENT",
+      itemCoverage: {
+        ...validExtraction.itemCoverage,
+        declaredItemCount: 3,
+        extractedItemCount: 3,
+        firstLineNumber: 1,
+        lastLineNumber: 3,
+      },
+      items: [1, 2, 3].map((lineNumber) => ({
+        ...validExtraction.items[0],
+        countsTowardDocumentTotal: undefined,
+        documentGroup: "evento-sem-camada",
+        evidenceObservations: [
+          {
+            amount: "20.00",
+            date: "2026-07-31",
+            documentGroup: "evento-sem-camada",
+            kind: lineNumber === 1 ? "SHEET" as const : lineNumber === 2 ? "RECEIPT" as const : "PAYMENT" as const,
+            label: `Camada ${lineNumber}`,
+            page: lineNumber,
+            text: "R$ 20,00",
+          },
+        ],
+        lineNumber,
+      })),
+    },
+    "application/pdf",
+  );
+
+  assert.equal(limitation?.diagnostic, "pdf-item-coverage-inconsistent");
+  assert.equal(limitation?.details.hasCompositeStructure, true);
+  assert.equal(limitation?.details.hasExplicitLayerSelection, false);
+});
+
+test("rejeita PDF com itens quando qualquer linha omite a camada econômica", () => {
+  const limitation = getInvoiceExtractionLimitation(
+    {
+      ...validExtraction,
+      documentKind: "FISCAL_INVOICE",
+      items: validExtraction.items.map((item) => ({
+        ...item,
+        countsTowardDocumentTotal: undefined,
+      })),
+      markdown: "Ficha de reembolso, recibo e comprovante de pagamento.",
+    },
+    "application/pdf",
+  );
+
+  assert.equal(limitation?.diagnostic, "pdf-item-coverage-inconsistent");
+  assert.equal(limitation?.details.hasCompleteExplicitLayerSelection, false);
+});
+
+test("rejeita PDF composto declarado completo sem nenhuma linha extraída", () => {
+  const limitation = getInvoiceExtractionLimitation(
+    {
+      ...validExtraction,
+      documentKind: "REIMBURSEMENT",
+      itemCoverage: {
+        status: "COMPLETE",
+        declaredItemCount: null,
+        extractedItemCount: 0,
+        firstLineNumber: null,
+        lastLineNumber: null,
+        missingLineNumbers: [],
+        evidence: "Documento lido.",
+      },
+      items: [],
+    },
+    "application/pdf",
+  );
+
+  assert.equal(limitation?.diagnostic, "pdf-item-coverage-inconsistent");
+  assert.equal(limitation?.details.hasCompositeStructure, true);
+});
+
+test("rejeita PDF fiscal com total mas sem nenhuma linha extraída", () => {
+  const limitation = getInvoiceExtractionLimitation(
+    {
+      ...validExtraction,
+      documentKind: "FISCAL_INVOICE",
+      itemCoverage: {
+        status: "COMPLETE",
+        declaredItemCount: null,
+        extractedItemCount: 0,
+        firstLineNumber: null,
+        lastLineNumber: null,
+        missingLineNumbers: [],
+        evidence: "Documento lido.",
+      },
+      items: [],
+    },
+    "application/pdf",
+  );
+
+  assert.equal(limitation?.diagnostic, "pdf-item-coverage-inconsistent");
+});
+
+test("rejeita lacuna intermediária omitida em cobertura declarada COMPLETE", () => {
+  const limitation = getInvoiceExtractionLimitation(
+    {
+      ...validExtraction,
+      itemCoverage: {
+        ...validExtraction.itemCoverage,
+        declaredItemCount: 2,
+        extractedItemCount: 2,
+        firstLineNumber: 1,
+        lastLineNumber: 3,
+      },
+      items: [
+        validExtraction.items[0],
+        {
+          ...validExtraction.items[0],
+          description: "Linha três",
+          lineNumber: 3,
+        },
+      ],
+    },
+    "application/pdf",
+  );
+
+  assert.equal(limitation?.diagnostic, "pdf-item-coverage-inconsistent");
+  assert.deepEqual(limitation?.details.unreportedInternalGaps, [2]);
+});
+
+test("rejeita cobertura UNKNOWN em PDF mesmo quando o JSON é válido", async () => {
+  const extraction = {
+    ...validExtraction,
+    documentKind: "COMPOSITE",
+    itemCoverage: {
+      status: "UNKNOWN",
+      declaredItemCount: null,
+      extractedItemCount: 2,
+      firstLineNumber: null,
+      lastLineNumber: null,
+      missingLineNumbers: [],
+      evidence: null,
+    },
+    items: [
+      {
+        ...validExtraction.items[0],
+        evidenceObservations: [
+          { kind: "SHEET", amount: "10.00", page: null },
+        ],
+        totalAmount: "10.00",
+      },
+      {
+        ...validExtraction.items[0],
+        description: "Comprovante sintético",
+        evidenceObservations: [
+          { kind: "PAYMENT", amount: "10.00" },
+        ],
+        lineNumber: 2,
+        totalAmount: "10.00",
+      },
+    ],
+  };
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async () =>
+      successResponse(HARNESS_PDF_MODEL, { extraction }),
+    maxAttempts: 1,
+    model: HARNESS_PDF_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "native",
+    reasoningEffort: "high",
+    timeoutMs: 1_000,
+  });
+
+  await assert.rejects(
+    client.extractInvoice({
+      fileName: "documento-composto.pdf",
+      mimeType: "application/pdf",
+      signedUrl: "https://storage.test/documento-composto.pdf?token=redacted",
+    }),
+    (error: unknown) =>
+      error instanceof OpenRouterClientError &&
+      error.kind === "invalid-response" &&
+      error.diagnostic === "pdf-item-coverage-unknown",
+  );
+});
+
+test("rejeita páginas nulas ou ausentes em evidências de PDF composto", async () => {
+  const extraction = {
+    ...validExtraction,
+    documentKind: "REIMBURSEMENT",
+    itemCoverage: {
+      status: "COMPLETE",
+      declaredItemCount: 2,
+      extractedItemCount: 2,
+      firstLineNumber: 1,
+      lastLineNumber: 2,
+      missingLineNumbers: [],
+      evidence: "Duas linhas conferidas.",
+    },
+    items: [
+      {
+        ...validExtraction.items[0],
+        evidenceObservations: [
+          { kind: "SHEET", amount: "10.00", page: null },
+        ],
+        totalAmount: "10.00",
+      },
+      {
+        ...validExtraction.items[0],
+        description: "Pagamento sintético",
+        evidenceObservations: [
+          { kind: "PAYMENT", amount: "10.00" },
+        ],
+        lineNumber: 2,
+        totalAmount: "10.00",
+      },
+    ],
+  };
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async () =>
+      successResponse(HARNESS_PDF_MODEL, { extraction }),
+    maxAttempts: 1,
+    model: HARNESS_PDF_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "native",
+    reasoningEffort: "high",
+    timeoutMs: 1_000,
+  });
+
+  await assert.rejects(
+    client.extractInvoice({
+      fileName: "reembolso.pdf",
+      mimeType: "application/pdf",
+      signedUrl: "https://storage.test/reembolso.pdf?token=redacted",
+    }),
+    (error: unknown) =>
+      error instanceof OpenRouterClientError &&
+      error.kind === "invalid-response" &&
+      error.diagnostic === "pdf-evidence-page-missing",
+  );
+});
+
+test("rejeita cobertura parcial antes de liberar PDF para auditoria", async () => {
+  const extraction = {
+    ...validExtraction,
+    itemCoverage: {
+      status: "INCOMPLETE",
+      declaredItemCount: 2,
+      extractedItemCount: 1,
+      firstLineNumber: 1,
+      lastLineNumber: 1,
+      missingLineNumbers: [2],
+      evidence: "Segunda linha não extraída.",
+    },
+  };
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async () =>
+      successResponse(HARNESS_PDF_MODEL, { extraction }),
+    maxAttempts: 1,
+    model: HARNESS_PDF_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "native",
+    reasoningEffort: "high",
+    timeoutMs: 1_000,
+  });
+
+  await assert.rejects(
+    client.extractInvoice({
+      fileName: "tabela-parcial.pdf",
+      mimeType: "application/pdf",
+      signedUrl: "https://storage.test/tabela-parcial.pdf?token=redacted",
+    }),
+    (error: unknown) =>
+      error instanceof OpenRouterClientError &&
+      error.kind === "invalid-response" &&
+      error.diagnostic === "pdf-item-coverage-incomplete",
+  );
+});
+
+test("rejeita cobertura declarada completa com contagem inconsistente", async () => {
+  const extraction = {
+    ...validExtraction,
+    itemCoverage: {
+      ...validExtraction.itemCoverage,
+      declaredItemCount: 2,
+      extractedItemCount: 2,
+      lastLineNumber: 2,
+    },
+  };
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async () =>
+      successResponse(HARNESS_PDF_MODEL, { extraction }),
+    maxAttempts: 1,
+    model: HARNESS_PDF_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "native",
+    reasoningEffort: "high",
+    timeoutMs: 1_000,
+  });
+
+  await assert.rejects(
+    client.extractInvoice({
+      fileName: "contagem-inconsistente.pdf",
+      mimeType: "application/pdf",
+      signedUrl:
+        "https://storage.test/contagem-inconsistente.pdf?token=redacted",
+    }),
+    (error: unknown) =>
+      error instanceof OpenRouterClientError &&
+      error.kind === "invalid-response" &&
+      error.diagnostic === "pdf-item-coverage-inconsistent",
+  );
+});
+
 test("resposta inválida é reconstruída uma vez antes de falhar o job", async () => {
   let calls = 0;
   const payloads: Array<Record<string, unknown>> = [];
@@ -434,7 +903,7 @@ test("reconstrói JSON com o OCR já obtido sem reler o PDF", async () => {
   assert.doesNotMatch(JSON.stringify(payloads[1]?.messages), /file_data/);
 });
 
-test("preserva OCR utilizável quando também falha a reconstrução estruturada", async () => {
+test("mantém OCR parcial em estado seguro quando também falha a reconstrução estruturada", async () => {
   let calls = 0;
   const client = new OpenRouterInvoiceExtractionClient({
     apiKey: "test-key",
@@ -487,19 +956,23 @@ test("preserva OCR utilizável quando também falha a reconstrução estruturada
     timeoutMs: 1_000,
   });
 
-  const result = await client.extractInvoice({
-    fileName: "reembolso.pdf",
-    mimeType: "application/pdf",
-    signedUrl: "https://storage.test/reembolso.pdf?token=redacted",
-  });
+  await assert.rejects(
+    client.extractInvoice({
+      fileName: "reembolso.pdf",
+      mimeType: "application/pdf",
+      signedUrl: "https://storage.test/reembolso.pdf?token=redacted",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof OpenRouterClientError);
+      assert.equal(error.kind, "invalid-response");
+      assert.equal(error.diagnostic, "ocr-only-partial");
+      assert.equal(error.attempts, 2);
+      assert.equal(error.provider, "mistral-ocr");
+      return true;
+    },
+  );
 
   assert.equal(calls, 2);
-  assert.equal(result.attempts, 2);
-  assert.equal(result.provider, "mistral-ocr");
-  assert.equal(result.data.items.length, 0);
-  assert.equal(result.data.readConfidence, 0.65);
-  assert.match(result.data.markdown, /Ficha de reembolso/);
-  assert.match(result.data.warnings[0] ?? "", /OCR integral/);
 });
 
 test("classifica como timeout quando o prazo expira durante a leitura do corpo", async () => {
@@ -572,6 +1045,7 @@ test("PDF experimental incompatível recua para Terra na mesma execução", asyn
 
 test("preserva HTTP 402 como falha não repetível de saldo", async () => {
   let calls = 0;
+  const primaryModel = "google/gemini-3.6-flash";
   const client = new OpenRouterInvoiceExtractionClient({
     apiKey: "test-key",
     fetchImplementation: async () => {
@@ -585,9 +1059,9 @@ test("preserva HTTP 402 como falha não repetível de saldo", async () => {
     },
     maxAttempts: 2,
     maxTokens: 8_192,
-    model: HARNESS_PDF_MODEL,
+    model: primaryModel,
     pdfFallbackModel: HARNESS_PDF_MODEL,
-    pdfModel: HARNESS_PDF_MODEL,
+    pdfModel: primaryModel,
     pdfEngine: "mistral-ocr",
     reasoningEffort: "high",
     sleep: async () => undefined,

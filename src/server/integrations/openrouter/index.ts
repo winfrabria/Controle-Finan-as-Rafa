@@ -1,5 +1,7 @@
 export {
+  getInvoiceExtractionLimitation,
   getOpenRouterInvoiceExtractionClient,
+  isInvoiceExtractionLimitationDiagnostic,
   type InvoiceExtractionClient,
   type InvoiceExtractionRequest,
   type InvoiceExtractionResult,

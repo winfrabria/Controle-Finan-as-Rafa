@@ -196,7 +196,8 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
           options: {
             type: "array",
             maxItems: 10,
-            uniqueItems: true,
+            // OpenAI Structured Outputs (via OpenRouter) rejects uniqueItems.
+            // Duplicate values are still rejected by contextQuestionSchema.
             items: {
               type: "object",
               additionalProperties: false,

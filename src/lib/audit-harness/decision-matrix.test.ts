@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { HarnessInvoice } from "./contracts";
+import type { AiDiscoveryResponse, HarnessInvoice } from "./contracts";
 import {
   decideClassification,
   resolvePostContextClassification,
@@ -88,6 +88,30 @@ test("confiança baixa continua falhando quando não há evidência estrutural s
     }),
     true,
   );
+});
+
+test("reembolso sem nenhuma despesa extraída nunca encerra como OK", () => {
+  const emptyReimbursement: HarnessInvoice = {
+    ...sparseInvoice,
+    documentKind: "REIMBURSEMENT",
+    markdown: "Ficha de reembolso e prestação de contas integralmente legível.",
+    totalAmount: "500.00",
+  };
+
+  assert.equal(isReadFailure(emptyReimbursement), true);
+  assert.equal(evaluateHarness({ invoice: emptyReimbursement }).classification, "READ_FAILED");
+});
+
+test("nota fiscal com total mas sem nenhuma linha extraída nunca encerra como OK", () => {
+  const emptyInvoice: HarnessInvoice = {
+    ...sparseInvoice,
+    documentKind: "FISCAL_INVOICE",
+    markdown: "Nota fiscal legível com total declarado, mas sem linhas extraídas.",
+    totalAmount: "500.00",
+  };
+
+  assert.equal(isReadFailure(emptyInvoice), true);
+  assert.equal(evaluateHarness({ invoice: emptyInvoice }).classification, "READ_FAILED");
 });
 
 test("camada total explicitamente vazia nunca encerra a auditoria como OK", () => {
@@ -572,4 +596,322 @@ test("remove repetições semânticas do mesmo achado e preserva itens distintos
     ]).length,
     2,
   );
+});
+
+function reimbursementWithAiAmountFinding(options: {
+  aiGroup: string;
+  aiLineNumber?: number | null;
+  deterministicGroup: string;
+  formattedAiValues?: boolean;
+}) {
+  const invoice: HarnessInvoice = {
+    documentKind: "REIMBURSEMENT",
+    documentNumber: "SYNTH-REIMBURSEMENT",
+    supplierName: null,
+    supplierTaxId: null,
+    issuedAt: "2026-05-27",
+    totalAmount: "18.00",
+    readConfidence: 0.99,
+    warnings: [],
+    markdown: "Ficha de reembolso, recibo e pagamento integralmente lidos.",
+    itemCoverage: {
+      status: "COMPLETE",
+      declaredItemCount: 2,
+      extractedItemCount: 2,
+      firstLineNumber: 19,
+      lastLineNumber: 20,
+      missingLineNumbers: [],
+      evidence: "Linhas 19 e 20 conferidas.",
+    },
+    items: [
+      {
+        lineNumber: 19,
+        description: "Despesa registrada na ficha",
+        documentGroup: options.deterministicGroup,
+        documentRole: "LINE_ITEM",
+        countsTowardDocumentTotal: true,
+        quantity: "1",
+        unitPrice: "18.00",
+        totalAmount: "18.00",
+        evidenceObservations: [
+          {
+            kind: "SHEET",
+            documentGroup: options.deterministicGroup,
+            label: "Ficha item 19",
+            amount: "18.00",
+            date: "2026-05-26",
+            page: 1,
+            text: "Despesa R$ 18,00",
+          },
+          {
+            kind: "PAYMENT",
+            documentGroup: options.deterministicGroup,
+            label: "Pagamento",
+            amount: "28.00",
+            date: "2026-05-27",
+            page: 20,
+            text: "Pagamento R$ 28,00",
+          },
+        ],
+      },
+      {
+        lineNumber: 20,
+        description: "Comprovante localizado pela auditoria",
+        documentGroup: options.aiGroup,
+        documentRole: "SUPPORTING_DOCUMENT",
+        countsTowardDocumentTotal: false,
+        quantity: null,
+        unitPrice: null,
+        totalAmount: null,
+        evidenceObservations: [],
+      },
+    ],
+  };
+  const aiDiscovery: AiDiscoveryResponse = {
+    findings: [
+      {
+        actualValue: options.formattedAiValues ? "R$ 28,00" : "28.00",
+        category: "AMOUNTS",
+        code: "AI_PAYMENT_DIFFERENCE",
+        confidence: 0.99,
+        description: "O pagamento diverge da despesa registrada.",
+        evidence: {
+          field: "valor",
+          lineNumber: options.aiLineNumber === undefined ? 20 : options.aiLineNumber,
+          page: 20,
+          source: "Comprovante de pagamento",
+          summary: "O cartão registra R$ 28,00 para a despesa de R$ 18,00.",
+        },
+        expectedValue: options.formattedAiValues ? "R$ 18,00" : "18.00",
+        justification: "Os valores estão no mesmo conjunto documental.",
+        noteItemLineNumber:
+          options.aiLineNumber === undefined ? 20 : options.aiLineNumber,
+        references: ["DOCUMENTO:página:20:PAYMENT"],
+        severity: "WARNING",
+        source: "AI_DISCOVERY",
+        title: "Pagamento diverge da despesa",
+      },
+    ],
+    coverage: {
+      checkedAreas: ["AMOUNTS"],
+      limitations: [],
+      sufficientEvidence: true,
+    },
+    contextQuestions: [],
+    needsContext: false,
+    summary: "Valores auditados.",
+  };
+
+  return evaluateHarness({ aiDiscovery, invoice }).findings.filter((finding) => {
+    const expected = String(finding.expectedValue ?? "").replace(/\D/g, "");
+    const actual = String(finding.actualValue ?? "").replace(/\D/g, "");
+    return expected === "1800" && actual === "2800";
+  });
+}
+
+test("deduplica a mesma divergência quando ficha e pagamento usam linhas distintas", () => {
+  assert.equal(
+    reimbursementWithAiAmountFinding({
+      aiGroup: "evento-casa-da-uva",
+      deterministicGroup: "evento-casa-da-uva",
+    }).length,
+    1,
+  );
+});
+
+test("preserva achado da IA na mesma página quando pertence a outro evento", () => {
+  assert.equal(
+    reimbursementWithAiAmountFinding({
+      aiGroup: "evento-b",
+      deterministicGroup: "evento-a",
+    }).length,
+    2,
+  );
+});
+
+test("deduplica valor monetário formatado quando a IA localiza apenas a página", () => {
+  assert.equal(
+    reimbursementWithAiAmountFinding({
+      aiGroup: "evento-casa-da-uva",
+      aiLineNumber: null,
+      deterministicGroup: "evento-casa-da-uva",
+      formattedAiValues: true,
+    }).length,
+    1,
+  );
+});
+
+test("deduplica valor monetário em milhar quando a IA omite os centavos", () => {
+  const shared = {
+    category: "AMOUNTS",
+    evidence: {
+      documentGroup: "evento-valor-alto",
+      field: "valor",
+      lineNumber: 1,
+      page: 1,
+      summary: "Os valores do mesmo evento divergem.",
+    },
+    noteItemLineNumber: 1,
+    references: ["DOCUMENTO:página:1"],
+  };
+
+  const findings = deduplicateHarnessFindings([
+    {
+      ...shared,
+      actualValue: "1500.00",
+      code: "AMOUNT_MISMATCH_LOCAL",
+      expectedValue: "1234.00",
+    },
+    {
+      ...shared,
+      actualValue: "R$ 1.500",
+      code: "AMOUNT_MISMATCH_AI",
+      expectedValue: "R$ 1.234",
+    },
+  ]);
+
+  assert.equal(findings.length, 1);
+});
+
+test("preserva erros aritméticos iguais em linhas distintas do mesmo documento", () => {
+  const invoice: HarnessInvoice = {
+    documentKind: "FISCAL_INVOICE",
+    documentNumber: "SYNTH-TWO-LINES",
+    supplierName: "Fornecedor sintético",
+    supplierTaxId: null,
+    issuedAt: "2026-08-22",
+    totalAmount: "56.00",
+    readConfidence: 0.99,
+    warnings: [],
+    markdown: "Nota fiscal sintética com duas linhas independentes.",
+    itemCoverage: {
+      status: "COMPLETE",
+      declaredItemCount: 2,
+      extractedItemCount: 2,
+      firstLineNumber: 1,
+      lastLineNumber: 2,
+      missingLineNumbers: [],
+      evidence: "Duas linhas conferidas.",
+    },
+    items: [1, 2].map((lineNumber) => ({
+      lineNumber,
+      description: `Produto ${lineNumber}`,
+      documentGroup: "nf-sintetica",
+      documentRole: "LINE_ITEM" as const,
+      countsTowardDocumentTotal: true,
+      quantity: "1",
+      unitPrice: "18.00",
+      totalAmount: "28.00",
+      evidenceObservations: [],
+    })),
+  };
+
+  const arithmeticFindings = evaluateHarness({ invoice }).findings.filter(
+    (finding) => finding.code === "ITEM_ARITHMETIC_MISMATCH",
+  );
+  assert.equal(arithmeticFindings.length, 2);
+  assert.deepEqual(
+    arithmeticFindings.map((finding) => finding.noteItemLineNumber),
+    [1, 2],
+  );
+});
+
+test("preserva descobertas distintas quando a mesma página contém grupos ambíguos", () => {
+  const invoice: HarnessInvoice = {
+    ...sparseInvoice,
+    documentKind: "COMPOSITE",
+    documentNumber: "SYNTH-AMBIGUOUS-PAGE",
+    readConfidence: 0.99,
+    markdown: "Documento composto com dois eventos na mesma página.",
+    totalAmount: "56.00",
+    itemCoverage: {
+      status: "COMPLETE",
+      declaredItemCount: 2,
+      extractedItemCount: 2,
+      firstLineNumber: 1,
+      lastLineNumber: 2,
+      missingLineNumbers: [],
+      evidence: "Dois eventos conferidos.",
+    },
+    items: ["evento-a", "evento-b"].map((documentGroup, index) => ({
+      lineNumber: index + 1,
+      description: `Evento ${index + 1}`,
+      documentGroup,
+      documentRole: "LINE_ITEM" as const,
+      countsTowardDocumentTotal: true,
+      quantity: "1",
+      unitPrice: "28.00",
+      totalAmount: "28.00",
+      evidenceObservations: [
+        {
+          kind: "RECEIPT" as const,
+          documentGroup,
+          label: `Recibo ${index + 1}`,
+          amount: "28.00",
+          date: "2026-08-22",
+          page: 20,
+          text: `Evento ${index + 1} na página compartilhada`,
+        },
+      ],
+    })),
+  };
+  const aiDiscovery: AiDiscoveryResponse = {
+    findings: ["A", "B"].map((suffix) => ({
+      actualValue: "28.00",
+      category: "AMOUNTS",
+      code: `AI_EVENT_${suffix}`,
+      confidence: 0.99,
+      description: `Divergência independente ${suffix}.`,
+      evidence: {
+        field: "valor",
+        lineNumber: null,
+        page: 20,
+        source: `Trecho ${suffix}`,
+        summary: `Evidência independente ${suffix} na página compartilhada.`,
+      },
+      expectedValue: "18.00",
+      justification: `O evento ${suffix} contém valores conflitantes.`,
+      noteItemLineNumber: null,
+      references: [`DOCUMENTO:página:20:EVENTO_${suffix}`],
+      severity: "WARNING" as const,
+      source: "AI_DISCOVERY" as const,
+      title: `Divergência ${suffix}`,
+    })),
+    coverage: {
+      checkedAreas: ["AMOUNTS"],
+      limitations: [],
+      sufficientEvidence: true,
+    },
+    contextQuestions: [],
+    needsContext: false,
+    summary: "Dois eventos distintos avaliados.",
+  };
+
+  assert.equal(
+    evaluateHarness({ aiDiscovery, invoice }).findings.filter((finding) =>
+      finding.code.startsWith("AI_EVENT_"),
+    ).length,
+    2,
+  );
+});
+
+test("preserva divergências iguais quando pertencem a eventos distintos", () => {
+  const findings = deduplicateHarnessFindings(
+    ["evento-a", "evento-b"].map((documentGroup, index) => ({
+      actualValue: "28.00",
+      category: "AMOUNTS",
+      code: `EVIDENCE_AMOUNT_MISMATCH_${index + 1}`,
+      evidence: {
+        documentGroup,
+        lineNumber: index + 1,
+        pages: [1, 2],
+        summary: "Ficha e pagamento divergem.",
+      },
+      expectedValue: "18.00",
+      noteItemLineNumber: index + 1,
+      references: ["DOCUMENTO:página:1:SHEET", "DOCUMENTO:página:2:PAYMENT"],
+    })),
+  );
+
+  assert.equal(findings.length, 2);
 });

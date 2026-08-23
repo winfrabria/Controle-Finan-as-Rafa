@@ -35,6 +35,72 @@ function normalizeComparableToken(value: string) {
   return value.replace(/\s+/g, " ").trim().toLocaleLowerCase("pt-BR");
 }
 
+function normalizeComparableMoney(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `money:${value.toFixed(2)}`;
+  }
+  if (typeof value !== "string") return value;
+
+  const compact = value
+    .trim()
+    .replace(/^R\$\s*/iu, "")
+    .replace(/\s+/g, "");
+  if (!/^-?[\d.,]+$/u.test(compact)) return value;
+
+  const lastComma = compact.lastIndexOf(",");
+  const lastDot = compact.lastIndexOf(".");
+  let normalized = compact;
+  if (lastComma >= 0 && lastDot >= 0) {
+    normalized =
+      lastComma > lastDot
+        ? compact.replace(/\./g, "").replace(",", ".")
+        : compact.replace(/,/g, "");
+  } else if (lastComma >= 0 || lastDot >= 0) {
+    const separator = lastComma >= 0 ? "," : ".";
+    const parts = compact.split(separator);
+    const trailingDigits = parts.at(-1)?.length ?? 0;
+    const separatorCount = parts.length - 1;
+
+    // Valores monetários não usam três casas decimais neste contrato. Uma
+    // forma como `R$ 1.234` ou `1,234` representa milhar, mesmo quando a IA
+    // omite os centavos. Com uma ou duas casas, o separador é decimal.
+    if (
+      trailingDigits === 3 &&
+      parts.slice(1).every((part) => part.length === 3)
+    ) {
+      normalized = parts.join("");
+    } else if (
+      trailingDigits >= 1 &&
+      trailingDigits <= 2 &&
+      (separatorCount === 1 ||
+        parts.slice(1, -1).every((part) => part.length === 3))
+    ) {
+      normalized = `${parts.slice(0, -1).join("")}.${parts.at(-1)}`;
+    }
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? `money:${parsed.toFixed(2)}` : value;
+}
+
+function comparableFindingValue(
+  finding: {
+    category: string;
+    evidence: Record<string, unknown>;
+  },
+  value: unknown,
+) {
+  const category = finding.category.toLocaleUpperCase("en-US");
+  const field =
+    typeof finding.evidence.field === "string"
+      ? normalizeComparableToken(finding.evidence.field)
+      : "";
+  const monetary =
+    /AMOUNT|TOTAL|PRICE|VALOR|PRE[CÇ]O/u.test(category) ||
+    /valor|pre[cç]o|total/u.test(field);
+  return monetary ? normalizeComparableMoney(value) : value;
+}
+
 function distinctMatches(value: string, pattern: RegExp) {
   const seen = new Set<string>();
   return (value.match(pattern) ?? []).filter((match) => {
@@ -214,16 +280,78 @@ export function deduplicateHarnessFindings<T extends {
   evidence: Record<string, unknown>;
   expectedValue: unknown;
   noteItemLineNumber: number | null;
+  references?: string[];
 }>(findings: T[]) {
   const seen = new Set<string>();
-  return findings.filter((finding) => {
-    const key = stableJson({
-      actualValue: finding.actualValue,
-      category: finding.category,
-      expectedValue: finding.expectedValue,
-      field: finding.evidence.field ?? null,
+  const semanticScopes = new Map<
+    string,
+    Array<{
+      documentGroup: string | null;
+      documentRole: string | null;
+      lineNumber: number | null;
+      pages: Set<number>;
+    }>
+  >();
+
+  const scopeFor = (finding: T) => {
+    const pages = new Set<number>();
+    if (typeof finding.evidence.page === "number") {
+      pages.add(finding.evidence.page);
+    }
+    if (Array.isArray(finding.evidence.pages)) {
+      for (const page of finding.evidence.pages) {
+        if (typeof page === "number") pages.add(page);
+      }
+    }
+    if (Array.isArray(finding.evidence.observations)) {
+      for (const observation of finding.evidence.observations) {
+        if (
+          observation &&
+          typeof observation === "object" &&
+          "page" in observation &&
+          typeof observation.page === "number"
+        ) {
+          pages.add(observation.page);
+        }
+      }
+    }
+    for (const reference of finding.references ?? []) {
+      for (const match of reference.matchAll(/p[aá]gina:?(\d+)/giu)) {
+        pages.add(Number(match[1]));
+      }
+    }
+
+    return {
+      documentGroup:
+        typeof finding.evidence.documentGroup === "string"
+          ? normalizeComparableToken(finding.evidence.documentGroup)
+          : null,
+      documentRole:
+        typeof finding.evidence.documentRole === "string"
+          ? normalizeComparableToken(finding.evidence.documentRole)
+          : null,
       lineNumber:
-        finding.noteItemLineNumber ?? finding.evidence.lineNumber ?? null,
+        finding.noteItemLineNumber ??
+        (typeof finding.evidence.lineNumber === "number"
+          ? finding.evidence.lineNumber
+          : null),
+      pages,
+    };
+  };
+
+  return findings.filter((finding) => {
+    const lineNumber =
+      finding.noteItemLineNumber ?? finding.evidence.lineNumber ?? null;
+    const key = stableJson({
+      actualValue: comparableFindingValue(finding, finding.actualValue),
+      category: finding.category,
+      code:
+        finding.expectedValue === null && finding.actualValue === null
+          ? null
+          : finding.code,
+      expectedValue: comparableFindingValue(finding, finding.expectedValue),
+      field: finding.evidence.field ?? null,
+      lineNumber,
       page: finding.evidence.page ?? null,
       summary:
         finding.expectedValue === null &&
@@ -234,14 +362,120 @@ export function deduplicateHarnessFindings<T extends {
     });
     if (seen.has(key)) return false;
     seen.add(key);
+
+    if (finding.expectedValue !== null || finding.actualValue !== null) {
+      const semanticKey = stableJson({
+        actualValue: comparableFindingValue(finding, finding.actualValue),
+        category: finding.category,
+        expectedValue: comparableFindingValue(finding, finding.expectedValue),
+        field: finding.evidence.field ?? null,
+      });
+      const scope = scopeFor(finding);
+      const previousScopes = semanticScopes.get(semanticKey) ?? [];
+      const overlapsPrevious = previousScopes.some((previous) => {
+        if (scope.documentGroup !== null && previous.documentGroup !== null) {
+          if (previous.documentGroup !== scope.documentGroup) return false;
+          if (scope.lineNumber !== null && previous.lineNumber !== null) {
+            if (scope.lineNumber === previous.lineNumber) return true;
+            const evidenceLayerRoles = new Set([
+              "aggregate_payment",
+              "supporting_document",
+              "summary",
+            ]);
+            return (
+              (scope.documentRole !== null &&
+                evidenceLayerRoles.has(scope.documentRole)) ||
+              (previous.documentRole !== null &&
+                evidenceLayerRoles.has(previous.documentRole))
+            );
+          }
+          return [...scope.pages].some((page) => previous.pages.has(page));
+        }
+        if (scope.lineNumber !== null && previous.lineNumber !== null) {
+          if (previous.lineNumber === scope.lineNumber) return true;
+        }
+        return false;
+      });
+      if (overlapsPrevious) return false;
+      previousScopes.push(scope);
+      semanticScopes.set(semanticKey, previousScopes);
+    }
     return true;
   });
 }
 
+function resolveFindingDocumentGroup<T extends {
+  evidence: Record<string, unknown>;
+  noteItemLineNumber: number | null;
+}>(finding: T, invoice: HarnessInvoice): T {
+  const lineNumber =
+    finding.noteItemLineNumber ??
+    (typeof finding.evidence.lineNumber === "number"
+      ? finding.evidence.lineNumber
+      : null);
+  const candidateGroups = new Set<string>();
+  if (typeof finding.evidence.documentGroup === "string") {
+    candidateGroups.add(
+      normalizeComparableToken(finding.evidence.documentGroup),
+    );
+  }
+  let documentRole: string | null =
+    typeof finding.evidence.documentRole === "string"
+      ? normalizeComparableToken(finding.evidence.documentRole)
+      : null;
+  if (lineNumber !== null) {
+    const item = invoice.items.find(
+      (candidate) => candidate.lineNumber === lineNumber,
+    );
+    if (item) {
+      if (typeof item.documentRole === "string") {
+        documentRole = normalizeComparableToken(item.documentRole);
+      }
+      for (const group of [
+        item.documentGroup,
+        ...(item.evidenceObservations ?? []).map(
+          (observation) => observation.documentGroup,
+        ),
+      ]) {
+        if (typeof group === "string") {
+          candidateGroups.add(normalizeComparableToken(group));
+        }
+      }
+    }
+  }
+
+  if (candidateGroups.size === 0 && typeof finding.evidence.page === "number") {
+    const page = finding.evidence.page;
+    for (const item of invoice.items) {
+      for (const observation of item.evidenceObservations ?? []) {
+        if (observation.page !== page) continue;
+        const group = observation.documentGroup ?? item.documentGroup;
+        if (typeof group === "string") {
+          candidateGroups.add(normalizeComparableToken(group));
+        }
+      }
+    }
+  }
+  if (candidateGroups.size !== 1 && documentRole === null) return finding;
+
+  return {
+    ...finding,
+    evidence: {
+      ...finding.evidence,
+      ...(candidateGroups.size === 1
+        ? { documentGroup: [...candidateGroups][0] }
+        : {}),
+      ...(documentRole === null ? {} : { documentRole }),
+    },
+  };
+}
+
 function reconcileFindingPrecedence<T extends {
+  actualValue: unknown;
   category: string;
   code: string;
   evidence: Record<string, unknown>;
+  expectedValue: unknown;
   noteItemLineNumber: number | null;
 }>(findings: T[]) {
   const coverageGaps = findings.filter(
@@ -263,6 +497,50 @@ function reconcileFindingPrecedence<T extends {
   );
 
   return findings.filter((finding) => {
+    if (finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_")) {
+      const findingGroup =
+        typeof finding.evidence.documentGroup === "string"
+          ? normalizeComparableToken(finding.evidence.documentGroup)
+          : null;
+      const hasSameCoverageGap =
+        findingGroup !== null &&
+        coverageGaps.some((gap) => {
+          const gapGroup =
+            typeof gap.evidence.documentGroup === "string"
+              ? normalizeComparableToken(gap.evidence.documentGroup)
+              : null;
+          return gapGroup === findingGroup;
+        });
+      if (hasSameCoverageGap) return false;
+    }
+
+    if (finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_")) {
+      const findingGroup =
+        typeof finding.evidence.documentGroup === "string"
+          ? normalizeComparableToken(finding.evidence.documentGroup)
+          : null;
+      const findingValues = new Set([
+        stableJson(finding.expectedValue),
+        stableJson(finding.actualValue),
+      ]);
+      const coveredByDocumentGap = coverageGaps.some((gap) => {
+        const gapGroup =
+          typeof gap.evidence.documentGroup === "string"
+            ? normalizeComparableToken(gap.evidence.documentGroup)
+            : null;
+        if (findingGroup === null || gapGroup !== findingGroup) return false;
+        const gapValues = new Set([
+          stableJson(gap.expectedValue),
+          stableJson(gap.actualValue),
+        ]);
+        return (
+          findingValues.size === gapValues.size &&
+          [...findingValues].every((value) => gapValues.has(value))
+        );
+      });
+      if (coveredByDocumentGap) return false;
+    }
+
     if (finding.code === "TOTAL_MISMATCH" && coverageGaps.length > 0) {
       const selectedLineNumbers = Array.isArray(finding.evidence.selectedLineNumbers)
         ? finding.evidence.selectedLineNumbers.filter(
@@ -431,7 +709,7 @@ export function evaluateHarness(input: {
       ...reconciliationSignals,
       ...aiFindings,
       ...routedContext.promotedFindings,
-    ]).filter(
+    ].map((finding) => resolveFindingDocumentGroup(finding, input.invoice))).filter(
       (finding) =>
         finding.code !== "TOTAL_MISMATCH" ||
         input.invoice.itemCoverage?.status === "COMPLETE",

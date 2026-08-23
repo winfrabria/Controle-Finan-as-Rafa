@@ -51,6 +51,7 @@ export function processingFailureLifecycle(input: {
     input.attempt >= input.maxAttempts ||
     Boolean(input.failureCode?.startsWith("AUDIT_")) ||
     input.failureCode === "EXTRACTION_CREDIT_EXHAUSTED" ||
+    input.failureCode === "EXTRACTION_INCOMPLETE" ||
     input.failureCode === "EXTRACTION_INVALID_RESPONSE" ||
     input.failureCode === "EXTRACTION_REQUEST_REJECTED";
   return {
