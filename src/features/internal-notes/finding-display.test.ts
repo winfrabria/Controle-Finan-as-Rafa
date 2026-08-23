@@ -8,6 +8,7 @@ import {
   formatFindingValueLines,
   formatFindingValue,
   humanizeFindingText,
+  humanizeReviewerFindingText,
 } from "./finding-display";
 
 test("resume caminhos longos de evidência para leitura rápida", () => {
@@ -139,5 +140,31 @@ test("formata a conciliação financeira para o revisor sem detalhes internos", 
       { label: "Total do documento", value: "R$\u00a01.203,74" },
       { label: "Soma dos itens considerados", value: "R$\u00a01.087,29" },
     ],
+  );
+});
+
+test("oculta grupo documental interno apenas na apresentação do revisor", () => {
+  const evidence = {
+    documentGroup: "D08",
+    observations: [{ kind: "SHEET", amount: "15.00" }],
+    summary: "Ficha e comprovante pertencem ao documento relacionado D08.",
+  };
+
+  assert.deepEqual(formatReviewerFindingParts(evidence), [
+    {
+      label: "Resumo da evidência",
+      value: "Ficha e comprovante pertencem ao documento relacionado D08.",
+    },
+  ]);
+  assert.ok(
+    formatFindingParts(evidence).some(
+      (part) => part.label === "Documento relacionado" && part.value === "D08",
+    ),
+  );
+  assert.equal(
+    humanizeReviewerFindingText(
+      "Ficha e comprovante pertencem ao documento relacionado D08.",
+    ),
+    "Ficha e comprovante pertencem aos documentos da mesma despesa.",
   );
 });

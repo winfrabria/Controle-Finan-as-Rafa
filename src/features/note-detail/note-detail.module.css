@@ -901,7 +901,7 @@
 
 .findingList {
   display: grid;
-  gap: 10px;
+  gap: 7px;
   max-height: calc(100vh - 230px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -916,8 +916,9 @@
   color: #17345e;
   cursor: pointer;
   display: grid;
+  gap: 8px;
   grid-template-columns: 26px minmax(0, 1fr) 12px;
-  padding: 12px 9px;
+  padding: 9px 8px;
   text-align: left;
 }
 
@@ -941,7 +942,7 @@
 
 .findingList button > span:nth-child(2) {
   display: grid;
-  gap: 5px;
+  gap: 6px;
 }
 
 .findingList strong {
@@ -961,7 +962,7 @@
   border-radius: 5px;
   color: #d86c00 !important;
   justify-self: start;
-  padding: 4px 7px;
+  padding: 3px 6px;
 }
 
 .findingList button > svg {
@@ -1228,6 +1229,27 @@
 
 .comparison > div:first-child {
   border-right: 1px solid #d9e3ee;
+}
+
+.comparison > .comparisonDifference {
+  align-items: center;
+  background: #f7faff;
+  border-top: 1px solid #d9e3ee;
+  display: flex;
+  gap: 10px;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  min-height: 0;
+  padding-block: 9px;
+}
+
+.comparison > .comparisonDifference h3 {
+  margin: 0;
+}
+
+.comparisonDifference strong {
+  color: #d96a00;
+  font-size: 12px;
 }
 
 .comparison span {

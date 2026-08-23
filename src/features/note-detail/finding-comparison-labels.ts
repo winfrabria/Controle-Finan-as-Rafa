@@ -1,4 +1,5 @@
 import type { NoteDetailFinding } from "./data";
+import { extractFindingEvidenceObservations } from "./finding-observations";
 
 export type FindingComparisonLabels = {
   actual: string;
@@ -15,23 +16,25 @@ const CONTRACT_ITEM_LABELS: FindingComparisonLabels = {
   expected: "Item previsto no contrato",
 };
 
+type FindingComparisonInput = Pick<
+  NoteDetailFinding,
+  | "actualValue"
+  | "affectedItem"
+  | "category"
+  | "code"
+  | "evidence"
+  | "expectedValue"
+  | "rule"
+  | "title"
+>;
+
 /**
  * Selects reviewer-facing comparison labels from the finding structure.
- * Contract item-presence checks benefit from concrete labels, while numeric,
- * monetary and temporal comparisons keep the generic expected/found language.
+ * Contract, payment, date and fiscal-sheet checks receive labels that name the
+ * compared documents instead of exposing generic expected/found terminology.
  */
 export function findingComparisonLabels(
-  finding: Pick<
-    NoteDetailFinding,
-    | "actualValue"
-    | "affectedItem"
-    | "category"
-    | "code"
-    | "evidence"
-    | "expectedValue"
-    | "rule"
-    | "title"
-  >,
+  finding: FindingComparisonInput,
 ): FindingComparisonLabels {
   const structure = normalizeStructure([
     finding.category,
@@ -53,9 +56,83 @@ export function findingComparisonLabels(
       structure,
     );
 
+  const observationKinds = new Set(
+    extractFindingEvidenceObservations(finding.evidence).map(
+      (observation) => observation.kind,
+    ),
+  );
+  const hasSheet =
+    observationKinds.has("SHEET") || /\b(ficha|sheet)\b/.test(structure);
+  const hasPayment =
+    observationKinds.has("PAYMENT") ||
+    /\b(pagamento|pago|cartao|debito|credito|payment)\b/.test(structure);
+  const hasSaleOrReceipt =
+    observationKinds.has("SALE") ||
+    observationKinds.has("RECEIPT") ||
+    /\b(venda|pedido|recibo|cupom|sale|receipt)\b/.test(structure);
+  const comparesDate =
+    /\b(data|emissao|periodo|vencimento|validade|date|issued|due)\b/.test(
+      structure,
+    );
+  const comparesFiscalDocumentWithSheet =
+    hasSheet && /\b(fiscal|nota fiscal|nfe|danfe|linha fiscal)\b/.test(structure);
+
+  if (comparesFiscalDocumentWithSheet && !comparesDate) {
+    return { actual: "Ficha", expected: "Nota fiscal" };
+  }
+
+  if (comparesDate) {
+    if (hasSheet && (hasPayment || hasSaleOrReceipt)) {
+      return { actual: "Data do comprovante", expected: "Data da ficha" };
+    }
+    if (/\bemissao\b/.test(structure) && /\b(ficha|periodo)\b/.test(structure)) {
+      return { actual: "Período detalhado na ficha", expected: "Data de emissão" };
+    }
+    return { actual: "Data encontrada", expected: "Data de referência" };
+  }
+
+  if (hasPayment) {
+    const expected =
+      hasSheet && hasSaleOrReceipt
+        ? "Ficha / venda ou recibo"
+        : hasSheet
+          ? "Ficha"
+          : hasSaleOrReceipt
+            ? "Venda ou recibo"
+            : "Valor do documento";
+    return { actual: "Pagamento", expected };
+  }
+
   return isContractual && concernsItem && !comparesMeasuredValue
     ? CONTRACT_ITEM_LABELS
     : DEFAULT_LABELS;
+}
+
+export function findingComparisonDifference(
+  finding: FindingComparisonInput,
+): string | null {
+  const structure = normalizeStructure([
+    finding.category,
+    finding.code,
+    finding.title,
+    finding.rule?.code,
+    finding.rule?.name,
+  ]);
+  if (!/\b(valor|preco|total|pagamento|debito|credito|amount|price|payment)\b/.test(structure)) {
+    return null;
+  }
+
+  const expected = extractComparableNumber(finding.expectedValue);
+  const actual = extractComparableNumber(finding.actualValue);
+  if (expected === null || actual === null) return null;
+
+  const difference = Math.abs(expected - actual);
+  if (difference < 0.005) return null;
+
+  return new Intl.NumberFormat("pt-BR", {
+    currency: "BRL",
+    style: "currency",
+  }).format(difference);
 }
 
 function collectJsonKeys(value: unknown, depth = 0): string[] {
@@ -82,4 +159,56 @@ function normalizeStructure(values: Array<string | null | undefined>) {
     .toLocaleLowerCase("pt-BR")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function extractComparableNumber(value: unknown): number | null {
+  const scalar = parseComparableNumber(value);
+  if (scalar !== null) return scalar;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const entries = Object.entries(value);
+  const monetaryValues = uniqueNumbers(
+    entries
+      .filter(([key]) =>
+        /(?:amount|valor|total|price|preco|preço|cost|custo|expected|actual)/i.test(
+          key,
+        ),
+      )
+      .flatMap(([, entry]) => collectComparableNumbers(entry)),
+  );
+  if (monetaryValues.length === 1) return monetaryValues[0] ?? null;
+
+  const allValues = uniqueNumbers(entries.flatMap(([, entry]) => collectComparableNumbers(entry)));
+  return allValues.length === 1 ? (allValues[0] ?? null) : null;
+}
+
+function collectComparableNumbers(value: unknown, depth = 0): number[] {
+  const scalar = parseComparableNumber(value);
+  if (scalar !== null) return [scalar];
+  if (depth > 2 || !value || typeof value !== "object") return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => collectComparableNumbers(entry, depth + 1));
+  }
+  return Object.values(value).flatMap((entry) =>
+    collectComparableNumbers(entry, depth + 1),
+  );
+}
+
+function parseComparableNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+
+  const raw = value.trim().replace(/R\$\s*/i, "").replace(/\s/g, "");
+  if (!/^-?\d[\d.,]*$/.test(raw)) return null;
+  const normalized = raw.includes(",")
+    ? raw.replace(/\./g, "").replace(",", ".")
+    : /^-?\d{1,3}(?:\.\d{3})+$/.test(raw)
+      ? raw.replace(/\./g, "")
+      : raw;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function uniqueNumbers(values: number[]) {
+  return [...new Set(values.map((value) => value.toFixed(6)))].map(Number);
 }

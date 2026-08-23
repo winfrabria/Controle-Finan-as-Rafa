@@ -9,12 +9,23 @@ import {
   formatFindingValue,
   formatFindingValueLines,
   formatReviewerFindingParts,
-  humanizeFindingText,
+  humanizeReviewerFindingText,
 } from "@/features/internal-notes/finding-display";
 import { Icon } from "@/features/workspace-ui/ui-icons";
 
 import type { NoteDetailFinding, NoteDetailItem } from "./data";
-import { findingComparisonLabels } from "./finding-comparison-labels";
+import {
+  findingComparisonDifference,
+  findingComparisonLabels,
+} from "./finding-comparison-labels";
+import {
+  extractFindingEvidenceObservations,
+  findingObservationKindLabel,
+  formatFindingObservationAmount,
+  formatFindingObservationDate,
+  reviewerTextIsDistinct,
+  type FindingEvidenceObservation,
+} from "./finding-observations";
 import { NoteDocumentPreview } from "./note-document-preview";
 import styles from "./reviewer-mobile-note-detail.module.css";
 
@@ -57,6 +68,7 @@ export function ReviewerMobileNoteDetail({
   const [readError, setReadError] = useState<string | null>(null);
   const findingButtons = useRef<Array<HTMLButtonElement | null>>([]);
   const documentDialog = useRef<HTMLDialogElement>(null);
+  const selectedFinding = findings[selectedIndex] ?? null;
 
   function selectFinding(index: number, scroll = false) {
     if (index < 0 || index >= findings.length) return;
@@ -123,6 +135,34 @@ export function ReviewerMobileNoteDetail({
           <p>{findings.length} {findings.length === 1 ? "achado" : "achados"}</p>
         </header>
 
+        {selectedFinding && findings.length > 1 ? (
+          <nav
+            className={styles.findingNavigator}
+            aria-label="Selecionar achado"
+          >
+            <button
+              aria-label="Achado anterior"
+              disabled={selectedIndex === 0}
+              onClick={() => selectFinding(selectedIndex - 1, true)}
+              type="button"
+            >
+              <Icon name="chevron" />
+            </button>
+            <div>
+              <span>Achado {selectedIndex + 1} de {findings.length}</span>
+              <strong>{humanizeReviewerFindingText(selectedFinding.title)}</strong>
+            </div>
+            <button
+              aria-label="Próximo achado"
+              disabled={selectedIndex === findings.length - 1}
+              onClick={() => selectFinding(selectedIndex + 1, true)}
+              type="button"
+            >
+              <Icon name="chevron" />
+            </button>
+          </nav>
+        ) : null}
+
         {findings.length ? (
           <div className={styles.findingStack}>
             {findings.map((finding, index) => {
@@ -144,24 +184,20 @@ export function ReviewerMobileNoteDetail({
                     }}
                     type="button"
                   >
-                    <span className={styles.warningIcon}><Icon name="warning" /></span>
                     <span className={styles.findingNumber}>{index + 1}</span>
                     <span className={styles.findingHeading}>
-                      <strong>{humanizeFindingText(finding.title)}</strong>
+                      <strong>{humanizeReviewerFindingText(finding.title)}</strong>
                       <small>{mobileSeverityLabel(finding.severity)}</small>
                     </span>
                     <Icon className={expanded ? styles.chevronOpen : undefined} name="chevron" />
                   </button>
 
-                  {expanded ? (
-                    <FindingBody
-                      finding={finding}
-                      id={detailId}
-                      index={index}
-                      onSelect={(nextIndex) => selectFinding(nextIndex, true)}
-                      total={findings.length}
-                    />
-                  ) : null}
+                    {expanded ? (
+                      <FindingBody
+                        finding={finding}
+                        id={detailId}
+                      />
+                    ) : null}
                 </article>
               );
             })}
@@ -274,45 +310,58 @@ export function ReviewerMobileNoteDetail({
 function FindingBody({
   finding,
   id,
-  index,
-  onSelect,
-  total,
 }: {
   finding: NoteDetailFinding;
   id: string;
-  index: number;
-  onSelect: (index: number) => void;
-  total: number;
 }) {
-  const { evidence, references } = findingEvidence(finding);
+  const description = humanizeReviewerFindingText(finding.description);
+  const explanation = humanizeReviewerFindingText(finding.explanation);
+  const { evidence, observations, references } = findingEvidence(
+    finding,
+    description,
+    explanation,
+  );
   const labels = findingComparisonLabels(finding);
+  const difference = findingComparisonDifference(finding);
   const expected = formatFindingValueLines(
     formatFindingValue(finding.expectedValue, "Sem referência comparável"),
-  );
+  ).map(humanizeReviewerFindingText);
   const actual = formatFindingValueLines(
     formatFindingValue(finding.actualValue, "Não informado"),
-  );
+  ).map(humanizeReviewerFindingText);
+  const hasMeaningfulComparison =
+    finding.expectedValue !== null &&
+    finding.actualValue !== null &&
+    formatFindingValue(finding.expectedValue) !==
+      formatFindingValue(finding.actualValue);
+  const showExplanation = reviewerTextIsDistinct(explanation, [description]);
 
   return (
     <div className={styles.findingBody} id={id}>
-      <FindingSection title="Descrição">
-        <p>{humanizeFindingText(finding.description)}</p>
+      <FindingSection title="O que foi identificado">
+        <p>{description}</p>
       </FindingSection>
 
-      <FindingSection title="Evidências">
-        {evidence.length ? (
-          <dl className={styles.evidenceList}>
-            {evidence.map((part, partIndex) => (
-              <div key={`${part.label}:${partIndex}`}>
-                <dt>{part.label}</dt>
-                <dd>{part.value}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : (
-          <p>Evidência não detalhada no resultado.</p>
-        )}
-      </FindingSection>
+      {observations.length || evidence.length ? (
+        <FindingSection title="Evidências no documento">
+          {observations.length ? (
+            <MobileEvidenceObservations
+              comparedWith={[description, explanation]}
+              observations={observations}
+            />
+          ) : null}
+          {evidence.length ? (
+            <dl className={styles.evidenceList}>
+              {evidence.map((part, partIndex) => (
+                <div key={`${part.label}:${partIndex}`}>
+                  <dt>{part.label}</dt>
+                  <dd>{part.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+        </FindingSection>
+      ) : null}
 
       {references.length ? (
         <FindingSection title="Contrato / referência usada">
@@ -322,30 +371,31 @@ function FindingBody({
         </FindingSection>
       ) : null}
 
-      <section className={styles.comparison} aria-label="Comparativo do achado">
-        <div>
-          <h3>{labels.expected}</h3>
-          <p>{expected.map((line) => <span key={line}>{line}</span>)}</p>
-        </div>
-        <div>
-          <h3>{labels.actual}</h3>
-          <p>{actual.map((line) => <span key={line}>{line}</span>)}</p>
-        </div>
-      </section>
+      {hasMeaningfulComparison ? (
+        <section className={styles.comparison} aria-label="Comparativo do achado">
+          <div>
+            <h3>{labels.expected}</h3>
+            <p>{expected.map((line) => <span key={line}>{line}</span>)}</p>
+          </div>
+          <div>
+            <h3>{labels.actual}</h3>
+            <p>{actual.map((line) => <span key={line}>{line}</span>)}</p>
+          </div>
+          {difference ? (
+            <div className={styles.comparisonDifference}>
+              <h3>Diferença</h3>
+              <strong>{difference}</strong>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
-      <FindingSection title="Por que chamou atenção">
-        <p>{humanizeFindingText(finding.explanation)}</p>
-      </FindingSection>
+      {showExplanation ? (
+        <FindingSection title="Por que chamou atenção">
+          <p>{explanation}</p>
+        </FindingSection>
+      ) : null}
 
-      <nav className={styles.findingPager} aria-label="Navegação entre achados">
-        <button disabled={index === 0} onClick={() => onSelect(index - 1)} type="button">
-          <Icon name="chevron" /> Anterior
-        </button>
-        <span>{index + 1} de {total}</span>
-        <button disabled={index === total - 1} onClick={() => onSelect(index + 1)} type="button">
-          Próximo <Icon name="chevron" />
-        </button>
-      </nav>
     </div>
   );
 }
@@ -356,6 +406,50 @@ function FindingSection({ children, title }: { children: ReactNode; title: strin
       <h3>{title}</h3>
       {children}
     </section>
+  );
+}
+
+function MobileEvidenceObservations({
+  comparedWith,
+  observations,
+}: {
+  comparedWith: string[];
+  observations: FindingEvidenceObservation[];
+}) {
+  return (
+    <div className={styles.observationList}>
+      {observations.map((observation, index) => {
+        const amount = formatFindingObservationAmount(observation.amount);
+        const date = formatFindingObservationDate(observation.date);
+        const label = observation.label
+          ? humanizeReviewerFindingText(observation.label)
+          : null;
+        const text = observation.text
+          ? humanizeReviewerFindingText(observation.text)
+          : null;
+        const showText = reviewerTextIsDistinct(text, [
+          ...comparedWith,
+          label,
+        ]);
+
+        return (
+          <article
+            key={`${observation.kind}:${observation.page ?? ""}:${observation.label ?? ""}:${index}`}
+          >
+            <header>
+              <strong>{findingObservationKindLabel(observation.kind)}</strong>
+              {amount ? <b>{amount}</b> : null}
+            </header>
+            <div className={styles.observationMeta}>
+              {observation.page ? <span>Página {observation.page}</span> : null}
+              {date ? <span>{date}</span> : null}
+            </div>
+            {label ? <h4>{label}</h4> : null}
+            {showText ? <p>{text}</p> : null}
+          </article>
+        );
+      })}
+    </div>
   );
 }
 
@@ -378,21 +472,31 @@ function SummaryRow({
   );
 }
 
-function findingEvidence(finding: NoteDetailFinding) {
-  const description = normalizedValue(finding.description);
+function findingEvidence(
+  finding: NoteDetailFinding,
+  description: string,
+  explanation: string,
+) {
   const rawParts = formatReviewerFindingParts(finding.evidence, finding.description);
-  const evidence = rawParts.filter(
-    (part) => !isReferenceLabel(part.label) && normalizedValue(part.value) !== description,
-  );
+  const evidence = rawParts
+    .filter((part) => !isReferenceLabel(part.label))
+    .map((part) => ({
+      ...part,
+      value: humanizeReviewerFindingText(part.value),
+    }))
+    .filter((part) =>
+      reviewerTextIsDistinct(part.value, [description, explanation]),
+    );
   const references = [
     ...finding.sources
       .filter((source) => source.kind === "reference")
       .map((source) => source.label),
     ...rawParts.filter((part) => isReferenceLabel(part.label)).map((part) => part.value),
-  ];
+  ].map(humanizeReviewerFindingText);
 
   return {
     evidence,
+    observations: extractFindingEvidenceObservations(finding.evidence),
     references: [...new Map(references.map((value) => [normalizedValue(value), value])).values()],
   };
 }

@@ -86,6 +86,38 @@ Não há diferenças P0, P1 ou P2 pendentes. O uso de dados de demonstração e 
 
 final result: passed
 
+---
+
+## QA final — navegador compacto dos achados no PWA (2026-08-23)
+
+### Referência e comparação
+
+- Figma: `https://www.figma.com/design/yeZFBPpGW05JTEszxANZVZ`, node `2:3`.
+- Captura da referência: `.codex-temp/figma/mobile-final.png`.
+- Captura renderizada: `.codex-temp/browser/mobile-qa-viewport.png`.
+- Comparação lado a lado: `.codex-temp/mobile-comparison.png`.
+- Estado: REVIEWER, nota suspeita com três achados, primeiro achado expandido.
+
+### Ajuste aprovado
+
+- A navegação grande no rodapé de cada achado foi removida.
+- O seletor agora fica antes da lista, com contador, título do achado atual e duas ações compactas de 44 × 44 px.
+- Só um achado permanece expandido; avançar ou voltar atualiza e aproxima o card selecionado.
+- A ação fixa `Marcar como lida` continua independente e não conflita com a navegação.
+
+### Verificações
+
+- Próximo achado: abriu o achado 2 e atualizou o contador para `2 de 3`.
+- Voltar/próximo: ambos habilitados no estado intermediário e desabilitados corretamente nos extremos.
+- Áreas de toque dos dois botões: 44 × 44 px.
+- Overflow horizontal: 0 px no viewport mobile testado.
+- A captura comparativa confirmou a mesma hierarquia visual da referência, com a alteração intencional do navegador inferior para o controle compacto superior aprovado pelo usuário.
+- P0: nenhum.
+- P1: nenhum.
+- P2: nenhum.
+
+final result: passed
+
 ## QA adicional — primeiro viewport do login e do envio público
 
 - Compactação aplicada em `src/app/login/login.module.css` e `src/features/public-upload/public-upload.module.css`, preservando o design system WinfraBR.

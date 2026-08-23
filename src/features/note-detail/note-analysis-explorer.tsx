@@ -6,9 +6,11 @@ import type { ReactNode } from "react";
 import { Icon } from "@/features/workspace-ui/ui-icons";
 import {
   compactFindingFieldPath,
-  formatReviewerFindingParts,
+  formatFindingParts,
   formatFindingValueLines,
+  formatReviewerFindingParts,
   humanizeFindingText,
+  humanizeReviewerFindingText,
 } from "@/features/internal-notes/finding-display";
 
 import type {
@@ -20,14 +22,28 @@ import {
   jsonSummary,
   severityLabel,
 } from "./note-detail-format";
+import {
+  findingComparisonDifference,
+  findingComparisonLabels,
+} from "./finding-comparison-labels";
+import {
+  extractFindingEvidenceObservations,
+  findingObservationKindLabel,
+  formatFindingObservationAmount,
+  formatFindingObservationDate,
+  reviewerTextIsDistinct,
+  type FindingEvidenceObservation,
+} from "./finding-observations";
 import styles from "./note-detail.module.css";
 
 export function NoteAnalysisExplorer({
   findings,
   items,
+  reviewer,
 }: {
   findings: NoteDetailFinding[];
   items: NoteDetailItem[];
+  reviewer: boolean;
 }) {
   const [selectedId, setSelectedId] = useState(findings[0]?.id ?? "");
   const detailRef = useRef<HTMLElement>(null);
@@ -60,14 +76,31 @@ export function NoteAnalysisExplorer({
   const selectedIndex = findings.findIndex(
     (finding) => finding.id === selected.id,
   );
-  const evidenceObservations = extractEvidenceObservations(selected.evidence);
-  const evidenceParts = formatReviewerFindingParts(
+  const displayText = reviewer
+    ? humanizeReviewerFindingText
+    : humanizeFindingText;
+  const selectedTitle = displayText(selected.title);
+  const selectedDescription = displayText(selected.description);
+  const selectedExplanation = displayText(selected.explanation);
+  const selectedRule = displayText(
+    selected.rule?.description ??
+      selected.rule?.name ??
+      "Análise baseada nos dados observáveis deste documento.",
+  );
+  const evidenceObservations = extractFindingEvidenceObservations(
+    selected.evidence,
+  );
+  const evidenceParts = (reviewer
+    ? formatReviewerFindingParts
+    : formatFindingParts)(
     selected.evidence,
     selected.description,
-  ).filter((part) => {
+  )
+    .map((part) => ({ ...part, value: displayText(part.value) }))
+    .filter((part) => {
     const label = part.label.trim().toLocaleLowerCase("pt-BR");
     const value = part.value.trim().toLocaleLowerCase("pt-BR");
-    const description = selected.description.trim().toLocaleLowerCase("pt-BR");
+    const description = selectedDescription.trim().toLocaleLowerCase("pt-BR");
     if (!value || value === "—" || label === "fonte") return false;
     if (
       (label === "evidência" || label === "resumo da evidência") &&
@@ -93,11 +126,26 @@ export function NoteAnalysisExplorer({
           part.label,
         ),
     )
-    .slice(0, 4);
+    .filter((part) =>
+      reviewerTextIsDistinct(part.value, [
+        selectedTitle,
+        selectedDescription,
+        selectedExplanation,
+      ]),
+    );
   const hasMeaningfulComparison =
     selected.expectedValue !== null &&
     selected.actualValue !== null &&
     jsonSummary(selected.expectedValue) !== jsonSummary(selected.actualValue);
+  const comparisonLabels = findingComparisonLabels(selected);
+  const comparisonDifference = findingComparisonDifference(selected);
+  const showExplanation = reviewerTextIsDistinct(selectedExplanation, [
+    selectedDescription,
+  ]);
+  const showRule = reviewerTextIsDistinct(selectedRule, [
+    selectedDescription,
+    selectedExplanation,
+  ]);
 
   const selectFinding = (index: number) => {
     const next = findings[index];
@@ -153,10 +201,7 @@ export function NoteAnalysisExplorer({
             >
               <span className={styles.findingNumber}>{index + 1}</span>
               <span>
-                <strong>{humanizeFindingText(finding.title)}</strong>
-                <small>
-                  {compactFindingDescription(humanizeFindingText(finding.description))}
-                </small>
+                <strong>{displayText(finding.title)}</strong>
                 <small className={styles.severityBadge}>
                   Gravidade: {severityLabel(finding.severity)}
                 </small>
@@ -188,19 +233,23 @@ export function NoteAnalysisExplorer({
         <header className={styles.findingDetailTitle}>
           <span className={styles.findingNumber}>{selectedIndex + 1}</span>
           <div>
-            <h2>{humanizeFindingText(selected.title)}</h2>
+            <h2>{selectedTitle}</h2>
             <span className={styles.severityBadge}>
               Gravidade: {severityLabel(selected.severity)}
             </span>
           </div>
         </header>
         <p className={styles.findingLead}>
-          {humanizeFindingText(selected.description)}
+          {selectedDescription}
         </p>
 
         <FindingSection defaultOpen icon="document" title="Evidência no documento">
           {evidenceObservations.length ? (
-            <EvidenceObservationList observations={evidenceObservations} />
+            <EvidenceObservationList
+              comparedWith={[selectedDescription, selectedExplanation]}
+              observations={evidenceObservations}
+              reviewer={reviewer}
+            />
           ) : (
             <EvidenceFacts
               parts={
@@ -211,39 +260,45 @@ export function NoteAnalysisExplorer({
             />
           )}
         </FindingSection>
-        <FindingSection defaultOpen icon="search" title="Por que chamou atenção">
-          {humanizeFindingText(selected.explanation)}
-        </FindingSection>
-        <FindingSection icon="shield" title="Critério usado na conferência">
-          {humanizeFindingText(
-            selected.rule?.description ??
-              selected.rule?.name ??
-              "Análise baseada nos dados observáveis deste documento.",
-          )}
-        </FindingSection>
+        {showExplanation ? (
+          <FindingSection defaultOpen icon="search" title="Por que chamou atenção">
+            {selectedExplanation}
+          </FindingSection>
+        ) : null}
+        {showRule ? (
+          <FindingSection icon="shield" title="Critério usado na conferência">
+            {selectedRule}
+          </FindingSection>
+        ) : null}
 
         {hasMeaningfulComparison ? (
           <section className={styles.comparison}>
           <div>
-            <h3>Esperado</h3>
+            <h3>{comparisonLabels.expected}</h3>
             <p>
               {formatFindingValueLines(
                 jsonSummary(selected.expectedValue, "Sem referência comparável"),
-              ).map((line, index) => (
+              ).map(displayText).map((line, index) => (
                 <span key={`${line}-${index}`}>{line}</span>
               ))}
             </p>
           </div>
           <div>
-            <h3>Encontrado</h3>
+            <h3>{comparisonLabels.actual}</h3>
             <p>
-              {formatFindingValueLines(jsonSummary(selected.actualValue)).map(
+              {formatFindingValueLines(jsonSummary(selected.actualValue)).map(displayText).map(
                 (line, index) => (
                   <span key={`${line}-${index}`}>{line}</span>
                 ),
               )}
             </p>
           </div>
+          {comparisonDifference ? (
+            <div className={styles.comparisonDifference}>
+              <h3>Diferença</h3>
+              <strong>{comparisonDifference}</strong>
+            </div>
+          ) : null}
           </section>
         ) : null}
 
@@ -260,12 +315,16 @@ export function NoteAnalysisExplorer({
             <article className={styles.analysisEvidenceCard}>
               <span className={styles.analysisEvidenceEyebrow}>Item relacionado</span>
               <strong>
-                {affectedItem?.description ??
-                  selected.affectedItem?.description ??
-                  "Item identificado no documento"}
+                {displayText(
+                  affectedItem?.description ??
+                    selected.affectedItem?.description ??
+                    "Item identificado no documento",
+                )}
               </strong>
               <dl>
-                <div><dt>Código</dt><dd>{affectedItem?.code ?? selected.affectedItem?.code ?? "Não identificado"}</dd></div>
+                {!reviewer || !isInternalDocumentCode(affectedItem?.code ?? selected.affectedItem?.code) ? (
+                  <div><dt>Código</dt><dd>{affectedItem?.code ?? selected.affectedItem?.code ?? "Não identificado"}</dd></div>
+                ) : null}
                 <div><dt>Unidade</dt><dd>{affectedItem?.unit ?? "Não identificada"}</dd></div>
                 <div><dt>Quantidade</dt><dd>{formatDecimal(affectedItem?.quantity ?? null, 0)}</dd></div>
                 <div><dt>Valor unitário</dt><dd>{formatDecimal(affectedItem?.unitPrice ?? null)}</dd></div>
@@ -301,86 +360,46 @@ export function NoteAnalysisExplorer({
   );
 }
 
-type EvidenceObservation = {
-  amount: string | number | null;
-  date: string | null;
-  documentGroup: string | null;
-  kind: "SHEET" | "RECEIPT" | "SALE" | "PAYMENT" | "DISCOUNT" | "OTHER";
-  label: string | null;
-  page: number | null;
-  text: string | null;
-};
+function EvidenceObservationList({
+  comparedWith,
+  observations,
+  reviewer,
+}: {
+  comparedWith: string[];
+  observations: FindingEvidenceObservation[];
+  reviewer: boolean;
+}) {
+  const displayText = reviewer
+    ? humanizeReviewerFindingText
+    : humanizeFindingText;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function extractEvidenceObservations(value: unknown): EvidenceObservation[] {
-  if (!isRecord(value) || !Array.isArray(value.observations)) return [];
-
-  return value.observations.flatMap((entry) => {
-    if (!isRecord(entry)) return [];
-    const kind = typeof entry.kind === "string" ? entry.kind.toUpperCase() : "OTHER";
-    if (!["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"].includes(kind)) {
-      return [];
-    }
-    return [{
-      amount:
-        typeof entry.amount === "string" || typeof entry.amount === "number"
-          ? entry.amount
-          : null,
-      date: typeof entry.date === "string" ? entry.date : null,
-      documentGroup:
-        typeof entry.documentGroup === "string" ? entry.documentGroup : null,
-      kind: kind as EvidenceObservation["kind"],
-      label: typeof entry.label === "string" ? entry.label : null,
-      page: typeof entry.page === "number" ? entry.page : null,
-      text: typeof entry.text === "string" ? entry.text : null,
-    }];
-  });
-}
-
-const observationKindLabel: Record<EvidenceObservation["kind"], string> = {
-  SHEET: "Ficha ou controle",
-  RECEIPT: "Recibo ou cupom",
-  SALE: "Venda ou pedido",
-  PAYMENT: "Pagamento",
-  DISCOUNT: "Desconto",
-  OTHER: "Outro registro",
-};
-
-function formatObservationDate(value: string | null) {
-  if (!value) return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
-}
-
-function formatObservationAmount(value: string | number | null) {
-  if (value === null) return null;
-  const amount = Number(value);
-  return Number.isFinite(amount)
-    ? new Intl.NumberFormat("pt-BR", { currency: "BRL", style: "currency" }).format(amount)
-    : String(value);
-}
-
-function EvidenceObservationList({ observations }: { observations: EvidenceObservation[] }) {
   return (
     <div className={styles.evidenceObservationList}>
       {observations.map((observation, index) => {
-        const amount = formatObservationAmount(observation.amount);
-        const date = formatObservationDate(observation.date);
+        const amount = formatFindingObservationAmount(observation.amount);
+        const date = formatFindingObservationDate(observation.date);
+        const label = observation.label
+          ? displayText(observation.label)
+          : null;
+        const observationText = observation.text
+          ? displayText(observation.text)
+          : null;
+        const showObservationText = reviewerTextIsDistinct(observationText, [
+          ...comparedWith,
+          label,
+        ]);
         return (
           <article key={`${observation.kind}:${observation.page ?? ""}:${observation.label ?? ""}:${index}`}>
             <header>
-              <span>{observationKindLabel[observation.kind]}</span>
+              <span>{findingObservationKindLabel(observation.kind)}</span>
               <div>
                 {observation.page ? <small>Página {observation.page}</small> : null}
                 {date ? <small>{date}</small> : null}
                 {amount ? <strong>{amount}</strong> : null}
               </div>
             </header>
-            {observation.label ? <h4>{observation.label}</h4> : null}
-            {observation.text ? <p>{humanizeFindingText(observation.text)}</p> : null}
+            {label ? <h4>{label}</h4> : null}
+            {showObservationText ? <p>{observationText}</p> : null}
           </article>
         );
       })}
@@ -403,13 +422,8 @@ function EvidenceFacts({ parts }: { parts: ReturnType<typeof formatReviewerFindi
   );
 }
 
-function compactFindingDescription(description: string) {
-  const normalized = description.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 170) return normalized;
-
-  const firstSentence = normalized.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
-  if (firstSentence && firstSentence.length <= 190) return firstSentence;
-  return `${normalized.slice(0, 167).trimEnd()}…`;
+function isInternalDocumentCode(value: string | null | undefined) {
+  return Boolean(value && /^D\d{1,4}$/i.test(value.trim()));
 }
 
 function FindingSection({

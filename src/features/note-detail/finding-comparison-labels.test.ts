@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { NoteDetailFinding } from "./data";
-import { findingComparisonLabels } from "./finding-comparison-labels";
+import {
+  findingComparisonDifference,
+  findingComparisonLabels,
+} from "./finding-comparison-labels";
 
 type FindingInput = Parameters<typeof findingComparisonLabels>[0];
 
@@ -85,17 +88,84 @@ test("keeps generic labels for quantified contract findings", () => {
   assert.deepEqual(labels, { actual: "Encontrado", expected: "Esperado" });
 });
 
-test("keeps generic labels for value, price and date comparisons", () => {
+test("keeps generic labels for value and price comparisons without document roles", () => {
   for (const input of [
     finding({ category: "VALOR", code: "VALOR_DIVERGENTE" }),
     finding({ category: "PRECO", code: "PRECO_ACIMA_REFERENCIA" }),
-    finding({ category: "DATA", code: "DATA_FORA_PERIODO" }),
   ]) {
     assert.deepEqual(findingComparisonLabels(input), {
       actual: "Encontrado",
       expected: "Esperado",
     });
   }
+});
+
+test("uses document roles for payment, date and fiscal-sheet comparisons", () => {
+  assert.deepEqual(
+    findingComparisonLabels(
+      finding({
+        category: "VALOR",
+        code: "PAYMENT_VALUE_MISMATCH",
+        evidence: {
+          observations: [
+            { kind: "SHEET" },
+            { kind: "RECEIPT" },
+            { kind: "PAYMENT" },
+          ],
+        },
+      }),
+    ),
+    { actual: "Pagamento", expected: "Ficha / venda ou recibo" },
+  );
+
+  assert.deepEqual(
+    findingComparisonLabels(
+      finding({
+        category: "DATA",
+        code: "TRANSACTION_DATE_MISMATCH",
+        evidence: {
+          observations: [{ kind: "SHEET" }, { kind: "PAYMENT" }],
+        },
+      }),
+    ),
+    { actual: "Data do comprovante", expected: "Data da ficha" },
+  );
+
+  assert.deepEqual(
+    findingComparisonLabels(
+      finding({
+        category: "COMPOSICAO",
+        code: "FISCAL_SHEET_COMPOSITION_MISMATCH",
+        title: "Composição da ficha diverge da nota fiscal",
+      }),
+    ),
+    { actual: "Ficha", expected: "Nota fiscal" },
+  );
+});
+
+test("shows the monetary difference when both compared values are objective", () => {
+  assert.equal(
+    findingComparisonDifference(
+      finding({
+        actualValue: "40.00",
+        category: "VALOR",
+        code: "PAYMENT_VALUE_MISMATCH",
+        expectedValue: "44.50",
+      }),
+    ),
+    "R$\u00a04,50",
+  );
+  assert.equal(
+    findingComparisonDifference(
+      finding({
+        actualValue: "2026-05-18",
+        category: "DATA",
+        code: "TRANSACTION_DATE_MISMATCH",
+        expectedValue: "2026-05-19",
+      }),
+    ),
+    null,
+  );
 });
 
 test("labels depend on structural fields rather than finding values", () => {

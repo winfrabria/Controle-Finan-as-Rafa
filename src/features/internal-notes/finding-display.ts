@@ -88,6 +88,9 @@ export type FindingDisplayPart = {
 const reviewerHiddenLabels = new Set([
   "Base da conciliação",
   "Código da regra",
+  "Documento relacionado",
+  "Observations",
+  "Observações",
   "Tolerância",
 ]);
 
@@ -223,6 +226,27 @@ export function humanizeFindingText(value: string) {
       .replace(new RegExp(`\\b${key}\\b`, "g"), label)
       .replace(new RegExp(`\\b${snakeCaseKey}\\b`, "gi"), label);
   }, value);
+}
+
+/**
+ * Keeps reviewer-facing prose free from internal document-group identifiers.
+ * ADMIN screens continue to use `humanizeFindingText` and retain the raw code.
+ */
+export function humanizeReviewerFindingText(value: string) {
+  return humanizeFindingText(value)
+    .replace(
+      /\bao\s+(?:documento relacionado|grupo(?: documental)?|document group)\s*[:#-]?\s*D\d{1,4}\b/gi,
+      "aos documentos da mesma despesa",
+    )
+    .replace(
+      /\b(?:documento relacionado|grupo(?: documental)?|document group)\s*[:#-]?\s*D\d{1,4}\b/gi,
+      "documentos da mesma despesa",
+    )
+    .replace(/\bD\d{1,4}\b/gi, "")
+    .replace(/\(\s*\)|\[\s*\]/g, "")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 /**

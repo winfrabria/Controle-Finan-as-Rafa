@@ -136,6 +136,7 @@ export function NoteAnalysisView({
         <NoteAnalysisExplorer
           findings={data.analysis.findings}
           items={data.items}
+          reviewer={role === "reviewer"}
         />
 
         <section className={styles.analysisSourceSection}>
