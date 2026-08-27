@@ -7,6 +7,13 @@ export type FindingEvidenceObservation = {
   text: string | null;
 };
 
+export type FindingEvidenceObservationSummary = FindingEvidenceObservation & {
+  count: number;
+  firstDate: string | null;
+  lastDate: string | null;
+  totalAmount: number | null;
+};
+
 const observationKindLabels: Record<
   FindingEvidenceObservation["kind"],
   string
@@ -63,6 +70,53 @@ export function findingObservationKindLabel(
   kind: FindingEvidenceObservation["kind"],
 ) {
   return observationKindLabels[kind];
+}
+
+/**
+ * Collapses repeated rows from the same visible source (for example, a daily
+ * meal control) without losing their count, date range or monetary total.
+ * Different document kinds, pages and labels always remain separate.
+ */
+export function summarizeFindingEvidenceObservations(
+  observations: FindingEvidenceObservation[],
+): FindingEvidenceObservationSummary[] {
+  const groups = new Map<string, FindingEvidenceObservation[]>();
+
+  for (const [index, observation] of observations.entries()) {
+    const identity = normalizeReviewerText(
+      observation.label ?? observation.text ?? `registro-${index}`,
+    );
+    const key = [observation.kind, observation.page ?? "", identity].join(":");
+    const entries = groups.get(key) ?? [];
+    entries.push(observation);
+    groups.set(key, entries);
+  }
+
+  return [...groups.values()].map((entries) => {
+    const first = entries[0];
+    const dates = entries
+      .map((entry) => entry.date)
+      .filter((date): date is string => Boolean(date))
+      .sort();
+    const amounts = entries
+      .map((entry) =>
+        entry.amount === null ? null : Number(entry.amount),
+      )
+      .filter((amount): amount is number => Number.isFinite(amount));
+
+    return {
+      ...first,
+      amount: entries.length === 1 ? first.amount : null,
+      count: entries.length,
+      firstDate: dates[0] ?? null,
+      lastDate: dates.at(-1) ?? null,
+      text: entries.length === 1 ? first.text : null,
+      totalAmount:
+        entries.length > 1 && amounts.length === entries.length
+          ? amounts.reduce((total, amount) => total + amount, 0)
+          : null,
+    };
+  });
 }
 
 export function formatFindingObservationDate(value: string | null) {

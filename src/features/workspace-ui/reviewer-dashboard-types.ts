@@ -4,6 +4,7 @@ export type ReviewerDashboardNote = {
     | "Em análise"
     | "Falha de leitura"
     | "Falha de processamento"
+    | "Informação insuficiente"
     | "Não processado"
     | "OK"
     | "Precisa de informação"

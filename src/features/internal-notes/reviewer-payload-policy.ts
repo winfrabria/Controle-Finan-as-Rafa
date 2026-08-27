@@ -22,6 +22,12 @@ export function sanitizeReviewerNoteListItem(item: NoteListItem): NoteListItem {
         label: sanitizeReviewerText(part.label),
         value: sanitizeReviewerText(part.value),
       })),
+      evidenceLocations: finding.evidenceLocations?.map((location) => ({
+        ...location,
+        kind: sanitizeReviewerText(location.kind),
+        label: safeNullableText(location.label),
+        text: safeNullableText(location.text),
+      })) ?? [],
       expectedValue: safeNullableText(finding.expectedValue),
       justification: sanitizeReviewerText(finding.justification),
       title: sanitizeReviewerText(finding.title),

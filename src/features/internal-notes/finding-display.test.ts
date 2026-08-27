@@ -128,6 +128,30 @@ test("separa comparações compostas em linhas legíveis", () => {
   );
 });
 
+test("resume listas extensas de valores em vez de criar um card infinito", () => {
+  assert.deepEqual(
+    formatFindingValueLines(
+      "10.00 × 20.00 × 30.00 × 40.00 × 50.00 × 60.00 × 70.00",
+    ),
+    [
+      "10.00",
+      "20.00",
+      "30.00",
+      "40.00",
+      "Mais 3 valores no documento",
+    ],
+  );
+});
+
+test("formata datas ISO nas comparações para leitura humana", () => {
+  assert.deepEqual(
+    formatFindingValueLines(
+      "2026-05-03 × 2026-05-04 a 2026-05-31 (28 datas)",
+    ),
+    ["03/05/2026", "04/05/2026 a 31/05/2026 (28 datas)"],
+  );
+});
+
 test("formata a conciliação financeira para o revisor sem detalhes internos", () => {
   assert.deepEqual(
     formatReviewerFindingParts({

@@ -15,7 +15,11 @@ export default async function NoteDetailPage({ params }: PageProps) {
   if (profile.role === UserRole.REVIEWER) {
     redirect(`/notas/${id}/analise-ia`);
   }
-  const data = await loadNoteDetail({ id, role: profile.role });
+  const data = await loadNoteDetail({
+    id,
+    role: profile.role,
+    viewerId: profile.id,
+  });
 
   if (!data) notFound();
 

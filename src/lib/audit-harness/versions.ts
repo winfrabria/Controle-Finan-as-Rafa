@@ -1,12 +1,16 @@
 export const HARNESS_VERSIONS = {
-  policy: "2026-08-21.1",
-  prompt: "2026-08-21.1",
-  schema: "2026-08-21.1",
-  rules: "2026-08-21.1",
+  policy: "2026-08-25.1",
+  prompt: "2026-08-25.1",
+  schema: "2026-08-25.1",
+  rules: "2026-08-25.1",
 } as const;
 
 export const HARNESS_MODEL = "openai/gpt-5.6-terra" as const;
 export const HARNESS_PDF_MODEL = "openai/gpt-5.6-terra" as const;
+export const HARNESS_FALLBACK_MODEL = "openai/gpt-5.6-sol" as const;
+export const HARNESS_VERIFIER_MODEL = "openai/gpt-5.6-sol" as const;
+
+export type HarnessVerifierMode = "off" | "shadow" | "enforce";
 
 export const AUDIT_EVALUATOR_MODELS = [
   HARNESS_MODEL,
@@ -78,4 +82,59 @@ export function resolveHarnessModel(
 
 export function resolvePdfModel(configured: string | undefined) {
   return resolveHarnessModel(configured, HARNESS_PDF_MODEL);
+}
+
+/**
+ * The recovery route is intentionally fixed to Sol. Accepting arbitrary or
+ * same-model fallbacks would recreate the production failure where Terra was
+ * retried with the same incompatible request.
+ */
+export function resolveHarnessFallbackModel(configured: string | undefined) {
+  const model = configured?.trim() || HARNESS_FALLBACK_MODEL;
+  if (model !== HARNESS_FALLBACK_MODEL) {
+    throw new Error(
+      `OpenRouter fallback model must be ${HARNESS_FALLBACK_MODEL}.`,
+    );
+  }
+  return HARNESS_FALLBACK_MODEL;
+}
+
+export function resolveHarnessVerifierModel(configured: string | undefined) {
+  const model = configured?.trim() || HARNESS_VERIFIER_MODEL;
+  if (model !== HARNESS_VERIFIER_MODEL) {
+    throw new Error(
+      `OpenRouter verifier model must be ${HARNESS_VERIFIER_MODEL}.`,
+    );
+  }
+  return HARNESS_VERIFIER_MODEL;
+}
+
+export function resolveHarnessVerifierReasoningEffort(
+  configured: string | undefined,
+) {
+  const effort = configured?.trim() || "high";
+  if (effort !== "high") {
+    throw new Error(
+      "OPENROUTER_VERIFIER_REASONING_EFFORT must be high in runtime.",
+    );
+  }
+  return "high" as const;
+}
+
+export function resolveHarnessVerifierMode(
+  configured: string | undefined,
+  gateApproved: string | undefined = process.env.HARNESS_VERIFIER_GATE_APPROVED,
+): HarnessVerifierMode {
+  const mode = configured?.trim() || "off";
+  if (mode !== "off" && mode !== "shadow" && mode !== "enforce") {
+    throw new Error(
+      "HARNESS_VERIFIER_MODE must be off, shadow or enforce.",
+    );
+  }
+  if (mode === "enforce" && gateApproved !== "true") {
+    throw new Error(
+      "HARNESS_VERIFIER_MODE=enforce requires HARNESS_VERIFIER_GATE_APPROVED=true.",
+    );
+  }
+  return mode;
 }

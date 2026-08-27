@@ -90,7 +90,7 @@ test("confiança baixa continua falhando quando não há evidência estrutural s
   );
 });
 
-test("reembolso sem nenhuma despesa extraída nunca encerra como OK", () => {
+test("reembolso legível sem despesas extraídas termina como informação insuficiente", () => {
   const emptyReimbursement: HarnessInvoice = {
     ...sparseInvoice,
     documentKind: "REIMBURSEMENT",
@@ -98,11 +98,14 @@ test("reembolso sem nenhuma despesa extraída nunca encerra como OK", () => {
     totalAmount: "500.00",
   };
 
-  assert.equal(isReadFailure(emptyReimbursement), true);
-  assert.equal(evaluateHarness({ invoice: emptyReimbursement }).classification, "READ_FAILED");
+  assert.equal(isReadFailure(emptyReimbursement), false);
+  assert.equal(
+    evaluateHarness({ invoice: emptyReimbursement }).classification,
+    "INFORMATION_INSUFFICIENT",
+  );
 });
 
-test("nota fiscal com total mas sem nenhuma linha extraída nunca encerra como OK", () => {
+test("nota fiscal legível sem linhas extraídas termina como informação insuficiente", () => {
   const emptyInvoice: HarnessInvoice = {
     ...sparseInvoice,
     documentKind: "FISCAL_INVOICE",
@@ -110,11 +113,14 @@ test("nota fiscal com total mas sem nenhuma linha extraída nunca encerra como O
     totalAmount: "500.00",
   };
 
-  assert.equal(isReadFailure(emptyInvoice), true);
-  assert.equal(evaluateHarness({ invoice: emptyInvoice }).classification, "READ_FAILED");
+  assert.equal(isReadFailure(emptyInvoice), false);
+  assert.equal(
+    evaluateHarness({ invoice: emptyInvoice }).classification,
+    "INFORMATION_INSUFFICIENT",
+  );
 });
 
-test("camada total explicitamente vazia nunca encerra a auditoria como OK", () => {
+test("camada total explicitamente vazia termina como informação insuficiente", () => {
   const invalidLayer: HarnessInvoice = {
     ...sparseInvoice,
     totalAmount: "100.00",
@@ -148,8 +154,40 @@ test("camada total explicitamente vazia nunca encerra a auditoria como OK", () =
     ],
   };
 
-  assert.equal(isReadFailure(invalidLayer), true);
-  assert.equal(evaluateHarness({ invoice: invalidLayer }).classification, "READ_FAILED");
+  assert.equal(isReadFailure(invalidLayer), false);
+  assert.equal(
+    evaluateHarness({ invoice: invalidLayer }).classification,
+    "INFORMATION_INSUFFICIENT",
+  );
+});
+
+test("documento OTHER legível é aceito e auditado sem bloqueio por categoria", () => {
+  const readableOther: HarnessInvoice = {
+    ...sparseInvoice,
+    documentKind: "OTHER",
+    documentNumber: "DOC-1",
+    markdown: "Documento comercial legível com identificação e valor.",
+  };
+
+  assert.equal(isReadFailure(readableOther), false);
+  assert.equal(evaluateHarness({ invoice: readableOther }).classification, "OK");
+});
+
+test("documento OTHER legível sem base auditável termina como informação insuficiente", () => {
+  const insufficientOther: HarnessInvoice = {
+    ...sparseInvoice,
+    documentKind: "OTHER",
+    documentNumber: null,
+    supplierName: null,
+    totalAmount: null,
+    markdown: "Texto legível, mas sem identidade, valor ou itens auditáveis.",
+  };
+
+  assert.equal(isReadFailure(insufficientOther), false);
+  assert.equal(
+    evaluateHarness({ invoice: insufficientOther }).classification,
+    "INFORMATION_INSUFFICIENT",
+  );
 });
 
 test("achado sustentado warning exige classificação suspeita", () => {
@@ -382,6 +420,67 @@ test("lacuna de cobertura impede falso total divergente e deduplica a mesma dife
   assert.equal(result.findings.some((finding) => finding.code === "EVIDENCE_AMOUNT_MISMATCH_12"), true);
 });
 
+test("não aceita TOTAL_MISMATCH da IA com cobertura COMPLETE mas linhas ausentes", () => {
+  const result = evaluateHarness({
+    invoice: {
+      ...sparseInvoice,
+      documentKind: "FISCAL_INVOICE",
+      totalAmount: "100.00",
+      itemCoverage: {
+        status: "COMPLETE",
+        declaredItemCount: 2,
+        extractedItemCount: 2,
+        firstLineNumber: 1,
+        lastLineNumber: 3,
+        missingLineNumbers: [2],
+        evidence: "O provedor marcou a camada como completa, mas a linha 2 não foi extraída.",
+      },
+      items: [{
+        lineNumber: 1,
+        description: "Linha extraída",
+        quantity: "1",
+        unitPrice: "80.00",
+        totalAmount: "80.00",
+      }, {
+        lineNumber: 3,
+        description: "Linha extraída após a lacuna",
+        quantity: "1",
+        unitPrice: "20.00",
+        totalAmount: "20.00",
+      }],
+    },
+    aiDiscovery: {
+      findings: [{
+        code: "TOTAL_MISMATCH",
+        title: "Total divergente",
+        description: "A soma informada pelo avaliador não confere.",
+        category: "TOTALS",
+        severity: "CRITICAL",
+        source: "AI_DISCOVERY",
+        confidence: 0.99,
+        justification: "A divergência foi calculada sobre uma camada declarada como completa.",
+        references: ["DOCUMENTO:total"],
+        evidence: {
+          field: "totalAmount",
+          source: null,
+          page: null,
+          lineNumber: null,
+          summary: "A soma dos itens diverge do total do documento.",
+        },
+        expectedValue: "100.00",
+        actualValue: "80.00",
+        noteItemLineNumber: null,
+      }],
+      coverage: { sufficientEvidence: true, checkedAreas: ["TOTALS"], limitations: [] },
+      contextQuestions: [],
+      needsContext: false,
+      summary: "Total divergente.",
+    },
+  });
+
+  assert.equal(result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"), false);
+});
+
 test("achado determinístico comprovado vai direto para suspeita mesmo com pergunta acessória", () => {
   assert.equal(decideClassification({
     readFailed: false,
@@ -424,12 +523,32 @@ test("contexto necessário não vira suspeita sem achado sustentado", () => {
   }), "NEEDS_CONTEXT");
 });
 
-test("reanálise após contexto sempre termina em OK ou suspeita", () => {
+test("needsContext sem pergunta termina como informação insuficiente, não como polling infinito", () => {
+  const result = evaluateHarness({
+    invoice: {
+      ...sparseInvoice,
+      markdown: "Documento legível com dados financeiros, mas sem a informação externa necessária.",
+    },
+    aiDiscovery: {
+      findings: [],
+      coverage: { sufficientEvidence: false, checkedAreas: ["CONTEXT"], limitations: ["Falta um dado externo."] },
+      contextQuestions: [],
+      needsContext: true,
+      summary: "Ainda falta contexto, mas não há pergunta pública nova.",
+    },
+  });
+
+  assert.equal(result.contextQuestions.length, 0);
+  assert.equal(result.classification, "INFORMATION_INSUFFICIENT");
+});
+
+test("reanálise após contexto termina em informação insuficiente ou suspeita", () => {
   assert.equal(resolvePostContextClassification({
     deterministicCoverage: false,
     aiCoverage: false,
     findings: [],
-  }), "OK");
+    informationInsufficient: true,
+  }), "INFORMATION_INSUFFICIENT");
 
   assert.equal(resolvePostContextClassification({
     deterministicCoverage: false,
@@ -799,6 +918,7 @@ test("preserva erros aritméticos iguais em linhas distintas do mesmo documento"
       documentGroup: "nf-sintetica",
       documentRole: "LINE_ITEM" as const,
       countsTowardDocumentTotal: true,
+      arithmeticVerified: true,
       quantity: "1",
       unitPrice: "18.00",
       totalAmount: "28.00",

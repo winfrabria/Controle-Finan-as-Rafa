@@ -4,7 +4,7 @@
 
 @media (max-width: 1023px) {
   .mobileDetail {
-    background: #fff;
+    background: #f8faff;
     color: #07163b;
     display: block;
     min-height: 100vh;
@@ -14,432 +14,25 @@
 
   .appBar {
     align-items: center;
-    background: rgb(255 255 255 / 96%);
+    background: rgb(255 255 255 / 97%);
     border-bottom: 1px solid #dfe7f1;
     display: grid;
     gap: 10px;
-    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
     min-height: calc(68px + var(--app-safe-top, env(safe-area-inset-top, 0px)));
     padding: var(--app-safe-top, env(safe-area-inset-top, 0px))
       max(14px, var(--app-safe-right, env(safe-area-inset-right, 0px))) 0
       max(14px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
     position: sticky;
     top: 0;
-    z-index: 20;
+    z-index: 30;
   }
 
-  .appBar > strong {
-    font-size: clamp(16px, 4.8vw, 21px);
-    letter-spacing: -0.025em;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .backButton {
+  .iconButton {
     align-items: center;
-    border: 1px solid #d8e1ed;
-    border-radius: 10px;
-    color: #07163b;
-    display: inline-flex;
-    height: 44px;
-    justify-content: center;
-    width: 44px;
-  }
-
-  .backButton svg {
-    height: 21px;
-    transform: rotate(180deg);
-    width: 21px;
-  }
-
-  .classification {
-    align-items: center;
-    border: 1px solid currentColor;
-    border-radius: 10px;
-    display: inline-flex;
-    font-size: 12px;
-    font-weight: 700;
-    gap: 7px;
-    min-height: 36px;
-    padding: 0 10px;
-    white-space: nowrap;
-  }
-
-  .classification svg {
-    height: 14px;
-    width: 14px;
-  }
-
-  .classificationWarning {
-    background: #fff8ec;
-    border-color: #ffd69a;
-    color: #d66e00;
-  }
-
-  .classificationOk {
-    background: #effbf4;
-    border-color: #b9e7c9;
-    color: #168942;
-  }
-
-  .classificationDanger {
-    background: #fff4f2;
-    border-color: #ffc8c0;
-    color: #d73826;
-  }
-
-  .classificationInfo {
-    background: #eef5ff;
-    border-color: #c7dcff;
-    color: #075cff;
-  }
-
-  .mobileContent {
-    margin: 0 auto;
-    max-width: 720px;
-    padding: 26px max(14px, var(--app-safe-right, env(safe-area-inset-right, 0px)))
-      calc(104px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)))
-      max(14px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
-  }
-
-  .diagnosisHeader {
-    margin: 0 4px 18px;
-  }
-
-  .diagnosisHeader h1 {
-    font-size: clamp(21px, 6vw, 26px);
-    letter-spacing: -0.035em;
-    line-height: 1.15;
-    margin: 0;
-  }
-
-  .diagnosisHeader p {
-    color: #576b8c;
-    font-size: 15px;
-    margin: 5px 0 0;
-  }
-
-  .findingStack {
-    display: grid;
-    gap: 10px;
-  }
-
-  .findingCard,
-  .noteSummary,
-  .extractedData,
-  .noFindings {
-    background: #fff;
-    border: 1px solid #dce5ef;
-    border-radius: 12px;
-    min-width: 0;
-  }
-
-  .findingCard {
-    overflow: clip;
-  }
-
-  .findingExpanded {
-    border-color: #d2deeb;
-  }
-
-  .findingHeader {
-    align-items: center;
-    background: #fff;
+    background: #edf4ff;
     border: 0;
-    color: #07163b;
-    cursor: pointer;
-    display: grid;
-    gap: 10px;
-    grid-template-columns: 34px minmax(0, 1fr) 22px;
-    min-height: 68px;
-    padding: 10px 12px;
-    text-align: left;
-    width: 100%;
-  }
-
-  .findingHeader:focus-visible,
-  .findingNavigator button:focus-visible,
-  .openDocument:focus-visible,
-  .readBar button:focus-visible,
-  .backButton:focus-visible,
-  .documentDialog button:focus-visible,
-  .extractedData summary:focus-visible {
-    outline: 3px solid rgb(7 92 255 / 28%);
-    outline-offset: 2px;
-  }
-
-  [data-severity="WARNING"] .findingHeading small,
-  [data-severity="WARNING"] .findingNumber {
-    color: #ee8500;
-  }
-
-  [data-severity="INFO"] .findingHeading small,
-  [data-severity="INFO"] .findingNumber {
-    color: #075cff;
-  }
-
-  .findingNumber {
-    align-items: center;
-    border: 1px solid #dce5ef;
     border-radius: 50%;
-    color: #ef2d1b;
-    display: inline-flex;
-    font-size: 16px;
-    font-weight: 800;
-    height: 34px;
-    justify-content: center;
-    width: 34px;
-  }
-
-  .findingHeading {
-    display: grid;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .findingHeading strong {
-    font-size: 15px;
-    line-height: 1.32;
-    overflow-wrap: anywhere;
-  }
-
-  .findingHeading small {
-    color: #ef2d1b;
-    font-size: 12px;
-  }
-
-  .findingHeader > svg {
-    color: #075cff;
-    height: 20px;
-    transform: rotate(90deg);
-    transition: transform 160ms ease;
-    width: 20px;
-  }
-
-  .findingHeader > .chevronOpen {
-    transform: rotate(-90deg);
-  }
-
-  .findingBody {
-    border-top: 1px solid #e1e8f1;
-  }
-
-  .findingSection {
-    margin: 0 14px;
-    padding: 15px 0;
-  }
-
-  .findingSection + .findingSection,
-  .comparison + .findingSection {
-    border-top: 1px solid #e3e9f1;
-  }
-
-  .findingSection h3,
-  .comparison h3 {
-    color: #3e5275;
-    font-size: 13px;
-    font-weight: 750;
-    line-height: 1.35;
-    margin: 0 0 8px;
-  }
-
-  .findingSection p,
-  .findingSection li,
-  .comparison p {
-    color: #13294f;
-    font-size: 14px;
-    line-height: 1.52;
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .evidenceList {
-    display: grid;
-    gap: 8px;
-    margin: 0;
-  }
-
-  .observationList + .evidenceList {
-    margin-top: 8px;
-  }
-
-  .evidenceList > div {
-    background: #f7faff;
-    border: 1px solid #e1e8f1;
-    border-radius: 8px;
-    padding: 9px 10px;
-  }
-
-  .evidenceList dt {
-    color: #607393;
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .evidenceList dd {
-    color: #13294f;
-    font-size: 14px;
-    line-height: 1.45;
-    margin: 3px 0 0;
-    overflow-wrap: anywhere;
-  }
-
-  .observationList {
-    display: grid;
-    gap: 8px;
-  }
-
-  .observationList article {
-    background: #f7faff;
-    border: 1px solid #e1e8f1;
-    border-radius: 8px;
-    min-width: 0;
-    padding: 10px;
-  }
-
-  .observationList article > header {
-    align-items: center;
-    display: flex;
-    gap: 8px;
-    justify-content: space-between;
-  }
-
-  .observationList article > header strong {
-    background: #eaf2ff;
-    border-radius: 999px;
-    color: #075cff;
-    font-size: 11px;
-    padding: 4px 7px;
-  }
-
-  .observationList article > header b {
-    color: #17325c;
-    font-size: 13px;
-  }
-
-  .observationMeta {
-    color: #607393;
-    display: flex;
-    flex-wrap: wrap;
-    font-size: 11px;
-    gap: 8px;
-    margin-top: 7px;
-  }
-
-  .observationList h4 {
-    color: #17325c;
-    font-size: 13px;
-    margin: 8px 0 0;
-    overflow-wrap: anywhere;
-  }
-
-  .observationList p {
-    color: #425a7c;
-    font-size: 13px;
-    line-height: 1.45;
-    margin: 5px 0 0;
-    overflow-wrap: anywhere;
-  }
-
-  .referenceList {
-    display: grid;
-    gap: 6px;
-    list-style: disc;
-    margin: 0;
-    padding-left: 18px;
-  }
-
-  .referenceList li {
-    padding-left: 2px;
-  }
-
-  .comparison {
-    display: grid;
-    gap: 8px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin: 0 14px;
-    padding: 15px 0;
-  }
-
-  .comparison > div {
-    border: 1px solid #dce5ef;
-    border-radius: 9px;
-    min-width: 0;
-    padding: 11px;
-  }
-
-  .comparison > div:nth-child(1) {
-    background: #f3fbf6;
-    border-color: #cfead7;
-  }
-
-  .comparison > div:nth-child(2) {
-    background: #fff6f3;
-    border-color: #ffd7cf;
-  }
-
-  .comparison > div:nth-child(1) h3 {
-    color: #159447;
-  }
-
-  .comparison > div:nth-child(2) h3 {
-    color: #e33120;
-  }
-
-  .comparison > .comparisonDifference {
-    align-items: center;
-    background: #f7faff;
-    border-color: #dce5ef;
-    display: flex;
-    gap: 10px;
-    grid-column: 1 / -1;
-    justify-content: space-between;
-    padding-block: 9px;
-  }
-
-  .comparison > .comparisonDifference h3 {
-    color: #3e5275;
-    margin: 0;
-  }
-
-  .comparisonDifference strong {
-    color: #d96a00;
-    font-size: 14px;
-  }
-
-  .comparison p {
-    font-size: 13px;
-  }
-
-  .comparison p span {
-    display: block;
-  }
-
-  .comparison p span + span {
-    border-top: 1px solid rgb(19 41 79 / 9%);
-    margin-top: 6px;
-    padding-top: 6px;
-  }
-
-  .findingNavigator {
-    align-items: center;
-    background: #f7faff;
-    border: 1px solid #dce5ef;
-    border-radius: 12px;
-    display: grid;
-    gap: 8px;
-    grid-template-columns: 44px minmax(0, 1fr) 44px;
-    margin-bottom: 12px;
-    padding: 8px;
-  }
-
-  .findingNavigator button {
-    align-items: center;
-    background: #fff;
-    border: 1px solid #d4dfed;
-    border-radius: 9px;
     color: #075cff;
     cursor: pointer;
     display: inline-flex;
@@ -449,67 +42,343 @@
     width: 44px;
   }
 
-  .findingNavigator button:first-child svg {
+  .iconButton:first-child svg {
     transform: rotate(180deg);
   }
 
-  .findingNavigator button:disabled {
-    background: #f4f7fb;
-    color: #a5b2c4;
-    cursor: default;
+  .iconButton svg {
+    height: 20px;
+    width: 20px;
   }
 
-  .findingNavigator button svg {
-    height: 18px;
-    width: 18px;
-  }
-
-  .findingNavigator > div {
+  .appBarTitle {
     display: grid;
-    gap: 3px;
+    gap: 2px;
     min-width: 0;
     text-align: center;
   }
 
-  .findingNavigator span {
-    color: #607393;
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .findingNavigator strong {
-    color: #142a50;
-    font-size: 13px;
-    line-height: 1.3;
+  .appBarTitle strong {
+    font-size: 15px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .noteSummary {
-    margin-top: 12px;
-    padding: 16px;
+  .appBarTitle span {
+    color: #7586a3;
+    font-size: 11px;
+    font-weight: 650;
   }
 
-  .noteSummary h2 {
-    font-size: 18px;
-    letter-spacing: -0.02em;
-    margin: 0 0 11px;
+  .mobileContent {
+    margin: 0 auto;
+    max-width: 720px;
+    padding: 16px max(14px, var(--app-safe-right, env(safe-area-inset-right, 0px)))
+      calc(146px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)))
+      max(14px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
   }
 
-  .noteSummary dl {
+  .focusFinding,
+  .noteSummary,
+  .noFindings {
+    background: #fff;
+    border: 1px solid #dce5ef;
+    border-radius: 14px;
+  }
+
+  .focusFinding {
+    border-top: 3px solid #e89214;
+    padding: 17px 16px 16px;
+  }
+
+  .focusFinding[data-tone="critical"] {
+    border-top-color: #c74639;
+  }
+
+  .focusFinding[data-tone="info"] {
+    border-top-color: #2875d8;
+  }
+
+  .severityPill {
+    background: #fff4df;
+    border-radius: 999px;
+    color: #a86105;
+    display: inline-flex;
+    font-size: 11px;
+    font-weight: 750;
+    padding: 5px 9px;
+  }
+
+  [data-tone="critical"] .severityPill {
+    background: #ffebe8;
+    color: #b44338;
+  }
+
+  [data-tone="info"] .severityPill {
+    background: #eaf2ff;
+    color: #075cff;
+  }
+
+  .focusTitle {
+    align-items: flex-start;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 30px minmax(0, 1fr);
+    margin-top: 13px;
+  }
+
+  .focusTitle > span {
+    align-items: center;
+    background: #e89214;
+    border-radius: 50%;
+    color: #fff;
+    display: inline-flex;
+    font-size: 11px;
+    font-weight: 800;
+    height: 30px;
+    justify-content: center;
+    width: 30px;
+  }
+
+  [data-tone="critical"] .focusTitle > span {
+    background: #c74639;
+  }
+
+  [data-tone="info"] .focusTitle > span {
+    background: #2875d8;
+  }
+
+  .focusTitle h1 {
+    font-size: clamp(19px, 5.3vw, 23px);
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+    margin: 1px 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .focusDescription {
+    color: #526987;
+    font-size: 14px;
+    line-height: 1.55;
+    margin: 11px 0 0 40px;
+    overflow-wrap: anywhere;
+  }
+
+  .comparison {
+    display: grid;
+    gap: 8px;
+    margin-top: 17px;
+  }
+
+  .comparison > div {
+    border: 1px solid #dce5ef;
+    border-radius: 11px;
+    min-width: 0;
+    padding: 13px;
+  }
+
+  .comparison > .comparisonActual {
+    background: #fff0ee;
+    border-color: #efc3bc;
+  }
+
+  .comparison > .comparisonExpected {
+    background: #eff9f3;
+    border-color: #c5e1d0;
+  }
+
+  .comparison h2 {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    margin: 0 0 7px;
+    text-transform: uppercase;
+  }
+
+  .comparisonActual h2,
+  .comparisonActual p {
+    color: #a63d33;
+  }
+
+  .comparisonExpected h2,
+  .comparisonExpected p {
+    color: #217344;
+  }
+
+  .comparison p {
+    font-size: 16px;
+    font-weight: 780;
+    line-height: 1.35;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .comparison p span {
+    display: block;
+  }
+
+  .comparison p span + span {
+    border-top: 1px solid rgb(19 41 79 / 9%);
+    margin-top: 7px;
+    padding-top: 7px;
+  }
+
+  .comparison > .comparisonDifference {
+    align-items: center;
+    background: #f7faff;
+    border-color: #dce5ef;
+    display: flex;
+    font-size: 12px;
+    justify-content: space-between;
+    padding-block: 9px;
+  }
+
+  .comparisonDifference span {
+    color: #607393;
+    font-weight: 700;
+  }
+
+  .comparisonDifference strong {
+    color: #d96a00;
+  }
+
+  .attentionReason {
+    background: #fff;
+    border: 1px solid #dce5ef;
+    border-radius: 11px;
+    margin-top: 13px;
+    padding: 13px;
+  }
+
+  .attentionReason h2 {
+    font-size: 13px;
     margin: 0;
   }
 
-  .noteSummary dl > div {
-    align-items: center;
-    display: grid;
-    gap: 11px;
-    grid-template-columns: 38px minmax(0, 1fr);
-    min-height: 57px;
+  .attentionReason p {
+    color: #526987;
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 5px 0 0;
+    overflow-wrap: anywhere;
   }
 
-  .noteSummary dl > div + div {
+  .openEvidence {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #bcd0ee;
+    border-radius: 11px;
+    color: #075cff;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 13px;
+    min-height: 58px;
+    padding: 9px 12px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .openEvidence > span {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .openEvidence > span > svg {
+    flex: 0 0 auto;
+    height: 21px;
+    width: 21px;
+  }
+
+  .openEvidence > span > span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .openEvidence strong {
+    font-size: 13px;
+  }
+
+  .openEvidence small {
+    color: #667896;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .openEvidence > svg {
+    flex: 0 0 auto;
+    height: 16px;
+    width: 16px;
+  }
+
+  .noteSummary {
+    margin-top: 11px;
+    overflow: clip;
+  }
+
+  .noteSummary > summary {
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    list-style: none;
+    min-height: 70px;
+    padding: 12px 15px;
+  }
+
+  .noteSummary > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .noteSummary > summary > span {
+    display: grid;
+    gap: 3px;
+  }
+
+  .noteSummary > summary strong {
+    font-size: 15px;
+  }
+
+  .noteSummary > summary small {
+    color: #607393;
+    font-size: 11px;
+  }
+
+  .noteSummary > summary > svg {
+    color: #075cff;
+    height: 18px;
+    transform: rotate(90deg);
+    transition: transform 160ms ease;
+    width: 18px;
+  }
+
+  .noteSummary[open] > summary > svg {
+    transform: rotate(-90deg);
+  }
+
+  .noteSummaryBody {
+    border-top: 1px solid #e1e8f1;
+    padding: 4px 14px 14px;
+  }
+
+  .noteSummaryBody > dl:first-child {
+    margin: 0;
+  }
+
+  .noteSummaryBody > dl:first-child > div {
+    align-items: center;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 34px minmax(0, 1fr);
+    min-height: 53px;
+  }
+
+  .noteSummaryBody > dl:first-child > div + div {
     border-top: 1px solid #e4eaf1;
   }
 
@@ -520,9 +389,9 @@
     border-radius: 50%;
     color: #075cff;
     display: inline-flex;
-    height: 36px;
+    height: 32px;
     justify-content: center;
-    width: 36px;
+    width: 32px;
   }
 
   .summaryIconGreen {
@@ -532,130 +401,37 @@
 
   .summaryIcon svg,
   .summaryIconGreen svg {
-    height: 21px;
-    width: 21px;
+    height: 18px;
+    width: 18px;
   }
 
-  .noteSummary dt {
+  .noteSummary dt,
+  .extractedGrid dt {
     color: #617392;
-    font-size: 11px;
+    font-size: 10px;
   }
 
-  .noteSummary dd {
+  .noteSummary dd,
+  .extractedGrid dd {
     color: #07163b;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 750;
     line-height: 1.35;
     margin: 2px 0 0;
     overflow-wrap: anywhere;
   }
 
-  .openDocument {
-    align-items: center;
-    background: #fff;
-    border: 1px solid #d9e3ef;
-    border-radius: 9px;
-    color: #075cff;
-    cursor: pointer;
+  .extractedGrid {
     display: grid;
-    font-size: 14px;
-    font-weight: 750;
-    gap: 10px;
-    grid-template-columns: 24px minmax(0, 1fr) 18px;
-    margin-top: 10px;
-    min-height: 52px;
-    padding: 0 13px;
-    text-align: left;
-    width: 100%;
-  }
-
-  .openDocument svg {
-    height: 22px;
-    width: 22px;
-  }
-
-  .openDocument svg:last-child {
-    height: 16px;
-    justify-self: end;
-    width: 16px;
-  }
-
-  .extractedData {
-    margin-top: 10px;
-    overflow: clip;
-  }
-
-  .extractedData summary {
-    align-items: center;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    list-style: none;
-    min-height: 76px;
-    padding: 12px 16px;
-  }
-
-  .extractedData summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .extractedData summary > span {
-    display: grid;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .extractedData summary strong {
-    font-size: 17px;
-  }
-
-  .extractedData summary small {
-    color: #607393;
-    font-size: 12px;
-    line-height: 1.35;
-  }
-
-  .extractedData summary > svg {
-    color: #075cff;
-    flex: 0 0 auto;
-    height: 20px;
-    transform: rotate(90deg);
-    transition: transform 160ms ease;
-    width: 20px;
-  }
-
-  .extractedData[open] summary > svg {
-    transform: rotate(-90deg);
-  }
-
-  .extractedData > dl {
-    border-top: 1px solid #e1e8f1;
-    display: grid;
-    gap: 9px;
+    gap: 7px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin: 0;
-    padding: 14px;
+    margin: 8px 0 0;
   }
 
-  .extractedData > dl > div {
+  .extractedGrid > div {
     background: #f7faff;
     border-radius: 8px;
-    min-width: 0;
     padding: 9px;
-  }
-
-  .extractedData dt {
-    color: #617392;
-    font-size: 11px;
-  }
-
-  .extractedData dd {
-    color: #142a50;
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1.4;
-    margin: 4px 0 0;
-    overflow-wrap: anywhere;
   }
 
   .noFindings {
@@ -667,7 +443,6 @@
 
   .noFindings > svg {
     color: #149342;
-    flex: 0 0 auto;
     height: 26px;
     width: 26px;
   }
@@ -694,105 +469,142 @@
     padding: 11px 12px;
   }
 
-  .readBar {
-    background: rgb(255 255 255 / 97%);
+  .actionBar {
+    background: rgb(255 255 255 / 98%);
     border-top: 1px solid #dce5ef;
     bottom: 0;
+    display: grid;
+    gap: 7px;
     left: 0;
-    padding: 10px max(14px, var(--app-safe-right, env(safe-area-inset-right, 0px)))
-      calc(10px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)))
+    padding: 8px max(14px, var(--app-safe-right, env(safe-area-inset-right, 0px)))
+      calc(8px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)))
       max(14px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
     position: fixed;
     right: 0;
-    z-index: 25;
+    z-index: 35;
   }
 
-  .readBar button {
-    align-items: center;
-    background: #075cff;
-    border: 0;
-    border-radius: 10px;
-    color: #fff;
-    cursor: pointer;
-    display: flex;
-    font-size: 16px;
-    font-weight: 750;
-    gap: 9px;
-    justify-content: center;
+  .bottomNavigator {
+    display: grid;
+    gap: 7px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin: 0 auto;
     max-width: 692px;
-    min-height: 54px;
     width: 100%;
   }
 
-  .readBar button:disabled {
+  .bottomNavigator button,
+  .readButton {
+    align-items: center;
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 13px;
+    font-weight: 750;
+    gap: 7px;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .bottomNavigator button {
+    background: #fff;
+    border: 1px solid #cdd9e8;
+    color: #075cff;
+  }
+
+  .bottomNavigator button:last-child {
+    background: #075cff;
+    border-color: #075cff;
+    color: #fff;
+  }
+
+  .bottomNavigator button:first-child svg {
+    transform: rotate(180deg);
+  }
+
+  .bottomNavigator button:disabled {
+    background: #f3f6fa;
+    border-color: #dce4ee;
+    color: #9ba9bc;
+    cursor: default;
+  }
+
+  .bottomNavigator svg {
+    height: 15px;
+    width: 15px;
+  }
+
+  .readButton {
+    background: #fff;
+    border: 1px solid #bcd0ee;
+    color: #075cff;
+    margin: 0 auto;
+    max-width: 692px;
+    width: 100%;
+  }
+
+  .readButton:disabled {
     cursor: default;
     opacity: 0.82;
   }
 
-  .readBar .readDone {
-    background: #168f46;
+  .readButton.readDone {
+    background: #eff9f3;
+    border-color: #b9e0c8;
+    color: #168f46;
   }
 
-  .readBar svg {
-    height: 22px;
-    width: 22px;
+  .readButton svg {
+    height: 18px;
+    width: 18px;
   }
 
-  .documentDialog {
-    background: #fff;
+  .sheetDialog {
+    background: #f8faff;
     border: 0;
-    border-radius: 14px;
-    box-shadow: 0 24px 70px rgb(7 22 59 / 28%);
     color: #07163b;
-    height: min(
-      760px,
-      calc(
-        100dvh - var(--app-safe-top, env(safe-area-inset-top, 0px)) -
-          var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)) - 16px
-      )
-    );
-    margin: calc(8px + var(--app-safe-top, env(safe-area-inset-top, 0px))) auto
-      calc(8px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)));
-    max-height: calc(
-      100dvh - var(--app-safe-top, env(safe-area-inset-top, 0px)) -
-        var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)) - 16px
-    );
-    max-width: 720px;
+    height: 100dvh;
+    margin: 0;
+    max-height: 100dvh;
+    max-width: none;
     overflow: hidden;
     padding: 0;
-    width: calc(100% - 20px);
+    width: 100%;
   }
 
-  .documentDialog::backdrop {
-    background: rgb(7 22 59 / 48%);
+  .sheetDialog::backdrop {
+    background: rgb(7 22 59 / 50%);
   }
 
-  .documentDialog > header {
+  .dialogHeader {
     align-items: center;
+    background: #fff;
     border-bottom: 1px solid #dce5ef;
     display: flex;
     justify-content: space-between;
-    min-height: 66px;
-    padding: 8px 12px 8px 16px;
+    min-height: calc(66px + var(--app-safe-top, env(safe-area-inset-top, 0px)));
+    padding: var(--app-safe-top, env(safe-area-inset-top, 0px)) 12px 0 16px;
   }
 
-  .documentDialog > header span {
+  .dialogHeader span {
     color: #607393;
-    font-size: 11px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
-  .documentDialog > header h2 {
-    font-size: 17px;
+  .dialogHeader h2 {
+    font-size: 18px;
     margin: 2px 0 0;
   }
 
-  .documentDialog > header button {
+  .dialogHeader button {
     align-items: center;
-    background: #fff;
-    border: 1px solid #dce5ef;
-    border-radius: 9px;
-    color: #233b64;
+    background: #edf4ff;
+    border: 0;
+    border-radius: 50%;
+    color: #075cff;
     cursor: pointer;
     display: inline-flex;
     height: 44px;
@@ -800,65 +612,213 @@
     width: 44px;
   }
 
-  .documentDialog > header button svg {
-    height: 22px;
-    width: 22px;
+  .dialogHeader button svg {
+    height: 21px;
+    width: 21px;
+  }
+
+  .sheetDialogBody,
+  .documentDialogBody {
+    height: calc(100dvh - 66px - var(--app-safe-top, env(safe-area-inset-top, 0px)));
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 14px max(14px, var(--app-safe-right, env(safe-area-inset-right, 0px)))
+      calc(18px + var(--app-safe-bottom, env(safe-area-inset-bottom, 0px)))
+      max(14px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
+  }
+
+  .evidencePanel {
+    display: grid;
+    gap: 12px;
+    margin: 0 auto;
+    max-width: 720px;
+  }
+
+  .evidencePanel > section {
+    background: #fff;
+    border: 1px solid #dce5ef;
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .evidencePanel h3 {
+    font-size: 14px;
+    margin: 0 0 10px;
+  }
+
+  .observationList,
+  .evidenceList {
+    display: grid;
+    gap: 9px;
+    margin: 0;
+  }
+
+  .observationList article,
+  .evidenceList > div {
+    background: #f7faff;
+    border: 1px solid #e1e8f1;
+    border-radius: 9px;
+    min-width: 0;
+    padding: 11px;
+  }
+
+  .observationList article > header {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .observationList article > header strong {
+    background: #eaf2ff;
+    border-radius: 999px;
+    color: #075cff;
+    font-size: 10px;
+    padding: 5px 8px;
+  }
+
+  .observationList article > header span {
+    color: #607393;
+    font-size: 10px;
+  }
+
+  .observationMeta {
+    align-items: center;
+    color: #607393;
+    display: flex;
+    font-size: 11px;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .observationMeta b {
+    color: #17325c;
+  }
+
+  .observationList h4 {
+    color: #17325c;
+    font-size: 13px;
+    margin: 9px 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .observationList p {
+    color: #425a7c;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 5px 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .evidenceList dt {
+    color: #607393;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .evidenceList dd {
+    color: #13294f;
+    font-size: 13px;
+    line-height: 1.48;
+    margin: 4px 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .referenceList {
+    display: grid;
+    gap: 7px;
+    margin: 0;
+    padding-left: 18px;
+  }
+
+  .referenceList li,
+  .evidenceEmpty {
+    color: #425a7c;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .evidenceEmpty {
+    margin: 0;
+  }
+
+  .openPageLink {
+    align-items: center;
+    background: #075cff;
+    border-radius: 10px;
+    color: #fff;
+    display: flex;
+    font-size: 13px;
+    font-weight: 750;
+    gap: 8px;
+    justify-content: center;
+    min-height: 50px;
+    padding: 0 12px;
+  }
+
+  .openPageLink svg {
+    height: 18px;
+    width: 18px;
   }
 
   .documentDialogBody {
-    height: calc(100% - 66px);
-    overflow: auto;
-    padding: 12px;
+    background: #fff;
+  }
+
+  .iconButton:focus-visible,
+  .openEvidence:focus-visible,
+  .bottomNavigator button:focus-visible,
+  .readButton:focus-visible,
+  .dialogHeader button:focus-visible,
+  .noteSummary > summary:focus-visible,
+  .openPageLink:focus-visible {
+    outline: 3px solid rgb(7 92 255 / 28%);
+    outline-offset: 2px;
   }
 }
 
 @media (max-width: 350px) {
   .appBar {
-    gap: 7px;
+    gap: 6px;
     padding-left: max(10px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
     padding-right: max(10px, var(--app-safe-right, env(safe-area-inset-right, 0px)));
   }
 
-  .appBar > strong {
-    font-size: 15px;
-  }
-
-  .classification {
-    font-size: 11px;
-    padding: 0 8px;
-  }
-
-  .findingHeader {
-    gap: 8px;
-    grid-template-columns: 32px minmax(0, 1fr) 18px;
+  .mobileContent {
     padding-left: 10px;
     padding-right: 10px;
   }
 
-  .findingNumber {
-    height: 32px;
-    width: 32px;
+  .focusFinding {
+    padding: 14px 12px;
   }
 
-  .comparison,
-  .extractedData > dl {
+  .focusDescription {
+    margin-left: 0;
+  }
+
+  .focusTitle {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .focusTitle > span {
+    height: 28px;
+    width: 28px;
+  }
+
+  .extractedGrid {
     grid-template-columns: 1fr;
   }
 
-  .findingNavigator {
-    gap: 6px;
-    grid-template-columns: 44px minmax(0, 1fr) 44px;
-    padding: 6px;
-  }
-
-  .findingNavigator strong {
+  .bottomNavigator button,
+  .readButton {
     font-size: 12px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .findingHeader > svg,
-  .extractedData summary > svg {
+  .noteSummary > summary > svg {
     transition: none;
   }
 }

@@ -87,6 +87,7 @@ export const goldenCaseInvoiceSchema = z.object({
         .enum(["LINE_ITEM", "AGGREGATE_PAYMENT", "SUPPORTING_DOCUMENT", "SUMMARY"])
         .nullish(),
       countsTowardDocumentTotal: z.boolean().nullish(),
+      arithmeticVerified: z.boolean().nullish(),
       quantity: z.string().nullable(),
       unitPrice: z.string().nullable(),
       totalAmount: z.string().nullable(),

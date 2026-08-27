@@ -13,6 +13,7 @@ import {
 } from "@/lib/storage";
 import { prisma } from "@/server/db/prisma";
 import { NoteUploadError } from "@/server/notes/note-upload-error";
+import { computeAttachmentMetadata } from "@/server/notes/attachment-metadata";
 import {
   createPublicCapability,
   terminalPublicCapabilityFields,
@@ -130,6 +131,10 @@ export async function createNoteUpload(input: {
   }
 
   const noteId = randomUUID();
+  const attachmentMetadata = await computeAttachmentMetadata({
+    bytes: file.bytes,
+    mimeType: file.mimeType,
+  });
   const capability = createPublicCapability(noteId);
   const path = createInvoiceObjectPath({
     extension: file.extension,
@@ -159,7 +164,9 @@ export async function createNoteUpload(input: {
         publicTokenHash: capability.hash,
         publicTokenExpiresAt: capability.expiresAt,
         originalFileName: file.originalFileName,
+        originalFileSha256: attachmentMetadata.sha256,
         originalMimeType: file.mimeType,
+        originalPageCount: attachmentMetadata.pageCount,
         originalSizeBytes: BigInt(file.size),
         processingStage: ProcessingStage.RECEIVED,
         status: NoteStatus.RECEIVED,

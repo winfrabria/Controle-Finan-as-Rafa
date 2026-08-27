@@ -10,7 +10,11 @@ type PageProps = { params: Promise<{ id: string }> };
 export default async function NoteAiAnalysisPage({ params }: PageProps) {
   const { id } = await params;
   const profile = await requireInternalUser(`/notas/${id}/analise-ia`);
-  const data = await loadNoteDetail({ id, role: profile.role });
+  const data = await loadNoteDetail({
+    id,
+    role: profile.role,
+    viewerId: profile.id,
+  });
 
   if (!data) notFound();
 

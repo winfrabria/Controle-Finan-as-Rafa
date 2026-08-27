@@ -230,6 +230,11 @@ export function createDemoNoteDetail({
   ];
   const base: NoteDetailBase = {
     analysis: {
+      assurance: {
+        band: "HIGH",
+        reason: "As regras e a auditoria cobriram os dados disponíveis sem limitação material.",
+        version: "2026-08-25.1",
+      },
       classification: NoteClassification.SUSPICIOUS,
       extractionMarkdown:
         "Nota fiscal extraída com fornecedor, valores e cinco itens legíveis. A análise identificou item fora do contrato, quantidade acima do executado e preço acima da referência.",
@@ -270,6 +275,7 @@ export function createDemoNoteDetail({
       storagePath: `demo/${noteNumber}.pdf`,
     },
     failure: { code: null, message: null },
+    feedback: null,
     history: [
       {
         actor: null,
@@ -362,6 +368,7 @@ export function createDemoNoteDetail({
         readConfidence: 0.96,
       },
       technical: {
+        auditFeedbacks: [],
         aiRuns: [
           {
             attempts: 1,

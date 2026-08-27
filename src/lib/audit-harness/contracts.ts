@@ -4,6 +4,7 @@ export const harnessClassificationSchema = z.enum([
   "OK",
   "SUSPICIOUS",
   "NEEDS_CONTEXT",
+  "INFORMATION_INSUFFICIENT",
   "READ_FAILED",
 ]);
 
@@ -56,7 +57,12 @@ export const harnessFindingSchema = z
     description: z.string().trim().min(1).max(2_000),
     category: z.string().trim().min(1).max(100),
     severity: z.enum(["INFO", "WARNING", "CRITICAL"]),
-    source: z.enum(["UNIVERSAL_RULE", "WORK_RULE", "AI_DISCOVERY"]),
+    source: z.enum([
+      "UNIVERSAL_RULE",
+      "WORK_RULE",
+      "AI_DISCOVERY",
+      "AI_VERIFICATION",
+    ]),
     confidence: z.number().min(0).max(1),
     justification: z.string().trim().min(1).max(2_000),
     // Composite reimbursements may reference many receipts/pages in a single
@@ -259,9 +265,18 @@ export type HarnessInvoice = {
     field: string;
     label: string;
     requiredByDocument: boolean;
+    requirementBasis?: "EXPLICIT_DOCUMENT" | "VERIFIED_POLICY" | "NONE";
+    requirementEvidence?: string | null;
     present: boolean;
     page: number | null;
     evidence: string | null;
+    boundingBox?: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      unit: "NORMALIZED" | "PIXEL";
+    } | null;
   }>;
   items: Array<{
     lineNumber: number;
@@ -273,6 +288,16 @@ export type HarnessInvoice = {
       | "SUPPORTING_DOCUMENT"
       | "SUMMARY";
     countsTowardDocumentTotal?: boolean;
+    arithmeticVerified?: boolean;
+    sourcePage?: number | null;
+    sourceText?: string | null;
+    sourceBoundingBox?: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      unit: "NORMALIZED" | "PIXEL";
+    } | null;
     quantity: string | null;
     unitPrice: string | null;
     totalAmount: string | null;
@@ -284,6 +309,13 @@ export type HarnessInvoice = {
       date: string | null;
       page: number | null;
       text: string | null;
+      boundingBox?: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        unit: "NORMALIZED" | "PIXEL";
+      } | null;
     }>;
   }>;
 };

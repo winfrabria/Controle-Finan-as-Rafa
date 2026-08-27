@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { HARNESS_PDF_MODEL } from "@/lib/audit-harness/versions";
+import {
+  HARNESS_FALLBACK_MODEL,
+  HARNESS_PDF_MODEL,
+} from "@/lib/audit-harness/versions";
 import {
   invoiceExtractionSchema,
   parseInvoiceExtractionPayload,
@@ -30,6 +33,7 @@ const validExtraction: InvoiceExtraction = {
   items: [
     {
       code: null,
+      arithmeticVerified: true,
       countsTowardDocumentTotal: true,
       description: "CAFÉ DA MANHÃ",
       documentGroup: null,
@@ -37,6 +41,8 @@ const validExtraction: InvoiceExtraction = {
       evidenceObservations: [],
       lineNumber: 1,
       quantity: "164.07",
+      sourcePage: 1,
+      sourceText: "CAFÉ DA MANHÃ 164,07 UN 7,00 1.148,50",
       totalAmount: "1148.50",
       unit: "UN",
       unitPrice: "7.00",
@@ -241,12 +247,15 @@ test("normaliza papéis documentais e campos obrigatórios sem depender de uma N
   assert.equal(parsed.data.items[0]?.documentGroup, "Lote julho");
   assert.deepEqual(parsed.data.requiredFieldChecks, [
     {
+      boundingBox: null,
       evidence: "Todos os campos são obrigatórios.",
       field: "approver",
       label: "Aprovador",
       page: 1,
       present: false,
       requiredByDocument: true,
+      requirementBasis: "EXPLICIT_DOCUMENT",
+      requirementEvidence: "Todos os campos são obrigatórios.",
     },
   ]);
 });
@@ -334,7 +343,7 @@ test("PDF usa o modelo estável configurado e aceita a reconciliação por camad
     },
     maxAttempts: 2,
     model: HARNESS_PDF_MODEL,
-    pdfFallbackModel: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
     pdfModel: HARNESS_PDF_MODEL,
     pdfEngine: "native",
     reasoningEffort: "high",
@@ -355,12 +364,12 @@ test("PDF usa o modelo estável configurado e aceita a reconciliação por camad
     { id: "file-parser", pdf: { engine: "native" } },
     { id: "response-healing" },
   ]);
-  assert.deepEqual(requestedPayload?.provider, { require_parameters: true });
-  assert.equal(requestedPayload?.max_tokens, 8_192);
+  assert.equal(requestedPayload?.provider, undefined);
+  assert.equal(requestedPayload?.max_tokens, 16_384);
   assert.equal("temperature" in (requestedPayload ?? {}), false);
 });
 
-test("não aceita silenciosamente PDF que atinge exatamente 8192 tokens e relê o original", async () => {
+test("usa o Sol uma vez quando o PDF do Terra atinge o limite de saída", async () => {
   let calls = 0;
   const payloads: Array<Record<string, unknown>> = [];
   const client = new OpenRouterInvoiceExtractionClient({
@@ -368,15 +377,18 @@ test("não aceita silenciosamente PDF que atinge exatamente 8192 tokens e relê 
     fetchImplementation: async (_url, init) => {
       calls += 1;
       payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
-      return successResponse(HARNESS_PDF_MODEL, {
-        completionTokens: 8_192,
+      return successResponse(
+        calls === 1 ? HARNESS_PDF_MODEL : HARNESS_FALLBACK_MODEL,
+        {
+        completionTokens: calls === 1 ? 8_192 : 10,
         costUsd: 0.02,
-      });
+        },
+      );
     },
     maxAttempts: 2,
     maxTokens: 8_192,
     model: HARNESS_PDF_MODEL,
-    pdfFallbackModel: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
     pdfModel: HARNESS_PDF_MODEL,
     pdfEngine: "native",
     reasoningEffort: "high",
@@ -384,25 +396,19 @@ test("não aceita silenciosamente PDF que atinge exatamente 8192 tokens e relê 
     timeoutMs: 1_000,
   });
 
-  await assert.rejects(
-    client.extractInvoice({
-      fileName: "documento-longo.pdf",
-      mimeType: "application/pdf",
-      signedUrl: "https://storage.test/documento-longo.pdf?token=redacted",
-    }),
-    (error: unknown) => {
-      assert.ok(error instanceof OpenRouterClientError);
-      assert.equal(error.kind, "invalid-response");
-      assert.equal(error.diagnostic, "completion-token-limit");
-      assert.equal(error.attempts, 2);
-      assert.equal(error.usage?.completionTokens, 16_384);
-      assert.equal(error.usage?.costUsd, 0.04);
-      assert.ok(error.latencyMs !== undefined);
-      return true;
-    },
-  );
+  const result = await client.extractInvoice({
+    fileName: "documento-longo.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento-longo.pdf?token=redacted",
+  });
 
   assert.equal(calls, 2);
+  assert.equal(result.attempts, 2);
+  assert.equal(result.model, HARNESS_FALLBACK_MODEL);
+  assert.equal(result.usage?.completionTokens, 8_202);
+  assert.equal(result.usage?.costUsd, 0.04);
+  assert.equal(payloads[0]?.max_tokens, 8_192);
+  assert.equal(payloads[1]?.max_tokens, 8_192);
   for (const payload of payloads) {
     assert.match(JSON.stringify(payload.messages), /file_data/);
     assert.deepEqual(payload.plugins, [
@@ -412,13 +418,55 @@ test("não aceita silenciosamente PDF que atinge exatamente 8192 tokens e relê 
   }
 });
 
+test("mantém falha segura quando até a janela ampliada termina truncada", async () => {
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async (_url, init) => {
+      calls += 1;
+      const payload = JSON.parse(String(init?.body)) as { max_tokens: number };
+      return successResponse(HARNESS_PDF_MODEL, {
+        completionTokens: payload.max_tokens,
+        costUsd: 0.02,
+      });
+    },
+    maxAttempts: 2,
+    maxTokens: 8_192,
+    model: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "native",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  await assert.rejects(
+    client.extractInvoice({
+      fileName: "documento-ainda-truncado.pdf",
+      mimeType: "application/pdf",
+      signedUrl: "https://storage.test/documento-ainda-truncado.pdf?token=redacted",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof OpenRouterClientError);
+      assert.equal(error.diagnostic, "completion-token-limit");
+      assert.equal(error.attempts, 2);
+      assert.equal(error.usage?.completionTokens, 16_384);
+      return true;
+    },
+  );
+  assert.equal(calls, 2);
+});
+
 test("detecta finish_reason length antes de tentar reparar o JSON truncado", async () => {
   const payloads: Array<Record<string, unknown>> = [];
   const client = new OpenRouterInvoiceExtractionClient({
     apiKey: "test-key",
     fetchImplementation: async (_url, init) => {
       payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
-      if (payloads.length === 2) return successResponse(HARNESS_PDF_MODEL);
+      if (payloads.length === 2) {
+        return successResponse(HARNESS_FALLBACK_MODEL);
+      }
       return new Response(
         JSON.stringify({
           choices: [
@@ -442,7 +490,7 @@ test("detecta finish_reason length antes de tentar reparar o JSON truncado", asy
     maxAttempts: 2,
     maxTokens: 8_192,
     model: HARNESS_PDF_MODEL,
-    pdfFallbackModel: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
     pdfModel: HARNESS_PDF_MODEL,
     pdfEngine: "native",
     reasoningEffort: "high",
@@ -610,7 +658,7 @@ test("rejeita lacuna intermediária omitida em cobertura declarada COMPLETE", ()
   assert.deepEqual(limitation?.details.unreportedInternalGaps, [2]);
 });
 
-test("rejeita cobertura UNKNOWN em PDF mesmo quando o JSON é válido", async () => {
+test("aceita PDF legível com cobertura UNKNOWN para decisão segura posterior", async () => {
   const extraction = {
     ...validExtraction,
     documentKind: "COMPOSITE",
@@ -654,20 +702,15 @@ test("rejeita cobertura UNKNOWN em PDF mesmo quando o JSON é válido", async ()
     timeoutMs: 1_000,
   });
 
-  await assert.rejects(
-    client.extractInvoice({
-      fileName: "documento-composto.pdf",
-      mimeType: "application/pdf",
-      signedUrl: "https://storage.test/documento-composto.pdf?token=redacted",
-    }),
-    (error: unknown) =>
-      error instanceof OpenRouterClientError &&
-      error.kind === "invalid-response" &&
-      error.diagnostic === "pdf-item-coverage-unknown",
-  );
+  const result = await client.extractInvoice({
+    fileName: "documento-composto.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento-composto.pdf?token=redacted",
+  });
+  assert.equal(result.data.itemCoverage.status, "UNKNOWN");
 });
 
-test("rejeita páginas nulas ou ausentes em evidências de PDF composto", async () => {
+test("aceita extração completa quando apenas a página da evidência está ausente", async () => {
   const extraction = {
     ...validExtraction,
     documentKind: "REIMBURSEMENT",
@@ -711,20 +754,18 @@ test("rejeita páginas nulas ou ausentes em evidências de PDF composto", async 
     timeoutMs: 1_000,
   });
 
-  await assert.rejects(
-    client.extractInvoice({
-      fileName: "reembolso.pdf",
-      mimeType: "application/pdf",
-      signedUrl: "https://storage.test/reembolso.pdf?token=redacted",
-    }),
-    (error: unknown) =>
-      error instanceof OpenRouterClientError &&
-      error.kind === "invalid-response" &&
-      error.diagnostic === "pdf-evidence-page-missing",
-  );
+  const result = await client.extractInvoice({
+    fileName: "reembolso.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/reembolso.pdf?token=redacted",
+  });
+
+  assert.equal(result.data.itemCoverage.status, "COMPLETE");
+  assert.equal(result.data.items.length, 2);
+  assert.equal(result.data.items[0]?.evidenceObservations[0]?.page, null);
 });
 
-test("rejeita cobertura parcial antes de liberar PDF para auditoria", async () => {
+test("aceita cobertura parcial para terminar como informação insuficiente", async () => {
   const extraction = {
     ...validExtraction,
     itemCoverage: {
@@ -749,20 +790,15 @@ test("rejeita cobertura parcial antes de liberar PDF para auditoria", async () =
     timeoutMs: 1_000,
   });
 
-  await assert.rejects(
-    client.extractInvoice({
-      fileName: "tabela-parcial.pdf",
-      mimeType: "application/pdf",
-      signedUrl: "https://storage.test/tabela-parcial.pdf?token=redacted",
-    }),
-    (error: unknown) =>
-      error instanceof OpenRouterClientError &&
-      error.kind === "invalid-response" &&
-      error.diagnostic === "pdf-item-coverage-incomplete",
-  );
+  const result = await client.extractInvoice({
+    fileName: "tabela-parcial.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/tabela-parcial.pdf?token=redacted",
+  });
+  assert.equal(result.data.itemCoverage.status, "INCOMPLETE");
 });
 
-test("rejeita cobertura declarada completa com contagem inconsistente", async () => {
+test("normaliza cobertura declarada completa com contagem inconsistente", async () => {
   const extraction = {
     ...validExtraction,
     itemCoverage: {
@@ -784,18 +820,13 @@ test("rejeita cobertura declarada completa com contagem inconsistente", async ()
     timeoutMs: 1_000,
   });
 
-  await assert.rejects(
-    client.extractInvoice({
-      fileName: "contagem-inconsistente.pdf",
-      mimeType: "application/pdf",
-      signedUrl:
-        "https://storage.test/contagem-inconsistente.pdf?token=redacted",
-    }),
-    (error: unknown) =>
-      error instanceof OpenRouterClientError &&
-      error.kind === "invalid-response" &&
-      error.diagnostic === "pdf-item-coverage-inconsistent",
-  );
+  const result = await client.extractInvoice({
+    fileName: "contagem-inconsistente.pdf",
+    mimeType: "application/pdf",
+    signedUrl:
+      "https://storage.test/contagem-inconsistente.pdf?token=redacted",
+  });
+  assert.equal(result.data.itemCoverage.status, "INCOMPLETE");
 });
 
 test("resposta inválida é reconstruída uma vez antes de falhar o job", async () => {
@@ -806,7 +837,7 @@ test("resposta inválida é reconstruída uma vez antes de falhar o job", async 
     fetchImplementation: async (_url, init) => {
       calls += 1;
       payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
-      if (calls === 2) return successResponse(HARNESS_PDF_MODEL);
+      if (calls === 2) return successResponse(HARNESS_FALLBACK_MODEL);
       return new Response(
         JSON.stringify({
           choices: [{ message: { content: "{json-incompleto" } }],
@@ -817,7 +848,7 @@ test("resposta inválida é reconstruída uma vez antes de falhar o job", async 
     },
     maxAttempts: 2,
     model: HARNESS_PDF_MODEL,
-    pdfFallbackModel: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
     pdfModel: HARNESS_PDF_MODEL,
     pdfEngine: "mistral-ocr",
     reasoningEffort: "high",
@@ -874,11 +905,11 @@ test("reconstrói JSON com o OCR já obtido sem reler o PDF", async () => {
           { headers: { "content-type": "application/json" }, status: 200 },
         );
       }
-      return successResponse(HARNESS_PDF_MODEL);
+      return successResponse(HARNESS_FALLBACK_MODEL);
     },
     maxAttempts: 2,
     model: HARNESS_PDF_MODEL,
-    pdfFallbackModel: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
     pdfModel: HARNESS_PDF_MODEL,
     pdfEngine: "mistral-ocr",
     reasoningEffort: "high",
@@ -903,7 +934,7 @@ test("reconstrói JSON com o OCR já obtido sem reler o PDF", async () => {
   assert.doesNotMatch(JSON.stringify(payloads[1]?.messages), /file_data/);
 });
 
-test("mantém OCR parcial em estado seguro quando também falha a reconstrução estruturada", async () => {
+test("mantém OCR parcial como extração segura quando o Sol também falha", async () => {
   let calls = 0;
   const client = new OpenRouterInvoiceExtractionClient({
     apiKey: "test-key",
@@ -948,7 +979,7 @@ test("mantém OCR parcial em estado seguro quando também falha a reconstrução
     },
     maxAttempts: 2,
     model: HARNESS_PDF_MODEL,
-    pdfFallbackModel: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
     pdfModel: HARNESS_PDF_MODEL,
     pdfEngine: "mistral-ocr",
     reasoningEffort: "max",
@@ -956,23 +987,17 @@ test("mantém OCR parcial em estado seguro quando também falha a reconstrução
     timeoutMs: 1_000,
   });
 
-  await assert.rejects(
-    client.extractInvoice({
-      fileName: "reembolso.pdf",
-      mimeType: "application/pdf",
-      signedUrl: "https://storage.test/reembolso.pdf?token=redacted",
-    }),
-    (error: unknown) => {
-      assert.ok(error instanceof OpenRouterClientError);
-      assert.equal(error.kind, "invalid-response");
-      assert.equal(error.diagnostic, "ocr-only-partial");
-      assert.equal(error.attempts, 2);
-      assert.equal(error.provider, "mistral-ocr");
-      return true;
-    },
-  );
+  const result = await client.extractInvoice({
+    fileName: "reembolso.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/reembolso.pdf?token=redacted",
+  });
 
   assert.equal(calls, 2);
+  assert.equal(result.attempts, 2);
+  assert.equal(result.provider, "mistral-ocr");
+  assert.equal(result.data.documentKind, "OTHER");
+  assert.equal(result.data.itemCoverage.status, "UNKNOWN");
 });
 
 test("classifica como timeout quando o prazo expira durante a leitura do corpo", async () => {
@@ -1006,13 +1031,15 @@ test("classifica como timeout quando o prazo expira durante a leitura do corpo",
   );
 });
 
-test("PDF experimental incompatível recua para Terra na mesma execução", async () => {
+test("PDF com configuração incompatível recua para Sol na mesma execução", async () => {
   const requestedModels: string[] = [];
+  const payloads: Array<Record<string, unknown>> = [];
   const experimentalModel = "google/gemini-3.6-flash";
   const client = new OpenRouterInvoiceExtractionClient({
     apiKey: "test-key",
     fetchImplementation: async (_url, init) => {
       const payload = JSON.parse(String(init?.body)) as { model: string };
+      payloads.push(payload);
       requestedModels.push(payload.model);
       if (payload.model === experimentalModel) {
         return new Response(
@@ -1024,7 +1051,7 @@ test("PDF experimental incompatível recua para Terra na mesma execução", asyn
     },
     maxAttempts: 2,
     model: experimentalModel,
-    pdfFallbackModel: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
     pdfModel: experimentalModel,
     pdfEngine: "native",
     reasoningEffort: "high",
@@ -1038,9 +1065,149 @@ test("PDF experimental incompatível recua para Terra na mesma execução", asyn
     signedUrl: "https://storage.test/reembolso.pdf?token=redacted",
   });
 
-  assert.deepEqual(requestedModels, [experimentalModel, HARNESS_PDF_MODEL]);
+  assert.deepEqual(requestedModels, [experimentalModel, HARNESS_FALLBACK_MODEL]);
   assert.equal(result.attempts, 2);
-  assert.equal(result.model, HARNESS_PDF_MODEL);
+  assert.equal(result.model, HARNESS_FALLBACK_MODEL);
+  assert.match(JSON.stringify(payloads[1]?.messages), /file_data/);
+  assert.equal(payloads[0]?.provider, undefined);
+  assert.equal(payloads[1]?.provider, undefined);
+});
+
+test("HTTP 400 reaproveita file_annotations no Sol sem reler o PDF", async () => {
+  const payloads: Array<Record<string, unknown>> = [];
+  const headers: Array<Record<string, string>> = [];
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async (_url, init) => {
+      const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      payloads.push(payload);
+      headers.push(init?.headers as Record<string, string>);
+      if (payloads.length === 1) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "PROVIDER_BAD_REQUEST",
+              message: "unsupported parameter; token=must-not-escape",
+              metadata: {
+                file_annotations: [
+                  {
+                    type: "file",
+                    file: {
+                      hash: "safe-pdf-hash",
+                      content: [
+                        {
+                          type: "text",
+                          text: "Página 1. Documento fiscal sintético. Total R$ 1.148,50.",
+                        },
+                      ],
+                    },
+                  },
+                ],
+                provider_name: "OpenAI",
+                request_id: "route-request-123",
+                route: "openai-primary",
+                raw: "internal-data-must-not-escape",
+              },
+            },
+          }),
+          {
+            status: 400,
+            headers: {
+              "content-type": "application/json",
+              "x-openrouter-request-id": "openrouter-request-123",
+            },
+          },
+        );
+      }
+      return successResponse(HARNESS_FALLBACK_MODEL);
+    },
+    maxAttempts: 2,
+    model: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "mistral-ocr",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  const result = await client.extractInvoice({
+    fileName: "documento.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento.pdf?token=redacted",
+  });
+
+  assert.equal(result.attempts, 2);
+  assert.deepEqual(
+    payloads.map((payload) => payload.model),
+    [HARNESS_PDF_MODEL, HARNESS_FALLBACK_MODEL],
+  );
+  assert.match(JSON.stringify(payloads[1]?.messages), /Documento fiscal sintético/);
+  assert.doesNotMatch(JSON.stringify(payloads[1]?.messages), /file_data/);
+  assert.deepEqual(payloads[1]?.plugins, [{ id: "response-healing" }]);
+  assert.equal(headers[0]?.["X-OpenRouter-Metadata"], "enabled");
+  assert.equal(headers[1]?.["X-OpenRouter-Metadata"], "enabled");
+  assert.deepEqual(result.attemptTrace?.[0], {
+    attempt: 1,
+    diagnostic: "provider-configuration-rejected",
+    kind: "provider",
+    latencyMs: result.attemptTrace?.[0]?.latencyMs,
+    model: HARNESS_PDF_MODEL,
+    provider: "OpenAI",
+    requestId: "openrouter-request-123",
+    routingMetadata: {
+      provider_name: "OpenAI",
+      request_id: "route-request-123",
+      route: "openai-primary",
+    },
+    status: 400,
+  });
+  assert.equal(JSON.stringify(result.attemptTrace).includes("must-not-escape"), false);
+});
+
+test("PDF criptografado termina como documento ilegível sem acionar o Sol", async () => {
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-only",
+    fetchImplementation: async () => {
+      calls += 1;
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: "PDF_PARSE_ERROR",
+            message: "The PDF is encrypted and password-protected.",
+          },
+        }),
+        {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    },
+    maxAttempts: 2,
+    model: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "mistral-ocr",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  await assert.rejects(
+    client.extractInvoice({
+      fileName: "documento-protegido.pdf",
+      mimeType: "application/pdf",
+      signedUrl: "https://storage.test/documento-protegido.pdf",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof OpenRouterClientError);
+      assert.equal(error.diagnostic, "document-unreadable");
+      assert.equal(error.attempts, 1);
+      return true;
+    },
+  );
+  assert.equal(calls, 1);
 });
 
 test("preserva HTTP 402 como falha não repetível de saldo", async () => {
@@ -1060,7 +1227,7 @@ test("preserva HTTP 402 como falha não repetível de saldo", async () => {
     maxAttempts: 2,
     maxTokens: 8_192,
     model: primaryModel,
-    pdfFallbackModel: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
     pdfModel: primaryModel,
     pdfEngine: "mistral-ocr",
     reasoningEffort: "high",

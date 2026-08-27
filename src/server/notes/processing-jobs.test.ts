@@ -299,6 +299,18 @@ test("rota interna esgotada não é repetida pelo job externo", () => {
     maxAttempts: 2,
     type: ProcessingJobType.FULL_AUDIT,
   });
+  const extractionTimeout = processingFailureLifecycle({
+    attempt: 1,
+    failureCode: "EXTRACTION_TIMEOUT",
+    maxAttempts: 2,
+    type: ProcessingJobType.FULL_AUDIT,
+  });
+  const unreadableDocument = processingFailureLifecycle({
+    attempt: 1,
+    failureCode: "EXTRACTION_DOCUMENT_UNREADABLE",
+    maxAttempts: 2,
+    type: ProcessingJobType.FULL_AUDIT,
+  });
   const invalidExtraction = processingFailureLifecycle({
     attempt: 1,
     failureCode: "EXTRACTION_INVALID_RESPONSE",
@@ -320,12 +332,28 @@ test("rota interna esgotada não é repetida pelo job externo", () => {
 
   assert.equal(auditFailure.attemptsExhausted, true);
   assert.equal(auditFailure.noteStatus, NoteStatus.FAILED);
-  assert.equal(extractionFailure.attemptsExhausted, false);
-  assert.equal(extractionFailure.noteStatus, NoteStatus.PROCESSING);
+  assert.equal(extractionFailure.attemptsExhausted, true);
+  assert.equal(extractionFailure.noteStatus, NoteStatus.FAILED);
+  assert.equal(extractionTimeout.attemptsExhausted, true);
+  assert.equal(extractionTimeout.noteStatus, NoteStatus.FAILED);
+  assert.equal(unreadableDocument.attemptsExhausted, true);
+  assert.equal(unreadableDocument.noteStatus, NoteStatus.READ_FAILED);
+  assert.equal(unreadableDocument.noteStage, ProcessingStage.COMPLETED);
   assert.equal(invalidExtraction.attemptsExhausted, true);
   assert.equal(invalidExtraction.noteStatus, NoteStatus.FAILED);
   assert.equal(rejectedExtraction.attemptsExhausted, true);
   assert.equal(rejectedExtraction.noteStatus, NoteStatus.FAILED);
   assert.equal(creditExhausted.attemptsExhausted, true);
   assert.equal(creditExhausted.noteStatus, NoteStatus.FAILED);
+});
+
+test("falha do verificador consome a rota externa sem nova chamada paga", () => {
+  const lifecycle = processingFailureLifecycle({
+    attempt: 1,
+    failureCode: "VERIFICATION_TIMEOUT",
+    maxAttempts: 2,
+    type: ProcessingJobType.FULL_AUDIT,
+  });
+  assert.equal(lifecycle.attemptsExhausted, true);
+  assert.equal(lifecycle.noteStatus, NoteStatus.FAILED);
 });

@@ -72,7 +72,7 @@ function sumItemTotals(items: HarnessInvoice["items"]) {
   return totals.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 }
 
-function hasCompleteItemCoverage(invoice: HarnessInvoice) {
+export function hasCompleteItemCoverage(invoice: HarnessInvoice) {
   const coverage = invoice.itemCoverage;
   if (!coverage || coverage.status !== "COMPLETE") return false;
   if (coverage.extractedItemCount <= 0) return false;
@@ -319,31 +319,83 @@ function compositeDocumentCoverageFindings(invoice: HarnessInvoice) {
 }
 
 function requiredDocumentFieldFindings(invoice: HarnessInvoice) {
+  const explicitRequirementPattern =
+    /(?:\*\s*$|\bobrigat[oó]ri[oa]s?\b|\bpreenchimento\s+obrigat[oó]rio\b|\brequired\s+field\b|\bmandatory\b)/i;
+  const hasVerifiedRequirement = (
+    check: NonNullable<HarnessInvoice["requiredFieldChecks"]>[number],
+  ) => {
+    if (!check.requiredByDocument) return false;
+    const requirementEvidence = check.requirementEvidence?.trim() ?? "";
+    const fieldEvidence = check.evidence?.trim() ?? "";
+    if (!requirementEvidence || !fieldEvidence) return false;
+
+    if (check.requirementBasis === "VERIFIED_POLICY") {
+      return true;
+    }
+    if (check.requirementBasis === "EXPLICIT_DOCUMENT") {
+      return explicitRequirementPattern.test(requirementEvidence);
+    }
+    // Dados antigos sem a base versionada são conservados, mas não podem
+    // sustentar suspeita. A ausência isolada de requiredByDocument não prova
+    // que o formulário ou a política realmente exigia o campo.
+    return false;
+  };
   const missing = (invoice.requiredFieldChecks ?? []).filter(
-    (check) => check.requiredByDocument && !check.present,
+    (check) => hasVerifiedRequirement(check) && !check.present,
   );
   if (missing.length === 0) return [];
 
   const labels = [...new Set(missing.map((check) => check.label))];
+  const documentLabels = [
+    ...new Set(
+      missing
+        .filter((check) => check.requirementBasis === "EXPLICIT_DOCUMENT")
+        .map((check) => check.label),
+    ),
+  ];
+  const policyLabels = [
+    ...new Set(
+      missing
+        .filter((check) => check.requirementBasis === "VERIFIED_POLICY")
+        .map((check) => check.label),
+    ),
+  ];
+  const basisDescriptions = [
+    documentLabels.length > 0
+      ? `O próprio documento declara como obrigatórios os campos: ${documentLabels.join(", ")}.`
+      : null,
+    policyLabels.length > 0
+      ? `A política global verificada exige os campos: ${policyLabels.join(", ")}.`
+      : null,
+  ].filter((value): value is string => value !== null);
+  const basisJustifications = [
+    documentLabels.length > 0
+      ? "A declaração explícita do documento e a evidência do campo mostram a ausência."
+      : null,
+    policyLabels.length > 0
+      ? "A política global verificada e a evidência do campo mostram a ausência."
+      : null,
+  ].filter((value): value is string => value !== null);
   return [
     finding({
       code: "REQUIRED_DOCUMENT_FIELDS_MISSING",
       title: "Campos obrigatórios não foram preenchidos",
-      description: `O próprio documento declara como obrigatórios os campos: ${labels.join(", ")}.`,
+      description: basisDescriptions.join(" "),
       category: "DOCUMENT_COMPLETENESS",
       severity: "WARNING",
       confidence: 0.99,
-      justification:
-        "A exigência está registrada no formulário enviado e os campos correspondentes estão vazios.",
+      justification: basisJustifications.join(" "),
       references: missing.map(
-        (check) =>
-          `DOCUMENTO:página:${check.page ?? "não identificada"}:campo:${check.field}`,
+        (check) => `${check.requirementBasis === "VERIFIED_POLICY" ? "POLITICA_VERIFICADA" : "DOCUMENTO"}:página:${check.page ?? "não identificada"}:campo:${check.field}`,
       ),
       evidence: {
         fields: missing.map((check) => ({
           label: check.label,
           page: check.page,
           evidence: check.evidence,
+          requirementBasis: check.requirementBasis ?? "LEGACY_EXPLICIT_DOCUMENT",
+          requirementEvidence: check.requirementEvidence ?? check.evidence,
+          boundingBox: check.boundingBox ?? null,
         })),
         summary: `${labels.length} campo(s) obrigatório(s) sem preenchimento.`,
       },
@@ -434,6 +486,17 @@ function groupedAggregatePaymentFindings(
       economicItems.length > 0 &&
       (aggregateItems.length > 0 || economicItems.length >= 2);
     if (!aggregateEconomicLines) {
+      const containsSummaryLayer = groupItems.some(
+        (item) => item.documentRole === "SUMMARY",
+      );
+
+      // SUMMARY lines can be a consolidated total plus its daily breakdown.
+      // Sharing a broad documentGroup does not prove that every amount/date is
+      // the same transaction. Each line is still reconciled below against its
+      // own evidence, but cross-line comparison is unsafe without an explicit
+      // aggregate payment or more than one selected economic line.
+      if (containsSummaryLayer) continue;
+
       const observations = [
         ...new Set(entries.map(({ observation }) => observation)),
       ];
@@ -611,6 +674,115 @@ function observationValue(observation: EvidenceObservation) {
   return parts.join(" · ");
 }
 
+function hasUnverifiedArithmeticMismatch(
+  items: HarnessInvoice["items"],
+) {
+  return items.some((item) => {
+    const quantity = decimal(item.quantity);
+    const unitPrice = decimal(item.unitPrice);
+    const total = decimal(item.totalAmount);
+    if (quantity === null || unitPrice === null || total === null) return false;
+    const calculated = quantity * unitPrice;
+    const tolerance = moneyTolerance(total);
+    return (
+      item.arithmeticVerified !== true &&
+      Math.abs(calculated - total) > tolerance &&
+      !discountReconcilesItem(item.description, calculated, total, tolerance)
+    );
+  });
+}
+
+type ObservationAmountRole =
+  | "TRANSACTION_TOTAL"
+  | "ADJUSTMENT"
+  | "COMPONENT"
+  | "UNIT_VALUE"
+  | "UNKNOWN";
+
+type ObservationDateRole =
+  | "TRANSACTION_DATE"
+  | "EXPENSE_DATE"
+  | "ISSUE_DATE"
+  | "PAYMENT_DATE"
+  | "DUE_DATE"
+  | "PERIOD_DATE"
+  | "UNKNOWN";
+
+function observationSearchText(observation: EvidenceObservation) {
+  return normalize([observation.label, observation.text].filter(Boolean).join(" "));
+}
+
+/**
+ * Separates the value that represents the transaction from ancillary values
+ * printed in the same document. A penalty, interest, freight or unit price is
+ * not an alternative total and therefore cannot be compared with the boleto,
+ * receipt or payment total.
+ */
+function observationAmountRole(
+  observation: EvidenceObservation,
+): ObservationAmountRole {
+  const text = observationSearchText(observation);
+  if (
+    observation.kind === "DISCOUNT" ||
+    /\b(desconto|abatimento|multa|juros|mora|encargo|acrescimo|acréscimo|taxa por atraso|penalidade|troco)\b/.test(
+      text,
+    )
+  ) {
+    return "ADJUSTMENT";
+  }
+  if (/\b(valor unitario|valor unitário|preco unitario|preço unitário|unit price)\b/.test(text)) {
+    return "UNIT_VALUE";
+  }
+  if (/\b(frete|imposto|tributo|icms|ipi|iss|seguro|despesa acessoria|despesa acessória)\b/.test(text)) {
+    return "COMPONENT";
+  }
+  if (["PAYMENT", "SALE", "RECEIPT", "SHEET"].includes(observation.kind)) {
+    return "TRANSACTION_TOTAL";
+  }
+  if (/\b(valor (?:do )?documento|valor pago|total(?: geral)?|pagamento|pago|venda|pedido|recibo|reembolso)\b/.test(text)) {
+    return "TRANSACTION_TOTAL";
+  }
+  return "UNKNOWN";
+}
+
+/**
+ * Dates printed near the same transaction can have different meanings. In
+ * particular, issue date, due date and penalty date are not contradictory.
+ */
+function observationDateRole(
+  observation: EvidenceObservation,
+): ObservationDateRole {
+  const text = observationSearchText(observation);
+  if (/\b(vencimento|vence|data limite|due date)\b/.test(text)) return "DUE_DATE";
+  if (/\b(periodo|período|competencia|competência|de \d{1,2}\/\d{1,2}.* a \d{1,2}\/\d{1,2})\b/.test(text)) {
+    return "PERIOD_DATE";
+  }
+  if (/\b(emissao|emissão|emitid[ao]|data do documento|data do doc|issue date)\b/.test(text)) {
+    return "ISSUE_DATE";
+  }
+  if (
+    observation.kind === "PAYMENT" ||
+    /\b(pagamento|pago|transacao|transação|debito|débito|credito|crédito|pix|cartao|cartão)\b/.test(
+      text,
+    )
+  ) {
+    return "PAYMENT_DATE";
+  }
+  if (observation.kind === "SHEET" || /\b(ficha|controle|despesa|solicitacao|solicitação)\b/.test(text)) {
+    return "EXPENSE_DATE";
+  }
+  if (observation.kind === "SALE" || observation.kind === "RECEIPT") {
+    return "TRANSACTION_DATE";
+  }
+  return "UNKNOWN";
+}
+
+function compactDateValues(values: string[]) {
+  const unique = [...new Set(values)].sort();
+  if (unique.length <= 3) return unique.join(" × ");
+  return `${unique[0]} a ${unique.at(-1)} (${unique.length} datas)`;
+}
+
 const EVIDENCE_BASELINE_PRIORITY: Record<EvidenceObservation["kind"], number> = {
   SALE: 0,
   RECEIPT: 1,
@@ -628,6 +800,31 @@ function baselineObservation<T extends { observation: EvidenceObservation }>(
       EVIDENCE_BASELINE_PRIORITY[left.observation.kind] -
       EVIDENCE_BASELINE_PRIORITY[right.observation.kind],
   )[0];
+}
+
+const DATE_ROLE_PRIORITY: Record<ObservationDateRole, number> = {
+  ISSUE_DATE: 0,
+  TRANSACTION_DATE: 1,
+  EXPENSE_DATE: 2,
+  PAYMENT_DATE: 3,
+  PERIOD_DATE: 4,
+  DUE_DATE: 5,
+  UNKNOWN: 6,
+};
+
+function baselineDateObservation<
+  T extends { observation: EvidenceObservation },
+>(entries: T[]) {
+  return [...entries].sort((left, right) => {
+    const roleDifference =
+      DATE_ROLE_PRIORITY[observationDateRole(left.observation)] -
+      DATE_ROLE_PRIORITY[observationDateRole(right.observation)];
+    if (roleDifference !== 0) return roleDifference;
+    return (
+      EVIDENCE_BASELINE_PRIORITY[left.observation.kind] -
+      EVIDENCE_BASELINE_PRIORITY[right.observation.kind]
+    );
+  })[0];
 }
 
 function reconcileEvidenceObservations(
@@ -649,7 +846,8 @@ function reconcileEvidenceObservations(
     .filter(({ observation }) => observation.kind === "DISCOUNT")
     .reduce((sum, entry) => sum + Math.abs(entry.value), 0);
   const comparableAmounts = amounts.filter(
-    ({ observation }) => observation.kind !== "DISCOUNT",
+    ({ observation }) =>
+      observationAmountRole(observation) === "TRANSACTION_TOTAL",
   );
 
   if (comparableAmounts.length >= 2) {
@@ -723,11 +921,19 @@ function reconcileEvidenceObservations(
     }
   }
 
+  const comparableDates = dates.filter(({ observation }) => {
+    const role = observationDateRole(observation);
+    return role !== "DUE_DATE" && role !== "UNKNOWN";
+  });
   const distinctDates = [
-    ...new Map(dates.map((entry) => [entry.value, entry])).values(),
+    ...new Map(comparableDates.map((entry) => [entry.value, entry])).values(),
   ];
-  if (distinctDates.length >= 2) {
-    const baseline = baselineObservation(distinctDates) ?? distinctDates[0];
+  const comparableDateKinds = new Set(
+    comparableDates.map(({ observation }) => observation.kind),
+  );
+  if (distinctDates.length >= 2 && comparableDateKinds.size >= 2) {
+    const baseline =
+      baselineDateObservation(distinctDates) ?? distinctDates[0];
     const conflicting = distinctDates.filter(
       (entry) => entry.value !== baseline.value,
     );
@@ -769,7 +975,9 @@ function reconcileEvidenceObservations(
             .join("; "),
         },
         expectedValue: baseline.value,
-        actualValue: conflicting.map((entry) => entry.value).join(" × "),
+        actualValue: compactDateValues(
+          conflicting.map((entry) => entry.value),
+        ),
         noteItemLineNumber: item.lineNumber,
       }),
     );
@@ -825,14 +1033,15 @@ export function evaluateUniversalRules(input: {
   if (
     noteTotal !== null &&
     itemTotalSum !== null &&
-    hasCompleteItemCoverage(invoice)
+    hasCompleteItemCoverage(invoice) &&
+    !hasUnverifiedArithmeticMismatch(totalSelection?.items ?? [])
   ) {
     coveredAreas.add("TOTALS");
     const tolerance = moneyTolerance(noteTotal);
     if (Math.abs(itemTotalSum - noteTotal) > tolerance) {
       findings.push(finding({
         code: "TOTAL_MISMATCH", title: "Total da nota diverge dos itens",
-        description: "A soma dos itens não corresponde ao total extraído da nota.",
+        description: "O total impresso no documento difere da soma calculada a partir dos itens que compõem o total.",
         category: "TOTALS", severity: "CRITICAL", confidence: 0.99,
         justification: "A diferença aritmética excede a tolerância monetária e proporcional da auditoria.",
         evidence: {
@@ -849,6 +1058,7 @@ export function evaluateUniversalRules(input: {
                 .filter((group): group is string => group !== null),
             ),
           ],
+          summary: `O documento informa R$ ${noteTotal.toFixed(2)}, enquanto a soma dos itens considerados resulta em R$ ${itemTotalSum.toFixed(2)}.`,
           tolerance: tolerance.toFixed(2),
         },
         expectedValue: itemTotalSum.toFixed(2), actualValue: noteTotal.toFixed(2), noteItemLineNumber: null,
@@ -861,19 +1071,44 @@ export function evaluateUniversalRules(input: {
     const unitPrice = decimal(item.unitPrice);
     const total = decimal(item.totalAmount);
     if (quantity === null || unitPrice === null || total === null) continue;
-    coveredAreas.add("QUANTITY_TIMES_PRICE");
+    if (item.arithmeticVerified === true) {
+      coveredAreas.add("QUANTITY_TIMES_PRICE");
+    }
     const calculated = quantity * unitPrice;
     const tolerance = moneyTolerance(total);
     if (
       Math.abs(calculated - total) > tolerance &&
-      !discountReconcilesItem(item.description, calculated, total, tolerance)
+      !discountReconcilesItem(item.description, calculated, total, tolerance) &&
+      item.arithmeticVerified === true
     ) {
       findings.push(finding({
         code: "ITEM_ARITHMETIC_MISMATCH", title: "Quantidade vezes preço diverge",
-        description: `O item ${item.lineNumber} possui cálculo incompatível.`,
+        description: `No item ${item.lineNumber}, quantidade × valor unitário resulta em R$ ${calculated.toFixed(2)}, mas o total impresso é R$ ${total.toFixed(2)}.`,
         category: "QUANTITY_TIMES_PRICE", severity: "WARNING", confidence: 0.99,
         justification: "Quantidade multiplicada pelo preço unitário não coincide com o total do item.",
-        evidence: { lineNumber: item.lineNumber, quantity, unitPrice, total, tolerance: tolerance.toFixed(2) },
+         evidence: {
+           lineNumber: item.lineNumber,
+           quantity,
+           observations:
+             item.sourcePage != null || Boolean(item.sourceText)
+               ? [
+                   {
+                     amount: item.totalAmount,
+                     date: null,
+                     kind: "OTHER",
+                     label: `Item ${item.lineNumber}`,
+                     page: item.sourcePage ?? null,
+                     text: item.sourceText ?? item.description,
+                   },
+                 ]
+               : [],
+           page: item.sourcePage ?? null,
+           sourceText: item.sourceText ?? null,
+           unitPrice,
+          total,
+          summary: `${quantity} × R$ ${unitPrice.toFixed(2)} = R$ ${calculated.toFixed(2)}; total impresso: R$ ${total.toFixed(2)}.`,
+          tolerance: tolerance.toFixed(2),
+        },
         expectedValue: calculated.toFixed(2), actualValue: total.toFixed(2),
         noteItemLineNumber: item.lineNumber,
       }));

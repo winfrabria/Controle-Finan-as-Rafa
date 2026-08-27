@@ -597,6 +597,29 @@
   padding: 10px 12px;
 }
 
+.findingCard[data-severity="critical"] {
+  background: linear-gradient(180deg, #fffafa 0%, #fff5f5 100%);
+  border-color: #ef9a9a;
+  box-shadow: 0 6px 18px rgb(166 35 35 / 7%);
+}
+
+.findingCard[data-severity="critical"] .findingNumber {
+  background: #d9363e;
+}
+
+.findingCard[data-severity="critical"] .findingSummaryCopy small {
+  color: #b4232c;
+}
+
+.findingCard[data-severity="info"] {
+  background: linear-gradient(180deg, #fbfdff 0%, #f5f9ff 100%);
+  border-color: #a9c8f5;
+}
+
+.findingCard[data-severity="info"] .findingNumber {
+  background: #2875d8;
+}
+
 .findingCard > summary {
   list-style: none;
 }
@@ -819,6 +842,93 @@
   border: 1px solid #f0dfc0;
   border-radius: 7px;
   padding: 7px 8px;
+}
+
+.comparisonGrid > .comparisonActual {
+  background: #fff7f7;
+  border-color: #efc2c5;
+}
+
+.comparisonGrid > .comparisonExpected {
+  background: #f4fbf7;
+  border-color: #bddfcb;
+}
+
+.comparisonGrid > .comparisonActual span,
+.comparisonGrid > .comparisonActual strong {
+  color: #b4232c;
+}
+
+.comparisonGrid > .comparisonExpected span,
+.comparisonGrid > .comparisonExpected strong {
+  color: #147247;
+}
+
+.findingLocations {
+  border-top: 1px solid #e5ebf3;
+  display: grid;
+  gap: 7px;
+  margin-top: 9px;
+  padding-top: 9px;
+}
+
+.findingLocations > span {
+  color: #526788;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.findingLocations > div {
+  display: grid;
+  gap: 7px;
+}
+
+.findingLocations article {
+  background: #fff;
+  border: 1px solid #dbe5f0;
+  border-radius: 7px;
+  display: grid;
+  gap: 4px;
+  padding: 8px 9px;
+}
+
+.findingLocations article header,
+.findingLocations article footer {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.findingLocations article header strong {
+  color: #075cff;
+  font-size: 10px;
+}
+
+.findingLocations article small,
+.findingLocations article footer span {
+  color: #6c7f9f;
+  font-size: 10px;
+}
+
+.findingLocations article b {
+  color: #17345e;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.findingLocations article p {
+  color: #526788;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.findingLocations article footer strong {
+  color: #17345e;
+  font-size: 11px;
 }
 
 .moreFindings {

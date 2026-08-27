@@ -135,6 +135,12 @@ function findingFor(item: NoteVisualItem): NoteFindingVisual[] {
         label: sanitizeReviewerText(part.label),
         value: sanitizeReviewerText(part.value),
       })),
+      evidenceLocations: finding.evidenceLocations?.map((location) => ({
+        ...location,
+        kind: sanitizeReviewerText(location.kind),
+        label: location.label ? sanitizeReviewerText(location.label) : null,
+        text: location.text ? sanitizeReviewerText(location.text) : null,
+      })),
       expectedValue: finding.expectedValue
         ? sanitizeReviewerText(finding.expectedValue)
         : finding.expectedValue,
@@ -250,6 +256,39 @@ function compactFindingDescription(value: string) {
   const firstSentence = text.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
   if (firstSentence && firstSentence.length <= 155) return firstSentence;
   return `${text.slice(0, 132).trimEnd()}…`;
+}
+
+function findingSeverityTone(value?: string | null) {
+  const severity = value?.toUpperCase();
+  if (severity === "CRITICAL" || severity === "HIGH") return "critical";
+  if (severity === "INFO" || severity === "LOW") return "info";
+  return "warning";
+}
+
+function findingListComparisonLabels(finding: NoteFindingVisual) {
+  const code = finding.code?.toUpperCase() ?? "";
+  if (code === "TOTAL_MISMATCH") {
+    return {
+      actual: "Total encontrado no documento",
+      expected: "Soma calculada dos itens",
+    };
+  }
+  if (code === "ITEM_ARITHMETIC_MISMATCH") {
+    return {
+      actual: "Total encontrado no item",
+      expected: "Quantidade × valor unitário",
+    };
+  }
+  if (code.startsWith("EVIDENCE_DATE_MISMATCH_")) {
+    return { actual: "Data encontrada", expected: "Data de referência" };
+  }
+  if (
+    code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
+    code.startsWith("AGGREGATE_PAYMENT_MISMATCH_")
+  ) {
+    return { actual: "Valor encontrado", expected: "Valor de referência" };
+  }
+  return { actual: "Encontrado", expected: "Esperado / referência" };
 }
 
 export function ReviewerNotesView({
@@ -830,9 +869,15 @@ export function ReviewerNotesView({
                           ? `Gravidade ${severityLabel(finding.severity)}`
                           : findingCategoryLabel(finding.category),
                       ].filter(Boolean);
+                      const comparisonLabels =
+                        findingListComparisonLabels(finding);
+                      const severityTone = findingSeverityTone(
+                        finding.severity,
+                      );
                       return (
                         <details
                           className={styles.findingCard}
+                          data-severity={severityTone}
                           key={`${finding.title}-${index}`}
                           open={index < 2}
                         >
@@ -852,21 +897,9 @@ export function ReviewerNotesView({
                             <p className={styles.findingBodyLead}>{shortDescription}</p>
                             {finding.expectedValue || finding.actualValue ? (
                               <div className={styles.comparisonGrid}>
-                                {finding.expectedValue ? (
-                                  <div>
-                                    <span>Esperado</span>
-                                    <strong>
-                                      {formatFindingValueLines(finding.expectedValue).map(
-                                        (line, lineIndex) => (
-                                          <i key={`${line}-${lineIndex}`}>{line}</i>
-                                        ),
-                                      )}
-                                    </strong>
-                                  </div>
-                                ) : null}
                                 {finding.actualValue ? (
-                                  <div>
-                                    <span>Encontrado</span>
+                                  <div className={styles.comparisonActual}>
+                                    <span>{comparisonLabels.actual}</span>
                                     <strong>
                                       {formatFindingValueLines(finding.actualValue).map(
                                         (line, lineIndex) => (
@@ -876,6 +909,41 @@ export function ReviewerNotesView({
                                     </strong>
                                   </div>
                                 ) : null}
+                                {finding.expectedValue ? (
+                                  <div className={styles.comparisonExpected}>
+                                    <span>{comparisonLabels.expected}</span>
+                                    <strong>
+                                      {formatFindingValueLines(finding.expectedValue).map(
+                                        (line, lineIndex) => (
+                                          <i key={`${line}-${lineIndex}`}>{line}</i>
+                                        ),
+                                      )}
+                                    </strong>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            {finding.evidenceLocations?.length ? (
+                              <div className={styles.findingLocations}>
+                                <span>Onde encontramos</span>
+                                <div>
+                                  {finding.evidenceLocations.map((location, locationIndex) => (
+                                    <article key={`${location.kind}-${location.page ?? ""}-${locationIndex}`}>
+                                      <header>
+                                        <strong>{location.kind}</strong>
+                                        {location.page ? <small>Página {location.page}</small> : null}
+                                      </header>
+                                      {location.label ? <b>{humanizeFindingText(location.label)}</b> : null}
+                                      {location.text ? <p>{compactFindingDescription(humanizeFindingText(location.text))}</p> : null}
+                                      {location.amount || location.date ? (
+                                        <footer>
+                                          {location.date ? <span>{location.date}</span> : null}
+                                          {location.amount ? <strong>{location.amount}</strong> : null}
+                                        </footer>
+                                      ) : null}
+                                    </article>
+                                  ))}
+                                </div>
                               </div>
                             ) : null}
                             {!hasStructuredEvidence && finding.evidence ? (

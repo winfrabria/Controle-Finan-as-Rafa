@@ -11,6 +11,7 @@ export type DecisionMatrixInput = {
   deterministicCoverage: boolean;
   aiCoverage: boolean;
   findings: HarnessFinding[];
+  informationInsufficient?: boolean;
 };
 
 export function isSupportedFinding(finding: HarnessFinding) {
@@ -22,7 +23,12 @@ export function isSupportedFinding(finding: HarnessFinding) {
     return false;
   }
 
-  if (finding.source !== "AI_DISCOVERY") return true;
+  if (
+    finding.source !== "AI_DISCOVERY" &&
+    finding.source !== "AI_VERIFICATION"
+  ) {
+    return true;
+  }
 
   const evidence = finding.evidence;
   const hasAffectedLocation =
@@ -46,7 +52,7 @@ export function decideClassification(
 
   const conclusiveDeterministicFinding = input.findings.some(
     (finding) =>
-      finding.source !== "AI_DISCOVERY" &&
+      (finding.source === "UNIVERSAL_RULE" || finding.source === "WORK_RULE") &&
       finding.severity !== "INFO" &&
       isSupportedFinding(finding),
   );
@@ -54,7 +60,8 @@ export function decideClassification(
 
   const conclusiveAiFinding = input.findings.some(
     (finding) =>
-      finding.source === "AI_DISCOVERY" &&
+      (finding.source === "AI_DISCOVERY" ||
+        finding.source === "AI_VERIFICATION") &&
       finding.severity !== "INFO" &&
       isSupportedFinding(finding),
   );
@@ -67,17 +74,27 @@ export function decideClassification(
     return "NEEDS_CONTEXT";
   }
 
+  if (input.informationInsufficient) return "INFORMATION_INSUFFICIENT";
+
   return "OK";
 }
 
 /** Finaliza a única rodada pública de contexto sem deixar o anexo preso. */
 export function resolvePostContextClassification(
   input: Omit<DecisionMatrixInput, "contextQuestions" | "contextRequired" | "readFailed">,
-): Exclude<HarnessClassification, "NEEDS_CONTEXT" | "READ_FAILED"> {
-  return decideClassification({
+): Exclude<
+  HarnessClassification,
+  "NEEDS_CONTEXT" | "READ_FAILED"
+> {
+  const result = decideClassification({
     ...input,
     contextQuestions: 0,
     contextRequired: false,
     readFailed: false,
-  }) as Exclude<HarnessClassification, "NEEDS_CONTEXT" | "READ_FAILED">;
+  });
+  if (result === "SUSPICIOUS") return "SUSPICIOUS";
+  if (result === "INFORMATION_INSUFFICIENT") {
+    return "INFORMATION_INSUFFICIENT";
+  }
+  return "OK";
 }

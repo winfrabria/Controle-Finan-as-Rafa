@@ -49,6 +49,7 @@ enum NoteClassification {
 enum AiRunKind {
   EXTRACTION
   AUDIT
+  VERIFICATION
 }
 
 enum AiRunStatus {
@@ -80,6 +81,26 @@ enum FindingSource {
   UNIVERSAL_RULE
   WORK_RULE
   AI_DISCOVERY
+  AI_VERIFICATION
+}
+
+enum AuditAssuranceBand {
+  HIGH
+  MEDIUM
+  LIMITED
+}
+
+enum AuditFeedbackVerdict {
+  CORRECT
+  FALSE_ALERT
+  MISSED_ISSUE
+  INSUFFICIENT_EVIDENCE
+}
+
+enum AuditFeedbackStatus {
+  PENDING_REVIEW
+  ACKNOWLEDGED
+  DISMISSED
 }
 
 enum FindingSeverity {
@@ -148,6 +169,8 @@ model Profile {
   adminAuditLogs    AdminAuditLog[]
   responsibleWorks  Work[]             @relation("WorkResponsible")
   noteReads         NoteRead[]
+  auditFeedbacks    AuditFeedback[]    @relation("AuditFeedbackActor")
+  reviewedFeedbacks AuditFeedback[]    @relation("AuditFeedbackReviewer")
 
   @@map("profiles")
 }
@@ -183,6 +206,8 @@ model Note {
   originalFileName     String                  @map("original_file_name")
   originalMimeType     String                  @map("original_mime_type")
   originalSizeBytes    BigInt                  @map("original_size_bytes")
+  originalFileSha256   String?                 @map("original_file_sha256") @db.VarChar(64)
+  originalPageCount    Int?                    @map("original_page_count")
   extractedData        Json?                   @map("extracted_data") @db.JsonB
   extractionMarkdown   String?                 @map("extraction_markdown")
   documentNumber       String?                 @map("document_number")
@@ -201,6 +226,9 @@ model Note {
   contextRound         Int                     @default(0) @map("context_round")
   contextSubmittedAt   DateTime?               @map("context_submitted_at") @db.Timestamptz(6)
   contextSummary       String?                 @map("context_summary")
+  assuranceBand        AuditAssuranceBand?     @map("assurance_band")
+  assuranceReason      String?                 @map("assurance_reason")
+  assuranceVersion     String?                 @map("assurance_version")
   receivedAt           DateTime                @default(now()) @map("received_at") @db.Timestamptz(6)
   processedAt          DateTime?               @map("processed_at") @db.Timestamptz(6)
   createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -217,6 +245,7 @@ model Note {
   noteReads            NoteRead[]
   contextQuestions     NoteContextQuestion[]
   contextSubmissions   NoteContextSubmission[]
+  auditFeedbacks       AuditFeedback[]
 
   @@index([workId, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
@@ -482,11 +511,40 @@ model AiRun {
   findings           Finding[]
   validations        Validation[]
   contextQuestions   NoteContextQuestion[] @relation("AiRunContextQuestions")
+  auditFeedbacks     AuditFeedback[]
 
   @@index([noteId, createdAt(sort: Desc)])
   @@index([processingJobId])
   @@index([status, createdAt(sort: Desc)])
   @@map("ai_runs")
+}
+
+model AuditFeedback {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId         String               @map("note_id") @db.Uuid
+  noteVersion    Int                  @map("note_version")
+  aiRunId        String?              @map("ai_run_id") @db.Uuid
+  actorId        String               @map("actor_id") @db.Uuid
+  verdict        AuditFeedbackVerdict
+  reasonCode     String               @map("reason_code")
+  comment        String?
+  status         AuditFeedbackStatus  @default(PENDING_REVIEW)
+  reviewedById   String?              @map("reviewed_by_id") @db.Uuid
+  reviewedAt     DateTime?            @map("reviewed_at") @db.Timestamptz(6)
+  resolutionNote String?              @map("resolution_note")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  note           Note                 @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  aiRun          AiRun?               @relation(fields: [aiRunId], references: [id], onDelete: SetNull)
+  actor          Profile              @relation("AuditFeedbackActor", fields: [actorId], references: [id], onDelete: Cascade)
+  reviewedBy     Profile?             @relation("AuditFeedbackReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([noteId, noteVersion, actorId])
+  @@index([noteId, noteVersion])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([aiRunId])
+  @@map("audit_feedbacks")
 }
 
 model AdminAuditLog {

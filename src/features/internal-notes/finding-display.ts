@@ -255,10 +255,21 @@ export function humanizeReviewerFindingText(value: string) {
  * produced by `formatFindingValue` or explicit line breaks.
  */
 export function formatFindingValueLines(value: string) {
-  return value
-    .split(/\r?\n|\s+·\s+/)
-    .map((part) => humanizeFindingText(part).replace(/\s+/g, " ").trim())
+  const lines = value
+    .split(/\r?\n|\s+·\s+|\s+×\s+/)
+    .map((part) =>
+      humanizeFindingText(part)
+        .replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, "$3/$2/$1")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
     .filter(Boolean);
+
+  if (lines.length <= 5) return lines;
+  return [
+    ...lines.slice(0, 4),
+    `Mais ${lines.length - 4} valores no documento`,
+  ];
 }
 
 /**

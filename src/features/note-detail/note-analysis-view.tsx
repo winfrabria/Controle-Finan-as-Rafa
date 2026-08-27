@@ -13,6 +13,7 @@ import {
 } from "@/features/workspace-ui/audit-result-label";
 
 import type { NoteDetailData } from "./data";
+import { AuditFeedbackPanel } from "./audit-feedback-panel";
 import { NoteAnalysisExplorer } from "./note-analysis-explorer";
 import { NoteDocumentPreview } from "./note-document-preview";
 import { formatCurrency, formatDate, formatDecimal } from "./note-detail-format";
@@ -54,6 +55,7 @@ export function NoteAnalysisView({
     >
       {role === "reviewer" ? (
         <ReviewerMobileNoteDetail
+          assurance={data.analysis.assurance}
           classification={classification}
           document={{
             fileName: data.document.fileName,
@@ -62,9 +64,15 @@ export function NoteAnalysisView({
             url: documentUrl,
           }}
           findings={data.analysis.findings}
+          feedback={data.feedback}
+          feedbackEnabled={
+            data.processingStage === "COMPLETED" &&
+            data.analysis.auditResult !== "READ_FAILED"
+          }
           issuedAt={formatDate(data.issuedAt)}
           items={data.items}
           noteId={data.id}
+          noteVersion={data.version}
           number={number}
           supplier={supplier}
           supplierTaxId={data.supplier.taxId ?? "Não identificado"}
@@ -134,10 +142,24 @@ export function NoteAnalysisView({
         </section>
 
         <NoteAnalysisExplorer
+          documentUrl={documentUrl}
           findings={data.analysis.findings}
           items={data.items}
           reviewer={role === "reviewer"}
         />
+
+        {role === "reviewer" ? (
+          <AuditFeedbackPanel
+            assurance={data.analysis.assurance}
+            currentFeedback={data.feedback}
+            feedbackEnabled={
+              data.processingStage === "COMPLETED" &&
+              data.analysis.auditResult !== "READ_FAILED"
+            }
+            noteId={data.id}
+            noteVersion={data.version}
+          />
+        ) : null}
 
         <section className={styles.analysisSourceSection}>
           <header className={styles.analysisSourceHeader}>

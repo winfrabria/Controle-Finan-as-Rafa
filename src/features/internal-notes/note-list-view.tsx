@@ -40,7 +40,7 @@ const STATUS_LABELS: Record<NoteStatus, string> = {
 
 const CLASSIFICATION_LABELS: Record<NoteClassification, string> = {
   INCOMPATIBLE: "Incompatível",
-  NO_PARAMETER: "Sem parâmetro",
+  NO_PARAMETER: "Informação insuficiente",
   OK: "OK",
   SUSPICIOUS: "Suspeita",
 };

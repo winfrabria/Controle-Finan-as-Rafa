@@ -233,7 +233,7 @@
         "now": "2026-08-21"
       },
       "expectations": {
-        "acceptableClassifications": ["OK"],
+        "acceptableClassifications": ["INFORMATION_INSUFFICIENT"],
         "forbiddenFindingCodes": ["TOTAL_MISMATCH"],
         "maxSemanticDuplicates": 0
       }
@@ -561,7 +561,7 @@
           "markdown": "# Nota de servico sintetica\n\nServico executado e valor liquido documentado.",
           "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 1, "extractedItemCount": 1, "firstLineNumber": 1, "lastLineNumber": 1, "missingLineNumbers": [], "evidence": "Servico unico completamente extraido." },
           "items": [
-            { "lineNumber": 1, "description": "Servico tecnico sintetico", "quantity": "1", "unitPrice": "240.00", "totalAmount": "240.00" }
+            { "lineNumber": 1, "description": "Servico tecnico sintetico", "arithmeticVerified": true, "quantity": "1", "unitPrice": "240.00", "totalAmount": "240.00" }
           ]
         },
         "now": "2026-08-21"
@@ -622,7 +622,7 @@
           "markdown": "# Combustivel sintetico\n\nNota fiscal acompanhada de relatorio operacional com o mesmo total.",
           "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 1, "extractedItemCount": 1, "firstLineNumber": 1, "lastLineNumber": 1, "missingLineNumbers": [], "evidence": "A linha fiscal e a camada economica integral; o relatorio e suporte sobreposto." },
           "items": [
-            { "lineNumber": 1, "description": "Linha fiscal de combustivel sintetico", "documentGroup": "ABASTECIMENTO-A", "documentRole": "LINE_ITEM", "countsTowardDocumentTotal": true, "quantity": "20", "unitPrice": "10.00", "totalAmount": "200.00" },
+            { "lineNumber": 1, "description": "Linha fiscal de combustivel sintetico", "documentGroup": "ABASTECIMENTO-A", "documentRole": "LINE_ITEM", "countsTowardDocumentTotal": true, "arithmeticVerified": true, "quantity": "20", "unitPrice": "10.00", "totalAmount": "200.00" },
             { "lineNumber": 2, "description": "Resumo do relatorio de abastecimento", "documentGroup": "ABASTECIMENTO-A", "documentRole": "SUMMARY", "countsTowardDocumentTotal": false, "quantity": null, "unitPrice": null, "totalAmount": "200.00" }
           ]
         },
@@ -716,7 +716,7 @@
           "markdown": "# Documento multipagina sintetico\n\nPagina de resumo seguida por dois comprovantes que formam o mesmo total.",
           "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 1, "extractedItemCount": 1, "firstLineNumber": 1, "lastLineNumber": 1, "missingLineNumbers": [], "evidence": "O resumo e a camada economica integral; os comprovantes sao suportes sobrepostos." },
           "items": [
-            { "lineNumber": 1, "description": "Resumo consolidado multipagina", "documentGroup": "PACOTE-A", "documentRole": "SUMMARY", "countsTowardDocumentTotal": true, "quantity": "1", "unitPrice": "300.00", "totalAmount": "300.00" },
+            { "lineNumber": 1, "description": "Resumo consolidado multipagina", "documentGroup": "PACOTE-A", "documentRole": "SUMMARY", "countsTowardDocumentTotal": true, "arithmeticVerified": true, "quantity": "1", "unitPrice": "300.00", "totalAmount": "300.00" },
             { "lineNumber": 2, "description": "Comprovante sintetico da pagina dois", "documentGroup": "PACOTE-A", "documentRole": "SUPPORTING_DOCUMENT", "countsTowardDocumentTotal": false, "quantity": "1", "unitPrice": "100.00", "totalAmount": "100.00" },
             { "lineNumber": 3, "description": "Comprovante sintetico da pagina tres", "documentGroup": "PACOTE-A", "documentRole": "SUPPORTING_DOCUMENT", "countsTowardDocumentTotal": false, "quantity": "1", "unitPrice": "200.00", "totalAmount": "200.00" }
           ]
@@ -748,7 +748,7 @@
           "markdown": "# Documento sintetico com desconto\n\nSubtotal 100.00, desconto global 10.00 e item bonus sem cobranca.",
           "itemCoverage": { "status": "COMPLETE", "declaredItemCount": 2, "extractedItemCount": 2, "firstLineNumber": 1, "lastLineNumber": 2, "missingLineNumbers": [], "evidence": "Dois itens completamente extraidos." },
           "items": [
-            { "lineNumber": 1, "description": "Material sintetico com desconto 10.00", "quantity": "1", "unitPrice": "100.00", "totalAmount": "90.00" },
+            { "lineNumber": 1, "description": "Material sintetico com desconto 10.00", "arithmeticVerified": true, "quantity": "1", "unitPrice": "100.00", "totalAmount": "90.00" },
             { "lineNumber": 2, "description": "Item bonus sem cobranca", "quantity": "1", "unitPrice": "0.00", "totalAmount": "0.00" }
           ]
         },

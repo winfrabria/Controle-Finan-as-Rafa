@@ -117,6 +117,34 @@ test("recupera leases antes de consumir a fila e respeita o lote", async () => {
   });
 });
 
+test("mantém três uploads independentes no mesmo lote sem perder nenhum job", async () => {
+  const pending = ["upload-1", "upload-2", "upload-3"];
+  const processed: string[] = [];
+
+  const result = await drainProcessingQueue(
+    { batchSize: 3, workerId: "worker-three-uploads" },
+    {
+      findNextJobId: async () => pending.shift() ?? null,
+      processJob: async (jobId) => {
+        processed.push(jobId);
+      },
+      recoverExpiredLeases: async () => ({
+        completed: 0,
+        exhausted: 0,
+        recovered: 0,
+        scanned: 0,
+      }),
+    },
+  );
+
+  assert.deepEqual(processed, ["upload-1", "upload-2", "upload-3"]);
+  assert.equal(result.processed, 3);
+  assert.deepEqual(
+    result.executions,
+    processed.map((jobId) => ({ jobId, status: "succeeded" })),
+  );
+});
+
 test("uma falha fica registrada sem impedir o próximo job do lote", async () => {
   const pending = ["job-falhou", "job-ok"];
 

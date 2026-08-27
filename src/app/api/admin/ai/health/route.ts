@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { HARNESS_MODEL, HARNESS_VERSIONS } from "@/lib/audit-harness";
+import {
+  HARNESS_MODEL,
+  HARNESS_VERIFIER_MODEL,
+  HARNESS_VERSIONS,
+} from "@/lib/audit-harness";
 import { ADMIN_ONLY_ROLES } from "@/server/auth/access-policy";
 import { requireApiRoles } from "@/server/auth/authorization";
 import { prisma } from "@/server/db/prisma";
@@ -70,6 +74,15 @@ export async function GET() {
   const workerSecret =
     process.env.PROCESSING_WORKER_SECRET ?? process.env.CRON_SECRET;
   const workerConfigured = Boolean(workerSecret && workerSecret.length >= 16);
+  const configuredVerifierMode = process.env.HARNESS_VERIFIER_MODE ?? "off";
+  const verifierModeValid = ["off", "shadow", "enforce"].includes(
+    configuredVerifierMode,
+  );
+  const verifierGateApproved =
+    process.env.HARNESS_VERIFIER_GATE_APPROVED === "true";
+  const verifierConfigurationValid =
+    verifierModeValid &&
+    (configuredVerifierMode !== "enforce" || verifierGateApproved);
 
   return NextResponse.json({
     status:
@@ -77,10 +90,16 @@ export async function GET() {
       orphaned > 0 ||
       !openRouterConfigured ||
       !storageConfigured ||
-      !workerConfigured
+      !workerConfigured ||
+      !verifierConfigurationValid
         ? "degraded"
         : "ok",
     model: HARNESS_MODEL,
+    verification: {
+      gateApproved: verifierGateApproved,
+      mode: verifierModeValid ? configuredVerifierMode : "invalid",
+      model: HARNESS_VERIFIER_MODEL,
+    },
     versions: HARNESS_VERSIONS,
     services: {
       database: { status: "ok" },

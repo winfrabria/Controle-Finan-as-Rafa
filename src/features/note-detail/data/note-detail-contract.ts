@@ -2,6 +2,9 @@ import type { Prisma } from "@/generated/prisma/client";
 import type {
   AiRunKind,
   AiRunStatus,
+  AuditAssuranceBand,
+  AuditFeedbackStatus,
+  AuditFeedbackVerdict,
   AuditResult,
   FindingSource,
   FindingSeverity,
@@ -112,6 +115,32 @@ export type NoteDetailValidation = {
   };
 };
 
+export type NoteDetailAuditFeedback = {
+  comment: string | null;
+  createdAt: Date;
+  id: string;
+  noteVersion: number;
+  reasonCode: string;
+  status: AuditFeedbackStatus;
+  updatedAt: Date;
+  verdict: AuditFeedbackVerdict;
+};
+
+export type AdminNoteDetailAuditFeedback = NoteDetailAuditFeedback & {
+  actor: {
+    email: string;
+    fullName: string | null;
+    id: string;
+  };
+  reviewedAt: Date | null;
+  reviewedBy: {
+    email: string;
+    fullName: string | null;
+    id: string;
+  } | null;
+  resolutionNote: string | null;
+};
+
 export type NoteDetailHistoryEntry = {
   actor: {
     email: string;
@@ -130,6 +159,11 @@ export type NoteDetailHistoryEntry = {
 
 export type NoteDetailBase = {
   analysis: {
+    assurance: {
+      band: AuditAssuranceBand;
+      reason: string;
+      version: string;
+    } | null;
     auditResult?: AuditResult | null;
     classification: NoteClassification | null;
     extractionMarkdown: string | null;
@@ -150,6 +184,7 @@ export type NoteDetailBase = {
     code: string | null;
     message: string | null;
   };
+  feedback: NoteDetailAuditFeedback | null;
   history: NoteDetailHistoryEntry[];
   id: string;
   isDemo: boolean;
@@ -189,6 +224,7 @@ export type AdminNoteDetail = Omit<NoteDetailBase, "analysis"> & {
   };
   technical: {
     aiRuns: AdminNoteAiRun[];
+    auditFeedbacks: AdminNoteDetailAuditFeedback[];
   };
   viewerRole: "ADMIN";
 };
@@ -202,4 +238,5 @@ export type NoteDetailData = AdminNoteDetail | ReviewerNoteDetail;
 export type LoadNoteDetailInput = {
   id: string;
   role: NoteDetailViewerRole;
+  viewerId?: string;
 };

@@ -14,6 +14,13 @@ import { prisma } from "@/server/db/prisma";
 import { normalizeResponsibleName } from "@/lib/works/responsible-name";
 
 import { formatFindingParts, formatFindingValue } from "./finding-display";
+import {
+  findingObservationKindLabel,
+  formatFindingObservationAmount,
+  formatFindingObservationDate,
+  summarizeFindingEvidenceObservations,
+  extractFindingEvidenceObservations,
+} from "@/features/note-detail/finding-observations";
 import { buildNoteReadFilter, type NoteReadMode } from "./note-read-filter";
 import { sanitizeReviewerNoteListItem } from "./reviewer-payload-policy";
 
@@ -47,9 +54,18 @@ export type NoteListItem = {
   findings: {
     actualValue: string | null;
     category: string;
+    code?: string;
     description: string;
     evidence: string | null;
     evidenceDetails: { label: string; value: string }[];
+    evidenceLocations?: Array<{
+      amount: string | null;
+      date: string | null;
+      kind: string;
+      label: string | null;
+      page: number | null;
+      text: string | null;
+    }>;
     expectedValue: string | null;
     justification: string;
     severity: string;
@@ -236,6 +252,7 @@ export async function listNotes(
           select: {
             actualValue: true,
             category: true,
+            code: true,
             description: true,
             evidence: true,
             expectedValue: true,
@@ -302,17 +319,40 @@ export async function listNotes(
       createdAt: note.createdAt,
       documentNumber: note.documentNumber,
       findingCount: note._count.findings,
-      findings: note.findings.map((finding) => ({
-        actualValue: stringifyJson(finding.actualValue),
-        category: finding.category,
-        description: finding.description,
-        evidence: stringifyJson(finding.evidence),
-        evidenceDetails: formatFindingParts(finding.evidence),
-        expectedValue: stringifyJson(finding.expectedValue),
-        justification: finding.justification,
-        severity: finding.severity,
-        title: finding.title,
-      })),
+      findings: note.findings.map((finding) => {
+        const evidenceLocations = summarizeFindingEvidenceObservations(
+          extractFindingEvidenceObservations(finding.evidence),
+        )
+          .slice(0, 3)
+          .map((observation) => ({
+            amount:
+              formatFindingObservationAmount(
+                observation.amount ?? observation.totalAmount,
+              ) ?? null,
+            date:
+              formatFindingObservationDate(
+                observation.firstDate ?? observation.date,
+              ) ?? null,
+            kind: findingObservationKindLabel(observation.kind),
+            label: observation.label,
+            page: observation.page,
+            text: observation.text,
+          }));
+
+        return {
+          actualValue: stringifyJson(finding.actualValue),
+          category: finding.category,
+          code: finding.code,
+          description: finding.description,
+          evidence: stringifyJson(finding.evidence),
+          evidenceDetails: formatFindingParts(finding.evidence),
+          evidenceLocations,
+          expectedValue: stringifyJson(finding.expectedValue),
+          justification: finding.justification,
+          severity: finding.severity,
+          title: finding.title,
+        };
+      }),
       id: note.id,
       isRead: Boolean(read),
       issuedAt: note.issuedAt,

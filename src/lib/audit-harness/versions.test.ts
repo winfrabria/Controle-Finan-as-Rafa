@@ -7,6 +7,9 @@ import {
   resolveAuditEvaluatorModel,
   resolveAuditReasoningEffort,
   resolveHarnessModel,
+  resolveHarnessVerifierMode,
+  resolveHarnessVerifierModel,
+  resolveHarnessVerifierReasoningEffort,
   resolvePdfModel,
 } from "./versions";
 
@@ -43,4 +46,18 @@ test("troca o avaliador somente pela variável experimental explícita", () => {
   assert.equal(resolveAuditReasoningEffort("max"), "max");
   assert.throws(() => resolveAuditEvaluatorModel("modelo/desconhecido"));
   assert.throws(() => resolveAuditReasoningEffort("medium"));
+});
+
+test("verificador fica off por padrão e enforce exige gate humano", () => {
+  assert.equal(resolveHarnessVerifierMode(undefined, undefined), "off");
+  assert.equal(resolveHarnessVerifierMode("shadow", undefined), "shadow");
+  assert.throws(
+    () => resolveHarnessVerifierMode("enforce", "false"),
+    /GATE_APPROVED=true/,
+  );
+  assert.equal(resolveHarnessVerifierMode("enforce", "true"), "enforce");
+  assert.equal(resolveHarnessVerifierModel(undefined), "openai/gpt-5.6-sol");
+  assert.throws(() => resolveHarnessVerifierModel("openai/gpt-5.6-terra"));
+  assert.equal(resolveHarnessVerifierReasoningEffort(undefined), "high");
+  assert.throws(() => resolveHarnessVerifierReasoningEffort("xhigh"));
 });

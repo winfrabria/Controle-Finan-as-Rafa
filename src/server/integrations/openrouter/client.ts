@@ -17,6 +17,15 @@ import {
 const OPENROUTER_COMPLETIONS_URL =
   "https://openrouter.ai/api/v1/chat/completions";
 const RETRYABLE_STATUS_CODES = new Set([408, 409, 429, 500, 502, 503, 504]);
+const ROUTING_METADATA_KEYS = [
+  "model",
+  "provider",
+  "provider_name",
+  "request_id",
+  "route",
+  "upstream_id",
+  "upstream_status",
+] as const;
 
 const responseSchema = z
   .object({
@@ -82,6 +91,18 @@ export type InvoiceExtractionUsage = {
   costUsd?: number;
 };
 
+export type InvoiceExtractionAttempt = {
+  attempt: number;
+  diagnostic?: string;
+  kind: "success" | OpenRouterClientErrorKind;
+  latencyMs: number;
+  model: string;
+  provider?: string;
+  requestId?: string;
+  routingMetadata?: Record<string, string | number | boolean | null>;
+  status?: number;
+};
+
 export class OpenRouterClientError extends Error {
   public readonly diagnostic?: string;
   public readonly diagnosticDetails?: Record<string, unknown>;
@@ -91,7 +112,10 @@ export class OpenRouterClientError extends Error {
   public readonly latencyMs?: number;
   public readonly model?: string;
   public readonly provider?: string;
+  public readonly requestId?: string;
+  public readonly routingMetadata?: Record<string, string | number | boolean | null>;
   public readonly usage?: InvoiceExtractionUsage;
+  public readonly attemptTrace?: InvoiceExtractionAttempt[];
 
   constructor(
     public readonly kind: OpenRouterClientErrorKind,
@@ -108,7 +132,10 @@ export class OpenRouterClientError extends Error {
       latencyMs?: number;
       model?: string;
       provider?: string;
+      requestId?: string;
+      routingMetadata?: Record<string, string | number | boolean | null>;
       usage?: InvoiceExtractionUsage;
+      attemptTrace?: InvoiceExtractionAttempt[];
     },
   ) {
     super(message, options);
@@ -121,7 +148,10 @@ export class OpenRouterClientError extends Error {
     this.latencyMs = options?.latencyMs;
     this.model = options?.model;
     this.provider = options?.provider;
+    this.requestId = options?.requestId;
+    this.routingMetadata = options?.routingMetadata;
     this.usage = options?.usage;
+    this.attemptTrace = options?.attemptTrace;
   }
 }
 
@@ -133,9 +163,12 @@ export type InvoiceExtractionRequest = {
 
 export type InvoiceExtractionResult = {
   attempts: number;
+  attemptTrace?: InvoiceExtractionAttempt[];
   data: InvoiceExtraction;
   model: string;
   provider?: string;
+  requestId?: string;
+  routingMetadata?: Record<string, string | number | boolean | null>;
   usage?: InvoiceExtractionUsage;
   latencyMs: number;
 };
@@ -153,6 +186,7 @@ type OpenRouterClientOptions = {
   maxAttempts: number;
   maxTokens?: number;
   model: string;
+  fallbackModel?: string;
   pdfFallbackModel?: string;
   pdfModel?: string;
   pdfEngine: OpenRouterPdfEngine;
@@ -179,20 +213,101 @@ function parseRetryAfter(value: string | null) {
     : undefined;
 }
 
+function sanitizedProviderMessage(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) {
+    return "OpenRouter rejected the extraction request.";
+  }
+  return value
+    .replace(/\b(Bearer\s+)[^\s,;]+/gi, "$1[REDACTED]")
+    .replace(
+      /\b(api[-_ ]?key|authorization|token|secret|signed[-_ ]?url)\s*[:=]\s*([^\s,;]+)/gi,
+      "$1=[REDACTED]",
+    )
+    .replace(/(https?:\/\/[^\s?#]+)[?#][^\s]*/gi, "$1?[REDACTED]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300);
+}
+
+function extractionProviderDiagnostic(status: number, message: string) {
+  if (
+    status === 400 &&
+    /(?:encrypted|password[- ]?protected|protected by password|corrupt(?:ed)?|malformed pdf|invalid pdf|empty (?:file|document)|zero[- ]byte|failed to (?:parse|read) (?:the )?(?:pdf|file|document)|unable to (?:parse|read) (?:the )?(?:pdf|file|document)|arquivo criptografado|protegido por senha|arquivo corrompido|documento corrompido|arquivo vazio)/i.test(
+      message,
+    )
+  ) {
+    return "document-unreadable" as const;
+  }
+  if (status === 400) return "provider-configuration-rejected" as const;
+  return "provider-request-failed" as const;
+}
+
+function safeRoutingMetadata(value: unknown) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const source = value as Record<string, unknown>;
+  const entries = ROUTING_METADATA_KEYS.flatMap((key) => {
+    const entry = source[key];
+    return typeof entry === "string" ||
+      typeof entry === "number" ||
+      typeof entry === "boolean" ||
+      entry === null
+      ? [[key, typeof entry === "string" ? entry.slice(0, 160) : entry] as const]
+      : [];
+  });
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
 async function readProviderError(response: Response) {
+  const headerRequestId =
+    response.headers.get("x-openrouter-request-id") ??
+    response.headers.get("x-request-id") ??
+    undefined;
   try {
     const body = (await response.json()) as {
-      error?: { message?: unknown };
+      error?: {
+        code?: unknown;
+        message?: unknown;
+        metadata?: Record<string, unknown>;
+      };
+      metadata?: Record<string, unknown>;
+      provider?: unknown;
     };
-
-    if (typeof body.error?.message === "string") {
-      return body.error.message.slice(0, 300);
-    }
+    const metadata = body.error?.metadata ?? body.metadata;
+    const routingMetadata = safeRoutingMetadata(metadata);
+    const provider =
+      typeof body.provider === "string"
+        ? body.provider.slice(0, 160)
+        : typeof metadata?.provider_name === "string"
+          ? metadata.provider_name.slice(0, 160)
+          : typeof metadata?.provider === "string"
+            ? metadata.provider.slice(0, 160)
+            : undefined;
+    const metadataRequestId =
+      typeof metadata?.request_id === "string"
+        ? metadata.request_id.slice(0, 160)
+        : undefined;
+    return {
+      diagnosticDetails: {
+        ...(body.error?.code !== undefined
+          ? { providerCode: String(body.error.code).slice(0, 80) }
+          : {}),
+        ...(routingMetadata ? { routing: routingMetadata } : {}),
+      },
+      message: sanitizedProviderMessage(body.error?.message),
+      provider,
+      recoveryText: extractOcrText(body),
+      requestId: headerRequestId ?? metadataRequestId,
+      routingMetadata,
+    };
   } catch {
     // The status code remains sufficient when the provider body is not JSON.
   }
-
-  return "OpenRouter rejected the extraction request.";
+  return {
+    message: "OpenRouter rejected the extraction request.",
+    requestId: headerRequestId,
+  };
 }
 
 function createDocumentPart(request: InvoiceExtractionRequest) {
@@ -283,8 +398,9 @@ export function isInvoiceExtractionLimitationDiagnostic(
 
 /**
  * PDFs only advance when the model proves that the reconciliation layer is
- * complete. Composite documents also need page-level provenance so a later
- * audit cannot associate evidence from different pages by guesswork.
+ * complete. Page provenance improves the reviewer experience, but a missing
+ * page number is metadata loss: it must not discard an otherwise complete and
+ * internally consistent extraction.
  */
 export function getInvoiceExtractionLimitation(
   extraction: InvoiceExtraction,
@@ -407,32 +523,14 @@ export function getInvoiceExtractionLimitation(
     }
   }
 
-  if (
-    extraction.items.some((item) =>
-      item.evidenceObservations.some((observation) => observation.page === null),
-    ) ||
-    extraction.requiredFieldChecks.some((check) => check.page === null)
-  ) {
-    return {
-      diagnostic: "pdf-evidence-page-missing",
-      details: {
-        itemCoverage: coverage,
-        itemLineNumbersWithMissingEvidencePage: extraction.items
-          .filter((item) =>
-            item.evidenceObservations.some(
-              (observation) => observation.page === null,
-            ),
-          )
-          .map((item) => item.lineNumber),
-        requiredFieldsWithMissingPage: extraction.requiredFieldChecks
-          .filter((check) => check.page === null)
-          .map((check) => check.field),
-      },
-      message: "O PDF contém evidências sem página de origem.",
-    };
-  }
-
   return null;
+}
+
+function supportsReasoningConfiguration(model: string) {
+  return (
+    /^openai\/gpt-5\.6-(?:terra|sol)(?:$|[:/])/.test(model) ||
+    /^google\/gemini-3\./.test(model)
+  );
 }
 
 function normalizeUsage(
@@ -482,6 +580,7 @@ function withRunTelemetry(
     model?: string;
     provider?: string;
     usage?: InvoiceExtractionUsage;
+    attemptTrace: InvoiceExtractionAttempt[];
   },
 ) {
   return new OpenRouterClientError(
@@ -500,7 +599,10 @@ function withRunTelemetry(
       latencyMs: input.latencyMs,
       model: error.model ?? input.model,
       provider: error.provider ?? input.provider,
+      requestId: error.requestId,
+      routingMetadata: error.routingMetadata,
       usage: input.usage,
+      attemptTrace: input.attemptTrace,
     },
   );
 }
@@ -527,25 +629,28 @@ export class OpenRouterInvoiceExtractionClient
     let accumulatedUsage: InvoiceExtractionUsage | undefined;
     let lastModel: string | undefined;
     let lastProvider: string | undefined;
+    let recoveryInput: { kind: "draft" | "ocr"; text: string } | undefined;
     let calls = 0;
+    const attemptTrace: InvoiceExtractionAttempt[] = [];
     const primaryModel =
       request.mimeType === "application/pdf"
         ? this.options.pdfModel ?? this.options.model
         : this.options.model;
+    const configuredFallback =
+      request.mimeType === "application/pdf"
+        ? this.options.pdfFallbackModel ?? this.options.fallbackModel
+        : this.options.fallbackModel;
     const fallbackModel =
-      request.mimeType === "application/pdf" &&
-      this.options.pdfFallbackModel &&
-      this.options.pdfFallbackModel !== primaryModel
-        ? this.options.pdfFallbackModel
+      configuredFallback && configuredFallback !== primaryModel
+        ? configuredFallback
         : undefined;
 
-    // O cliente executa no máximo duas chamadas. Uma resposta estruturalmente
-    // inválida é corrigida aqui antes de chegar ao ProcessingJob; o job não deve
-    // transformar uma variação de JSON em falha terminal na primeira resposta.
+    // Exactly one primary request and one distinct-model recovery are allowed.
+    // The outer ProcessingJob must never multiply paid provider calls.
     const modelSequence = fallbackModel
       ? [primaryModel, fallbackModel]
       : [primaryModel];
-    const callBudget = Math.max(1, this.options.maxAttempts);
+    const callBudget = Math.min(2, Math.max(1, this.options.maxAttempts));
     const modelsToTry = modelSequence.slice(0, callBudget);
 
     for (let index = 0; index < modelsToTry.length; index += 1) {
@@ -553,91 +658,86 @@ export class OpenRouterInvoiceExtractionClient
       if (calls >= callBudget) break;
       try {
         calls += 1;
-        const result = await this.performRequest(request, selectedModel);
+        const result = await this.performRequest(
+          request,
+          selectedModel,
+          recoveryInput,
+        );
         accumulatedUsage = mergeUsage(accumulatedUsage, result.usage);
+        attemptTrace.push({
+          attempt: calls,
+          kind: "success",
+          latencyMs: result.latencyMs,
+          model: selectedModel,
+          provider: result.provider,
+          requestId: result.requestId,
+          routingMetadata: result.routingMetadata,
+        });
         return {
           ...result,
           attempts: calls,
+          attemptTrace,
           latencyMs: Date.now() - extractionStartedAt,
           ...(accumulatedUsage ? { usage: accumulatedUsage } : {}),
         };
       } catch (error) {
-        let normalizedError = this.normalizeError(error);
+        const normalizedError = this.normalizeError(error);
         accumulatedUsage = mergeUsage(accumulatedUsage, normalizedError.usage);
         lastModel = normalizedError.model ?? selectedModel;
         lastProvider = normalizedError.provider ?? lastProvider;
-
-        // Mistral OCR returns reusable text. Prefer it; otherwise repair the
-        // structured draft returned by the model. If neither is available,
-        // repeat the original document once as the last structural recovery.
-        if (
-          normalizedError.kind === "invalid-response" &&
-          calls < callBudget
-        ) {
-          const isStructuralFailure =
-            !isInvoiceExtractionLimitationDiagnostic(
-              normalizedError.diagnostic,
-            );
-          const originalRecoveryText = isStructuralFailure
-            ? normalizedError.recoveryText
-            : undefined;
-          try {
-            calls += 1;
-            const recovered = await this.performRequest(
-              request,
-              selectedModel,
-              isStructuralFailure && normalizedError.recoveryText
-                ? { kind: "ocr", text: normalizedError.recoveryText }
-                : isStructuralFailure && normalizedError.recoveryDraft
-                  ? { kind: "draft", text: normalizedError.recoveryDraft }
-                  : undefined,
-            );
-            accumulatedUsage = mergeUsage(accumulatedUsage, recovered.usage);
-            return {
-              ...recovered,
-              attempts: calls,
-              latencyMs: Date.now() - extractionStartedAt,
-              ...(accumulatedUsage ? { usage: accumulatedUsage } : {}),
-            };
-          } catch (recoveryError) {
-            normalizedError = this.normalizeError(recoveryError);
-            accumulatedUsage = mergeUsage(
-              accumulatedUsage,
-              normalizedError.usage,
-            );
-            lastModel = normalizedError.model ?? selectedModel;
-            lastProvider = normalizedError.provider ?? lastProvider;
-            const ocrFallback = originalRecoveryText
-              ? createOcrFallbackExtraction(originalRecoveryText)
-              : null;
-            if (ocrFallback) {
-              normalizedError = new OpenRouterClientError(
-                "invalid-response",
-                "O OCR foi recuperado, mas a estrutura integral do PDF não pôde ser validada.",
-                true,
-                undefined,
-                undefined,
-                {
-                  cause: normalizedError,
-                  diagnostic: "ocr-only-partial",
-                  model: selectedModel,
-                  provider: "mistral-ocr",
-                },
-              );
-              lastProvider = "mistral-ocr";
-            }
-          }
-        }
-
         lastError = normalizedError;
+        attemptTrace.push({
+          attempt: calls,
+          diagnostic: normalizedError.diagnostic,
+          kind: normalizedError.kind,
+          latencyMs: normalizedError.latencyMs ?? 0,
+          model: selectedModel,
+          provider: normalizedError.provider,
+          requestId: normalizedError.requestId,
+          routingMetadata: normalizedError.routingMetadata,
+          status: normalizedError.status,
+        });
+        const isConfigurationRejection =
+          normalizedError.kind === "provider" &&
+          normalizedError.diagnostic === "provider-configuration-rejected";
+        const fallbackEligible =
+          isConfigurationRejection ||
+          normalizedError.kind === "timeout" ||
+          normalizedError.kind === "invalid-response";
         const hasAnotherModel =
-          (normalizedError.retryable || normalizedError.status === 400) &&
+          fallbackEligible &&
           index < modelsToTry.length - 1 &&
           calls < callBudget;
 
         if (!hasAnotherModel) {
+          const ocrText =
+            normalizedError.recoveryText ??
+            (recoveryInput?.kind === "ocr" ? recoveryInput.text : undefined);
+          const ocrFallback = ocrText
+            ? createOcrFallbackExtraction(ocrText)
+            : null;
+          if (
+            ocrFallback &&
+            normalizedError.kind === "invalid-response" &&
+            !isInvoiceExtractionLimitationDiagnostic(
+              normalizedError.diagnostic,
+            )
+          ) {
+            return {
+              attempts: calls,
+              attemptTrace,
+              data: ocrFallback,
+              latencyMs: Date.now() - extractionStartedAt,
+              model: lastModel ?? selectedModel,
+              provider: "mistral-ocr",
+              requestId: normalizedError.requestId,
+              routingMetadata: normalizedError.routingMetadata,
+              ...(accumulatedUsage ? { usage: accumulatedUsage } : {}),
+            };
+          }
           throw withRunTelemetry(normalizedError, {
             attempts: calls,
+            attemptTrace,
             latencyMs: Date.now() - extractionStartedAt,
             model: lastModel ?? selectedModel,
             provider: lastProvider,
@@ -645,6 +745,15 @@ export class OpenRouterInvoiceExtractionClient
           });
         }
 
+        // Mistral/OpenRouter can return the parsed PDF even in an error
+        // envelope. Feed that OCR directly to Sol; otherwise use the partial
+        // structured draft. Only when neither exists is the original file sent
+        // once more to the distinct fallback model.
+        recoveryInput = normalizedError.recoveryText
+          ? { kind: "ocr", text: normalizedError.recoveryText }
+          : normalizedError.recoveryDraft
+            ? { kind: "draft", text: normalizedError.recoveryDraft }
+            : undefined;
         const retryDelay =
           normalizedError.retryAfterMs ?? Math.min(500 * 2 ** (calls - 1), 5_000);
         await this.sleep(retryDelay);
@@ -656,6 +765,7 @@ export class OpenRouterInvoiceExtractionClient
       new OpenRouterClientError("provider", "Extraction failed.", false);
     throw withRunTelemetry(error, {
       attempts: calls,
+      attemptTrace,
       latencyMs: Date.now() - extractionStartedAt,
       model: lastModel,
       provider: lastProvider,
@@ -667,6 +777,7 @@ export class OpenRouterInvoiceExtractionClient
     request: InvoiceExtractionRequest,
     selectedModel: string,
     recovery?: { kind: "draft" | "ocr"; text: string },
+    maxTokensOverride?: number,
   ) {
     const startedAt = Date.now();
     const controller = new AbortController();
@@ -700,13 +811,18 @@ export class OpenRouterInvoiceExtractionClient
         },
       },
       stream: false,
-      max_tokens: this.options.maxTokens ?? 8_192,
-      reasoning: {
-        effort: isPdf
-          ? this.options.pdfReasoningEffort ?? this.options.reasoningEffort
-          : this.options.reasoningEffort,
-        exclude: true,
-      },
+      max_tokens: maxTokensOverride ?? this.options.maxTokens ?? 16_384,
+      ...(supportsReasoningConfiguration(selectedModel)
+        ? {
+            reasoning: {
+              effort: isPdf
+                ? this.options.pdfReasoningEffort ??
+                  this.options.reasoningEffort
+                : this.options.reasoningEffort,
+              exclude: true,
+            },
+          }
+        : {}),
       plugins: [
         ...(request.mimeType === "application/pdf" && !recovery
           ? [
@@ -718,7 +834,6 @@ export class OpenRouterInvoiceExtractionClient
           : []),
         { id: "response-healing" },
       ],
-      provider: { require_parameters: true },
     };
 
     try {
@@ -729,6 +844,7 @@ export class OpenRouterInvoiceExtractionClient
           headers: {
             Authorization: `Bearer ${this.options.apiKey}`,
             "Content-Type": "application/json",
+            "X-OpenRouter-Metadata": "enabled",
             "X-Title": "WinfraBR Auditoria de Gastos",
             ...(this.options.appUrl
               ? { "HTTP-Referer": this.options.appUrl }
@@ -740,12 +856,27 @@ export class OpenRouterInvoiceExtractionClient
       );
 
       if (!response.ok) {
+        const providerError = await readProviderError(response);
         throw new OpenRouterClientError(
-          "provider",
-          await readProviderError(response),
+          response.status === 408 || response.status === 504
+            ? "timeout"
+            : "provider",
+          providerError.message,
           RETRYABLE_STATUS_CODES.has(response.status),
           response.status,
           parseRetryAfter(response.headers.get("retry-after")),
+          {
+            diagnostic: extractionProviderDiagnostic(
+              response.status,
+              providerError.message,
+            ),
+            diagnosticDetails: providerError.diagnosticDetails,
+            latencyMs: Date.now() - startedAt,
+            provider: providerError.provider,
+            recoveryText: providerError.recoveryText,
+            requestId: providerError.requestId,
+            routingMetadata: providerError.routingMetadata,
+          },
         );
       }
 
@@ -805,14 +936,26 @@ export class OpenRouterInvoiceExtractionClient
       }
 
       const usage = normalizeUsage(envelope.data.usage);
+      const requestId =
+        response.headers.get("x-openrouter-request-id") ??
+        response.headers.get("x-request-id") ??
+        undefined;
+      const routingMetadata = safeRoutingMetadata(
+        typeof responseBody === "object" && responseBody !== null
+          ? (responseBody as { metadata?: unknown }).metadata
+          : undefined,
+      );
       const responseTelemetry = {
         latencyMs: Date.now() - startedAt,
         model: envelope.data.model,
         provider: envelope.data.provider,
+        requestId,
+        routingMetadata,
         usage,
       };
 
-      const completionTokenLimit = this.options.maxTokens ?? 8_192;
+      const completionTokenLimit =
+        maxTokensOverride ?? this.options.maxTokens ?? 16_384;
       const finishReason = envelope.data.choices[0].finish_reason;
       if (
         finishReason === "length" ||
@@ -832,6 +975,7 @@ export class OpenRouterInvoiceExtractionClient
               completionTokens: usage?.completionTokens ?? null,
               finishReason: finishReason ?? null,
             },
+            recoveryText,
             ...responseTelemetry,
           },
         );
@@ -889,30 +1033,13 @@ export class OpenRouterInvoiceExtractionClient
         );
       }
 
-      const limitation = getInvoiceExtractionLimitation(
-        extraction.data,
-        request.mimeType,
-      );
-      if (limitation) {
-        throw new OpenRouterClientError(
-          "invalid-response",
-          limitation.message,
-          true,
-          undefined,
-          undefined,
-          {
-            diagnostic: limitation.diagnostic,
-            diagnosticDetails: limitation.details,
-            ...responseTelemetry,
-          },
-        );
-      }
-
       return {
         data: extraction.data,
         latencyMs: Date.now() - startedAt,
         model: envelope.data.model,
         provider: envelope.data.provider,
+        requestId,
+        routingMetadata,
         ...(usage ? { usage } : {}),
       };
     } finally {

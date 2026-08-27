@@ -8,7 +8,7 @@ export type FindingComparisonLabels = {
 
 const DEFAULT_LABELS: FindingComparisonLabels = {
   actual: "Encontrado",
-  expected: "Esperado",
+  expected: "Esperado / referência",
 };
 
 const CONTRACT_ITEM_LABELS: FindingComparisonLabels = {
@@ -36,15 +36,50 @@ type FindingComparisonInput = Pick<
 export function findingComparisonLabels(
   finding: FindingComparisonInput,
 ): FindingComparisonLabels {
-  const structure = normalizeStructure([
+  const code = finding.code.toUpperCase();
+  if (code === "TOTAL_MISMATCH") {
+    return {
+      actual: "Total encontrado no documento",
+      expected: "Soma calculada dos itens",
+    };
+  }
+  if (code === "ITEM_ARITHMETIC_MISMATCH") {
+    return {
+      actual: "Total encontrado no item",
+      expected: "Quantidade × valor unitário",
+    };
+  }
+  if (code.startsWith("EVIDENCE_DATE_MISMATCH_")) {
+    return {
+      actual: "Data encontrada no comprovante",
+      expected: "Data de referência",
+    };
+  }
+  if (
+    code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
+    code.startsWith("AGGREGATE_PAYMENT_MISMATCH_")
+  ) {
+    return {
+      actual: "Valor encontrado",
+      expected: "Valor de referência",
+    };
+  }
+
+  const primaryStructure = normalizeStructure([
     finding.category,
     finding.code,
     finding.title,
     finding.rule?.code,
     finding.rule?.name,
+  ]);
+  const structure = normalizeStructure([
+    primaryStructure,
     ...collectJsonKeys(finding.evidence),
     ...collectJsonKeys(finding.expectedValue),
     ...collectJsonKeys(finding.actualValue),
+  ]);
+  const evidenceField = normalizeStructure([
+    extractEvidenceField(finding.evidence),
   ]);
 
   const isContractual = /\bcontrat/.test(structure);
@@ -70,10 +105,17 @@ export function findingComparisonLabels(
     observationKinds.has("SALE") ||
     observationKinds.has("RECEIPT") ||
     /\b(venda|pedido|recibo|cupom|sale|receipt)\b/.test(structure);
+  const explicitlyComparesMoney =
+    /\b(valor|total|preco|amount|price|payment)\b/.test(evidenceField) ||
+    /\b(valor|total|preco|amount|price|payment)\b/.test(primaryStructure);
   const comparesDate =
-    /\b(data|emissao|periodo|vencimento|validade|date|issued|due)\b/.test(
-      structure,
-    );
+    /\b(data|date|emissao|issued|periodo|vencimento|validade|due)\b/.test(
+      evidenceField,
+    ) ||
+    (!explicitlyComparesMoney &&
+      /\b(data|emissao|periodo|vencimento|validade|date|issued|due)\b/.test(
+        primaryStructure,
+      ));
   const comparesFiscalDocumentWithSheet =
     hasSheet && /\b(fiscal|nota fiscal|nfe|danfe|linha fiscal)\b/.test(structure);
 
@@ -106,6 +148,12 @@ export function findingComparisonLabels(
   return isContractual && concernsItem && !comparesMeasuredValue
     ? CONTRACT_ITEM_LABELS
     : DEFAULT_LABELS;
+}
+
+function extractEvidenceField(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const field = (value as Record<string, unknown>).field;
+  return typeof field === "string" ? field : null;
 }
 
 export function findingComparisonDifference(

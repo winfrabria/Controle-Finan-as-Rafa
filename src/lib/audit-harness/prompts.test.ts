@@ -9,6 +9,10 @@ test("exige cobertura completa de fichas de reembolso e valores concorrentes", (
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /checagem de cobertura/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /não repita o mesmo problema/i);
   assert.match(INVOICE_EXTRACTION_PROMPT.system, /documentGroup/i);
+  assert.match(
+    INVOICE_EXTRACTION_PROMPT.system,
+    /Não crie\s+outro item de topo apenas para repetir um comprovante/i,
+  );
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /pagamento for agregado/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /reunir vários documentos/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /não conclua TOTAL_MISMATCH/i);
@@ -18,6 +22,9 @@ test("exige cobertura completa de fichas de reembolso e valores concorrentes", (
   assert.match(INVOICE_EXTRACTION_PROMPT.system, /requiredFieldChecks/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /não depende de fornecedor/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /próprio formulário declarar campos obrigatórios/i);
+  assert.match(INVOICE_EXTRACTION_PROMPT.system, /arithmeticVerified=true/i);
+  assert.match(INVOICE_EXTRACTION_PROMPT.system, /sourcePage e sourceText/i);
+  assert.match(AUDIT_DISCOVERY_PROMPT.system, /arithmeticVerified estiver ausente ou/i);
 });
 
 test("separa contradição interna de contexto externo", () => {

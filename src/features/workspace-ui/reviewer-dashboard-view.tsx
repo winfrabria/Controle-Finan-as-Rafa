@@ -52,7 +52,11 @@ function currentPeriodValue() {
 
 function statusClass(classification: DashboardNote["classification"]) {
   if (classification === "Suspeita") return styles.statusSuspicious;
-  if (classification === "Precisa de informação" || classification === "Sem parâmetro") {
+  if (
+    classification === "Precisa de informação" ||
+    classification === "Informação insuficiente" ||
+    classification === "Sem parâmetro"
+  ) {
     return styles.statusNeedsContext;
   }
   if (
@@ -69,13 +73,15 @@ function statusClass(classification: DashboardNote["classification"]) {
 }
 
 function statusIcon(classification: DashboardNote["classification"]): "document" | "help" {
-  return classification === "Precisa de informação" || classification === "Sem parâmetro"
+  return classification === "Precisa de informação" ||
+    classification === "Informação insuficiente" ||
+    classification === "Sem parâmetro"
     ? "help"
     : "document";
 }
 
 function statusLabel(classification: DashboardNote["classification"]) {
-  return classification === "Sem parâmetro" ? "Precisa de informação" : classification;
+  return classification === "Sem parâmetro" ? "Informação insuficiente" : classification;
 }
 
 function comparison(current: number, previous: number) {

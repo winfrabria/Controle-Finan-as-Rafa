@@ -6,7 +6,7 @@ import { evaluateHarness } from "./engine";
 import { evaluateUniversalRules, evaluateWorkRules } from "./rules";
 
 function invoice(overrides: Partial<HarnessInvoice> = {}): HarnessInvoice {
-  return {
+  const merged: HarnessInvoice = {
     documentNumber: "123",
     supplierName: "Fornecedor",
     supplierTaxId: "11222333000181",
@@ -26,6 +26,14 @@ function invoice(overrides: Partial<HarnessInvoice> = {}): HarnessInvoice {
     },
     items: [{ lineNumber: 1, description: "Parafuso", quantity: "2", unitPrice: "10.00", totalAmount: "20.00" }],
     ...overrides,
+  };
+  return {
+    ...merged,
+    items: merged.items.map((item) =>
+      item.arithmeticVerified === undefined
+        ? { ...item, arithmeticVerified: true }
+        : item,
+    ),
   };
 }
 
@@ -447,6 +455,182 @@ test("não soma três camadas de R$ 35,90 como R$ 107,70", () => {
     result.findings.some((finding) =>
       finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_") ||
       finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_")
+    ),
+    false,
+  );
+});
+
+test("não transforma provável erro de OCR aritmético em suspeita", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      totalAmount: "1203.74",
+      itemCoverage: {
+        status: "COMPLETE",
+        declaredItemCount: 2,
+        extractedItemCount: 2,
+        firstLineNumber: 1,
+        lastLineNumber: 2,
+        missingLineNumbers: [],
+        evidence: "As duas linhas foram extraídas.",
+      },
+      items: [
+        {
+          lineNumber: 1,
+          description: "Linha visualmente conciliada",
+          countsTowardDocumentTotal: true,
+          arithmeticVerified: true,
+          quantity: "1",
+          unitPrice: "1138.49",
+          totalAmount: "1138.49",
+        },
+        {
+          lineNumber: 2,
+          description: "Linha com dígito incerto na leitura",
+          countsTowardDocumentTotal: true,
+          arithmeticVerified: false,
+          quantity: "1.764",
+          unitPrice: "36.9898",
+          totalAmount: "85.25",
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) => finding.code === "ITEM_ARITHMETIC_MISMATCH"),
+    false,
+  );
+  assert.equal(
+    result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"),
+    false,
+  );
+  assert.equal(result.coveredAreas.includes("QUANTITY_TIMES_PRICE"), true);
+});
+
+test("mantém divergência aritmética confirmada visualmente", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      totalAmount: "85.25",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Linha conferida na origem",
+          arithmeticVerified: true,
+          quantity: "1.764",
+          unitPrice: "36.9898",
+          totalAmount: "85.25",
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some((finding) => finding.code === "ITEM_ARITHMETIC_MISMATCH"),
+    true,
+  );
+});
+
+test("não compara total fiscal com resumo e linhas diárias sobrepostas", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      totalAmount: "120.00",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Linha fiscal consolidada",
+          documentGroup: "pacote-sintetico",
+          documentRole: "LINE_ITEM",
+          countsTowardDocumentTotal: true,
+          quantity: "1",
+          unitPrice: "120.00",
+          totalAmount: "120.00",
+          evidenceObservations: [
+            {
+              kind: "RECEIPT",
+              documentGroup: "pacote-sintetico",
+              label: "Documento fiscal",
+              amount: "120.00",
+              date: "2026-06-02",
+              page: 1,
+              text: "Total fiscal R$ 120,00",
+            },
+          ],
+        },
+        {
+          lineNumber: 2,
+          description: "Resumo operacional A",
+          documentGroup: "pacote-sintetico",
+          documentRole: "SUMMARY",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "100.00",
+          evidenceObservations: [
+            {
+              kind: "SHEET",
+              documentGroup: "pacote-sintetico",
+              label: "Resumo operacional",
+              amount: "100.00",
+              date: "2026-05-03",
+              page: 2,
+              text: "Resumo A R$ 100,00",
+            },
+          ],
+        },
+        {
+          lineNumber: 3,
+          description: "Resumo operacional B",
+          documentGroup: "pacote-sintetico",
+          documentRole: "SUMMARY",
+          countsTowardDocumentTotal: false,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "20.00",
+          evidenceObservations: [
+            {
+              kind: "SHEET",
+              documentGroup: "pacote-sintetico",
+              label: "Resumo operacional",
+              amount: "20.00",
+              date: "2026-05-03",
+              page: 2,
+              text: "Resumo B R$ 20,00",
+            },
+          ],
+        },
+        ...["2026-05-01", "2026-05-02", "2026-05-03"].map(
+          (date, index) => ({
+            lineNumber: index + 4,
+            description: `Detalhamento diário ${index + 1}`,
+            documentGroup: "pacote-sintetico",
+            documentRole: "SUMMARY" as const,
+            countsTowardDocumentTotal: false,
+            quantity: null,
+            unitPrice: null,
+            totalAmount: "40.00",
+            evidenceObservations: [
+              {
+                kind: "SHEET" as const,
+                documentGroup: "pacote-sintetico",
+                label: "Detalhamento diário",
+                amount: "40.00",
+                date,
+                page: 2,
+                text: `Linha diária ${index + 1}`,
+              },
+            ],
+          }),
+        ),
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some(
+      (finding) =>
+        finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
+        finding.code.startsWith("EVIDENCE_DATE_MISMATCH_"),
     ),
     false,
   );
@@ -1184,6 +1368,8 @@ test("sinaliza campos vazios somente quando o documento declara obrigatoriedade"
           field: "approver",
           label: "Aprovador",
           requiredByDocument: true,
+          requirementBasis: "EXPLICIT_DOCUMENT",
+          requirementEvidence: "O formulário informa que todos os campos são obrigatórios.",
           present: false,
           page: 1,
           evidence: "O formulário informa que todos os campos são obrigatórios.",
@@ -1215,6 +1401,7 @@ test("sinaliza campos vazios somente quando o documento declara obrigatoriedade"
   assert.match(missing.description, /Aprovador/);
   assert.doesNotMatch(missing.description, /Observação opcional/);
   assert.doesNotMatch(missing.description, /Assinatura do solicitante/);
+  assert.match(missing.references[0] ?? "", /^DOCUMENTO:/);
 });
 
 test("não sinaliza campo vazio sem declaração explícita de obrigatoriedade", () => {
@@ -1382,6 +1569,199 @@ test("NF-1359 sinaliza período incompatível sem inventar divergência na agreg
     ),
     false,
   );
+});
+
+test("não transforma área visivelmente vazia em campo obrigatório", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "REIMBURSEMENT",
+      requiredFieldChecks: [
+        {
+          field: "approver",
+          label: "Aprovador",
+          requiredByDocument: true,
+          requirementBasis: "NONE",
+          requirementEvidence: null,
+          present: false,
+          page: 1,
+          evidence: "A área está visivelmente vazia.",
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some(
+      (finding) => finding.code === "REQUIRED_DOCUMENT_FIELDS_MISSING",
+    ),
+    false,
+  );
+});
+
+test("não usa evidência legada sem requirementBasis para sustentar suspeita", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      requiredFieldChecks: [
+        {
+          field: "approver",
+          label: "Aprovador",
+          requiredByDocument: true,
+          present: false,
+          page: 1,
+          evidence: "O formulário informa que todos os campos são obrigatórios.",
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some(
+      (finding) => finding.code === "REQUIRED_DOCUMENT_FIELDS_MISSING",
+    ),
+    false,
+  );
+});
+
+test("aceita política verificada como base explícita de obrigatoriedade", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      requiredFieldChecks: [
+        {
+          field: "authorization",
+          label: "Autorização",
+          requiredByDocument: true,
+          requirementBasis: "VERIFIED_POLICY",
+          requirementEvidence: "Política global POL-001 exige autorização.",
+          present: false,
+          page: 1,
+          evidence: "Campo sem preenchimento.",
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some(
+      (finding) => finding.code === "REQUIRED_DOCUMENT_FIELDS_MISSING",
+    ),
+    true,
+  );
+  const missing = result.findings.find(
+    (finding) => finding.code === "REQUIRED_DOCUMENT_FIELDS_MISSING",
+  );
+  assert.ok(missing);
+  assert.match(missing.description, /política global verificada/i);
+  assert.doesNotMatch(missing.description, /o próprio documento/i);
+  assert.match(missing.justification, /política global verificada/i);
+  assert.match(missing.references[0] ?? "", /^POLITICA_VERIFICADA:/);
+});
+
+test("não compara valor do boleto com multa ou encargo do próprio boleto", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Cobrança sintética",
+          quantity: "1",
+          unitPrice: "1203.74",
+          totalAmount: "1203.74",
+          evidenceObservations: [
+            {
+              kind: "OTHER",
+              documentGroup: "cobranca-a",
+              label: "Valor do documento",
+              amount: "1203.74",
+              date: "2026-08-06",
+              page: 1,
+              text: "Valor do documento R$ 1.203,74",
+            },
+            {
+              kind: "OTHER",
+              documentGroup: "cobranca-a",
+              label: "Multa após vencimento",
+              amount: "24.08",
+              date: "2026-08-17",
+              page: 1,
+              text: "Multa de 2% após o vencimento: R$ 24,08",
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  assert.equal(
+    result.findings.some(
+      (finding) =>
+        finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
+        finding.code.startsWith("EVIDENCE_DATE_MISMATCH_"),
+    ),
+    false,
+  );
+});
+
+test("não compara emissão, vencimento e datas diárias como se fossem o mesmo campo", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "COMPOSITE",
+      items: [
+        {
+          lineNumber: 1,
+          description: "Documento composto sintético",
+          quantity: "1",
+          unitPrice: "100.00",
+          totalAmount: "100.00",
+          evidenceObservations: [
+            {
+              kind: "OTHER",
+              documentGroup: "pacote-a",
+              label: "Data de emissão",
+              amount: null,
+              date: "2026-06-02",
+              page: 1,
+              text: "Documento emitido em 02/06/2026",
+            },
+            {
+              kind: "OTHER",
+              documentGroup: "pacote-a",
+              label: "Vencimento",
+              amount: null,
+              date: "2026-06-15",
+              page: 1,
+              text: "Vencimento 15/06/2026",
+            },
+            {
+              kind: "SHEET",
+              documentGroup: "pacote-a",
+              label: "Controle diário",
+              amount: null,
+              date: "2026-05-03",
+              page: 2,
+              text: "Despesa em 03/05/2026",
+            },
+            {
+              kind: "SHEET",
+              documentGroup: "pacote-a",
+              label: "Controle diário",
+              amount: null,
+              date: "2026-05-04",
+              page: 2,
+              text: "Despesa em 04/05/2026",
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  const dateFinding = result.findings.find(
+    (finding) => finding.code === "EVIDENCE_DATE_MISMATCH_1",
+  );
+  assert.ok(dateFinding);
+  assert.equal(dateFinding.actualValue, "2026-05-03 × 2026-05-04");
+  assert.doesNotMatch(String(dateFinding.actualValue), /2026-06-15/);
 });
 
 test("não suspeita apenas porque o comprovante é recibo, pedido ou orçamento", () => {

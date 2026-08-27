@@ -44,28 +44,36 @@ export function processingFailureLifecycle(input: {
   maxAttempts: number;
   type: ProcessingJobType;
 }) {
+  const documentUnreadable =
+    input.failureCode === "EXTRACTION_DOCUMENT_UNREADABLE";
   // The clients already execute their bounded provider recovery. Retrying the
   // outer ProcessingJob would repeat paid calls and make one failure look like
   // an endless analysis to the public flow.
-  const attemptsExhausted =
-    input.attempt >= input.maxAttempts ||
+  const boundedPipelineFailure =
     Boolean(input.failureCode?.startsWith("AUDIT_")) ||
-    input.failureCode === "EXTRACTION_CREDIT_EXHAUSTED" ||
-    input.failureCode === "EXTRACTION_INCOMPLETE" ||
-    input.failureCode === "EXTRACTION_INVALID_RESPONSE" ||
-    input.failureCode === "EXTRACTION_REQUEST_REJECTED";
+    Boolean(input.failureCode?.startsWith("EXTRACTION_")) ||
+    (Boolean(input.failureCode?.startsWith("VERIFICATION_")) &&
+      input.failureCode !== "VERIFICATION_IN_PROGRESS");
+  const attemptsExhausted =
+    input.attempt >= input.maxAttempts || boundedPipelineFailure;
   return {
     attemptsExhausted,
     contextSubmissionStatus:
       attemptsExhausted && input.type === ProcessingJobType.CONTEXT_REANALYSIS
         ? ContextSubmissionStatus.REANALYSIS_FAILED
         : null,
-    noteStage: attemptsExhausted
-      ? ProcessingStage.FAILED
+    noteStage: documentUnreadable
+      ? ProcessingStage.COMPLETED
+      : attemptsExhausted
+        ? ProcessingStage.FAILED
       : input.type === ProcessingJobType.CONTEXT_REANALYSIS
         ? ProcessingStage.ANALYZING
         : ProcessingStage.EXTRACTING,
-    noteStatus: attemptsExhausted ? NoteStatus.FAILED : NoteStatus.PROCESSING,
+    noteStatus: documentUnreadable
+      ? NoteStatus.READ_FAILED
+      : attemptsExhausted
+        ? NoteStatus.FAILED
+        : NoteStatus.PROCESSING,
   } as const;
 }
 
@@ -263,6 +271,28 @@ export async function processProcessingJob(
 ) {
   const workerId = dependencies.workerId ?? `worker:${randomUUID()}`;
   const job = await claimProcessingJob(jobId, workerId);
+  let heartbeatRunning = false;
+  const heartbeat = setInterval(() => {
+    if (heartbeatRunning) return;
+    heartbeatRunning = true;
+    void prisma.processingJob
+      .updateMany({
+        where: {
+          id: job.id,
+          lockedBy: workerId,
+          status: ProcessingJobStatus.RUNNING,
+        },
+        data: { lockedAt: new Date() },
+      })
+      .catch(() => {
+        // Lease recovery remains the durable fallback. A heartbeat failure
+        // must not hide the actual extraction/audit result.
+      })
+      .finally(() => {
+        heartbeatRunning = false;
+      });
+  }, 60_000);
+  heartbeat.unref?.();
 
   try {
     const note = await runClaimedProcessingJobPipeline(job, {
@@ -374,12 +404,13 @@ export async function processProcessingJob(
             },
         data: lifecycle.attemptsExhausted
           ? {
-              failureCode: "PROCESSING_ATTEMPTS_EXHAUSTED",
-              failureMessage:
-                "O anexo não pôde ser processado após as tentativas automáticas.",
+              // Preserve the safe, actionable pipeline category for ADMIN.
+              // The public endpoint still returns a generic technical message.
+              failureCode: failure.code,
+              failureMessage: failure.message,
               ...terminalPublicCapabilityFields(),
-              processingStage: ProcessingStage.FAILED,
-              status: NoteStatus.FAILED,
+              processingStage: lifecycle.noteStage,
+              status: lifecycle.noteStatus,
               version: { increment: 1 },
             }
           : {
@@ -411,8 +442,10 @@ export async function processProcessingJob(
       await tx.noteEvent.create({
         data: {
           noteId: job.noteId,
-          type: lifecycle.attemptsExhausted
-            ? "PROCESSING_ATTEMPTS_EXHAUSTED"
+          type: lifecycle.noteStatus === NoteStatus.READ_FAILED
+            ? "READ_FAILED"
+            : lifecycle.attemptsExhausted
+              ? "PROCESSING_ATTEMPTS_EXHAUSTED"
             : "PROCESSING_RETRY_SCHEDULED",
           fromStatus: currentNote.status,
           toStatus: lifecycle.noteStatus,
@@ -430,6 +463,8 @@ export async function processProcessingJob(
       });
     });
     throw error;
+  } finally {
+    clearInterval(heartbeat);
   }
 }
 
@@ -531,6 +566,9 @@ export async function scheduleNoteAuditRecoveryInTransaction(
     },
     data: {
       auditResult: null,
+      assuranceBand: null,
+      assuranceReason: null,
+      assuranceVersion: null,
       classification: null,
       failureCode: null,
       failureMessage: null,
@@ -660,6 +698,9 @@ export async function scheduleNoteReprocess(noteId: string) {
       where: { id: noteId, status: note.status, version: note.version },
       data: {
         auditResult: null,
+        assuranceBand: null,
+        assuranceReason: null,
+        assuranceVersion: null,
         classification: null,
         contextRound: (latestQuestion?.round ?? 0) + 1,
         contextSubmittedAt: null,

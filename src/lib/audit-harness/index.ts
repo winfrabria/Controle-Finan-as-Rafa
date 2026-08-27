@@ -5,4 +5,5 @@ export * from "./policy";
 export * from "./prompts";
 export * from "./rules";
 export * from "./security";
+export * from "./verification";
 export * from "./versions";

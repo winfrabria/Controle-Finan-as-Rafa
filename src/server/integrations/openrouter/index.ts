@@ -3,6 +3,7 @@ export {
   getOpenRouterInvoiceExtractionClient,
   isInvoiceExtractionLimitationDiagnostic,
   type InvoiceExtractionClient,
+  type InvoiceExtractionAttempt,
   type InvoiceExtractionRequest,
   type InvoiceExtractionResult,
   OpenRouterClientError,
@@ -15,3 +16,10 @@ export {
   type AuditDiscoveryRequest,
   type AuditDiscoveryResult,
 } from "@/server/integrations/openrouter/audit-client";
+export {
+  getOpenRouterVerificationClient,
+  OpenRouterVerificationClient,
+  type VerificationClient,
+  type VerificationRequest,
+  type VerificationResult,
+} from "@/server/integrations/openrouter/verification-client";

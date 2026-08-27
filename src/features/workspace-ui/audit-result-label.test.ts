@@ -11,7 +11,7 @@ test("auditResult canônico prevalece sobre classification legada", () => {
 });
 
 test("classification é usada apenas como fallback", () => {
-  assert.equal(auditResultLabel(null, "NO_PARAMETER"), "Precisa de informação");
+  assert.equal(auditResultLabel(null, "NO_PARAMETER"), "Informação insuficiente");
   assert.equal(auditResultLabel(null, "INCOMPATIBLE"), "Falha de leitura");
   assert.equal(auditResultLabel(null, null), "Em análise");
   assert.equal(auditResultTone("Precisa de informação"), "info");

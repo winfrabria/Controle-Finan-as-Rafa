@@ -16,6 +16,7 @@ import { attachmentReference } from "@/features/internal-notes/attachment-refere
 
 import type { NoteDetailData } from "./data";
 import { AdminComparativeAuditView } from "./admin-comparative-audit-view";
+import { AuditFeedbackPanel } from "./audit-feedback-panel";
 import { NoteDetailActions } from "./note-detail-actions";
 import {
   formatCurrency,
@@ -147,6 +148,17 @@ export function NoteDetailView({
           />
           <MetadataItem icon="money" label="Valor da nota (R$)" value={total} green />
         </section>
+
+        <AuditFeedbackPanel
+          assurance={data.analysis.assurance}
+          currentFeedback={data.feedback}
+          feedbackEnabled={
+            data.processingStage === "COMPLETED" &&
+            data.analysis.auditResult !== "READ_FAILED"
+          }
+          noteId={data.id}
+          noteVersion={data.version}
+        />
 
         <div className={styles.detailGrid}>
           <section className={`${styles.card} ${styles.documentCard}`}>

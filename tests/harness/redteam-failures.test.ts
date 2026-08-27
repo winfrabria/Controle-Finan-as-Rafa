@@ -164,6 +164,7 @@ test("RT4 falso negativo: palavra 'desconto' sem valor suprime ITEM_ARITHMETIC_M
       {
         lineNumber: 1,
         description: "Servico com desconto aplicado no fechamento da conta",
+        arithmeticVerified: true,
         quantity: "2",
         unitPrice: "50",
         totalAmount: "80",

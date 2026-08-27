@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { MouseEvent, RefObject } from "react";
 import { useRef, useState } from "react";
 
 import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
@@ -13,7 +13,12 @@ import {
 } from "@/features/internal-notes/finding-display";
 import { Icon } from "@/features/workspace-ui/ui-icons";
 
-import type { NoteDetailFinding, NoteDetailItem } from "./data";
+import type {
+  NoteDetailAuditFeedback,
+  NoteDetailFinding,
+  NoteDetailItem,
+} from "./data";
+import { AuditFeedbackPanel } from "./audit-feedback-panel";
 import {
   findingComparisonDifference,
   findingComparisonLabels,
@@ -30,6 +35,7 @@ import { NoteDocumentPreview } from "./note-document-preview";
 import styles from "./reviewer-mobile-note-detail.module.css";
 
 type ReviewerMobileNoteDetailProps = {
+  assurance: { band: "HIGH" | "MEDIUM" | "LIMITED"; reason: string } | null;
   classification: string;
   document: {
     fileName: string;
@@ -38,9 +44,12 @@ type ReviewerMobileNoteDetailProps = {
     url: string | null;
   };
   findings: NoteDetailFinding[];
+  feedback: NoteDetailAuditFeedback | null;
+  feedbackEnabled: boolean;
   issuedAt: string;
   items: NoteDetailItem[];
   noteId: string;
+  noteVersion: number;
   number: string;
   supplier: string;
   supplierTaxId: string;
@@ -51,12 +60,15 @@ type ReviewerMobileNoteDetailProps = {
 type ReadState = "idle" | "loading" | "done";
 
 export function ReviewerMobileNoteDetail({
-  classification,
+  assurance,
   document,
+  feedback,
+  feedbackEnabled,
   findings,
   issuedAt,
   items,
   noteId,
+  noteVersion,
   number,
   supplier,
   supplierTaxId,
@@ -66,22 +78,19 @@ export function ReviewerMobileNoteDetail({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [readState, setReadState] = useState<ReadState>("idle");
   const [readError, setReadError] = useState<string | null>(null);
-  const findingButtons = useRef<Array<HTMLButtonElement | null>>([]);
   const documentDialog = useRef<HTMLDialogElement>(null);
+  const evidenceDialog = useRef<HTMLDialogElement>(null);
   const selectedFinding = findings[selectedIndex] ?? null;
 
-  function selectFinding(index: number, scroll = false) {
+  function selectFinding(index: number) {
     if (index < 0 || index >= findings.length) return;
+    evidenceDialog.current?.close();
     setSelectedIndex(index);
-    if (!scroll) return;
-
-    window.requestAnimationFrame(() => {
-      findingButtons.current[index]?.scrollIntoView({
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-        block: "nearest",
-      });
+    window.scrollTo({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+      top: 0,
     });
   }
 
@@ -120,88 +129,34 @@ export function ReviewerMobileNoteDetail({
   return (
     <section className={styles.mobileDetail} aria-label="Detalhe da nota">
       <header className={styles.appBar}>
-        <Link className={styles.backButton} href="/revisao/notas" aria-label="Voltar para notas">
+        <Link className={styles.iconButton} href="/revisao/notas" aria-label="Voltar para notas">
           <Icon name="chevron" />
         </Link>
-        <strong title={number}>Nota {number}</strong>
-        <span className={classificationClass(classification)}>
-          <Icon name={classificationIcon(classification)} /> {classification}
-        </span>
+        <div className={styles.appBarTitle}>
+          <strong>Diagnóstico da IA</strong>
+          <span>
+            {findings.length
+              ? `${selectedIndex + 1} de ${findings.length}`
+              : "Sem achados"}
+          </span>
+        </div>
+        <button
+          aria-label="Abrir nota fiscal"
+          className={styles.iconButton}
+          onClick={() => openDialog(documentDialog)}
+          type="button"
+        >
+          <Icon name="document" />
+        </button>
       </header>
 
       <div className={styles.mobileContent}>
-        <header className={styles.diagnosisHeader}>
-          <h1>Diagnóstico da IA</h1>
-          <p>{findings.length} {findings.length === 1 ? "achado" : "achados"}</p>
-        </header>
-
-        {selectedFinding && findings.length > 1 ? (
-          <nav
-            className={styles.findingNavigator}
-            aria-label="Selecionar achado"
-          >
-            <button
-              aria-label="Achado anterior"
-              disabled={selectedIndex === 0}
-              onClick={() => selectFinding(selectedIndex - 1, true)}
-              type="button"
-            >
-              <Icon name="chevron" />
-            </button>
-            <div>
-              <span>Achado {selectedIndex + 1} de {findings.length}</span>
-              <strong>{humanizeReviewerFindingText(selectedFinding.title)}</strong>
-            </div>
-            <button
-              aria-label="Próximo achado"
-              disabled={selectedIndex === findings.length - 1}
-              onClick={() => selectFinding(selectedIndex + 1, true)}
-              type="button"
-            >
-              <Icon name="chevron" />
-            </button>
-          </nav>
-        ) : null}
-
-        {findings.length ? (
-          <div className={styles.findingStack}>
-            {findings.map((finding, index) => {
-              const expanded = index === selectedIndex;
-              const detailId = `mobile-finding-${finding.id}`;
-              return (
-                <article
-                  className={`${styles.findingCard} ${expanded ? styles.findingExpanded : ""}`}
-                  data-severity={finding.severity}
-                  key={finding.id}
-                >
-                  <button
-                    aria-controls={detailId}
-                    aria-expanded={expanded}
-                    className={styles.findingHeader}
-                    onClick={() => selectFinding(index)}
-                    ref={(element) => {
-                      findingButtons.current[index] = element;
-                    }}
-                    type="button"
-                  >
-                    <span className={styles.findingNumber}>{index + 1}</span>
-                    <span className={styles.findingHeading}>
-                      <strong>{humanizeReviewerFindingText(finding.title)}</strong>
-                      <small>{mobileSeverityLabel(finding.severity)}</small>
-                    </span>
-                    <Icon className={expanded ? styles.chevronOpen : undefined} name="chevron" />
-                  </button>
-
-                    {expanded ? (
-                      <FindingBody
-                        finding={finding}
-                        id={detailId}
-                      />
-                    ) : null}
-                </article>
-              );
-            })}
-          </div>
+        {selectedFinding ? (
+          <FindingSummary
+            finding={selectedFinding}
+            index={selectedIndex}
+            onOpenEvidence={() => openDialog(evidenceDialog)}
+          />
         ) : (
           <section className={styles.noFindings}>
             <Icon name="check" />
@@ -212,50 +167,61 @@ export function ReviewerMobileNoteDetail({
           </section>
         )}
 
-        <section className={styles.noteSummary} aria-labelledby="mobile-note-summary-title">
-          <h2 id="mobile-note-summary-title">Resumo da nota</h2>
-          <dl>
-            <SummaryRow icon="help" label="Fornecedor" value={supplier} />
-            <SummaryRow icon="building" label="Obra" value={work} />
-            <SummaryRow icon="calendar" label="Emissão" value={issuedAt} />
-            <SummaryRow green icon="money" label="Valor da nota" value={total} />
-          </dl>
-          <button
-            className={styles.openDocument}
-            onClick={() => documentDialog.current?.showModal()}
-            type="button"
-          >
-            <Icon name="document" />
-            <span>Abrir nota fiscal</span>
-            <Icon name="chevron" />
-          </button>
-        </section>
-
-        <details className={styles.extractedData}>
+        <details className={styles.noteSummary}>
           <summary>
             <span>
-              <strong>Dados extraídos</strong>
-              <small>Campos principais identificados na nota fiscal.</small>
+              <strong>Resumo da nota</strong>
+              <small>Fornecedor, obra e dados extraídos.</small>
             </span>
             <Icon name="chevron" />
           </summary>
-          <dl>
-            <div><dt>Número da nota</dt><dd>{number}</dd></div>
-            <div><dt>Fornecedor</dt><dd>{supplier}</dd></div>
-            <div><dt>CNPJ do fornecedor</dt><dd>{supplierTaxId}</dd></div>
-            <div><dt>Data de emissão</dt><dd>{issuedAt}</dd></div>
-            <div><dt>Valor total</dt><dd>{total}</dd></div>
-            <div><dt>Obra</dt><dd>{work}</dd></div>
-            <div><dt>Itens identificados</dt><dd>{items.length}</dd></div>
-          </dl>
+          <div className={styles.noteSummaryBody}>
+            <dl>
+              <SummaryRow icon="help" label="Fornecedor" value={supplier} />
+              <SummaryRow icon="building" label="Obra" value={work} />
+              <SummaryRow icon="calendar" label="Emissão" value={issuedAt} />
+              <SummaryRow green icon="money" label="Valor da nota" value={total} />
+            </dl>
+            <dl className={styles.extractedGrid}>
+              <div><dt>Número da nota</dt><dd>{number}</dd></div>
+              <div><dt>CNPJ do fornecedor</dt><dd>{supplierTaxId}</dd></div>
+              <div><dt>Itens identificados</dt><dd>{items.length}</dd></div>
+            </dl>
+          </div>
         </details>
+
+        <AuditFeedbackPanel
+          assurance={assurance}
+          currentFeedback={feedback}
+          feedbackEnabled={feedbackEnabled}
+          noteId={noteId}
+          noteVersion={noteVersion}
+        />
 
         {readError ? <p className={styles.readError} role="alert">{readError}</p> : null}
       </div>
 
-      <div className={styles.readBar}>
+      <footer className={styles.actionBar}>
+        {findings.length ? (
+          <nav aria-label="Navegação entre achados" className={styles.bottomNavigator}>
+            <button
+              disabled={selectedIndex === 0}
+              onClick={() => selectFinding(selectedIndex - 1)}
+              type="button"
+            >
+              <Icon name="chevron" /> Anterior
+            </button>
+            <button
+              disabled={selectedIndex === findings.length - 1}
+              onClick={() => selectFinding(selectedIndex + 1)}
+              type="button"
+            >
+              Próximo <Icon name="chevron" />
+            </button>
+          </nav>
+        ) : null}
         <button
-          className={readState === "done" ? styles.readDone : undefined}
+          className={`${styles.readButton} ${readState === "done" ? styles.readDone : ""}`}
           disabled={readState !== "idle"}
           onClick={markAsRead}
           type="button"
@@ -267,29 +233,42 @@ export function ReviewerMobileNoteDetail({
               ? "Marcada como lida"
               : "Marcar como lida"}
         </button>
-      </div>
+      </footer>
+
+      <dialog
+        aria-labelledby="mobile-evidence-title"
+        className={styles.sheetDialog}
+        onClick={closeOnBackdrop}
+        ref={evidenceDialog}
+      >
+        <DialogHeader
+          dialogRef={evidenceDialog}
+          eyebrow={selectedFinding ? `Achado ${selectedIndex + 1}` : "Evidência"}
+          id="mobile-evidence-title"
+          title="Onde encontramos"
+        />
+        <div className={styles.sheetDialogBody}>
+          {selectedFinding ? (
+            <FindingEvidencePanel
+              documentUrl={document.url}
+              finding={selectedFinding}
+            />
+          ) : null}
+        </div>
+      </dialog>
 
       <dialog
         aria-labelledby="mobile-document-title"
-        className={styles.documentDialog}
-        onClick={(event) => {
-          if (event.currentTarget === event.target) event.currentTarget.close();
-        }}
+        className={styles.sheetDialog}
+        onClick={closeOnBackdrop}
         ref={documentDialog}
       >
-        <header>
-          <div>
-            <span>Arquivo original</span>
-            <h2 id="mobile-document-title">Nota {number}</h2>
-          </div>
-          <button
-            aria-label="Fechar nota fiscal"
-            onClick={() => documentDialog.current?.close()}
-            type="button"
-          >
-            <Icon name="close" />
-          </button>
-        </header>
+        <DialogHeader
+          dialogRef={documentDialog}
+          eyebrow="Arquivo original"
+          id="mobile-document-title"
+          title={`Nota ${number}`}
+        />
         <div className={styles.documentDialogBody}>
           <NoteDocumentPreview
             documentUrl={document.url}
@@ -307,12 +286,89 @@ export function ReviewerMobileNoteDetail({
   );
 }
 
-function FindingBody({
+function FindingSummary({
   finding,
-  id,
+  index,
+  onOpenEvidence,
 }: {
   finding: NoteDetailFinding;
-  id: string;
+  index: number;
+  onOpenEvidence: () => void;
+}) {
+  const description = humanizeReviewerFindingText(finding.description);
+  const explanation = humanizeReviewerFindingText(finding.explanation);
+  const labels = findingComparisonLabels(finding);
+  const difference = findingComparisonDifference(finding);
+  const actual = formatFindingValueLines(
+    formatFindingValue(finding.actualValue, "Não informado"),
+  ).map(humanizeReviewerFindingText);
+  const expected = formatFindingValueLines(
+    formatFindingValue(finding.expectedValue, "Sem referência comparável"),
+  ).map(humanizeReviewerFindingText);
+  const hasMeaningfulComparison =
+    finding.expectedValue !== null &&
+    finding.actualValue !== null &&
+    formatFindingValue(finding.expectedValue) !==
+      formatFindingValue(finding.actualValue);
+  const showExplanation = reviewerTextIsDistinct(explanation, [description]);
+  const evidence = findingEvidence(finding, description, explanation);
+  const firstObservation = evidence.observations[0] ?? null;
+
+  return (
+    <article className={styles.focusFinding} data-tone={severityTone(finding.severity)}>
+      <span className={styles.severityPill}>{mobileSeverityLabel(finding.severity)}</span>
+      <div className={styles.focusTitle}>
+        <span>{String(index + 1).padStart(2, "0")}</span>
+        <h1>{humanizeReviewerFindingText(finding.title)}</h1>
+      </div>
+      <p className={styles.focusDescription}>{description}</p>
+
+      {hasMeaningfulComparison ? (
+        <section className={styles.comparison} aria-label="Comparativo do achado">
+          <div className={styles.comparisonActual}>
+            <h2>{labels.actual}</h2>
+            <p>{actual.map((line, lineIndex) => <span key={`${line}-${lineIndex}`}>{line}</span>)}</p>
+          </div>
+          <div className={styles.comparisonExpected}>
+            <h2>{labels.expected}</h2>
+            <p>{expected.map((line, lineIndex) => <span key={`${line}-${lineIndex}`}>{line}</span>)}</p>
+          </div>
+          {difference ? (
+            <div className={styles.comparisonDifference}>
+              <span>Diferença</span>
+              <strong>{difference}</strong>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {showExplanation ? (
+        <section className={styles.attentionReason}>
+          <h2>Por que merece atenção</h2>
+          <p>{explanation}</p>
+        </section>
+      ) : null}
+
+      <button className={styles.openEvidence} onClick={onOpenEvidence} type="button">
+        <span>
+          <Icon name="search" />
+          <span>
+            <strong>Onde encontramos</strong>
+            <small>{evidenceLocationSummary(firstObservation, evidence.observations.length)}</small>
+          </span>
+        </span>
+        <Icon name="chevron" />
+      </button>
+    </article>
+  );
+}
+
+function FindingEvidencePanel({
+  documentUrl,
+  finding,
+}: {
+  documentUrl: string | null;
+  finding: NoteDetailFinding;
 }) {
   const description = humanizeReviewerFindingText(finding.description);
   const explanation = humanizeReviewerFindingText(finding.explanation);
@@ -321,91 +377,76 @@ function FindingBody({
     description,
     explanation,
   );
-  const labels = findingComparisonLabels(finding);
-  const difference = findingComparisonDifference(finding);
-  const expected = formatFindingValueLines(
-    formatFindingValue(finding.expectedValue, "Sem referência comparável"),
-  ).map(humanizeReviewerFindingText);
-  const actual = formatFindingValueLines(
-    formatFindingValue(finding.actualValue, "Não informado"),
-  ).map(humanizeReviewerFindingText);
-  const hasMeaningfulComparison =
-    finding.expectedValue !== null &&
-    finding.actualValue !== null &&
-    formatFindingValue(finding.expectedValue) !==
-      formatFindingValue(finding.actualValue);
-  const showExplanation = reviewerTextIsDistinct(explanation, [description]);
+  const firstPage = observations.find((observation) => observation.page)?.page ?? null;
+  const pageUrl = documentUrl
+    ? `${documentUrl.split("#")[0]}${firstPage ? `#page=${firstPage}` : ""}`
+    : null;
 
   return (
-    <div className={styles.findingBody} id={id}>
-      <FindingSection title="O que foi identificado">
-        <p>{description}</p>
-      </FindingSection>
-
-      {observations.length || evidence.length ? (
-        <FindingSection title="Evidências no documento">
-          {observations.length ? (
-            <MobileEvidenceObservations
-              comparedWith={[description, explanation]}
-              observations={observations}
-            />
-          ) : null}
-          {evidence.length ? (
-            <dl className={styles.evidenceList}>
-              {evidence.map((part, partIndex) => (
-                <div key={`${part.label}:${partIndex}`}>
-                  <dt>{part.label}</dt>
-                  <dd>{part.value}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : null}
-        </FindingSection>
-      ) : null}
+    <div className={styles.evidencePanel}>
+      <section>
+        <h3>Trechos relacionados</h3>
+        {observations.length ? (
+          <MobileEvidenceObservations
+            comparedWith={[description, explanation]}
+            observations={observations}
+          />
+        ) : evidence.length ? (
+          <dl className={styles.evidenceList}>
+            {evidence.map((part, partIndex) => (
+              <div key={`${part.label}:${partIndex}`}>
+                <dt>{part.label}</dt>
+                <dd>{part.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className={styles.evidenceEmpty}>
+            A localização exata não foi informada. Confira o arquivo original.
+          </p>
+        )}
+      </section>
 
       {references.length ? (
-        <FindingSection title="Contrato / referência usada">
+        <section>
+          <h3>Referência usada</h3>
           <ul className={styles.referenceList}>
             {references.map((reference) => <li key={reference}>{reference}</li>)}
           </ul>
-        </FindingSection>
-      ) : null}
-
-      {hasMeaningfulComparison ? (
-        <section className={styles.comparison} aria-label="Comparativo do achado">
-          <div>
-            <h3>{labels.expected}</h3>
-            <p>{expected.map((line) => <span key={line}>{line}</span>)}</p>
-          </div>
-          <div>
-            <h3>{labels.actual}</h3>
-            <p>{actual.map((line) => <span key={line}>{line}</span>)}</p>
-          </div>
-          {difference ? (
-            <div className={styles.comparisonDifference}>
-              <h3>Diferença</h3>
-              <strong>{difference}</strong>
-            </div>
-          ) : null}
         </section>
       ) : null}
 
-      {showExplanation ? (
-        <FindingSection title="Por que chamou atenção">
-          <p>{explanation}</p>
-        </FindingSection>
+      {pageUrl ? (
+        <a className={styles.openPageLink} href={pageUrl} rel="noreferrer" target="_blank">
+          <Icon name="document" />
+          {firstPage ? `Abrir documento na página ${firstPage}` : "Abrir documento original"}
+        </a>
       ) : null}
-
     </div>
   );
 }
 
-function FindingSection({ children, title }: { children: ReactNode; title: string }) {
+function DialogHeader({
+  dialogRef,
+  eyebrow,
+  id,
+  title,
+}: {
+  dialogRef: RefObject<HTMLDialogElement | null>;
+  eyebrow: string;
+  id: string;
+  title: string;
+}) {
   return (
-    <section className={styles.findingSection}>
-      <h3>{title}</h3>
-      {children}
-    </section>
+    <header className={styles.dialogHeader}>
+      <div>
+        <span>{eyebrow}</span>
+        <h2 id={id}>{title}</h2>
+      </div>
+      <button aria-label="Fechar" onClick={() => dialogRef.current?.close()} type="button">
+        <Icon name="close" />
+      </button>
+    </header>
   );
 }
 
@@ -427,10 +468,7 @@ function MobileEvidenceObservations({
         const text = observation.text
           ? humanizeReviewerFindingText(observation.text)
           : null;
-        const showText = reviewerTextIsDistinct(text, [
-          ...comparedWith,
-          label,
-        ]);
+        const showText = reviewerTextIsDistinct(text, [...comparedWith, label]);
 
         return (
           <article
@@ -438,11 +476,11 @@ function MobileEvidenceObservations({
           >
             <header>
               <strong>{findingObservationKindLabel(observation.kind)}</strong>
-              {amount ? <b>{amount}</b> : null}
+              {observation.page ? <span>Página {observation.page}</span> : null}
             </header>
             <div className={styles.observationMeta}>
-              {observation.page ? <span>Página {observation.page}</span> : null}
               {date ? <span>{date}</span> : null}
+              {amount ? <b>{amount}</b> : null}
             </div>
             {label ? <h4>{label}</h4> : null}
             {showText ? <p>{text}</p> : null}
@@ -484,9 +522,7 @@ function findingEvidence(
       ...part,
       value: humanizeReviewerFindingText(part.value),
     }))
-    .filter((part) =>
-      reviewerTextIsDistinct(part.value, [description, explanation]),
-    );
+    .filter((part) => reviewerTextIsDistinct(part.value, [description, explanation]));
   const references = [
     ...finding.sources
       .filter((source) => source.kind === "reference")
@@ -501,6 +537,23 @@ function findingEvidence(
   };
 }
 
+function evidenceLocationSummary(
+  firstObservation: FindingEvidenceObservation | null,
+  count: number,
+) {
+  if (!firstObservation) return "Abrir evidências do achado";
+  const page = firstObservation.page ? `Página ${firstObservation.page}` : "Trecho extraído";
+  return `${page} · ${count} ${count === 1 ? "trecho" : "trechos"}`;
+}
+
+function openDialog(ref: RefObject<HTMLDialogElement | null>) {
+  if (ref.current && !ref.current.open) ref.current.showModal();
+}
+
+function closeOnBackdrop(event: MouseEvent<HTMLDialogElement>) {
+  if (event.currentTarget === event.target) event.currentTarget.close();
+}
+
 function isReferenceLabel(value: string) {
   return /refer[eê]ncia|contrato|fonte|se[cç][aã]o|documento usado/i.test(value);
 }
@@ -510,23 +563,15 @@ function normalizedValue(value: string) {
 }
 
 function mobileSeverityLabel(value: string) {
-  if (value === "CRITICAL") return "Crítica";
-  if (value === "WARNING") return "Atenção";
-  return "Informativa";
+  const normalized = value.toUpperCase();
+  if (normalized === "CRITICAL" || normalized === "HIGH") return "Gravidade alta";
+  if (normalized === "INFO" || normalized === "LOW") return "Informativo";
+  return "Atenção";
 }
 
-function classificationClass(classification: string) {
-  const normalized = normalizedValue(classification);
-  if (normalized === "ok") return `${styles.classification} ${styles.classificationOk}`;
-  if (normalized.includes("suspeit") || normalized.includes("aten")) {
-    return `${styles.classification} ${styles.classificationWarning}`;
-  }
-  if (normalized.includes("falha")) {
-    return `${styles.classification} ${styles.classificationDanger}`;
-  }
-  return `${styles.classification} ${styles.classificationInfo}`;
-}
-
-function classificationIcon(classification: string) {
-  return normalizedValue(classification) === "ok" ? "check" : "warning";
+function severityTone(value: string) {
+  const normalized = value.toUpperCase();
+  if (normalized === "CRITICAL" || normalized === "HIGH") return "critical";
+  if (normalized === "INFO" || normalized === "LOW") return "info";
+  return "warning";
 }

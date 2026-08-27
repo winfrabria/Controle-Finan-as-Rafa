@@ -1560,6 +1560,7 @@
 
 .content {
   align-items: start;
+  box-sizing: border-box;
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.78fr);
   max-width: 1440px;
   padding: clamp(24px, 4vw, 48px) clamp(20px, 4vw, 56px);
@@ -2270,5 +2271,795 @@
 
   .pulsing {
     animation: none;
+  }
+}
+
+/* ── Envio público v1 aprovado no SuperDesign ── */
+.content {
+  display: block;
+  max-width: 1120px;
+  padding: 22px 24px 28px;
+}
+
+.sidebar {
+  display: none;
+}
+
+.mainColumn {
+  gap: 14px;
+}
+
+.titleBlock {
+  position: relative;
+}
+
+.titleMeta {
+  bottom: 2px;
+  color: #6d7e99;
+  font-size: 12px;
+  font-weight: 600;
+  position: absolute;
+  right: 0;
+}
+
+.eyebrow {
+  color: #075cff;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.titleBlock h1 {
+  color: #07163b;
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 800;
+  letter-spacing: -1.3px;
+  line-height: 1.06;
+}
+
+.titleBlock p {
+  color: #637596;
+  font-size: 14px;
+  margin-top: 7px;
+}
+
+.formCard {
+  border: 1px solid #dce4ef;
+  border-radius: 18px;
+  box-shadow: 0 18px 55px rgba(24, 49, 91, 0.09);
+  padding: 0;
+  position: relative;
+}
+
+.stepper {
+  background: #fbfcfe;
+  border-bottom: 1px solid #e6ebf2;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  min-height: 64px;
+  padding: 0 30px;
+}
+
+.contextCard .stepper {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.stepper::before {
+  display: none;
+}
+
+.stepper li {
+  align-items: center;
+  background: transparent;
+  color: #7a89a3;
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 12px;
+  justify-content: flex-start;
+  min-height: 64px;
+  padding: 0;
+  position: relative;
+}
+
+.stepper li::after {
+  background: transparent;
+  border-radius: 3px 3px 0 0;
+  bottom: -1px;
+  content: "";
+  height: 3px;
+  left: 0;
+  position: absolute;
+  right: 20%;
+}
+
+.stepper li span:first-child {
+  background: #fff;
+  border: 1px solid #ccd7e6;
+  color: #7383a0;
+  flex: 0 0 32px;
+  font-size: 13px;
+  height: 32px;
+  width: 32px;
+}
+
+.stepper li.active {
+  color: #07163b;
+}
+
+.stepper li.active::after {
+  background: #075cff;
+}
+
+.stepper li.active span:first-child {
+  background: #075cff;
+  border-color: #075cff;
+  box-shadow: 0 5px 15px rgba(7, 92, 255, 0.22);
+  color: #fff;
+}
+
+.stepper li .stepLabel {
+  align-items: flex-start;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  display: block;
+  flex: 0 1 auto;
+  height: auto;
+  justify-content: flex-start;
+  min-width: 0;
+  width: auto;
+}
+
+.stepper li .stepLabel small {
+  color: #91a0b7;
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.publicUploadForm {
+  display: block;
+}
+
+.formBody {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.35fr);
+  min-height: 310px;
+}
+
+.formSection {
+  min-width: 0;
+  padding: 24px 28px;
+}
+
+.formSection + .formSection {
+  border-left: 1px solid #e4eaf2;
+}
+
+.sectionTitle {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.sectionTitle > span {
+  align-items: center;
+  background: #eaf1ff;
+  border-radius: 8px;
+  color: #075cff;
+  display: inline-flex;
+  flex: 0 0 28px;
+  font-size: 12px;
+  font-weight: 800;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.sectionTitle h2,
+.formCard .sectionTitle h2 {
+  color: #07163b;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+.label {
+  color: #304a74;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.projectPicker {
+  position: relative;
+}
+
+.projectSearchShell {
+  position: relative;
+}
+
+.projectSearchShell > svg {
+  color: #7486a4;
+  height: 18px;
+  left: 15px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  z-index: 1;
+}
+
+.projectSearchShell input {
+  background: #fff;
+  border: 1px solid #cfd9e7;
+  border-radius: 11px;
+  color: #28446f;
+  font-size: 13px;
+  font-weight: 600;
+  height: 48px;
+  outline: none;
+  padding: 0 42px;
+  transition: 0.18s ease;
+  width: 100%;
+}
+
+.projectSearchShell input::placeholder {
+  color: #8796ad;
+  font-weight: 500;
+}
+
+.projectSearchShell input:focus {
+  border-color: #075cff;
+  box-shadow: 0 0 0 3px rgba(7, 92, 255, 0.11);
+}
+
+.projectChevron {
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #71819b;
+  pointer-events: none;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: transform 0.18s ease;
+}
+
+.projectSearchShell.open .projectChevron {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.projectOptions {
+  background: #fff;
+  border: 1px solid #d7e1ee;
+  border-radius: 12px;
+  box-shadow: 0 15px 38px rgba(20, 47, 88, 0.16);
+  left: 0;
+  max-height: 214px;
+  overflow-y: auto;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 7px);
+  z-index: 30;
+}
+
+.projectOption {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: #17345f;
+  cursor: pointer;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  min-height: 50px;
+  padding: 9px 11px;
+  text-align: left;
+  width: 100%;
+}
+
+.projectOption:hover,
+.projectOption:focus-visible,
+.projectOption.selected {
+  background: #eef4ff;
+  outline: none;
+}
+
+.projectOption strong,
+.projectOption small {
+  display: block;
+}
+
+.projectOption strong {
+  font-size: 12px;
+}
+
+.projectOption small {
+  color: #72829d;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.projectOption svg {
+  color: #0b9f63;
+  flex: 0 0 17px;
+  height: 17px;
+  width: 17px;
+}
+
+.projectEmpty {
+  color: #74839c;
+  font-size: 12px;
+  margin: 0;
+  padding: 14px 11px;
+  text-align: center;
+}
+
+.selectedProject {
+  align-items: center;
+  background: #f8faff;
+  border: 1px solid #dce5f2;
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+  margin-top: 11px;
+  padding: 10px 11px;
+}
+
+.selectedProjectBadge {
+  align-items: center;
+  background: #e7efff;
+  border-radius: 8px;
+  color: #075cff;
+  display: inline-flex;
+  flex: 0 0 30px;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.selectedProjectBadge svg {
+  height: 17px;
+  width: 17px;
+}
+
+.selectedProjectCopy {
+  flex: 1;
+  min-width: 0;
+}
+
+.selectedProjectCopy small {
+  color: #7a89a2;
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+.selectedProjectCopy strong {
+  color: #1e3b68;
+  display: block;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clearProject {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: #7586a1;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 36px;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.clearProject:hover {
+  background: #fff0f0;
+  color: #d33636;
+}
+
+.clearProject svg {
+  height: 16px;
+  width: 16px;
+}
+
+.projectHelper {
+  color: #74839d;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 10px 2px 0;
+}
+
+.dropzone {
+  background: linear-gradient(180deg, #f8fbff 0%, #f3f7ff 100%);
+  border: 1.5px dashed #9db9e7;
+  border-radius: 14px;
+  min-height: 155px;
+  padding: 20px;
+}
+
+.dropzone > strong {
+  color: #17345f;
+  font-size: 14px;
+  margin-top: 11px;
+}
+
+.dropzone > p {
+  color: #71819c;
+  font-size: 12px;
+  margin: 5px 0 0;
+}
+
+.uploadCircle {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 7px 20px rgba(7, 92, 255, 0.13);
+  height: 42px;
+  margin: 0;
+  width: 42px;
+}
+
+.fileSourceActions {
+  display: flex;
+  justify-content: center;
+  margin-top: 11px;
+}
+
+.fileSourceActions button {
+  border-color: #d5deeb;
+  border-radius: 9px;
+  color: #38557e;
+  font-size: 12px;
+  min-height: 38px;
+}
+
+.selectedFileCard {
+  align-items: center;
+  background: linear-gradient(180deg, #f9fbff 0%, #f3f7ff 100%);
+  border: 1px solid #bcd2f4;
+  border-radius: 14px;
+  display: flex;
+  gap: 15px;
+  min-height: 155px;
+  padding: 22px;
+}
+
+.fileTypeLarge {
+  align-items: center;
+  background: #e4edff;
+  border-radius: 14px;
+  color: #075cff;
+  display: inline-flex;
+  flex: 0 0 52px;
+  font-size: 12px;
+  font-weight: 800;
+  height: 52px;
+  justify-content: center;
+  width: 52px;
+}
+
+.selectedFileMeta {
+  flex: 1;
+  min-width: 0;
+}
+
+.selectedFileMeta > small {
+  color: #075cff;
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.selectedFileMeta > strong {
+  color: #17345f;
+  display: block;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectedFileMeta > span {
+  color: #7d8da7;
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.selectedFileMeta > em {
+  align-items: center;
+  color: #0b9f63;
+  display: inline-flex;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.selectedFileMeta > em svg {
+  height: 15px;
+  width: 15px;
+}
+
+.selectedFileActions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.selectedFileActions button {
+  background: #fff;
+  border: 1px solid #d5deeb;
+  border-radius: 9px;
+  color: #38557e;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 0 11px;
+}
+
+.selectedFileActions button:hover {
+  border-color: #adc1df;
+  color: #075cff;
+}
+
+.selectedFileActions .removeFileButton:hover {
+  background: #fff8f8;
+  border-color: #f2c2c2;
+  color: #d33636;
+}
+
+.formFooter {
+  align-items: center;
+  background: #fbfcfe;
+  border-top: 1px solid #e4eaf2;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  min-height: 74px;
+  padding: 12px 28px;
+}
+
+.formatInfo {
+  align-items: center;
+  color: #71819b;
+  display: flex;
+  font-size: 12px;
+  gap: 10px;
+  margin: 0;
+}
+
+.formatInfo svg {
+  flex: 0 0 18px;
+  height: 18px;
+  width: 18px;
+}
+
+.formFooter .submitBtn {
+  border-radius: 11px;
+  box-shadow: 0 9px 22px rgba(7, 92, 255, 0.22);
+  height: 50px;
+  margin: 0;
+  min-width: 220px;
+  width: auto;
+}
+
+.formCard > .status,
+.contextCard > .contextFlow {
+  padding: clamp(28px, 4vw, 44px);
+}
+
+.errorResultCard {
+  border-top: 4px solid #ef5555;
+}
+
+.errorResultCard > p {
+  max-width: 650px;
+}
+
+.resultButtonsRow {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.resultButtonsRow > .submitBtn,
+.resultButtonsRow > .btnOutline {
+  margin: 0;
+  min-height: 46px;
+}
+
+@media (max-width: 760px) {
+  .titleMeta {
+    display: none;
+  }
+
+  .header {
+    min-height: 62px;
+    padding-inline: 18px;
+  }
+
+  .loginLink {
+    font-size: 0;
+    padding-inline: 11px;
+  }
+
+  .loginLink svg {
+    height: 19px;
+    width: 19px;
+  }
+
+  .content {
+    padding: 14px 12px 20px;
+  }
+
+  .titleBlock h1 {
+    font-size: 27px;
+  }
+
+  .titleBlock p {
+    font-size: 12px;
+    line-height: 1.35;
+    margin-top: 5px;
+  }
+
+  .eyebrow {
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+
+  .stepper {
+    min-height: 52px;
+    padding: 0 16px;
+  }
+
+  .stepper li {
+    gap: 0;
+    justify-content: center;
+    min-height: 52px;
+  }
+
+  .stepper li::after {
+    right: 0;
+  }
+
+  .stepper li span:first-child {
+    flex-basis: 29px;
+    height: 29px;
+    width: 29px;
+  }
+
+  .stepper li .stepLabel {
+    display: none;
+  }
+
+  .formBody {
+    display: block;
+  }
+
+  .formSection {
+    padding: 18px 20px;
+  }
+
+  .sectionTitle {
+    margin-bottom: 12px;
+  }
+
+  .formSection + .formSection {
+    border-left: 0;
+    border-top: 1px solid #e4eaf2;
+  }
+
+  .projectHelper {
+    display: none;
+  }
+
+  .projectSearchShell input {
+    font-size: 16px;
+  }
+
+  .selectedFileCard {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .fileTypeLarge {
+    flex-basis: 44px;
+    height: 44px;
+    width: 44px;
+  }
+
+  .selectedFileMeta > em {
+    margin-top: 5px;
+  }
+
+  .selectedFileActions {
+    width: 100%;
+  }
+
+  .selectedFileActions button {
+    flex: 1;
+    min-height: 34px;
+  }
+
+  .fileSourceActions {
+    display: flex;
+  }
+
+  .formFooter {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+    padding: 11px 20px 13px;
+  }
+
+  .formatInfo {
+    font-size: 10px;
+    justify-content: center;
+    line-height: 1.25;
+    text-align: center;
+  }
+
+  .formFooter .submitBtn {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .formCard > .status,
+  .contextCard > .contextFlow {
+    padding: 28px 20px;
+  }
+
+  .resultButtonsRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 350px) {
+  .content {
+    padding-inline: 8px;
+  }
+
+  .formSection,
+  .formFooter {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .fileSourceActions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .fileSourceActions button {
+    width: 100%;
   }
 }

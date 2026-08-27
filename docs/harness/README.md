@@ -7,11 +7,13 @@ O Harness transforma uma extração validada em uma decisão auditável. A ordem
 3. regras universais determinísticas;
 4. regras e parâmetros ativos da obra;
 5. descoberta livre estruturada pelo Terra high;
-6. matriz de decisão;
-7. persistência de achados, métricas e diagnóstico.
+6. seleção opcional de verificação independente em anexos de risco;
+7. matriz de decisão e faixa de garantia;
+8. persistência de achados, métricas, diagnóstico e feedback.
 
-Política do código: `2026-08-21.1`; prompt: `2026-08-21.1`; regras: `2026-08-21.1`; schema:
-`2026-08-21.1`. Os artefatos versionados ficam nas pastas
+Política do código local: `2026-08-25.1`; prompt: `2026-08-25.1`; regras:
+`2026-08-25.1`; schema: `2026-08-25.1`. Esta é uma candidata local e só se
+torna baseline de produção após confirmação explícita de publicação. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
 versão ativa.
@@ -29,21 +31,36 @@ versão ativa.
   itens do mesmo documento, evitando falsos positivos por produto;
 - cobranças consolidadas usam papel e grupo documental para reconciliar todos os
   suportes presentes, sem regra específica por fornecedor, número ou valor;
-- campos vazios só viram achado quando o próprio documento declarar a
-  obrigatoriedade; a regra vale para qualquer formulário;
+- campos vazios só viram achado quando houver base verificável: indicação
+  explícita no documento ou política global confirmada. Uma área visivelmente
+  vazia, isoladamente, não comprova obrigatoriedade;
 - `itemCoverage` registra se a camada totalizadora está completa, incompleta ou
-  desconhecida. `TOTAL_MISMATCH` só é permitido com cobertura explicitamente
-  completa, sem linhas faltantes e sem déficit entre itens declarados e extraídos;
-- uma resposta estruturalmente inválida permite uma única reconstrução com o OCR ou rascunho já obtido; sem material reutilizável, o mesmo Terra é repetido uma vez. Não existe cadeia silenciosa entre modelos;
-- a auditoria faz no máximo duas chamadas e o `ProcessingJob` não repete externamente a rota já concluída;
+desconhecida. `TOTAL_MISMATCH` só é permitido com cobertura explicitamente
+completa, sem linhas faltantes e sem déficit entre itens declarados e extraídos;
+- divergência de quantidade × preço unitário só vira achado quando a extração
+  confirma visualmente os três valores na mesma linha. Uma soma contaminada por
+  leitura aritmética não confirmada não autoriza `TOTAL_MISMATCH`;
+- Terra high é a rota primária. Somente rejeição de configuração, timeout ou
+  resposta estrutural inválida habilitam uma única recuperação no Sol high;
+- quando o OpenRouter devolve `file_annotations`, o OCR já pago é reutilizado
+  no Sol. Sem OCR ou rascunho reutilizável, o arquivo pode ser enviado uma única
+  vez ao modelo distinto de recuperação;
+- a extração e a auditoria fazem no máximo duas chamadas e o `ProcessingJob`
+  não repete externamente uma rota já esgotada;
 - `reasoning.exclude=true`; chain-of-thought nunca é solicitado ou persistido;
 - resposta de IA validada com Zod e JSON Schema estrito;
 - URL assinada, chave, autorização e reasoning são removidos de dados persistidos;
-- falha de leitura termina em `READ_FAILED`, sem achado e sem notificação ao Rafael;
+- arquivo vazio, corrompido, criptografado, protegido ou realmente ilegível
+  termina em `READ_FAILED`, sem achado e sem notificação ao Rafael;
+- documento legível sem base auditável suficiente termina em
+  `INFORMATION_INSUFFICIENT`; erro de API, timeout ou configuração termina em
+  falha técnica e fica disponível para reprocessamento administrativo;
 - confiança de leitura baixa, isoladamente, não encerra um documento composto
   materialmente extraído; total, texto multipágina e itens com valores formam
   evidência estrutural independente antes da auditoria;
-- os resultados canônicos são `OK`, `SUSPICIOUS`, `NEEDS_CONTEXT` e `READ_FAILED`; `SUSPICIOUS` é terminal no MVP e não cria decisão humana;
+- os resultados canônicos são `OK`, `SUSPICIOUS`, `NEEDS_CONTEXT`,
+  `INFORMATION_INSUFFICIENT` e `READ_FAILED`; `SUSPICIOUS` é terminal no MVP e
+  não cria decisão humana;
 - divergências de valor, data, total ou identificador comprováveis no próprio anexo viram `SUSPICIOUS`; perguntas são reservadas a fatos externos realmente ausentes;
 - `NEEDS_CONTEXT` permite até três perguntas específicas, uma submissão e uma reanálise. Se ainda faltar contexto, o estado interno permanece `NEEDS_CONTEXT`, mas o estado público termina em `COMPLETED`;
 - no MVP, cada `Note` representa um anexo recebido e o Rafael apenas consulta o diagnóstico e marca a leitura individualmente (`NoteRead`);
@@ -61,6 +78,15 @@ versão ativa.
 - todos os achados consolidados, inclusive determinísticos, ficam vinculados ao
   `AiRun` que fechou a decisão para o log administrativo mostrar a execução por
   inteiro;
+- o verificador seletivo usa Sol high e, quando habilitado, faz no máximo uma
+  chamada por fingerprint imutável. `off` é o padrão, `shadow` não altera o
+  diagnóstico e `enforce` exige aprovação explícita do gate humano;
+- anexos de risco não verificados recebem garantia limitada. O Rafael vê apenas
+  a faixa alta, média ou limitada e um motivo curto; métricas numéricas ficam no
+  ADMIN;
+- o feedback do Rafael avalia a qualidade do diagnóstico e nunca reintroduz
+  aprovação/rejeição financeira. A versão da nota e o `AiRun` ficam vinculados
+  para impedir que feedback antigo seja aplicado a uma auditoria nova;
 
 Reinicie o servidor após qualquer troca de modelo para limpar os clientes em
 cache. Comparações futuras devem ocorrer em ambiente controlado, nunca por uma
@@ -73,6 +99,8 @@ variável antiga esquecida no deploy.
 - `GET /api/admin/logs`: trilha administrativa, execuções da IA e decisões humanas;
 - `POST /api/internal/ai/jobs/:id/run`: execução autenticada de um job;
 - `POST /api/admin/notas/:id/reprocess`: agenda reprocessamento autenticado.
+- `PUT /api/notas/:id/audit-feedback`: registra feedback diagnóstico individual
+  e idempotente, sem alterar estado financeiro ou achados.
 - `POST /api/validacoes`: endpoint legado bloqueado no MVP (histórico permanece somente para consulta administrativa).
 
 O status público não expõe classificação, achados, custos ou detalhes técnicos. Ele

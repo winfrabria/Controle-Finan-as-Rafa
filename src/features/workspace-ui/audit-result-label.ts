@@ -3,6 +3,7 @@ export type AuditResultLabel =
   | "Em análise"
   | "Falha de leitura"
   | "Falha de processamento"
+  | "Informação insuficiente"
   | "OK"
   | "Precisa de informação"
   | "Suspeita";
@@ -12,6 +13,9 @@ export function auditResultLabel(
   legacyClassification: string | null | undefined,
   noteStatus?: string | null,
 ): AuditResultLabel {
+  if (legacyClassification === "NO_PARAMETER") {
+    return "Informação insuficiente";
+  }
   if (auditResult === "OK") return "OK";
   if (auditResult === "SUSPICIOUS") return "Suspeita";
   if (auditResult === "NEEDS_CONTEXT") return "Precisa de informação";
@@ -22,7 +26,6 @@ export function auditResultLabel(
 
   if (legacyClassification === "OK") return "OK";
   if (legacyClassification === "SUSPICIOUS") return "Suspeita";
-  if (legacyClassification === "NO_PARAMETER") return "Precisa de informação";
   if (legacyClassification === "INCOMPATIBLE") return "Falha de leitura";
   return "Em análise";
 }
@@ -34,6 +37,7 @@ export function auditResultTone(label: AuditResultLabel) {
   }
   if (
     label === "Análise incompleta" ||
+    label === "Informação insuficiente" ||
     label === "Precisa de informação" ||
     label === "Em análise"
   ) {

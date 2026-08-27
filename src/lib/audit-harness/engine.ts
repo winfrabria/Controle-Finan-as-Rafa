@@ -7,8 +7,16 @@ import type {
   WorkRuleInput,
 } from "./contracts";
 import { decideClassification } from "./decision-matrix";
-import { isReadFailure, selectReasoningEffort } from "./policy";
-import { evaluateUniversalRules, evaluateWorkRules } from "./rules";
+import {
+  hasInsufficientAuditBasis,
+  isReadFailure,
+  selectReasoningEffort,
+} from "./policy";
+import {
+  evaluateUniversalRules,
+  evaluateWorkRules,
+  hasCompleteItemCoverage,
+} from "./rules";
 import { HARNESS_VERSIONS } from "./versions";
 
 function stableJson(value: unknown): string {
@@ -639,7 +647,10 @@ export function filterAiDiscoveryFindings(
   );
 
   return findings.filter((finding) => {
-    if (finding.source !== "AI_DISCOVERY") return true;
+    if (
+      finding.source !== "AI_DISCOVERY" &&
+      finding.source !== "AI_VERIFICATION"
+    ) return true;
     if (finding.severity === "INFO") return false;
 
     const text = findingSearchText(finding);
@@ -665,6 +676,7 @@ export function evaluateHarness(input: {
   workRules?: WorkRuleInput[];
   duplicates?: DuplicateCandidate[];
   aiDiscovery?: AiDiscoveryResponse;
+  verificationFindings?: HarnessFinding[];
   now?: Date;
 }) {
   const readFailed = isReadFailure(input.invoice);
@@ -685,7 +697,10 @@ export function evaluateHarness(input: {
     now: input.now,
   });
   const work = evaluateWorkRules(input.invoice, input.workRules ?? []);
-  const discoveredFindings = input.aiDiscovery?.findings ?? [];
+  const discoveredFindings = [
+    ...(input.aiDiscovery?.findings ?? []),
+    ...(input.verificationFindings ?? []),
+  ];
   const aiFindings = filterAiDiscoveryFindings(
     discoveredFindings,
     input.workRules ?? [],
@@ -712,17 +727,21 @@ export function evaluateHarness(input: {
     ].map((finding) => resolveFindingDocumentGroup(finding, input.invoice))).filter(
       (finding) =>
         finding.code !== "TOTAL_MISMATCH" ||
-        input.invoice.itemCoverage?.status === "COMPLETE",
+        hasCompleteItemCoverage(input.invoice),
     ),
   ).filter(
     (finding) =>
-      finding.source !== "AI_DISCOVERY" || finding.severity !== "INFO",
+      (finding.source !== "AI_DISCOVERY" &&
+        finding.source !== "AI_VERIFICATION") ||
+      finding.severity !== "INFO",
   );
   const deterministicCoverage = universal.covered || work.covered;
   const aiCoverage = input.aiDiscovery?.coverage.sufficientEvidence ?? false;
   const contextQuestions = routedContext.contextQuestions;
   const contextRequired =
     contextQuestions.length > 0 && (input.aiDiscovery?.needsContext ?? false);
+  const declaredContextWithoutQuestion =
+    input.aiDiscovery?.needsContext === true && contextQuestions.length === 0;
 
   const classification = decideClassification({
     contextQuestions: contextQuestions.length,
@@ -731,6 +750,11 @@ export function evaluateHarness(input: {
     deterministicCoverage,
     aiCoverage,
     findings,
+    // A declaração do avaliador não consegue preencher linhas, páginas ou
+    // camadas econômicas ausentes da extração. Achados objetivos continuam
+    // tendo precedência, mas a ausência dessa base nunca encerra como OK.
+    informationInsufficient:
+      hasInsufficientAuditBasis(input.invoice) || declaredContextWithoutQuestion,
   });
 
   return {

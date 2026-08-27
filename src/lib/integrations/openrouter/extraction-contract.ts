@@ -76,6 +76,16 @@ export const invoiceItemCoverageSchema = z
   })
   .strict();
 
+export const invoiceBoundingBoxSchema = z
+  .object({
+    x: z.number().nonnegative(),
+    y: z.number().nonnegative(),
+    width: z.number().positive(),
+    height: z.number().positive(),
+    unit: z.enum(["NORMALIZED", "PIXEL"]),
+  })
+  .strict();
+
 const UNKNOWN_ITEM_COVERAGE = {
   status: "UNKNOWN" as const,
   declaredItemCount: null,
@@ -95,6 +105,7 @@ export const invoiceEvidenceObservationSchema = z
     date: isoDate,
     page: z.number().int().positive().nullable().default(null),
     text: nullableText,
+    boundingBox: invoiceBoundingBoxSchema.nullable().optional(),
   })
   .strict()
   .refine(
@@ -110,9 +121,14 @@ export const invoiceRequiredFieldCheckSchema = z
     field: z.string().trim().min(1),
     label: z.string().trim().min(1),
     requiredByDocument: z.boolean(),
+    requirementBasis: z
+      .enum(["EXPLICIT_DOCUMENT", "VERIFIED_POLICY", "NONE"])
+      .optional(),
+    requirementEvidence: nullableText.optional(),
     present: z.boolean(),
     page: z.number().int().positive().nullable().default(null),
     evidence: nullableText,
+    boundingBox: invoiceBoundingBoxSchema.nullable().optional(),
   })
   .strict();
 
@@ -150,6 +166,10 @@ export const invoiceExtractionItemSchema = z
     documentGroup: nullableText,
     documentRole: documentRoleSchema.default("LINE_ITEM"),
     countsTowardDocumentTotal: z.boolean().optional(),
+    arithmeticVerified: z.boolean().optional(),
+    sourcePage: z.number().int().positive().nullable().default(null),
+    sourceText: nullableText,
+    sourceBoundingBox: invoiceBoundingBoxSchema.nullable().optional(),
     quantity: decimalText,
     unit: nullableText,
     unitPrice: decimalText,
@@ -204,6 +224,21 @@ const OCR_FALLBACK_WARNING =
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizedBoundingBox(value: unknown) {
+  if (!isRecord(value)) return null;
+  const parsed = invoiceBoundingBoxSchema.safeParse({
+    x: value.x,
+    y: value.y,
+    width: value.width ?? value.w,
+    height: value.height ?? value.h,
+    unit:
+      typeof value.unit === "string"
+        ? value.unit.trim().toUpperCase()
+        : "NORMALIZED",
+  });
+  return parsed.success ? parsed.data : null;
 }
 
 function normalizedConfidence(value: unknown) {
@@ -268,7 +303,7 @@ function normalizedItemCoverage(
   const extractedItemCount =
     derivedTotalLayerCount > 0
       ? derivedTotalLayerCount
-      : numberOrNull(value.extractedItemCount ?? value.extracted_item_count) ?? items.length;
+      : items.length;
   const declaredItemCount = numberOrNull(
     value.declaredItemCount ?? value.declared_item_count,
   );
@@ -378,6 +413,11 @@ function normalizedEvidenceObservations(value: unknown) {
       text: normalizeNullableText(
         rawObservation.text ?? rawObservation.summary ?? rawObservation.description,
       ),
+      boundingBox: normalizedBoundingBox(
+        rawObservation.boundingBox ??
+          rawObservation.bounding_box ??
+          rawObservation.coordinates,
+      ),
     };
 
     const parsed = invoiceEvidenceObservationSchema.safeParse(observation);
@@ -388,12 +428,21 @@ function normalizedEvidenceObservations(value: unknown) {
 function normalizedRequiredFieldChecks(value: unknown) {
   if (!Array.isArray(value)) return [];
 
+  const explicitRequirementPattern =
+    /(?:\*\s*$|\bobrigat[oó]ri[oa]s?\b|\bpreenchimento\s+obrigat[oó]rio\b|\brequired\s+field\b|\bmandatory\b)/i;
+
   return value.slice(0, 50).flatMap((rawCheck) => {
     if (!isRecord(rawCheck)) return [];
     const requiredByDocument =
       rawCheck.requiredByDocument ??
       rawCheck.required_by_document ??
       rawCheck.required;
+    const rawRequirementBasis =
+      typeof rawCheck.requirementBasis === "string"
+        ? rawCheck.requirementBasis
+        : typeof rawCheck.requirement_basis === "string"
+          ? rawCheck.requirement_basis
+          : undefined;
     const present = rawCheck.present ?? rawCheck.filled ?? rawCheck.preenchido;
     if (
       typeof requiredByDocument !== "boolean" ||
@@ -410,10 +459,31 @@ function normalizedRequiredFieldChecks(value: unknown) {
     );
     if (typeof field !== "string" || typeof label !== "string") return [];
 
+    const evidence = normalizeNullableText(
+      rawCheck.evidence ?? rawCheck.text ?? rawCheck.excerpt,
+    );
+    const suppliedRequirementEvidence = normalizeNullableText(
+      rawCheck.requirementEvidence ??
+        rawCheck.requirement_evidence ??
+        rawCheck.requiredBecause,
+    );
+    const inferredExplicitRequirement =
+      requiredByDocument &&
+      explicitRequirementPattern.test(
+        `${suppliedRequirementEvidence ?? ""} ${evidence ?? ""}`,
+      );
+    const requirementBasis =
+      rawRequirementBasis?.trim().toUpperCase() ??
+      (inferredExplicitRequirement ? "EXPLICIT_DOCUMENT" : "NONE");
+
     const parsed = invoiceRequiredFieldCheckSchema.safeParse({
       field,
       label,
       requiredByDocument,
+      requirementBasis,
+      requirementEvidence:
+        suppliedRequirementEvidence ??
+        (requirementBasis === "EXPLICIT_DOCUMENT" ? evidence : null),
       present,
       page:
         typeof rawCheck.page === "number" &&
@@ -421,8 +491,9 @@ function normalizedRequiredFieldChecks(value: unknown) {
         rawCheck.page > 0
           ? rawCheck.page
           : null,
-      evidence: normalizeNullableText(
-        rawCheck.evidence ?? rawCheck.text ?? rawCheck.excerpt,
+      evidence,
+      boundingBox: normalizedBoundingBox(
+        rawCheck.boundingBox ?? rawCheck.bounding_box ?? rawCheck.coordinates,
       ),
     });
     return parsed.success ? [parsed.data] : [];
@@ -484,6 +555,21 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
                   rawItem.countsTowardDocumentTotal,
               }
             : {}),
+          ...(typeof rawItem.arithmeticVerified === "boolean"
+            ? { arithmeticVerified: rawItem.arithmeticVerified }
+            : {}),
+          sourcePage:
+            typeof rawItem.sourcePage === "number"
+              ? rawItem.sourcePage
+              : rawItem.source_page,
+          sourceText: normalizeNullableText(
+            rawItem.sourceText ?? rawItem.source_text,
+          ),
+          sourceBoundingBox: normalizedBoundingBox(
+            rawItem.sourceBoundingBox ??
+              rawItem.source_bounding_box ??
+              rawItem.coordinates,
+          ),
           quantity: rawItem.quantity ?? rawItem.qty,
           unit: normalizeNullableText(rawItem.unit),
           unitPrice: rawItem.unitPrice ?? rawItem.unit_price,
@@ -552,7 +638,15 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
 
 export function parseInvoiceExtractionPayload(value: unknown) {
   const direct = invoiceExtractionSchema.safeParse(value);
-  if (direct.success) return direct;
+  if (direct.success) {
+    return invoiceExtractionSchema.safeParse({
+      ...direct.data,
+      itemCoverage: normalizedItemCoverage(
+        direct.data.itemCoverage,
+        direct.data.items,
+      ),
+    });
+  }
   return invoiceExtractionSchema.safeParse(
     normalizeInvoiceExtractionPayload(value),
   );
@@ -591,6 +685,19 @@ export function createOcrFallbackExtraction(
 export function isOcrFallbackExtraction(invoice: { warnings: string[] }) {
   return invoice.warnings.includes(OCR_FALLBACK_WARNING);
 }
+
+const BOUNDING_BOX_JSON_SCHEMA = {
+  type: ["object", "null"],
+  additionalProperties: false,
+  required: ["x", "y", "width", "height", "unit"],
+  properties: {
+    x: { type: "number", minimum: 0 },
+    y: { type: "number", minimum: 0 },
+    width: { type: "number", exclusiveMinimum: 0 },
+    height: { type: "number", exclusiveMinimum: 0 },
+    unit: { type: "string", enum: ["NORMALIZED", "PIXEL"] },
+  },
+} as const;
 
 export const INVOICE_EXTRACTION_JSON_SCHEMA = {
   type: "object",
@@ -646,6 +753,10 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
           "documentGroup",
           "documentRole",
           "countsTowardDocumentTotal",
+          "arithmeticVerified",
+          "sourcePage",
+          "sourceText",
+          "sourceBoundingBox",
           "quantity",
           "unit",
           "unitPrice",
@@ -675,6 +786,21 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
             description:
               "True only when this item belongs to the single non-overlapping layer that composes the document total.",
           },
+          arithmeticVerified: {
+            type: "boolean",
+            description:
+              "True only after quantity, unit price and printed line total were visually confirmed in the same source row.",
+          },
+          sourcePage: {
+            type: ["integer", "null"],
+            minimum: 1,
+            description: "PDF page containing the source row for this item.",
+          },
+          sourceText: {
+            type: ["string", "null"],
+            description: "Shortest useful visible excerpt identifying the source row.",
+          },
+          sourceBoundingBox: BOUNDING_BOX_JSON_SCHEMA,
           quantity: { type: ["string", "null"] },
           unit: { type: ["string", "null"] },
           unitPrice: { type: ["string", "null"] },
@@ -685,7 +811,16 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["kind", "documentGroup", "label", "amount", "date", "page", "text"],
+              required: [
+                "kind",
+                "documentGroup",
+                "label",
+                "amount",
+                "date",
+                "page",
+                "text",
+                "boundingBox",
+              ],
               properties: {
                 kind: {
                   type: "string",
@@ -701,6 +836,7 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
                 date: { type: ["string", "null"] },
                 page: { type: ["integer", "null"], minimum: 1 },
                 text: { type: ["string", "null"] },
+                boundingBox: BOUNDING_BOX_JSON_SCHEMA,
               },
             },
           },
@@ -748,17 +884,26 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
           "field",
           "label",
           "requiredByDocument",
+          "requirementBasis",
+          "requirementEvidence",
           "present",
           "page",
           "evidence",
+          "boundingBox",
         ],
         properties: {
           field: { type: "string", minLength: 1 },
           label: { type: "string", minLength: 1 },
           requiredByDocument: { type: "boolean" },
+          requirementBasis: {
+            type: "string",
+            enum: ["EXPLICIT_DOCUMENT", "VERIFIED_POLICY", "NONE"],
+          },
+          requirementEvidence: { type: ["string", "null"] },
           present: { type: "boolean" },
           page: { type: ["integer", "null"], minimum: 1 },
           evidence: { type: ["string", "null"] },
+          boundingBox: BOUNDING_BOX_JSON_SCHEMA,
         },
       },
     },

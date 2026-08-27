@@ -321,6 +321,9 @@ export async function submitContextAnswers(input: {
           version: current.version,
         },
         data: {
+          assuranceBand: null,
+          assuranceReason: null,
+          assuranceVersion: null,
           contextSubmittedAt: now,
           failureCode: null,
           failureMessage: null,

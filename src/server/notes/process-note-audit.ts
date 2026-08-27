@@ -19,6 +19,8 @@ import {
 } from "@/generated/prisma/enums";
 import {
   HARNESS_VERSIONS,
+  buildVerificationChecks,
+  canRetainSuspiciousAfterVerificationFailure,
   evaluateHarness,
   evaluateUniversalRules,
   evaluateWorkRules,
@@ -26,9 +28,12 @@ import {
   isSupportedFinding,
   resolveAuditEvaluatorModel,
   resolveAuditReasoningEffort,
+  resolveAuditAssurance,
+  resolveHarnessVerifierMode,
   resolvePostContextClassification,
   sanitizeForPersistence,
   selectReasoningEffort,
+  selectVerification,
   type ContextAnswerForAudit,
   type HarnessClassification,
   type HarnessInvoice,
@@ -42,11 +47,16 @@ import {
   type AuditDiscoveryClient,
 } from "@/server/integrations/openrouter/audit-client";
 import { OpenRouterClientError } from "@/server/integrations/openrouter/client";
+import type { VerificationClient } from "@/server/integrations/openrouter/verification-client";
 import {
   PUBLIC_CONTEXT_CAPABILITY_TTL_SECONDS,
   terminalPublicCapabilityFields,
 } from "@/server/notes/public-capability";
 import { invalidateNoteReads } from "@/server/notes/note-read-invalidation";
+import {
+  runSelectiveVerification,
+  SelectiveVerificationError,
+} from "@/server/notes/run-selective-verification";
 import {
   createNotificationWithPushDeliveries,
   dispatchPendingPushDeliveries,
@@ -66,6 +76,9 @@ function getAuditFailureDetails(error: unknown) {
           attempts: error.attempts,
           attemptTrace: error.attemptTrace,
           model: error.model,
+          provider: error.provider,
+          requestId: error.requestId,
+          routingMetadata: error.routingMetadata,
         }
       : { attemptTrace: [] };
 
@@ -135,6 +148,9 @@ function dateOnly(value: Date | null) {
 function classificationValue(value: HarnessClassification) {
   if (value === "OK") return NoteClassification.OK;
   if (value === "SUSPICIOUS") return NoteClassification.SUSPICIOUS;
+  if (value === "INFORMATION_INSUFFICIENT") {
+    return NoteClassification.NO_PARAMETER;
+  }
   return null;
 }
 
@@ -143,6 +159,7 @@ function auditResultValue(value: HarnessClassification) {
     OK: AuditResult.OK,
     SUSPICIOUS: AuditResult.SUSPICIOUS,
     NEEDS_CONTEXT: AuditResult.NEEDS_CONTEXT,
+    INFORMATION_INSUFFICIENT: AuditResult.NEEDS_CONTEXT,
     READ_FAILED: AuditResult.READ_FAILED,
   }[value];
 }
@@ -151,6 +168,7 @@ function noteStatus(value: HarnessClassification) {
   if (value === "READ_FAILED") return NoteStatus.READ_FAILED;
   if (value === "SUSPICIOUS") return NoteStatus.PENDING_VALIDATION;
   if (value === "NEEDS_CONTEXT") return NoteStatus.PROCESSING;
+  if (value === "INFORMATION_INSUFFICIENT") return NoteStatus.OK;
   return NoteStatus.OK;
 }
 
@@ -171,11 +189,22 @@ async function loadAuditContext(noteId: string, contextSubmissionId?: string) {
       extractedData: true,
       id: true,
       issuedAt: true,
+      originalFileName: true,
+      originalFilePath: true,
+      originalFileSha256: true,
+      originalMimeType: true,
+      originalPageCount: true,
       processingStage: true,
       supplierTaxId: true,
       totalAmount: true,
       version: true,
       workId: true,
+      aiRuns: {
+        where: { kind: AiRunKind.EXTRACTION },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { attempts: true },
+      },
     },
   });
   if (!note) throw new AuditPipelineError("NOTE_NOT_FOUND", "Nota não encontrada.");
@@ -256,6 +285,12 @@ async function loadAuditContext(noteId: string, contextSubmissionId?: string) {
     })),
     invoice,
     noteVersion: note.version,
+    originalFileName: note.originalFileName,
+    originalFilePath: note.originalFilePath,
+    originalFileSha256: note.originalFileSha256,
+    originalMimeType: note.originalMimeType,
+    originalPageCount: note.originalPageCount,
+    extractionAttempts: note.aiRuns[0]?.attempts ?? 1,
     workRules,
   };
 }
@@ -275,6 +310,9 @@ async function finalizeReadFailure(
       },
       data: {
         auditResult: AuditResult.READ_FAILED,
+        assuranceBand: "LIMITED",
+        assuranceReason: "O arquivo não permitiu uma leitura confiável.",
+        assuranceVersion: HARNESS_VERSIONS.policy,
         classification: null,
         failureCode: "READ_FAILED",
         failureMessage: "A leitura não possui qualidade mínima para auditoria.",
@@ -312,7 +350,11 @@ async function finalizeReadFailure(
         type: "READ_FAILED",
         fromStatus: NoteStatus.PROCESSING,
         toStatus: NoteStatus.READ_FAILED,
-        data: { routedToReviewer: false, policyVersion: HARNESS_VERSIONS.policy },
+        data: {
+          failureCategory: "DOCUMENT_UNREADABLE",
+          routedToReviewer: false,
+          policyVersion: HARNESS_VERSIONS.policy,
+        },
       },
     });
     return note;
@@ -325,6 +367,7 @@ export async function processNoteAudit(
     client?: AuditDiscoveryClient;
     contextSubmissionId?: string;
     processingJobId?: string;
+    verificationClient?: VerificationClient;
   } = {},
 ) {
   const context = await loadAuditContext(noteId, dependencies.contextSubmissionId);
@@ -399,7 +442,86 @@ export async function processNoteAudit(
       workRules: context.workRules,
       reasoningEffort: reasoning.effort,
     });
-    const result = evaluateHarness({ ...context, aiDiscovery: discovery.data });
+    const baseResult = evaluateHarness({ ...context, aiDiscovery: discovery.data });
+    const verifierMode = resolveHarnessVerifierMode(
+      process.env.HARNESS_VERIFIER_MODE,
+      process.env.HARNESS_VERIFIER_GATE_APPROVED,
+    );
+    const verificationSelection = selectVerification({
+      aiCoverage: baseResult.coverage.ai,
+      baseClassification: baseResult.classification,
+      baseFindings: baseResult.findings,
+      extractionAttempts: context.extractionAttempts,
+      extractionRecovered: context.extractionAttempts > 1,
+      invoice: context.invoice,
+      pageCount: context.originalPageCount,
+    });
+    const verificationChecks = buildVerificationChecks(context.invoice);
+    let verification:
+      | Awaited<ReturnType<typeof runSelectiveVerification>>
+      | undefined;
+    let verificationFailed = false;
+
+    if (verificationSelection.required && verifierMode !== "off") {
+      if (
+        context.originalMimeType !== "application/pdf" &&
+        context.originalMimeType !== "image/jpeg" &&
+        context.originalMimeType !== "image/png"
+      ) {
+        throw new AuditPipelineError(
+          "VERIFICATION_FILE_TYPE_UNSUPPORTED",
+          "O anexo não possui um tipo seguro para verificação independente.",
+        );
+      }
+      try {
+        verification = await runSelectiveVerification(
+          {
+            baseClassification: baseResult.classification,
+            expectedChecks: verificationChecks,
+            expectedPageCount: context.originalPageCount,
+            fileName: context.originalFileName,
+            filePath: context.originalFilePath,
+            initialFindings: baseResult.findings,
+            invoice: context.invoice,
+            mimeType: context.originalMimeType,
+            noteId,
+            originalFileSha256: context.originalFileSha256,
+            processingJobId: dependencies.processingJobId,
+          },
+          { client: dependencies.verificationClient },
+        );
+      } catch (error) {
+        verificationFailed = true;
+        if (
+          verifierMode === "enforce" &&
+          !canRetainSuspiciousAfterVerificationFailure({
+            classification: baseResult.classification,
+            findings: baseResult.findings,
+          })
+        ) {
+          if (error instanceof SelectiveVerificationError) {
+            throw new AuditPipelineError(error.code, error.message, { cause: error });
+          }
+          throw error;
+        }
+      }
+    }
+
+    const evaluatedResult =
+      verifierMode === "enforce" && verification
+        ? evaluateHarness({
+            ...context,
+            aiDiscovery: discovery.data,
+            verificationFindings: verification.data.findings,
+          })
+        : baseResult;
+    const result =
+      verifierMode === "enforce" &&
+      verification &&
+      evaluatedResult.classification === "OK" &&
+      (!verification.coverage.complete || verification.data.status === "LIMITED")
+        ? { ...evaluatedResult, classification: "INFORMATION_INSUFFICIENT" as const }
+        : evaluatedResult;
     const allowNewContextQuestions = !dependencies.contextSubmissionId && context.contextQuestionCount === 0;
     const isFirstAudit = !dependencies.contextSubmissionId && context.contextRound === 0;
     if (result.classification === "NEEDS_CONTEXT" && isFirstAudit && result.contextQuestions.length === 0) {
@@ -408,15 +530,26 @@ export async function processNoteAudit(
     const supportedFindings = result.findings.filter(isSupportedFinding);
     // O envio público possui uma única rodada de contexto. Depois da resposta,
     // a nota precisa sair de NEEDS_CONTEXT: achados sustentados viram suspeita;
-    // sem achado conclusivo, a análise termina como OK.
+    // sem achado conclusivo e ainda sem base, termina como informação insuficiente.
     const finalClassification =
       dependencies.contextSubmissionId && result.classification === "NEEDS_CONTEXT"
         ? resolvePostContextClassification({
             aiCoverage: result.coverage.ai,
             deterministicCoverage: result.coverage.deterministic,
             findings: result.findings,
+            informationInsufficient: true,
           })
         : result.classification;
+    const assurance = resolveAuditAssurance({
+      aiCoverage: result.coverage.ai,
+      classification: finalClassification,
+      mode: verifierMode,
+      selection: verificationSelection,
+      verificationCoverageComplete: verification?.coverage.complete,
+      verificationStatus: verificationFailed
+        ? "FAILED"
+        : verification?.data.status ?? "NOT_RUN",
+    });
     const finalContextQuestions = dependencies.contextSubmissionId
       ? []
       : result.contextQuestions;
@@ -446,6 +579,9 @@ export async function processNoteAudit(
         },
         data: {
           auditResult,
+          assuranceBand: assurance.band,
+          assuranceReason: assurance.reason,
+          assuranceVersion: HARNESS_VERSIONS.policy,
           classification: classificationValue(finalClassification),
           contextRound: targetContextRound,
           contextSummary: sanitizedText(discovery.data.summary),
@@ -484,7 +620,10 @@ export async function processNoteAudit(
             // Todos os achados desta decisão pertencem à execução que os
             // consolidou, inclusive os determinísticos. Isso mantém o log
             // administrativo completo sem alterar a origem da regra.
-            aiRunId: aiRun.id,
+            aiRunId:
+              finding.source === "AI_VERIFICATION" && verification
+                ? verification.runId
+                : aiRun.id,
             code: finding.code,
             title: finding.title,
             description: finding.description,
@@ -494,8 +633,16 @@ export async function processNoteAudit(
             confidence: finding.confidence,
             justification: finding.justification,
             references: toJson(finding.references),
-            ruleVersion: finding.source === "AI_DISCOVERY" ? HARNESS_VERSIONS.prompt : finding.source === "WORK_RULE" ? String(finding.evidence.ruleCode ?? HARNESS_VERSIONS.policy) : HARNESS_VERSIONS.policy,
-            isNovel: finding.source === "AI_DISCOVERY",
+            ruleVersion:
+              finding.source === "AI_DISCOVERY" ||
+              finding.source === "AI_VERIFICATION"
+                ? HARNESS_VERSIONS.prompt
+                : finding.source === "WORK_RULE"
+                  ? String(finding.evidence.ruleCode ?? HARNESS_VERSIONS.policy)
+                  : HARNESS_VERSIONS.rules,
+            isNovel:
+              finding.source === "AI_DISCOVERY" ||
+              finding.source === "AI_VERIFICATION",
             policyVersion: HARNESS_VERSIONS.policy,
             needsValidation: false,
             evidence: toJson(finding.evidence),
@@ -562,9 +709,19 @@ export async function processNoteAudit(
             findingCount: supportedFindings.length,
             hasContextAnswers: Boolean(context.contextAnswers?.length),
             coverage: result.coverage,
+            assurance,
             policyVersion: HARNESS_VERSIONS.policy,
             reasoningEffort: reasoning.effort,
             reasoningTriggers: reasoning.triggers,
+            verification: {
+              mode: verifierMode,
+              required: verificationSelection.required,
+              reasons: verificationSelection.reasons,
+              runId: verification?.runId ?? null,
+              status: verificationFailed
+                ? "FAILED"
+                : verification?.data.status ?? "NOT_RUN",
+            },
           }),
         },
       });
@@ -588,8 +745,20 @@ export async function processNoteAudit(
             findingCodes: supportedFindings.map((finding) => finding.code),
             invalidWorkRules: work.invalidRules,
             summary: discovery.data.summary,
+            assurance,
+            requestId: discovery.requestId ?? null,
+            routing: discovery.routingMetadata ?? null,
             webSources: discovery.webSources ?? [],
             webSearchRequests: discovery.usage?.webSearchRequests ?? 0,
+            verification: {
+              mode: verifierMode,
+              required: verificationSelection.required,
+              reasons: verificationSelection.reasons,
+              runId: verification?.runId ?? null,
+              status: verificationFailed
+                ? "FAILED"
+                : verification?.data.status ?? "NOT_RUN",
+            },
           }),
           totalTokens: discovery.usage?.totalTokens,
         },
@@ -630,7 +799,12 @@ export async function processNoteAudit(
           errorMessage: failure.message,
           model: failure.model,
           status: AiRunStatus.FAILED,
-          structuredResponse: toJson({ attemptTrace: failure.attemptTrace }),
+          structuredResponse: toJson({
+            attemptTrace: failure.attemptTrace,
+            provider: failure.provider ?? null,
+            requestId: failure.requestId ?? null,
+            routing: failure.routingMetadata ?? null,
+          }),
         },
       });
       // A stale result must never overwrite the state produced by a newer

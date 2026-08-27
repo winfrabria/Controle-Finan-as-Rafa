@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   AUDIT_POLICY,
+  HARNESS_FALLBACK_MODEL,
   HARNESS_MODEL,
   HARNESS_PDF_MODEL,
 } from "@/lib/audit-harness";
@@ -64,7 +65,7 @@ function successfulAuditResponse(model: string) {
   );
 }
 
-test("configura auditoria Terra high com recuperação no mesmo modelo", () => {
+test("configura auditoria Terra high com recuperação distinta no Sol high", () => {
   const config = getOpenRouterConfig({
     NODE_ENV: "test",
     OPENROUTER_API_KEY: "test-only",
@@ -74,7 +75,7 @@ test("configura auditoria Terra high com recuperação no mesmo modelo", () => {
   assert.equal(config.model, HARNESS_MODEL);
   assert.equal(config.maxAttempts, 2);
   assert.equal(config.reasoningEffort, "high");
-  assert.equal(config.fallbackModel, HARNESS_MODEL);
+  assert.equal(config.fallbackModel, HARNESS_FALLBACK_MODEL);
   assert.equal(config.fallbackReasoningEffort, "high");
   assert.equal(config.maxTokens, 8_192);
   assert.equal(AUDIT_POLICY.fallbackReasoningEffort, "high");
@@ -90,7 +91,7 @@ test("configura Gemini high para um ciclo controlado de comparação", () => {
 
   assert.equal(config.model, "google/gemini-3.6-flash");
   assert.equal(config.reasoningEffort, "high");
-  assert.equal(config.fallbackModel, HARNESS_MODEL);
+  assert.equal(config.fallbackModel, HARNESS_FALLBACK_MODEL);
 });
 
 test("configura Gemini high também para extração e leitura de PDF", () => {
@@ -108,7 +109,7 @@ test("configura Gemini high também para extração e leitura de PDF", () => {
 
   assert.equal(config.model, "google/gemini-3.6-flash");
   assert.equal(config.pdfModel, "google/gemini-3.6-flash");
-  assert.equal(config.pdfFallbackModel, HARNESS_PDF_MODEL);
+  assert.equal(config.pdfFallbackModel, HARNESS_FALLBACK_MODEL);
   assert.equal(config.reasoningEffort, "high");
   assert.equal(config.pdfReasoningEffort, "high");
 });
@@ -127,7 +128,7 @@ test("usa Terra high tanto na extração quanto na auditoria", () => {
   assert.equal(config.reasoningEffort, "high");
   assert.equal(config.pdfReasoningEffort, "high");
   assert.equal(config.timeoutMs, 120_000);
-  assert.equal(config.maxTokens, 8_192);
+  assert.equal(config.maxTokens, 16_384);
 });
 
 test("envia modelo fixo, xhigh controlado e exclui reasoning da resposta", async () => {
@@ -151,7 +152,7 @@ test("envia modelo fixo, xhigh controlado e exclui reasoning da resposta", async
   assert.equal(payload?.model, HARNESS_MODEL);
   assert.deepEqual(payload?.reasoning, { effort: "xhigh", exclude: true });
   assert.equal(payload?.max_tokens, 8_192);
-  assert.deepEqual(payload?.provider, { require_parameters: true });
+  assert.equal(payload?.provider, undefined);
   assert.equal("temperature" in (payload ?? {}), false);
   assert.equal("tools" in (payload ?? {}), false);
   const systemPrompt = (payload?.messages as Array<{ role: string; content: string }> | undefined)?.[0]?.content ?? "";
@@ -302,7 +303,18 @@ test("deduplica opções também pelo valor antes da validação estrutural", ()
   assert.deepEqual(normalized.contextQuestions[0]?.options, []);
 });
 
-test("permite uma rota de contingência explícita após 503 retryable", async () => {
+test("preserva needsContext declarado sem fabricar perguntas", () => {
+  const normalized = normalizeAuditContent({
+    contextQuestions: [],
+    needsContext: true,
+    summary: "Ainda falta um dado externo, mas a rodada pública já foi usada.",
+  }) as { contextQuestions: unknown[]; needsContext: boolean };
+
+  assert.deepEqual(normalized.contextQuestions, []);
+  assert.equal(normalized.needsContext, true);
+});
+
+test("não troca de modelo após indisponibilidade HTTP 503", async () => {
   const requestedModels: string[] = [];
   const client = new OpenRouterAuditDiscoveryClient({
     apiKey: "test-only",
@@ -321,28 +333,27 @@ test("permite uma rota de contingência explícita após 503 retryable", async (
       requestedModels.push(payload.model);
       assert.deepEqual(payload.reasoning, { effort: "high", exclude: true });
 
-      if (requestedModels.length === 1) {
-        return new Response(
-          JSON.stringify({
-            error: {
-              message: "secret-provider-detail-must-not-escape",
-              metadata: { raw: "internal-reasoning-must-not-escape" },
-            },
-          }),
-          { status: 503, headers: { "content-type": "application/json" } },
-        );
-      }
-
-      return successfulAuditResponse(AUDIT_POLICY.fallbackModel);
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: "secret-provider-detail-must-not-escape",
+            metadata: { raw: "internal-reasoning-must-not-escape" },
+          },
+        }),
+        { status: 503, headers: { "content-type": "application/json" } },
+      );
     },
   });
 
-  const result = await client.discover(discoveryRequest);
-
-  assert.deepEqual(requestedModels, [HARNESS_MODEL, AUDIT_POLICY.fallbackModel]);
-  assert.equal(result.attempts, 2);
-  assert.equal(result.model, AUDIT_POLICY.fallbackModel);
-  assert.equal(JSON.stringify(result).includes("must-not-escape"), false);
+  await assert.rejects(
+    client.discover(discoveryRequest),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.equal(JSON.stringify(error).includes("must-not-escape"), false);
+      return true;
+    },
+  );
+  assert.deepEqual(requestedModels, [HARNESS_MODEL]);
 });
 
 test("permite uma rota de contingência explícita após timeout", async () => {
@@ -390,7 +401,7 @@ test("permite uma rota de contingência explícita após timeout", async () => {
   assert.equal(result.model, AUDIT_POLICY.fallbackModel);
 });
 
-test("repete o mesmo avaliador uma vez quando a resposta estruturada é inválida", async () => {
+test("usa Sol uma vez quando a resposta estruturada do Terra é inválida", async () => {
   const requestedModels: string[] = [];
   const client = new OpenRouterAuditDiscoveryClient({
     apiKey: "test-only",
@@ -406,15 +417,85 @@ test("repete o mesmo avaliador uma vez quando a resposta estruturada é inválid
       requestedModels.push(payload.model);
       return requestedModels.length === 1
         ? new Response(JSON.stringify({ choices: [] }), { status: 200 })
-        : successfulAuditResponse(HARNESS_MODEL);
+        : successfulAuditResponse(AUDIT_POLICY.fallbackModel);
     },
   });
 
   const result = await client.discover(discoveryRequest);
-  assert.deepEqual(requestedModels, [HARNESS_MODEL, HARNESS_MODEL]);
+  assert.deepEqual(requestedModels, [HARNESS_MODEL, AUDIT_POLICY.fallbackModel]);
   assert.equal(result.attempts, 2);
   assert.deepEqual(
     result.attemptTrace.map((attempt) => attempt.kind),
     ["invalid-response", "success"],
   );
+});
+
+test("HTTP 400 da auditoria registra metadados seguros e aciona o Sol", async () => {
+  const payloads: Array<Record<string, unknown>> = [];
+  const headers: Array<Record<string, string>> = [];
+  const client = new OpenRouterAuditDiscoveryClient({
+    apiKey: "test-only",
+    appUrl: undefined,
+    fallbackModel: HARNESS_FALLBACK_MODEL,
+    model: HARNESS_MODEL,
+    maxAttempts: 2,
+    pdfEngine: "native",
+    timeoutMs: 1_000,
+    sleep: async () => undefined,
+    fetchImplementation: async (_url, init) => {
+      payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      headers.push(init?.headers as Record<string, string>);
+      if (payloads.length === 1) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "PROVIDER_BAD_REQUEST",
+              message: "unsupported parameter; token=must-not-escape",
+              metadata: {
+                provider_name: "OpenAI",
+                request_id: "route-request-audit",
+                route: "openai-primary",
+                raw: "internal-data-must-not-escape",
+              },
+            },
+          }),
+          {
+            status: 400,
+            headers: {
+              "content-type": "application/json",
+              "x-openrouter-request-id": "openrouter-request-audit",
+            },
+          },
+        );
+      }
+      return successfulAuditResponse(HARNESS_FALLBACK_MODEL);
+    },
+  });
+
+  const result = await client.discover(discoveryRequest);
+
+  assert.deepEqual(
+    payloads.map((payload) => payload.model),
+    [HARNESS_MODEL, HARNESS_FALLBACK_MODEL],
+  );
+  assert.equal(payloads[0]?.provider, undefined);
+  assert.equal(payloads[1]?.provider, undefined);
+  assert.equal(headers[0]?.["X-OpenRouter-Metadata"], "enabled");
+  assert.equal(headers[1]?.["X-OpenRouter-Metadata"], "enabled");
+  assert.deepEqual(result.attemptTrace[0], {
+    attempt: 1,
+    detail: "provider-configuration-rejected",
+    kind: "provider",
+    latencyMs: result.attemptTrace[0]?.latencyMs,
+    model: HARNESS_MODEL,
+    provider: "OpenAI",
+    requestId: "openrouter-request-audit",
+    routingMetadata: {
+      provider_name: "OpenAI",
+      request_id: "route-request-audit",
+      route: "openai-primary",
+    },
+    status: 400,
+  });
+  assert.equal(JSON.stringify(result.attemptTrace).includes("must-not-escape"), false);
 });

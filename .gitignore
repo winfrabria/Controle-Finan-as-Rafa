@@ -49,8 +49,17 @@ next-env.d.ts
 /.playwright-mcp/
 /.superdesign/
 /tmp/
+/.codex-next.*.log
+/output/
+/videos/
 /qa-*.png
 /dashboard-date-filter-*.png
 /notes-date-filter-reference-*.png
 /public-upload-*.png
 /reviewer-*.png
+/winfra-*.png
+/winfrabr-*.png
+
+# Unused local design references
+/public/reference.png
+/public/images/hero-login.png

@@ -38,6 +38,7 @@ function classificationValue(note: {
   status: NoteStatus;
 }): ReviewerDashboardNote["classification"] {
   if (note.auditResult === AuditResult.READ_FAILED) return "Falha de leitura";
+  if (note.classification === "NO_PARAMETER") return "Informação insuficiente";
   if (note.auditResult === AuditResult.NEEDS_CONTEXT) return "Precisa de informação";
   if (note.auditResult === AuditResult.SUSPICIOUS) return "Suspeita";
   if (note.auditResult === AuditResult.OK) return "OK";
@@ -62,7 +63,6 @@ function classificationValue(note: {
   if (note.status === NoteStatus.REJECTED) return "Suspeita";
   if (note.classification === "OK") return "OK";
   if (note.classification === "SUSPICIOUS") return "Suspeita";
-  if (note.classification === "NO_PARAMETER") return "Precisa de informação";
   return "Em análise";
 }
 

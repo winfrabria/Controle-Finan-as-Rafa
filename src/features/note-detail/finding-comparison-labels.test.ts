@@ -6,6 +6,7 @@ import {
   findingComparisonDifference,
   findingComparisonLabels,
 } from "./finding-comparison-labels";
+import { summarizeFindingEvidenceObservations } from "./finding-observations";
 
 type FindingInput = Parameters<typeof findingComparisonLabels>[0];
 
@@ -85,7 +86,10 @@ test("keeps generic labels for quantified contract findings", () => {
     }),
   );
 
-  assert.deepEqual(labels, { actual: "Encontrado", expected: "Esperado" });
+  assert.deepEqual(labels, {
+    actual: "Encontrado",
+    expected: "Esperado / referência",
+  });
 });
 
 test("keeps generic labels for value and price comparisons without document roles", () => {
@@ -95,9 +99,33 @@ test("keeps generic labels for value and price comparisons without document role
   ]) {
     assert.deepEqual(findingComparisonLabels(input), {
       actual: "Encontrado",
-      expected: "Esperado",
+      expected: "Esperado / referência",
     });
   }
+});
+
+test("explica a origem da referência nos cálculos determinísticos", () => {
+  assert.deepEqual(
+    findingComparisonLabels(
+      finding({ code: "TOTAL_MISMATCH", category: "TOTALS" }),
+    ),
+    {
+      actual: "Total encontrado no documento",
+      expected: "Soma calculada dos itens",
+    },
+  );
+  assert.deepEqual(
+    findingComparisonLabels(
+      finding({
+        code: "ITEM_ARITHMETIC_MISMATCH",
+        category: "QUANTITY_TIMES_PRICE",
+      }),
+    ),
+    {
+      actual: "Total encontrado no item",
+      expected: "Quantidade × valor unitário",
+    },
+  );
 });
 
 test("uses document roles for payment, date and fiscal-sheet comparisons", () => {
@@ -141,6 +169,71 @@ test("uses document roles for payment, date and fiscal-sheet comparisons", () =>
     ),
     { actual: "Ficha", expected: "Nota fiscal" },
   );
+});
+
+test("não chama comparação monetária de data só porque as evidências têm datas", () => {
+  assert.deepEqual(
+    findingComparisonLabels(
+      finding({
+        category: "AMOUNTS",
+        code: "EVIDENCE_AMOUNT_MISMATCH_1",
+        evidence: {
+          field: "valor",
+          observations: [
+            { kind: "RECEIPT", date: "2026-06-02" },
+            { kind: "SHEET", date: "2026-05-03" },
+          ],
+        },
+      }),
+    ),
+    { actual: "Valor encontrado", expected: "Valor de referência" },
+  );
+});
+
+test("agrupa linhas repetidas de evidência sem perder período ou total", () => {
+  const summaries = summarizeFindingEvidenceObservations([
+    {
+      amount: "20.00",
+      date: "2026-05-01",
+      kind: "SHEET",
+      label: "Café da manhã",
+      page: 2,
+      text: "Linha diária 1",
+    },
+    {
+      amount: "30.00",
+      date: "2026-05-02",
+      kind: "SHEET",
+      label: "Café da manhã",
+      page: 2,
+      text: "Linha diária 2",
+    },
+    {
+      amount: "50.00",
+      date: "2026-06-02",
+      kind: "RECEIPT",
+      label: "Documento fiscal",
+      page: 1,
+      text: "Total fiscal R$ 50,00",
+    },
+  ]);
+
+  assert.equal(summaries.length, 2);
+  assert.deepEqual(
+    {
+      count: summaries[0]?.count,
+      firstDate: summaries[0]?.firstDate,
+      lastDate: summaries[0]?.lastDate,
+      totalAmount: summaries[0]?.totalAmount,
+    },
+    {
+      count: 2,
+      firstDate: "2026-05-01",
+      lastDate: "2026-05-02",
+      totalAmount: 50,
+    },
+  );
+  assert.equal(summaries[1]?.count, 1);
 });
 
 test("shows the monetary difference when both compared values are objective", () => {

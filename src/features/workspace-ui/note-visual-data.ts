@@ -28,6 +28,9 @@ function visualClassification(item: NoteListItem) {
   ) {
     return "Em análise";
   }
+  if (item.classification === "NO_PARAMETER") {
+    return "Informação insuficiente";
+  }
   if (item.auditResult === AuditResult.NEEDS_CONTEXT) {
     return item.activeContextQuestionCount > 0
       ? "Precisa de informação"
@@ -60,7 +63,6 @@ function visualClassification(item: NoteListItem) {
   if (item.status === "REJECTED" || item.classification === "SUSPICIOUS") {
     return item.findingCount > 0 ? "Suspeita" : "Análise incompleta";
   }
-  if (item.classification === "NO_PARAMETER") return "Informação insuficiente";
   return "Em análise";
 }
 

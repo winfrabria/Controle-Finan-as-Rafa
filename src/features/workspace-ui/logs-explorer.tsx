@@ -11,6 +11,7 @@ export type LogClassification =
   | "Análise incompleta"
   | "Falha de leitura"
   | "Falha de processamento"
+  | "Informação insuficiente"
   | "OK"
   | "Precisa de informação"
   | "Processamento"

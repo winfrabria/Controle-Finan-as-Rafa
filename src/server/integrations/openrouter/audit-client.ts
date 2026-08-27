@@ -17,6 +17,15 @@ import { OpenRouterClientError } from "./client";
 
 const OPENROUTER_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions";
 const RETRYABLE_STATUS_CODES = new Set([408, 409, 429, 500, 502, 503, 504]);
+const ROUTING_METADATA_KEYS = [
+  "model",
+  "provider",
+  "provider_name",
+  "request_id",
+  "route",
+  "upstream_id",
+  "upstream_status",
+] as const;
 
 const responseSchema = z.object({
   choices: z.array(z.object({
@@ -81,6 +90,12 @@ function usableSelectOptions(options: unknown) {
 export function normalizeAuditContent(value: unknown) {
   if (!isRecord(value) || !Array.isArray(value.contextQuestions)) return value;
 
+  // Preserve o sinal de contexto declarado pelo provedor quando não houver
+  // pergunta utilizável; o engine converte esse caso em
+  // INFORMATION_INSUFFICIENT, sem fabricar perguntas públicas.
+  const declaredNeedsContext =
+    value.needsContext === true && value.contextQuestions.length === 0;
+
   const contextQuestions = value.contextQuestions.flatMap((question) => {
     if (!isRecord(question)) return [];
     const prompt = typeof question.prompt === "string" ? question.prompt.trim() : "";
@@ -101,7 +116,7 @@ export function normalizeAuditContent(value: unknown) {
   return {
     ...value,
     contextQuestions,
-    needsContext: contextQuestions.length > 0,
+    needsContext: declaredNeedsContext || contextQuestions.length > 0,
   };
 }
 
@@ -148,6 +163,61 @@ function providerErrorMessage(status: number) {
   return `OpenRouter audit provider rejected the request (HTTP ${status}).`;
 }
 
+function safeRoutingMetadata(value: unknown) {
+  if (!isRecord(value)) return undefined;
+  const entries = ROUTING_METADATA_KEYS.flatMap((key) => {
+    const entry = value[key];
+    return typeof entry === "string" ||
+      typeof entry === "number" ||
+      typeof entry === "boolean" ||
+      entry === null
+      ? [[key, typeof entry === "string" ? entry.slice(0, 160) : entry] as const]
+      : [];
+  });
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+async function safeProviderErrorDetails(response: Response) {
+  const requestId =
+    response.headers.get("x-openrouter-request-id") ??
+    response.headers.get("x-request-id") ??
+    undefined;
+  try {
+    const body = (await response.json()) as {
+      error?: { code?: unknown; metadata?: Record<string, unknown> };
+      metadata?: Record<string, unknown>;
+      provider?: unknown;
+    };
+    const metadata = body.error?.metadata ?? body.metadata;
+    const routingMetadata = safeRoutingMetadata(metadata);
+    const provider =
+      typeof body.provider === "string"
+        ? body.provider.slice(0, 160)
+        : typeof metadata?.provider_name === "string"
+          ? metadata.provider_name.slice(0, 160)
+          : undefined;
+    return {
+      diagnosticDetails: {
+        ...(body.error?.code !== undefined
+          ? { providerCode: String(body.error.code).slice(0, 80) }
+          : {}),
+        ...(typeof metadata?.route === "string"
+          ? { route: metadata.route.slice(0, 160) }
+          : {}),
+      },
+      provider,
+      requestId:
+        requestId ??
+        (typeof metadata?.request_id === "string"
+          ? metadata.request_id.slice(0, 160)
+          : undefined),
+      routingMetadata,
+    };
+  } catch {
+    return { requestId };
+  }
+}
+
 export type AuditDiscoveryRequest = {
   contextAnswers?: ContextAnswerForAudit[];
   invoice: HarnessInvoice;
@@ -163,6 +233,8 @@ export type AuditDiscoveryResult = {
   latencyMs: number;
   model: string;
   provider?: string;
+  requestId?: string;
+  routingMetadata?: Record<string, string | number | boolean | null>;
   usage?: {
     promptTokens?: number;
     completionTokens?: number;
@@ -207,11 +279,15 @@ export type AuditDiscoveryAttempt = {
     | "invalid-audit-envelope"
     | "invalid-audit-json"
     | "invalid-audit-schema"
+    | "provider-configuration-rejected"
     | "provider-error"
     | "request-timeout";
   kind: "invalid-response" | "provider" | "success" | "timeout";
   latencyMs: number;
   model: string;
+  provider?: string;
+  requestId?: string;
+  routingMetadata?: Record<string, string | number | boolean | null>;
   status?: number;
   validationIssues?: string[];
 };
@@ -220,6 +296,8 @@ function safeAttemptDiagnostics(error: OpenRouterClientError) {
   const detail =
     error.kind === "timeout"
       ? ("request-timeout" as const)
+      : error.diagnostic === "provider-configuration-rejected"
+        ? ("provider-configuration-rejected" as const)
       : error.kind === "provider"
         ? ("provider-error" as const)
         : error.message.includes("envelope")
@@ -237,6 +315,9 @@ function safeAttemptDiagnostics(error: OpenRouterClientError) {
 
   return {
     detail,
+    provider: error.provider,
+    requestId: error.requestId,
+    routingMetadata: error.routingMetadata,
     ...(validationIssues && validationIssues.length > 0
       ? { validationIssues }
       : {}),
@@ -256,7 +337,14 @@ export class OpenRouterAuditDiscoveryError extends OpenRouterClientError {
       error.retryable,
       error.status,
       error.retryAfterMs,
-      { cause: error },
+      {
+        cause: error,
+        diagnostic: error.diagnostic,
+        diagnosticDetails: error.diagnosticDetails,
+        provider: error.provider,
+        requestId: error.requestId,
+        routingMetadata: error.routingMetadata,
+      },
     );
     this.name = "OpenRouterAuditDiscoveryError";
   }
@@ -293,6 +381,9 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
           kind: "success",
           latencyMs: Date.now() - attemptStartedAt,
           model: route.model,
+          provider: result.provider,
+          requestId: result.requestId,
+          routingMetadata: result.routingMetadata,
         });
         return {
           ...result,
@@ -311,11 +402,15 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
           status: normalized.status,
         });
         const hasAnotherAttempt = attempt < this.options.maxAttempts;
+        const hasDistinctFallback = Boolean(
+          this.options.fallbackModel &&
+            this.options.fallbackModel !== this.options.model,
+        );
         const canRetry =
-          normalized.retryable &&
+          hasDistinctFallback &&
           (normalized.kind === "timeout" ||
-            normalized.kind === "provider" ||
-            normalized.kind === "invalid-response");
+            normalized.kind === "invalid-response" ||
+            (normalized.kind === "provider" && normalized.status === 400));
 
         if (!hasAnotherAttempt || !canRetry) {
           throw new OpenRouterAuditDiscoveryError(
@@ -331,21 +426,10 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
             Math.min(500 * 2 ** (attempt - 1), 5_000),
         );
 
-        // Invalid structured output is model variance: repeat Terra once.
-        // The bounded retry never creates an unbounded model chain.
-        route =
-          normalized.kind === "invalid-response" ||
-          !this.options.fallbackModel ||
-          this.options.fallbackModel === this.options.model
-            ? {
-                model: this.options.model,
-                reasoningEffort: request.reasoningEffort,
-              }
-            : {
-                model: this.options.fallbackModel,
-                reasoningEffort:
-                  this.options.fallbackReasoningEffort ?? "high",
-              };
+        route = {
+          model: this.options.fallbackModel!,
+          reasoningEffort: this.options.fallbackReasoningEffort ?? "high",
+        };
       }
     }
 
@@ -375,6 +459,7 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
         headers: {
           Authorization: `Bearer ${this.options.apiKey}`,
           "Content-Type": "application/json",
+          "X-OpenRouter-Metadata": "enabled",
           "X-Title": "WinfraBR Audit Harness",
           ...(this.options.appUrl ? { "HTTP-Referer": this.options.appUrl } : {}),
         },
@@ -398,7 +483,6 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
             json_schema: { name: "audit_discovery", strict: true, schema: AI_DISCOVERY_JSON_SCHEMA },
           },
           max_tokens: this.options.maxTokens ?? 8_192,
-          provider: { require_parameters: true },
           stream: false,
           ...(this.options.webSearchEnabled
             ? {
@@ -420,13 +504,23 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
       });
 
       if (!response.ok) {
-        await response.body?.cancel();
+        const providerDetails = await safeProviderErrorDetails(response);
         throw new OpenRouterClientError(
           providerErrorKind(response.status),
           providerErrorMessage(response.status),
           RETRYABLE_STATUS_CODES.has(response.status),
           response.status,
           parseRetryAfter(response.headers.get("retry-after")),
+          {
+            diagnostic:
+              response.status === 400
+                ? "provider-configuration-rejected"
+                : "provider-request-failed",
+            diagnosticDetails: providerDetails.diagnosticDetails,
+            provider: providerDetails.provider,
+            requestId: providerDetails.requestId,
+            routingMetadata: providerDetails.routingMetadata,
+          },
         );
       }
 
@@ -468,6 +562,13 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
       }
 
       const usage = envelope.data.usage;
+      const requestId =
+        response.headers.get("x-openrouter-request-id") ??
+        response.headers.get("x-request-id") ??
+        undefined;
+      const routingMetadata = safeRoutingMetadata(
+        isRecord(body) ? body.metadata : undefined,
+      );
       const webSources = webSourcesFrom(
         envelope.data.choices[0].message.annotations,
       );
@@ -475,6 +576,8 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
         data: parsed.data,
         model: envelope.data.model,
         provider: envelope.data.provider,
+        requestId,
+        routingMetadata,
         ...(webSources.length > 0 ? { webSources } : {}),
         ...(usage ? { usage: {
           promptTokens: usage.prompt_tokens,

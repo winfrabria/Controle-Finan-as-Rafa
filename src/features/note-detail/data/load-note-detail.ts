@@ -26,6 +26,27 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const noteDetailSelect = {
+  assuranceBand: true,
+  assuranceReason: true,
+  assuranceVersion: true,
+  auditFeedbacks: {
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: {
+      actor: { select: { email: true, fullName: true, id: true } },
+      actorId: true,
+      comment: true,
+      createdAt: true,
+      id: true,
+      noteVersion: true,
+      reasonCode: true,
+      resolutionNote: true,
+      reviewedAt: true,
+      reviewedBy: { select: { email: true, fullName: true, id: true } },
+      status: true,
+      updatedAt: true,
+      verdict: true,
+    },
+  },
   aiRuns: {
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
@@ -304,6 +325,14 @@ export async function loadNoteDetail(
   ]);
   const base: NoteDetailBase = {
     analysis: {
+      assurance:
+        note.assuranceBand && note.assuranceReason && note.assuranceVersion
+          ? {
+              band: note.assuranceBand,
+              reason: note.assuranceReason,
+              version: note.assuranceVersion,
+            }
+          : null,
       auditResult: note.auditResult,
       classification: note.classification,
       extractionMarkdown: forReviewer
@@ -326,6 +355,24 @@ export async function loadNoteDetail(
       code: note.failureCode,
       message: note.failureMessage ? safeText(note.failureMessage) : null,
     },
+    feedback: (() => {
+      const feedback = note.auditFeedbacks.find(
+        (entry) =>
+          entry.actorId === input.viewerId && entry.noteVersion === note.version,
+      );
+      return feedback
+        ? {
+            comment: feedback.comment,
+            createdAt: feedback.createdAt,
+            id: feedback.id,
+            noteVersion: feedback.noteVersion,
+            reasonCode: feedback.reasonCode,
+            status: feedback.status,
+            updatedAt: feedback.updatedAt,
+            verdict: feedback.verdict,
+          }
+        : null;
+    })(),
     history,
     id: note.id,
     isDemo,
@@ -385,6 +432,20 @@ export async function loadNoteDetail(
         aiRuns: note.aiRuns.map((run) => ({
           ...run,
           costUsd: run.costUsd?.toString() ?? null,
+        })),
+        auditFeedbacks: note.auditFeedbacks.map((feedback) => ({
+          actor: feedback.actor,
+          comment: feedback.comment,
+          createdAt: feedback.createdAt,
+          id: feedback.id,
+          noteVersion: feedback.noteVersion,
+          reasonCode: feedback.reasonCode,
+          resolutionNote: feedback.resolutionNote,
+          reviewedAt: feedback.reviewedAt,
+          reviewedBy: feedback.reviewedBy,
+          status: feedback.status,
+          updatedAt: feedback.updatedAt,
+          verdict: feedback.verdict,
         })),
       },
       viewerRole: "ADMIN",

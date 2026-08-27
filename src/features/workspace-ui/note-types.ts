@@ -1,9 +1,18 @@
 export type NoteFindingVisual = {
   actualValue?: string | null;
   category?: string | null;
+  code?: string | null;
   description: string;
   evidence?: string | null;
   evidenceDetails?: { label: string; value: string }[];
+  evidenceLocations?: Array<{
+    amount?: string | null;
+    date?: string | null;
+    kind: string;
+    label?: string | null;
+    page?: number | null;
+    text?: string | null;
+  }>;
   expectedValue?: string | null;
   justification?: string | null;
   severity?: string | null;

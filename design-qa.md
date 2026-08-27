@@ -88,6 +88,107 @@ final result: passed
 
 ---
 
+## QA visual — envio público PWA para aprovação
+
+### Protótipos
+
+- **Envio único:** SuperDesign `c2c96784-a261-4deb-8fc9-7d331153958c`, versão 3.
+- **Múltiplos documentos:** SuperDesign `d2e1e67d-697c-45b8-b9a8-87a62b375093`, versão 1.
+- Ambos permanecem como protótipos de aprovação; não foram integrados ao código nem publicados em produção.
+
+### Verificações
+
+- Viewports `390 × 844` e `320 × 844`, sem rolagem horizontal.
+- Busca e troca de obra verificadas.
+- Envio único: processamento, falha técnica, reenvio do mesmo arquivo e sucesso verificados.
+- Envio múltiplo: fila de documentos, resultado parcial, falha independente, reenvio somente do arquivo com falha e sucesso final verificados.
+- A ação principal permanece fixa e respeita a área segura inferior.
+- A única falha de console observada foi o `favicon.ico` do domínio de prévia do SuperDesign; não pertence ao protótipo.
+
+final result: passed
+
+---
+
+## QA adicional — envio público V1 aprovado e proposta V2 com múltiplos documentos
+
+### Referência e implementação V1
+
+- Referência aprovada no SuperDesign: draft `aca2bef8-ba21-440a-a860-a07aa30973f9`.
+- Rota implementada: `/enviar-nota`.
+- Comparação visual em estado equivalente e viewport de 1440 × 900: `winfra-enviar-nota-v1-comparacao.png`.
+- O formulário mantém o design system WinfraBR e apresenta busca de obra por nome, código ou cidade, documento selecionado, remoção/troca de arquivo e ação principal no primeiro viewport.
+- Diferenças intencionais em relação ao protótipo: limite real de 10 MB e dados reais carregados pela API de obras.
+
+### Estados de erro e retomada
+
+- Falha técnica mostra `Falha de processamento` sem culpar o arquivo e permite `Reenviar este arquivo`.
+- Falha de leitura mostra `Falha de leitura` e permite `Escolher outro arquivo`.
+- `Enviar outra nota` limpa o arquivo e preserva a obra já selecionada.
+- O reenvio do mesmo arquivo foi validado por interceptação local: duas chamadas POST distintas foram disparadas sem trocar o documento.
+
+### V2 para múltiplos documentos
+
+- Protótipo separado no SuperDesign: draft `ce836165-0ecb-4739-8464-d37d4042925d`.
+- A fila mantém um estado independente por documento: pronto, enviando, enviado ou com erro.
+- Um erro não invalida os demais documentos; é possível reenviar apenas o item que falhou ou removê-lo.
+- A tela de resultado parcial informa quantos documentos foram enviados e quais precisam de nova tentativa.
+- A V2 permanece somente como protótipo e não foi integrada à aplicação nesta etapa.
+
+### Verificações
+
+- Busca e seleção de obra: passou.
+- Seleção, troca e remoção de arquivo: passou.
+- Falha técnica, reenvio do mesmo arquivo e novo envio: passou.
+- Falha de leitura e escolha de outro arquivo: passou.
+- V1 mobile em 390 × 844 e 320 × 844 sem rolagem horizontal: passou.
+- V2 mobile em 390 × 844, com fila e retomada individual: passou.
+- Console local: nenhum erro da aplicação.
+- `npm run test:upload`: 42/42.
+- `npm run test:pwa`: 36/36.
+- `npm run lint`: passou.
+- `npm run typecheck`: passou.
+- `npm run build`: passou.
+
+final result: passed
+
+---
+
+## QA local — estabilização e redesign dos achados (2026-08-24)
+
+### Referência e implementação
+
+- **Referência aprovada:** SuperDesign, projeto `36e4cfa9-5e43-437d-a551-51f06b47b947`, draft `e2ca8c27-dc53-4244-89e3-b2520c7a9a97`.
+- **Implementação local:** `http://localhost:3001`, branch `codex/stabilize-universal-docs`.
+- **Desktop:** duas áreas permanentes — lista compacta de achados e achado selecionado — sem terceira coluna fixa.
+- **PWA:** um achado por vez, evidência em tela cheia e navegação fixa respeitando a safe area.
+- **Comparação:** encontrado primeiro em vermelho; referência esperada depois em verde.
+- **Erros públicos:** falha técnica de processamento e falha real de leitura possuem mensagens distintas.
+
+### Verificações concluídas
+
+- Envio público abriu sem erro de aplicação; a API de obras respondeu e a seleção de obra funcionou.
+- `npm run typecheck`: passou.
+- `npm run lint`: passou.
+- `npm run test:upload`: 42/42.
+- `npm run test:pwa`: 36/36.
+- `npm run test:note-detail`: 10/10.
+- `npm run test:harness`: 200 aprovados, 3 ignorados por dependência de banco, 0 falhas.
+- `npm run build`: passou, com 44 rotas geradas.
+
+### Findings
+
+- **P0:** nenhum encontrado nos testes automatizados e no fluxo público acessível.
+- **P1 — QA visual autenticado bloqueado:** a comparação final das telas reais de Notas e Análise da IA, em desktop e PWA, exige uma sessão REVIEWER autenticada no navegador local. Não foram transmitidas credenciais automaticamente.
+- **P2:** nenhum desvio estrutural identificado na revisão de código; o julgamento visual final depende do estado autenticado acima.
+
+### Como desbloquear a validação visual final
+
+Entrar manualmente como REVIEWER em `http://localhost:3001` e validar a tela de Notas e uma Análise da IA com achados em 1440 × 900, 390 × 844 e 320 × 844. Até essa confirmação, esta entrega permanece somente no ambiente local e não deve ser enviada à produção.
+
+final result: BLOCKED
+
+---
+
 ## QA final — navegador compacto dos achados no PWA (2026-08-23)
 
 ### Referência e comparação

@@ -20,9 +20,9 @@ import {
 import type { InvoiceExtraction } from "@/lib/integrations/openrouter/extraction-contract";
 import { prisma } from "@/server/db/prisma";
 import {
-  getInvoiceExtractionLimitation,
   getOpenRouterInvoiceExtractionClient,
   isInvoiceExtractionLimitationDiagnostic,
+  type InvoiceExtractionAttempt,
   type InvoiceExtractionClient,
   OpenRouterClientError,
 } from "@/server/integrations/openrouter";
@@ -37,6 +37,7 @@ const SUPPORTED_MIME_TYPES: ReadonlySet<string> = new Set([
 export type ExtractionPipelineErrorCode =
   | "EXTRACTION_CONFLICT"
   | "EXTRACTION_CREDIT_EXHAUSTED"
+  | "EXTRACTION_DOCUMENT_UNREADABLE"
   | "EXTRACTION_INCOMPLETE"
   | "EXTRACTION_INVALID_RESPONSE"
   | "EXTRACTION_NOT_ALLOWED"
@@ -57,13 +58,22 @@ export class ExtractionPipelineError extends Error {
   }
 }
 
+export type ExtractionFailureCategory =
+  | "PROVIDER"
+  | "CONFIGURATION"
+  | "TIMEOUT"
+  | "EXTRACTION_INCOMPLETE"
+  | "DOCUMENT_UNREADABLE";
+
 function isRetryableFailedNote(failureCode: string | null) {
   return failureCode?.startsWith("EXTRACTION_") ?? false;
 }
 
 type ExtractionFailureDetails = {
+  attemptTrace?: InvoiceExtractionAttempt[];
   attempts?: number;
   code: ExtractionPipelineErrorCode;
+  category: ExtractionFailureCategory;
   completionTokens?: number;
   costUsd?: number;
   diagnostic?: string;
@@ -74,13 +84,16 @@ type ExtractionFailureDetails = {
   promptTokens?: number;
   provider?: string;
   providerStatus?: number;
+  requestId?: string;
   retryable?: boolean;
+  routingMetadata?: Record<string, string | number | boolean | null>;
   totalTokens?: number;
 };
 
 function getFailureDetails(error: unknown): ExtractionFailureDetails {
   if (error instanceof OpenRouterClientError) {
     const providerDetails = {
+      attemptTrace: error.attemptTrace,
       attempts: error.attempts,
       completionTokens: error.usage?.completionTokens,
       costUsd: error.usage?.costUsd,
@@ -91,12 +104,15 @@ function getFailureDetails(error: unknown): ExtractionFailureDetails {
       promptTokens: error.usage?.promptTokens,
       provider: error.provider,
       providerStatus: error.status,
+      requestId: error.requestId,
       retryable: error.retryable,
+      routingMetadata: error.routingMetadata,
       totalTokens: error.usage?.totalTokens,
     };
     if (error.kind === "timeout") {
       return {
         code: "EXTRACTION_TIMEOUT",
+        category: "TIMEOUT",
         message: "A extração excedeu o tempo limite.",
         ...providerDetails,
       };
@@ -108,8 +124,19 @@ function getFailureDetails(error: unknown): ExtractionFailureDetails {
     ) {
       return {
         code: "EXTRACTION_INCOMPLETE",
+        category: "EXTRACTION_INCOMPLETE",
         message:
           "A extração não cobriu o anexo integralmente; uma nova leitura é necessária.",
+        ...providerDetails,
+      };
+    }
+
+    if (error.diagnostic === "document-unreadable") {
+      return {
+        code: "EXTRACTION_DOCUMENT_UNREADABLE",
+        category: "DOCUMENT_UNREADABLE",
+        message:
+          "O arquivo está vazio, corrompido, criptografado ou protegido e não pôde ser lido.",
         ...providerDetails,
       };
     }
@@ -117,6 +144,7 @@ function getFailureDetails(error: unknown): ExtractionFailureDetails {
     if (error.kind === "invalid-response") {
       return {
         code: "EXTRACTION_INVALID_RESPONSE",
+        category: "EXTRACTION_INCOMPLETE",
         message: "A resposta de extração não pôde ser validada.",
         ...providerDetails,
       };
@@ -125,6 +153,7 @@ function getFailureDetails(error: unknown): ExtractionFailureDetails {
     if (error.status === 402) {
       return {
         code: "EXTRACTION_CREDIT_EXHAUSTED",
+        category: "PROVIDER",
         message: "Os créditos do provedor de IA são insuficientes para processar o anexo.",
         ...providerDetails,
         diagnostic: "provider-payment-required",
@@ -134,6 +163,7 @@ function getFailureDetails(error: unknown): ExtractionFailureDetails {
     if (!error.retryable) {
       return {
         code: "EXTRACTION_REQUEST_REJECTED",
+        category: "CONFIGURATION",
         message: "O provedor recusou a configuração da extração.",
         ...providerDetails,
       };
@@ -141,6 +171,7 @@ function getFailureDetails(error: unknown): ExtractionFailureDetails {
 
     return {
       code: "EXTRACTION_PROVIDER_ERROR",
+      category: "PROVIDER",
       message: "O serviço de extração está temporariamente indisponível.",
       ...providerDetails,
     };
@@ -148,6 +179,7 @@ function getFailureDetails(error: unknown): ExtractionFailureDetails {
 
   return {
     code: "EXTRACTION_SOURCE_UNAVAILABLE",
+    category: "PROVIDER",
     message: "O arquivo original não pôde ser acessado para extração.",
   };
 }
@@ -226,7 +258,11 @@ async function claimNote(noteId: string) {
 async function recordExtractionFailure(
   noteId: string,
   claimedVersion: number,
-  failure: { code: ExtractionPipelineErrorCode; message: string },
+  failure: {
+    category: ExtractionFailureCategory;
+    code: ExtractionPipelineErrorCode;
+    message: string;
+  },
 ) {
   await prisma.$transaction(async (transaction) => {
     const failed = await transaction.note.updateMany({
@@ -252,7 +288,10 @@ async function recordExtractionFailure(
           type: "EXTRACTION_ATTEMPT_FAILED",
           fromStatus: NoteStatus.PROCESSING,
           toStatus: NoteStatus.PROCESSING,
-          data: { failureCode: failure.code },
+          data: {
+            failureCategory: failure.category,
+            failureCode: failure.code,
+          },
         },
       });
     }
@@ -265,12 +304,15 @@ function toJsonValue(value: unknown) {
 
 async function persistExtraction(input: {
   aiRunId: string;
+  attemptTrace: InvoiceExtractionAttempt[];
   attempts: number;
   claimedVersion: number;
   extraction: InvoiceExtraction;
   model: string;
   noteId: string;
   provider?: string;
+  requestId?: string;
+  routingMetadata?: Record<string, string | number | boolean | null>;
   usage?: {
     completionTokens?: number;
     costUsd?: number;
@@ -336,9 +378,11 @@ async function persistExtraction(input: {
         toStatus: NoteStatus.PROCESSING,
         data: {
           attempts: input.attempts,
+          attemptTrace: input.attemptTrace,
           itemCount: input.extraction.items.length,
           model: input.model,
           provider: input.provider ?? null,
+          requestId: input.requestId ?? null,
           readConfidence: input.extraction.readConfidence,
         },
       },
@@ -362,6 +406,13 @@ async function persistExtraction(input: {
           itemCount: input.extraction.items.length,
           readConfidence: input.extraction.readConfidence,
           warnings: input.extraction.warnings,
+          attemptTrace: input.attemptTrace,
+          requestId: input.requestId ?? null,
+          routing: input.routingMetadata ?? null,
+          extractionQuality:
+            input.extraction.itemCoverage.status === "COMPLETE"
+              ? "COMPLETE"
+              : "EXTRACTION_INCOMPLETE",
         }),
         totalTokens: input.usage?.totalTokens,
       },
@@ -387,7 +438,7 @@ export async function processNoteExtraction(
     extractingPdf
       ? process.env.OPENROUTER_PDF_REASONING_EFFORT
       : process.env.OPENROUTER_EXTRACTION_REASONING_EFFORT,
-    "max",
+    "high",
   );
   const idempotencyKey = `extract:${dependencies.processingJobId ?? note.id}:${note.claimedVersion}`;
   const aiRun = await prisma.aiRun.create({
@@ -439,40 +490,17 @@ export async function processNoteExtraction(
       signedUrl,
     });
 
-    const limitation = getInvoiceExtractionLimitation(
-      result.data,
-      note.originalMimeType as
-        | "application/pdf"
-        | "image/jpeg"
-        | "image/png",
-    );
-    if (limitation) {
-      throw new OpenRouterClientError(
-        "invalid-response",
-        limitation.message,
-        true,
-        undefined,
-        undefined,
-        {
-          attempts: result.attempts,
-          diagnostic: limitation.diagnostic,
-          diagnosticDetails: limitation.details,
-          latencyMs: result.latencyMs,
-          model: result.model,
-          provider: result.provider,
-          usage: result.usage,
-        },
-      );
-    }
-
     return await persistExtraction({
       aiRunId: aiRun.id,
       attempts: result.attempts,
+      attemptTrace: result.attemptTrace ?? [],
       claimedVersion: note.claimedVersion,
       extraction: result.data,
       model: result.model,
       noteId: note.id,
       provider: result.provider,
+      requestId: result.requestId,
+      routingMetadata: result.routingMetadata,
       usage: result.usage,
       latencyMs: result.latencyMs,
     });
@@ -483,14 +511,22 @@ export async function processNoteExtraction(
 
     const failure: ExtractionFailureDetails =
       error instanceof ExtractionPipelineError
-        ? { code: error.code, message: error.message }
+        ? {
+            category: "PROVIDER",
+            code: error.code,
+            message: error.message,
+          }
         : getFailureDetails(error);
 
     await recordExtractionFailure(note.id, note.claimedVersion, failure);
     const hasFailureDiagnostics = Boolean(
-      failure.diagnostic ||
+      failure.category ||
+        failure.diagnostic ||
         failure.diagnosticDetails ||
-        failure.providerStatus,
+        failure.providerStatus ||
+        failure.requestId ||
+        failure.routingMetadata ||
+        failure.attemptTrace,
     );
     await prisma.aiRun.update({
       where: { id: aiRun.id },
@@ -509,10 +545,14 @@ export async function processNoteExtraction(
         ...(hasFailureDiagnostics
           ? {
               structuredResponse: toJsonValue({
+                category: failure.category,
+                attemptTrace: failure.attemptTrace ?? [],
                 diagnostic: failure.diagnostic ?? null,
                 details: failure.diagnosticDetails ?? null,
                 providerStatus: failure.providerStatus ?? null,
+                requestId: failure.requestId ?? null,
                 retryable: failure.retryable ?? null,
+                routing: failure.routingMetadata ?? null,
               }),
             }
           : {}),

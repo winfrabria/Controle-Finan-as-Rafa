@@ -32,15 +32,19 @@ import {
   formatFindingObservationAmount,
   formatFindingObservationDate,
   reviewerTextIsDistinct,
+  summarizeFindingEvidenceObservations,
   type FindingEvidenceObservation,
+  type FindingEvidenceObservationSummary,
 } from "./finding-observations";
 import styles from "./note-detail.module.css";
 
 export function NoteAnalysisExplorer({
+  documentUrl,
   findings,
   items,
   reviewer,
 }: {
+  documentUrl: string | null;
   findings: NoteDetailFinding[];
   items: NoteDetailItem[];
   reviewer: boolean;
@@ -90,6 +94,15 @@ export function NoteAnalysisExplorer({
   const evidenceObservations = extractFindingEvidenceObservations(
     selected.evidence,
   );
+  const evidenceSummaries = summarizeFindingEvidenceObservations(
+    evidenceObservations,
+  );
+  const firstEvidencePage = evidenceSummaries.find(
+    (observation) => observation.page !== null,
+  )?.page ?? null;
+  const evidenceDocumentUrl = documentUrl
+    ? `${documentUrl.split("#")[0]}${firstEvidencePage ? `#page=${firstEvidencePage}` : ""}`
+    : null;
   const evidenceParts = (reviewer
     ? formatReviewerFindingParts
     : formatFindingParts)(
@@ -212,7 +225,12 @@ export function NoteAnalysisExplorer({
         </div>
       </aside>
 
-      <article className={styles.findingDetailPanel} key={selected.id} ref={detailRef}>
+      <article
+        className={styles.findingDetailPanel}
+        data-severity={findingSeverityTone(selected.severity)}
+        key={selected.id}
+        ref={detailRef}
+      >
         <nav className={styles.findingPager} aria-label="Navegação entre apontamentos">
           <button
             type="button"
@@ -243,47 +261,9 @@ export function NoteAnalysisExplorer({
           {selectedDescription}
         </p>
 
-        <FindingSection defaultOpen icon="document" title="Evidência no documento">
-          {evidenceObservations.length ? (
-            <EvidenceObservationList
-              comparedWith={[selectedDescription, selectedExplanation]}
-              observations={evidenceObservations}
-              reviewer={reviewer}
-            />
-          ) : (
-            <EvidenceFacts
-              parts={
-                evidenceNarrativeParts.length
-                  ? evidenceNarrativeParts
-                  : evidenceLocationParts
-              }
-            />
-          )}
-        </FindingSection>
-        {showExplanation ? (
-          <FindingSection defaultOpen icon="search" title="Por que chamou atenção">
-            {selectedExplanation}
-          </FindingSection>
-        ) : null}
-        {showRule ? (
-          <FindingSection icon="shield" title="Critério usado na conferência">
-            {selectedRule}
-          </FindingSection>
-        ) : null}
-
         {hasMeaningfulComparison ? (
           <section className={styles.comparison}>
-          <div>
-            <h3>{comparisonLabels.expected}</h3>
-            <p>
-              {formatFindingValueLines(
-                jsonSummary(selected.expectedValue, "Sem referência comparável"),
-              ).map(displayText).map((line, index) => (
-                <span key={`${line}-${index}`}>{line}</span>
-              ))}
-            </p>
-          </div>
-          <div>
+          <div className={styles.comparisonActual}>
             <h3>{comparisonLabels.actual}</h3>
             <p>
               {formatFindingValueLines(jsonSummary(selected.actualValue)).map(displayText).map(
@@ -291,6 +271,16 @@ export function NoteAnalysisExplorer({
                   <span key={`${line}-${index}`}>{line}</span>
                 ),
               )}
+            </p>
+          </div>
+          <div className={styles.comparisonExpected}>
+            <h3>{comparisonLabels.expected}</h3>
+            <p>
+              {formatFindingValueLines(
+                jsonSummary(selected.expectedValue, "Sem referência comparável"),
+              ).map(displayText).map((line, index) => (
+                <span key={`${line}-${index}`}>{line}</span>
+              ))}
             </p>
           </div>
           {comparisonDifference ? (
@@ -302,14 +292,39 @@ export function NoteAnalysisExplorer({
           </section>
         ) : null}
 
-      </article>
-
-      <aside className={styles.analysisAside}>
-        <details className={styles.analysisAccordion} open>
-          <summary><h2>Onde conferir</h2></summary>
-          <p>Localização do apontamento no arquivo original.</p>
+        {showExplanation ? (
+          <FindingSection defaultOpen icon="search" title="Por que chamou atenção">
+            {selectedExplanation}
+          </FindingSection>
+        ) : null}
+        <FindingSection icon="document" title="Onde encontramos">
+          <p className={styles.analysisLocationIntro}>
+            Localização do apontamento no arquivo original.
+          </p>
           {evidenceLocationParts.length ? (
             <EvidenceFacts parts={evidenceLocationParts.slice(0, 3)} />
+          ) : null}
+          {evidenceObservations.length ? (
+            <EvidenceObservationList
+              comparedWith={[selectedDescription, selectedExplanation]}
+              observations={evidenceObservations}
+              reviewer={reviewer}
+            />
+          ) : evidenceNarrativeParts.length ? (
+            <EvidenceFacts parts={evidenceNarrativeParts} />
+          ) : null}
+          {evidenceDocumentUrl ? (
+            <a
+              className={styles.analysisLocationLink}
+              href={evidenceDocumentUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Icon name="document" />
+              {firstEvidencePage
+                ? `Abrir documento na página ${firstEvidencePage}`
+                : "Abrir documento original"}
+            </a>
           ) : null}
           {affectedItem || selected.affectedItem ? (
             <article className={styles.analysisEvidenceCard}>
@@ -331,15 +346,18 @@ export function NoteAnalysisExplorer({
                 <div><dt>Valor total</dt><dd>{formatDecimal(affectedItem?.totalAmount ?? null)}</dd></div>
               </dl>
             </article>
-          ) : (
+          ) : evidenceObservations.length === 0 && evidenceNarrativeParts.length === 0 ? (
             <p className={styles.analysisEvidenceEmpty}>
-              Confira a evidência no arquivo original exibido logo abaixo.
+              A localização exata não foi informada. Confira o arquivo original.
             </p>
-          )}
-        </details>
-
-        <details className={styles.analysisAccordion}>
-          <summary><h2>Limitações da análise</h2></summary>
+          ) : null}
+        </FindingSection>
+        {showRule ? (
+          <FindingSection icon="shield" title="Critério usado na conferência">
+            {selectedRule}
+          </FindingSection>
+        ) : null}
+        <FindingSection icon="shield" title="Limitações da análise">
           <ul className={styles.limitationsList}>
             <li>
               A análise considera as informações disponíveis na nota e as referências
@@ -353,8 +371,8 @@ export function NoteAnalysisExplorer({
               Uma referência externa genérica nunca comprova divergência sozinha.
             </li>
           </ul>
-        </details>
-      </aside>
+        </FindingSection>
+      </article>
       </div>
     </>
   );
@@ -372,39 +390,76 @@ function EvidenceObservationList({
   const displayText = reviewer
     ? humanizeReviewerFindingText
     : humanizeFindingText;
+  const summaries = summarizeFindingEvidenceObservations(observations);
+  const visibleSummaries = summaries.slice(0, 4);
+  const remainingSummaries = summaries.slice(4);
+
+  const renderObservation = (
+    observation: FindingEvidenceObservationSummary,
+    index: number,
+  ) => {
+    const amount = formatFindingObservationAmount(observation.amount);
+    const totalAmount = formatFindingObservationAmount(observation.totalAmount);
+    const firstDate = formatFindingObservationDate(observation.firstDate);
+    const lastDate = formatFindingObservationDate(observation.lastDate);
+    const date =
+      firstDate && lastDate && firstDate !== lastDate
+        ? `${firstDate} a ${lastDate}`
+        : firstDate;
+    const label = observation.label
+      ? displayText(observation.label)
+      : null;
+    const observationText = observation.text
+      ? displayText(observation.text)
+      : null;
+    const showObservationText = reviewerTextIsDistinct(observationText, [
+      ...comparedWith,
+      label,
+    ]);
+
+    return (
+      <article
+        key={`${observation.kind}:${observation.page ?? ""}:${observation.label ?? ""}:${index}`}
+      >
+        <header>
+          <span>{findingObservationKindLabel(observation.kind)}</span>
+          <div>
+            {observation.page ? <small>Página {observation.page}</small> : null}
+            {observation.count > 1 ? (
+              <small>{observation.count} registros</small>
+            ) : null}
+            {date ? <small>{date}</small> : null}
+            {amount ? <strong>{amount}</strong> : null}
+            {totalAmount ? <strong>Total: {totalAmount}</strong> : null}
+          </div>
+        </header>
+        {label ? <h4>{label}</h4> : null}
+        {showObservationText ? <p>{observationText}</p> : null}
+      </article>
+    );
+  };
 
   return (
     <div className={styles.evidenceObservationList}>
-      {observations.map((observation, index) => {
-        const amount = formatFindingObservationAmount(observation.amount);
-        const date = formatFindingObservationDate(observation.date);
-        const label = observation.label
-          ? displayText(observation.label)
-          : null;
-        const observationText = observation.text
-          ? displayText(observation.text)
-          : null;
-        const showObservationText = reviewerTextIsDistinct(observationText, [
-          ...comparedWith,
-          label,
-        ]);
-        return (
-          <article key={`${observation.kind}:${observation.page ?? ""}:${observation.label ?? ""}:${index}`}>
-            <header>
-              <span>{findingObservationKindLabel(observation.kind)}</span>
-              <div>
-                {observation.page ? <small>Página {observation.page}</small> : null}
-                {date ? <small>{date}</small> : null}
-                {amount ? <strong>{amount}</strong> : null}
-              </div>
-            </header>
-            {label ? <h4>{label}</h4> : null}
-            {showObservationText ? <p>{observationText}</p> : null}
-          </article>
-        );
-      })}
+      {visibleSummaries.map(renderObservation)}
+      {remainingSummaries.length ? (
+        <details className={styles.evidenceObservationMore}>
+          <summary>
+            Ver mais {remainingSummaries.length}{" "}
+            {remainingSummaries.length === 1 ? "grupo de evidência" : "grupos de evidência"}
+          </summary>
+          <div>{remainingSummaries.map(renderObservation)}</div>
+        </details>
+      ) : null}
     </div>
   );
+}
+
+function findingSeverityTone(value: string) {
+  const severity = value.toUpperCase();
+  if (severity === "CRITICAL" || severity === "HIGH") return "critical";
+  if (severity === "INFO" || severity === "LOW") return "info";
+  return "warning";
 }
 
 function EvidenceFacts({ parts }: { parts: ReturnType<typeof formatReviewerFindingParts> }) {

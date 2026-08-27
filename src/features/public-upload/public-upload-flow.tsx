@@ -15,7 +15,6 @@ import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity
 import {
   ACCEPTED_FILE_TYPES,
   MAX_FILE_SIZE_BYTES,
-  PUBLIC_UPLOAD_ENDPOINTS,
   type ApiErrorResponse,
   type PublicContextAnswer,
   type PublicContextQuestion,
@@ -23,9 +22,9 @@ import {
   type PublicNoteStatusResponse,
   type PublicPreviewResponse,
   type ProjectOption,
-  type ProjectsResponse,
   type SubmitPublicContextBody,
 } from "./api-contract";
+import { requestProjects } from "./projects-api";
 import { uploadInvoice } from "./upload-api";
 import {
   normalizePublicQuestions,
@@ -529,20 +528,18 @@ function validateFile(file: File) {
   return null;
 }
 
-async function requestProjects() {
-  const response = await fetch(PUBLIC_UPLOAD_ENDPOINTS.projects, {
-    cache: "no-store",
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) throw new Error();
-  const payload = (await response.json()) as ProjectsResponse;
-  if (!Array.isArray(payload.obras)) throw new Error();
-  return payload.obras;
+function normalizeProjectSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .trim();
 }
 
 export function PublicUploadFlow() {
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const projectPickerRef = useRef<HTMLDivElement>(null);
   const pollingControllerRef = useRef<AbortController | null>(null);
   const contextSubmissionStartedRef = useRef(false);
   const [view, setView] = useState<View>("form");
@@ -550,6 +547,8 @@ export function PublicUploadFlow() {
   const [selectedProject, setSelectedProject] = useState<ProjectOption | null>(
     null,
   );
+  const [projectQuery, setProjectQuery] = useState("");
+  const [isProjectPickerOpen, setIsProjectPickerOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -583,6 +582,19 @@ export function PublicUploadFlow() {
       window.removeEventListener("online", updateConnection);
       window.removeEventListener("offline", updateConnection);
     };
+  }, []);
+
+  useEffect(() => {
+    const closeProjectPicker = (event: PointerEvent) => {
+      if (
+        projectPickerRef.current &&
+        !projectPickerRef.current.contains(event.target as Node)
+      ) {
+        setIsProjectPickerOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeProjectPicker);
+    return () => document.removeEventListener("pointerdown", closeProjectPicker);
   }, []);
 
   useEffect(() => {
@@ -789,8 +801,7 @@ export function PublicUploadFlow() {
     chooseFile(event.dataTransfer.files?.[0]);
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitSelectedFile() {
     if (!isOnline) {
       setFileError(
         "Você está sem conexão. A nota e a obra continuam nesta tela; envie quando voltar a ficar online.",
@@ -806,6 +817,9 @@ export function PublicUploadFlow() {
       return;
     }
     setProgress(0);
+    clearStoredSubmission();
+    setInvoiceId(null);
+    setProtocol(null);
     setFailureMessage("");
     setCanRetryProcessing(false);
     setView("sending");
@@ -837,15 +851,17 @@ export function PublicUploadFlow() {
     }
   }
 
-  function startAgain() {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await submitSelectedFile();
+  }
+
+  function sendAnotherNote() {
     pollingControllerRef.current?.abort();
     clearStoredSubmission();
-    // Reset the native input as well. Without this, choosing the same PDF
-    // after a failed attempt does not fire `change` again in the browser.
     if (inputRef.current) inputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     contextSubmissionStartedRef.current = false;
-    setSelectedProject(null);
     setFile(null);
     setFileError(null);
     setProgress(0);
@@ -861,6 +877,11 @@ export function PublicUploadFlow() {
     setFailureMessage("");
     setCanRetryProcessing(false);
     setView("form");
+  }
+
+  function chooseAnotherFile() {
+    sendAnotherNote();
+    window.setTimeout(() => inputRef.current?.click(), 0);
   }
 
   function retryProcessing() {
@@ -961,6 +982,12 @@ export function PublicUploadFlow() {
       (activePreview.mimeType === "application/pdf" ||
         activePreview.fileName.toLowerCase().endsWith(".pdf")),
   );
+  const normalizedProjectQuery = normalizeProjectSearch(projectQuery);
+  const filteredProjects = projects.filter((project) =>
+    normalizeProjectSearch(`${project.nome} ${project.local ?? ""}`).includes(
+      normalizedProjectQuery,
+    ),
+  );
 
   useEffect(() => {
     const shouldWarn =
@@ -987,7 +1014,7 @@ export function PublicUploadFlow() {
           </div>
         </Link>
         <Link className={styles.loginLink} href="/">
-          <IconLogOut /> Voltar para login
+          <IconLogOut /> Acesso interno
         </Link>
       </header>
 
@@ -1004,96 +1031,68 @@ export function PublicUploadFlow() {
         >
           <section className={styles.mainColumn}>
             <div className={styles.titleBlock}>
+              {view !== "context" ? (
+                <span className={styles.eyebrow}>Envio de documentos</span>
+              ) : null}
               <h1>
                 {view === "context"
                   ? "Precisamos de uma informação"
-                  : "Enviar nota fiscal"}
+                  : "Enviar nota"}
               </h1>
               <p>
                 {view === "context"
                   ? "Responda às perguntas abaixo para continuarmos a análise da sua nota fiscal."
-                  : "Envie sua nota fiscal para análise sem precisar fazer login. Rápido, seguro e sem complicação."}
+                  : "Escolha a obra, adicione o documento e acompanhe a confirmação nesta tela."}
               </p>
+              {view === "form" ? (
+                <span className={styles.titleMeta}>Leva menos de um minuto para enviar</span>
+              ) : null}
             </div>
-
-            <ol className={styles.stepper}>
-              <li className={styles.active}>
-                <span>{view === "context" ? "✓" : "1"}</span>
-                {view === "context" ? "Obra" : "Selecione a obra"}
-              </li>
-              <li className={view !== "form" ? styles.active : ""}>
-                <span>{view === "context" ? "✓" : "2"}</span>
-                {view === "context" ? "Nota fiscal" : "Envie sua nota fiscal"}
-              </li>
-              {view === "context" ? (
-                <>
-                  <li className={styles.active}>
-                    <span>3</span>Informações
-                  </li>
-                  <li>
-                    <span>4</span>Conclusão
-                  </li>
-                </>
-              ) : (
-                <li>
-                  <span>3</span>Conclusão
-                </li>
-              )}
-            </ol>
 
             <section
               className={`${styles.formCard} ${view === "context" ? styles.contextCard : ""}`}
               aria-live="polite"
             >
+              <ol className={styles.stepper}>
+                <li className={styles.active}>
+                  <span>{view === "context" || view !== "form" ? "✓" : "1"}</span>
+                  <span className={styles.stepLabel}>
+                    Obra<small>Identificação</small>
+                  </span>
+                </li>
+                <li className={selectedProject || view !== "form" ? styles.active : ""}>
+                  <span>{view === "context" || view !== "form" ? "✓" : "2"}</span>
+                  <span className={styles.stepLabel}>
+                    Nota fiscal<small>Documento</small>
+                  </span>
+                </li>
+                {view === "context" ? (
+                  <>
+                    <li className={styles.active}>
+                      <span>3</span>
+                      <span className={styles.stepLabel}>
+                        Informações<small>Complemento</small>
+                      </span>
+                    </li>
+                    <li>
+                      <span>4</span>
+                      <span className={styles.stepLabel}>
+                        Conclusão<small>Confirmação</small>
+                      </span>
+                    </li>
+                  </>
+                ) : (
+                  <li className={view !== "form" ? styles.active : ""}>
+                    <span>3</span>
+                    <span className={styles.stepLabel}>
+                      Conclusão<small>Confirmação</small>
+                    </span>
+                  </li>
+                )}
+              </ol>
+
               {view === "form" ? (
-                <form onSubmit={handleSubmit}>
-                  <h2>1. Selecione a obra</h2>
-                  <label className={styles.label} htmlFor="project">
-                    Obra <b>*</b>
-                  </label>
-                  <div className={styles.selectWrap}>
-                    <IconBuilding />
-                    <select
-                      id="project"
-                      disabled={isLoading}
-                      value={selectedProject?.id ?? ""}
-                      onChange={(event) => {
-                        setSelectedProject(
-                          projects.find(
-                            (item) => item.id === event.target.value,
-                          ) ?? null,
-                        );
-                        setFileError(null);
-                      }}
-                    >
-                      <option value="">
-                        {isLoading ? "Carregando obras..." : "Selecione a obra"}
-                      </option>
-                      {projects.map((project) => (
-                        <option key={project.id} value={project.id}>
-                          {project.nome}
-                          {project.local ? ` — ${project.local}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {loadError ? (
-                    <p className={styles.fieldError}>
-                      {loadError}{" "}
-                      <button type="button" onClick={() => void loadProjects()}>
-                        Tentar novamente
-                      </button>
-                    </p>
-                  ) : null}
-
-                  <div className={styles.divider} />
-
-                  <h2>2. Envie sua nota fiscal</h2>
-                  <p className={styles.helper}>
-                    Envie uma nota fiscal por vez. Formatos aceitos: PDF, JPG,
-                    PNG.
-                  </p>
-
+                <form className={styles.publicUploadForm} onSubmit={handleSubmit}>
                   <input
                     ref={inputRef}
                     type="file"
@@ -1109,90 +1108,232 @@ export function PublicUploadFlow() {
                     ref={cameraInputRef}
                     type="file"
                   />
-                  <div
-                    className={`${styles.dropzone} ${isDragging ? styles.dragging : ""}`}
-                    onDragEnter={(e) => {
-                      e.preventDefault();
-                      setIsDragging(true);
-                    }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={handleDrop}
-                    onClick={() => inputRef.current?.click()}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        inputRef.current?.click();
-                      }
-                    }}
-                  >
-                    <span className={styles.uploadCircle}>
-                      <IconCloudUpload />
-                    </span>
-                    <p>
-                      <strong>Clique para selecionar</strong> ou arraste a
-                      nota fiscal aqui
-                    </p>
-                    <small>
-                      Tamanho máximo: {formatBytes(MAX_FILE_SIZE_BYTES)} • Apenas
-                      1 nota fiscal por envio
-                    </small>
+                  <div className={styles.formBody}>
+                    <section className={styles.formSection}>
+                      <div className={styles.sectionTitle}>
+                        <span>01</span>
+                        <h2>Escolha a obra</h2>
+                      </div>
+                      <label className={styles.label} htmlFor="project-search">
+                        Obra relacionada <b>*</b>
+                      </label>
+                      <div className={styles.projectPicker} ref={projectPickerRef}>
+                        <div
+                          className={`${styles.projectSearchShell} ${isProjectPickerOpen ? styles.open : ""}`}
+                        >
+                          <IconFocus />
+                          <input
+                            aria-autocomplete="list"
+                            aria-controls="project-options"
+                            aria-expanded={isProjectPickerOpen}
+                            autoComplete="off"
+                            disabled={isLoading}
+                            id="project-search"
+                            onChange={(event) => {
+                              setProjectQuery(event.target.value);
+                              if (
+                                selectedProject &&
+                                event.target.value !== selectedProject.nome
+                              ) {
+                                setSelectedProject(null);
+                              }
+                              setIsProjectPickerOpen(true);
+                              setFileError(null);
+                            }}
+                            onFocus={() => setIsProjectPickerOpen(true)}
+                            placeholder={
+                              isLoading
+                                ? "Carregando obras..."
+                                : "Buscar por nome, código ou cidade"
+                            }
+                            role="combobox"
+                            type="search"
+                            value={projectQuery}
+                          />
+                          <span className={styles.projectChevron} aria-hidden="true" />
+                        </div>
+                        {isProjectPickerOpen && !isLoading ? (
+                          <div
+                            className={styles.projectOptions}
+                            id="project-options"
+                            role="listbox"
+                          >
+                            {filteredProjects.length > 0 ? (
+                              filteredProjects.map((project) => (
+                                <button
+                                  aria-selected={selectedProject?.id === project.id}
+                                  className={`${styles.projectOption} ${selectedProject?.id === project.id ? styles.selected : ""}`}
+                                  key={project.id}
+                                  onClick={() => {
+                                    setSelectedProject(project);
+                                    setProjectQuery(project.nome);
+                                    setIsProjectPickerOpen(false);
+                                    setFileError(null);
+                                  }}
+                                  role="option"
+                                  type="button"
+                                >
+                                  <span>
+                                    <strong>{project.nome}</strong>
+                                    {project.local ? <small>{project.local}</small> : null}
+                                  </span>
+                                  {selectedProject?.id === project.id ? (
+                                    <IconCheckCircle />
+                                  ) : null}
+                                </button>
+                              ))
+                            ) : (
+                              <p className={styles.projectEmpty}>
+                                Nenhuma obra encontrada.
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                      {selectedProject ? (
+                        <div className={styles.selectedProject} aria-live="polite">
+                          <span className={styles.selectedProjectBadge}>
+                            <IconBuilding />
+                          </span>
+                          <span className={styles.selectedProjectCopy}>
+                            <small>Obra selecionada</small>
+                            <strong>
+                              {selectedProject.nome}
+                              {selectedProject.local
+                                ? ` · ${selectedProject.local}`
+                                : ""}
+                            </strong>
+                          </span>
+                          <button
+                            aria-label="Limpar obra selecionada"
+                            className={styles.clearProject}
+                            onClick={() => {
+                              setSelectedProject(null);
+                              setProjectQuery("");
+                              setIsProjectPickerOpen(true);
+                            }}
+                            type="button"
+                          >
+                            <IconX />
+                          </button>
+                        </div>
+                      ) : null}
+                      <p className={styles.projectHelper}>
+                        Digite parte do nome, código ou cidade para encontrar
+                        rapidamente a obra.
+                      </p>
+                      {loadError ? (
+                        <p className={styles.fieldError} role="alert">
+                          {loadError}{" "}
+                          <button type="button" onClick={() => void loadProjects()}>
+                            Tentar novamente
+                          </button>
+                        </p>
+                      ) : null}
+                    </section>
+
+                    <section className={styles.formSection}>
+                      <div className={styles.sectionTitle}>
+                        <span>02</span>
+                        <h2>Selecione a nota</h2>
+                      </div>
+                      {!file ? (
+                        <div
+                          className={`${styles.dropzone} ${isDragging ? styles.dragging : ""}`}
+                          onDragEnter={(event) => {
+                            event.preventDefault();
+                            setIsDragging(true);
+                          }}
+                          onDragLeave={() => setIsDragging(false)}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={handleDrop}
+                          onClick={() => inputRef.current?.click()}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              inputRef.current?.click();
+                            }
+                          }}
+                        >
+                          <span className={styles.uploadCircle}>
+                            <IconCloudUpload />
+                          </span>
+                          <strong>Arraste a nota aqui</strong>
+                          <p>ou escolha um arquivo do seu dispositivo</p>
+                          <div className={styles.fileSourceActions}>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                cameraInputRef.current?.click();
+                              }}
+                              type="button"
+                            >
+                              Tirar foto
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                inputRef.current?.click();
+                              }}
+                              type="button"
+                            >
+                              Escolher arquivo
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={styles.selectedFileCard} aria-live="polite">
+                          <span className={styles.fileTypeLarge}>
+                            {file.name.toLowerCase().endsWith(".pdf") ? "PDF" : "IMG"}
+                          </span>
+                          <span className={styles.selectedFileMeta}>
+                            <small>Nota selecionada</small>
+                            <strong title={file.name}>{file.name}</strong>
+                            <span>{formatBytes(file.size)}</span>
+                            <em>
+                              <IconCheckCircle /> Pronta para envio
+                            </em>
+                          </span>
+                          <span className={styles.selectedFileActions}>
+                            <button
+                              onClick={() => inputRef.current?.click()}
+                              type="button"
+                            >
+                              Trocar
+                            </button>
+                            <button
+                              className={styles.removeFileButton}
+                              onClick={() => setFile(null)}
+                              type="button"
+                            >
+                              Remover
+                            </button>
+                          </span>
+                        </div>
+                      )}
+                      {fileError ? (
+                        <p className={styles.fieldError} role="alert">
+                          {fileError}
+                        </p>
+                      ) : null}
+                    </section>
                   </div>
 
-                  <div className={styles.fileSourceActions}>
-                    <button
-                      onClick={() => cameraInputRef.current?.click()}
-                      type="button"
-                    >
-                      Tirar foto
-                    </button>
-                    <button
-                      onClick={() => inputRef.current?.click()}
-                      type="button"
-                    >
-                      Escolher arquivo
-                    </button>
-                  </div>
-
-                  {file ? (
-                    <div className={styles.fileRow}>
-                      <span className={styles.pdfBadge}>
-                        {file.name.toLowerCase().endsWith(".pdf")
-                          ? "PDF"
-                          : "IMG"}
-                      </span>
-                      <span className={styles.fileName}>
-                        <strong>{file.name}</strong>
-                        <small>{formatBytes(file.size)}</small>
-                      </span>
-                      <span className={styles.fileCheck}>
-                        <IconCheckCircle />
-                      </span>
-                      <button
-                        type="button"
-                        aria-label="Remover nota fiscal"
-                        onClick={() => setFile(null)}
-                      >
-                        <IconX />
-                      </button>
-                    </div>
-                  ) : null}
-                  {fileError ? (
-                    <p className={styles.fieldError} role="alert">
-                      {fileError}
+                  <footer className={styles.formFooter}>
+                    <p className={styles.formatInfo}>
+                      <IconInfo /> PDF, JPG ou PNG · máximo de{" "}
+                      {formatBytes(MAX_FILE_SIZE_BYTES)} · um documento por envio
                     </p>
-                  ) : null}
-
-                  <button
-                    className={styles.submitBtn}
-                    type="submit"
-                    disabled={!selectedProject || !file || !isOnline}
-                  >
-                    <IconUpload /> Enviar nota fiscal
-                  </button>
-
+                    <button
+                      className={styles.submitBtn}
+                      type="submit"
+                      disabled={!selectedProject || !file || !isOnline}
+                    >
+                      <IconUpload /> Enviar nota
+                    </button>
+                  </footer>
                 </form>
               ) : null}
 
@@ -1489,7 +1630,7 @@ export function PublicUploadFlow() {
               </div>
 
               <div className={styles.resultButtons}>
-                <button className={styles.submitBtn} onClick={startAgain} type="button">
+                <button className={styles.submitBtn} onClick={sendAnotherNote} type="button">
                   <IconFilePlus /> Enviar nova nota
                 </button>
                 <Link href="/" className={styles.btnOutline}>
@@ -1507,15 +1648,14 @@ export function PublicUploadFlow() {
                 </div>
                 <h2>
                   {readFailure
-                    ? "Não foi possível ler a nota fiscal"
-                    : "Não foi possível concluir o processamento"}
+                    ? "Não foi possível ler este documento"
+                    : "Não conseguimos concluir a análise agora"}
                 </h2>
                 <p>
                   {readFailure
                     ? failureMessage ||
-                      "Recebemos a nota fiscal, mas não foi possível identificar corretamente as informações. Envie uma imagem mais nítida."
-                    : failureMessage ||
-                      "Ocorreu uma falha técnica durante o envio ou processamento. Tente novamente em alguns instantes."}
+                      "O arquivo parece estar vazio, corrompido, protegido por senha ou sem conteúdo legível. Envie uma nova cópia."
+                    : "O arquivo foi recebido, mas o serviço de análise foi interrompido. Isso não significa que o documento esteja ilegível."}
                 </p>
 
                 <div className={styles.summaryBoxError}>
@@ -1565,7 +1705,7 @@ export function PublicUploadFlow() {
                           Status da leitura
                         </span>
                         <span className={styles.badgeError}>
-                          <IconX /> {readFailure ? "Leitura não realizada" : "Análise interrompida"}
+                          <IconX /> {readFailure ? "Falha de leitura" : "Falha de processamento"}
                         </span>
                       </div>
                     </div>
@@ -1583,6 +1723,16 @@ export function PublicUploadFlow() {
                       <IconFocus /> Tentar novamente
                     </button>
                   ) : null}
+                  {!canRetryProcessing && !readFailure && file && selectedProject ? (
+                    <button
+                      className={styles.submitBtn}
+                      disabled={!isOnline}
+                      onClick={() => void submitSelectedFile()}
+                      type="button"
+                    >
+                      <IconUpload /> Reenviar este arquivo
+                    </button>
+                  ) : null}
                   {!invoiceId && file ? (
                     <button
                       className={styles.btnOutline}
@@ -1593,11 +1743,16 @@ export function PublicUploadFlow() {
                     </button>
                   ) : null}
                   <button
-                    className={canRetryProcessing ? styles.btnOutline : styles.submitBtn}
-                    onClick={startAgain}
+                    className={
+                      canRetryProcessing || (!readFailure && file && selectedProject)
+                        ? styles.btnOutline
+                        : styles.submitBtn
+                    }
+                    onClick={readFailure ? chooseAnotherFile : sendAnotherNote}
                     type="button"
                   >
-                    <IconUpload /> Enviar nova nota
+                    <IconUpload />
+                    {readFailure ? "Escolher outro arquivo" : "Enviar outra nota"}
                   </button>
                   <Link href="/" className={styles.btnOutline}>
                     <IconArrowLeft /> Voltar ao início
