@@ -66,6 +66,14 @@ export const goldenCaseInvoiceSchema = z.object({
       evidence: z.string().nullable(),
     })
     .optional(),
+  supportCoverage: z.object({
+    status: z.enum(["COMPLETE", "PARTIAL", "UNKNOWN"]),
+    referencedDocuments: z.array(z.string()),
+    presentDocuments: z.array(z.string()),
+    missingDocuments: z.array(z.string()),
+    basis: z.enum(["DOCUMENT_REFERENCES", "EXPLICIT_COMPLETENESS_STATEMENT", "NONE"]),
+    evidence: z.string().nullable(),
+  }).optional(),
   requiredFieldChecks: z
     .array(
       z.object({

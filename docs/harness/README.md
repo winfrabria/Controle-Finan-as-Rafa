@@ -11,8 +11,8 @@ O Harness transforma uma extração validada em uma decisão auditável. A ordem
 7. matriz de decisão e faixa de garantia;
 8. persistência de achados, métricas, diagnóstico e feedback.
 
-Política do código local: `2026-08-25.1`; prompt: `2026-08-25.1`; regras:
-`2026-08-25.1`; schema: `2026-08-25.1`. Esta é uma candidata local e só se
+Política do código local: `2026-09-06.1`; prompt: `2026-09-07.1`; regras:
+`2026-09-06.1`; schema: `2026-09-07.1`. Esta é uma candidata local e só se
 torna baseline de produção após confirmação explícita de publicação. Os artefatos versionados ficam nas pastas
 `policy`, `prompts`, `schemas` e `decision-matrix`. Alterações de comportamento
 devem criar uma nova versão, casos dourados e regressões antes de substituir a
@@ -21,7 +21,9 @@ versão ativa.
 ## Garantias
 
 - `openai/gpt-5.6-terra`, em `high`, é o padrão seguro da extração e da auditoria. O avaliador pode ser trocado somente pela variável explícita de comparação; o modelo e o esforço efetivamente usados ficam registrados no `AiRun`;
-- PDFs usam `mistral-ocr` por padrão antes da estruturação, rota indicada para documentos escaneados e compostos;
+- no pipeline adaptativo, PDFs usam leitura nativa com Flash Lite e uma recuperação distinta com Flash; o parser de recuperação herda o principal, sem trocar automaticamente para um segundo serviço de OCR. O modo legado mantém sua configuração própria;
+- `pageCoverage` confronta o inventário de fontes e instruções de cada página com as observações extraídas. É uma salvaguarda estrutural, não uma verificação visual independente;
+- quando a recuperação falha depois de uma leitura estruturalmente válida, a leitura anterior é preservada como limitada. Sem cobertura suficiente, só regras locais sustentadas são aplicadas: não há novas chamadas pagas de auditoria ou verificação e o anexo não termina como `OK`;
 - documentos compostos classificam o tipo e preservam, por linha, observações
   independentes da ficha, venda, recibo, pagamento e desconto. A reconciliação
   local transforma valores ou datas conflitantes em achados antes da descoberta
@@ -40,10 +42,14 @@ completa, sem linhas faltantes e sem déficit entre itens declarados e extraído
 - divergência de quantidade × preço unitário só vira achado quando a extração
   confirma visualmente os três valores na mesma linha. Uma soma contaminada por
   leitura aritmética não confirmada não autoriza `TOTAL_MISMATCH`;
-- Terra high é a rota primária. Somente rejeição de configuração, timeout ou
-  resposta estrutural inválida habilitam uma única recuperação no Sol high;
+- no modo legado, Terra high é a rota primária. Somente rejeição de configuração HTTP 400,
+  ausência estrutural de endpoint elegível HTTP 404, timeout ou resposta
+  estrutural inválida habilitam uma única recuperação no Sol high;
+- Envelopes HTTP 200 com `error` seguem essa classificação: códigos explícitos
+  de saldo, limite ou indisponibilidade não abrem nova chamada; documento
+  realmente ilegível termina em `READ_FAILED`;
 - quando o OpenRouter devolve `file_annotations`, o OCR já pago é reutilizado
-  no Sol. Sem OCR ou rascunho reutilizável, o arquivo pode ser enviado uma única
+  no modelo de recuperação configurado. Sem OCR ou rascunho reutilizável, o arquivo pode ser enviado uma única
   vez ao modelo distinto de recuperação;
 - a extração e a auditoria fazem no máximo duas chamadas e o `ProcessingJob`
   não repete externamente uma rota já esgotada;

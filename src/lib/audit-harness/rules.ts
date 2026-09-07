@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidIsoCalendarDate } from "@/lib/calendar-date";
 
 import type {
   DuplicateCandidate,
@@ -241,83 +242,6 @@ function legacyAggregateCharge(item: HarnessInvoice["items"][number]) {
   );
 }
 
-function legacySupportingDocument(item: HarnessInvoice["items"][number]) {
-  if (item.countsTowardDocumentTotal !== false) return false;
-  const description = normalize(item.description);
-  return /\b(nf-e|nfs-e|danfe|nota fiscal|cupom fiscal|documento fiscal)\b/.test(
-    description,
-  );
-}
-
-/**
- * Reconcilia qualquer cobrança agregada com seus documentos de suporte. A
- * regra depende do papel e do grupo documental extraídos, nunca de fornecedor,
- * número ou valor específicos. O reconhecimento textual existe apenas para
- * reprocessar extrações legadas que ainda não possuem esses campos.
- */
-function compositeDocumentCoverageFindings(invoice: HarnessInvoice) {
-  if (invoice.documentKind !== "COMPOSITE") return [];
-
-  const aggregateItems = invoice.items.filter(
-    (item) =>
-      item.documentRole === "AGGREGATE_PAYMENT" || legacyAggregateCharge(item),
-  );
-  const findings: HarnessFinding[] = [];
-
-  for (const aggregateItem of aggregateItems) {
-    const aggregateTotal = decimal(aggregateItem.totalAmount);
-    if (aggregateTotal === null) continue;
-
-    const group = normalizedItemGroup(aggregateItem);
-    const supportingItems = invoice.items.filter((item) => {
-      if (item === aggregateItem) return false;
-      const support =
-        item.documentRole === "SUPPORTING_DOCUMENT" ||
-        legacySupportingDocument(item);
-      if (!support) return false;
-
-      const supportGroup = normalizedItemGroup(item);
-      return group === null || supportGroup === null || supportGroup === group;
-    });
-    const supportingTotal = sumItemTotals(supportingItems);
-    if (supportingTotal === null) continue;
-
-    const tolerance = moneyTolerance(aggregateTotal);
-    if (Math.abs(aggregateTotal - supportingTotal) <= tolerance) continue;
-
-    findings.push(
-      finding({
-        code: `COMPOSITE_PAYMENT_DOCUMENT_GAP${group ? `_${group.replace(/[^a-z0-9]+/g, "_").slice(0, 48)}` : ""}`,
-        title: "Cobrança não está totalmente comprovada no anexo",
-        description:
-          "O valor da cobrança agregada é diferente do total dos documentos de suporte disponíveis para conferência.",
-        category: "DOCUMENT_COVERAGE",
-        severity: "CRITICAL",
-        confidence: 0.99,
-        justification:
-          "A cobrança e os documentos de suporte pertencem ao mesmo conjunto documental, mas os valores não reconciliam dentro da tolerância.",
-        references: [
-          "DOCUMENTO:COBRANCA_AGREGADA",
-          "DOCUMENTO:SUPORTES_DISPONIVEIS",
-        ],
-        evidence: {
-          documentGroup: group,
-          aggregateDescription: aggregateItem.description,
-          aggregateTotal: aggregateTotal.toFixed(2),
-          supportingTotal: supportingTotal.toFixed(2),
-          unsupportedAmount: (aggregateTotal - supportingTotal).toFixed(2),
-          supportingDocumentCount: supportingItems.length,
-        },
-        expectedValue: aggregateTotal.toFixed(2),
-        actualValue: supportingTotal.toFixed(2),
-        noteItemLineNumber: aggregateItem.lineNumber,
-      }),
-    );
-  }
-
-  return findings;
-}
-
 function requiredDocumentFieldFindings(invoice: HarnessInvoice) {
   const explicitRequirementPattern =
     /(?:\*\s*$|\bobrigat[oó]ri[oa]s?\b|\bpreenchimento\s+obrigat[oó]rio\b|\brequired\s+field\b|\bmandatory\b)/i;
@@ -407,12 +331,25 @@ function requiredDocumentFieldFindings(invoice: HarnessInvoice) {
 }
 
 function finding(
-  input: Omit<HarnessFinding, "source" | "references"> & {
+  input: Omit<
+    HarnessFinding,
+    "source" | "references" | "comparisonMode" | "referenceBasis"
+  > & {
     references?: HarnessFinding["references"];
     source?: HarnessFinding["source"];
+    comparisonMode?: HarnessFinding["comparisonMode"];
+    referenceBasis?: HarnessFinding["referenceBasis"];
   },
 ): HarnessFinding {
-  return { references: ["POLITICA_AUDITORIA_VIGENTE"], source: "UNIVERSAL_RULE", ...input };
+  return {
+    references: ["POLITICA_AUDITORIA_VIGENTE"],
+    source: "UNIVERSAL_RULE",
+    comparisonMode:
+      input.comparisonMode ??
+      (input.expectedValue === null ? "CONFLICT" : "REFERENCE"),
+    referenceBasis: input.referenceBasis ?? null,
+    ...input,
+  };
 }
 
 type EvidenceObservation = NonNullable<
@@ -783,48 +720,43 @@ function compactDateValues(values: string[]) {
   return `${unique[0]} a ${unique.at(-1)} (${unique.length} datas)`;
 }
 
-const EVIDENCE_BASELINE_PRIORITY: Record<EvidenceObservation["kind"], number> = {
-  SALE: 0,
-  RECEIPT: 1,
-  SHEET: 2,
-  PAYMENT: 3,
-  OTHER: 4,
-  DISCOUNT: 5,
-};
-
-function baselineObservation<T extends { observation: EvidenceObservation }>(
-  entries: T[],
-) {
-  return [...entries].sort(
-    (left, right) =>
-      EVIDENCE_BASELINE_PRIORITY[left.observation.kind] -
-      EVIDENCE_BASELINE_PRIORITY[right.observation.kind],
-  )[0];
+function explicitReferenceObservation(observation: EvidenceObservation) {
+  return /\b(?:refer[eê]ncia|esperad[oa]|previst[oa]|contrat(?:o|ual)|valor\s+declarado)\b/iu.test(
+    observationSearchText(observation),
+  );
 }
 
-const DATE_ROLE_PRIORITY: Record<ObservationDateRole, number> = {
-  ISSUE_DATE: 0,
-  TRANSACTION_DATE: 1,
-  EXPENSE_DATE: 2,
-  PAYMENT_DATE: 3,
-  PERIOD_DATE: 4,
-  DUE_DATE: 5,
-  UNKNOWN: 6,
-};
+function amountReferenceGroup<T extends {
+  observation: EvidenceObservation;
+  value: number;
+}>(entries: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const entry of entries) {
+    const key = entry.value.toFixed(2);
+    const group = groups.get(key) ?? [];
+    group.push(entry);
+    groups.set(key, group);
+  }
 
-function baselineDateObservation<
-  T extends { observation: EvidenceObservation },
->(entries: T[]) {
-  return [...entries].sort((left, right) => {
-    const roleDifference =
-      DATE_ROLE_PRIORITY[observationDateRole(left.observation)] -
-      DATE_ROLE_PRIORITY[observationDateRole(right.observation)];
-    if (roleDifference !== 0) return roleDifference;
-    return (
-      EVIDENCE_BASELINE_PRIORITY[left.observation.kind] -
-      EVIDENCE_BASELINE_PRIORITY[right.observation.kind]
-    );
-  })[0];
+  for (const [value, group] of groups) {
+    const kinds = new Set(group.map(({ observation }) => observation.kind));
+    // Ficha + recibo são duas bases documentais independentes do valor
+    // reembolsável. Ficha + pagamento, por outro lado, pode repetir um valor
+    // informado e não transforma automaticamente a venda em incorreta.
+    if (kinds.has("SHEET") && kinds.has("RECEIPT")) {
+      return {
+        value: Number(value),
+        basis: "CORROBORATED_SHEET_AND_RECEIPT",
+      };
+    }
+    if (group.some(({ observation }) => explicitReferenceObservation(observation))) {
+      return {
+        value: Number(value),
+        basis: "EXPLICIT_DOCUMENT_REFERENCE",
+      };
+    }
+  }
+  return null;
 }
 
 function reconcileEvidenceObservations(
@@ -840,7 +772,9 @@ function reconcileEvidenceObservations(
     return value === null ? [] : [{ observation, value }];
   });
   const dates = observations.flatMap((observation) =>
-    observation.date === null ? [] : [{ observation, value: observation.date }],
+    observation.date === null || !isValidIsoCalendarDate(observation.date)
+      ? []
+      : [{ observation, value: observation.date }],
   );
   const discount = amounts
     .filter(({ observation }) => observation.kind === "DISCOUNT")
@@ -863,12 +797,17 @@ function reconcileEvidenceObservations(
       discount > 0 && Math.abs(difference - discount) <= tolerance;
 
     if (difference > tolerance && !discountExplainsDifference) {
-      const baseline = baselineObservation(comparableAmounts) ?? lowest;
-      const conflicting = comparableAmounts.filter(
-        (entry) =>
-          Math.abs(entry.value - baseline.value) >
-          moneyTolerance(baseline.value),
-      );
+      const reference = amountReferenceGroup(comparableAmounts);
+      const conflicting = reference
+        ? comparableAmounts.filter(
+            (entry) =>
+              Math.abs(entry.value - reference.value) >
+              moneyTolerance(reference.value),
+          )
+        : comparableAmounts;
+      const distinctValues = [
+        ...new Set(comparableAmounts.map((entry) => entry.value.toFixed(2))),
+      ];
       findings.push(
         finding({
           code: `EVIDENCE_AMOUNT_MISMATCH_${item.lineNumber}`,
@@ -911,20 +850,56 @@ function reconcileEvidenceObservations(
               )
               .join("; "),
           },
-          expectedValue: baseline.value.toFixed(2),
-          actualValue: conflicting
-            .map((entry) => entry.value.toFixed(2))
-            .join(" × "),
+          comparisonMode: reference ? "REFERENCE" : "CONFLICT",
+          referenceBasis: reference?.basis ?? null,
+          expectedValue: reference ? reference.value.toFixed(2) : null,
+          actualValue: reference
+            ? (() => {
+                const values = [
+                  ...new Set(conflicting.map((entry) => entry.value.toFixed(2))),
+                ];
+                return values.length === 1 ? values[0] : values;
+              })()
+            : distinctValues,
           noteItemLineNumber: item.lineNumber,
         }),
       );
     }
   }
 
-  const comparableDates = dates.filter(({ observation }) => {
+  const directComparableDates = dates.filter(({ observation }) => {
     const role = observationDateRole(observation);
-    return role !== "DUE_DATE" && role !== "UNKNOWN";
+    return (
+      role === "TRANSACTION_DATE" ||
+      role === "EXPENSE_DATE" ||
+      role === "PAYMENT_DATE"
+    );
   });
+  const issueDates = dates.filter(
+    ({ observation }) => observationDateRole(observation) === "ISSUE_DATE",
+  );
+  const expensePeriodDates = dates.filter(({ observation }) => {
+    const role = observationDateRole(observation);
+    return role === "EXPENSE_DATE" || role === "PERIOD_DATE";
+  });
+  const hasMaterialPeriodGap = issueDates.some((issue) =>
+    expensePeriodDates.some((expense) => {
+      const issueTime = Date.parse(`${issue.value}T00:00:00.000Z`);
+      const expenseTime = Date.parse(`${expense.value}T00:00:00.000Z`);
+      return (
+        Number.isFinite(issueTime) &&
+        Number.isFinite(expenseTime) &&
+        Math.abs(issueTime - expenseTime) >= 180 * 24 * 60 * 60 * 1_000
+      );
+    }),
+  );
+  const comparableDates = hasMaterialPeriodGap
+    ? [...new Set([
+        ...directComparableDates,
+        ...issueDates,
+        ...expensePeriodDates,
+      ])]
+    : directComparableDates;
   const distinctDates = [
     ...new Map(comparableDates.map((entry) => [entry.value, entry])).values(),
   ];
@@ -932,10 +907,8 @@ function reconcileEvidenceObservations(
     comparableDates.map(({ observation }) => observation.kind),
   );
   if (distinctDates.length >= 2 && comparableDateKinds.size >= 2) {
-    const baseline =
-      baselineDateObservation(distinctDates) ?? distinctDates[0];
-    const conflicting = distinctDates.filter(
-      (entry) => entry.value !== baseline.value,
+    const explicitReference = distinctDates.find(({ observation }) =>
+      explicitReferenceObservation(observation),
     );
     findings.push(
       finding({
@@ -974,10 +947,18 @@ function reconcileEvidenceObservations(
             )
             .join("; "),
         },
-        expectedValue: baseline.value,
-        actualValue: compactDateValues(
-          conflicting.map((entry) => entry.value),
-        ),
+        comparisonMode: explicitReference ? "REFERENCE" : "CONFLICT",
+        referenceBasis: explicitReference
+          ? "EXPLICIT_DOCUMENT_REFERENCE"
+          : null,
+        expectedValue: explicitReference?.value ?? null,
+        actualValue: explicitReference
+          ? compactDateValues(
+              distinctDates
+                .filter((entry) => entry.value !== explicitReference.value)
+                .map((entry) => entry.value),
+            )
+          : distinctDates.map((entry) => entry.value),
         noteItemLineNumber: item.lineNumber,
       }),
     );
@@ -1013,7 +994,6 @@ export function evaluateUniversalRules(input: {
   const noteTotal = decimal(invoice.totalAmount);
   const aggregatePayments = groupedAggregatePaymentFindings(invoice.items);
   findings.push(...aggregatePayments.findings);
-  findings.push(...compositeDocumentCoverageFindings(invoice));
   findings.push(...requiredDocumentFieldFindings(invoice));
 
   for (const item of invoice.items) {
@@ -1117,7 +1097,7 @@ export function evaluateUniversalRules(input: {
 
   if (invoice.markdown) coveredAreas.add("DOCUMENT_TYPE");
 
-  if (invoice.issuedAt) {
+  if (invoice.issuedAt && isValidIsoCalendarDate(invoice.issuedAt)) {
     coveredAreas.add("DATE");
     const issuedAt = Date.parse(`${invoice.issuedAt}T00:00:00.000Z`);
     const tomorrow = (input.now ?? new Date()).getTime() + 24 * 60 * 60 * 1_000;
@@ -1302,7 +1282,7 @@ export function evaluateWorkRules(invoice: HarnessInvoice, rules: WorkRuleInput[
       expectedValue: configuration.allowedSupplierTaxIds, actualValue: invoice.supplierTaxId,
       noteItemLineNumber: null,
     });
-    if (configuration.dateRange && invoice.issuedAt) {
+    if (configuration.dateRange && invoice.issuedAt && isValidIsoCalendarDate(invoice.issuedAt)) {
       const { from, to } = configuration.dateRange;
       if ((from && invoice.issuedAt < from) || (to && invoice.issuedAt > to)) add({
         code: `${rule.code}_DATE_RANGE`, title: rule.name,

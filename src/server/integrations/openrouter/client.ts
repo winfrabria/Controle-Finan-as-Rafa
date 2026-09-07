@@ -1,4 +1,6 @@
 import "server-only";
+import { getProviderJsonSchema } from "./provider-schema";
+import { getEvidenceCoverageLimitation } from "@/lib/integrations/openrouter/evidence-coverage";
 
 import { z } from "zod";
 
@@ -13,6 +15,14 @@ import {
   getOpenRouterConfig,
   type OpenRouterPdfEngine,
 } from "@/server/integrations/openrouter/config";
+import {
+  getOpenRouterOutputTokenLimit,
+  getOpenRouterProviderStatusCode,
+  getOpenRouterProviderDiagnostic,
+  getOpenRouterProviderRouting,
+  isOpenRouterNonRetryableStatusCode,
+  type OpenRouterProviderSort,
+} from "./routing";
 
 const OPENROUTER_COMPLETIONS_URL =
   "https://openrouter.ai/api/v1/chat/completions";
@@ -75,9 +85,21 @@ const providerErrorEnvelopeSchema = z
     error: z.object({
       code: z.union([z.string(), z.number()]).optional(),
       message: z.string().optional(),
-    }),
+      metadata: z.unknown().optional(),
+    }).passthrough(),
   })
   .passthrough();
+
+const PDF_DOCUMENT_UNREADABLE_ERROR_PATTERN =
+  /(?:encrypted|password[- ]?protected|protected by password|corrupt(?:ed)?|malformed pdf|invalid pdf|empty (?:file|document)|zero[- ]byte|arquivo criptografado|protegido por senha|arquivo corrompido|documento corrompido|arquivo vazio)/i;
+
+const PDF_PARSER_REJECTION_PATTERN = /(?:failed|unable) to (?:parse|read) (?:the )?(?:pdf|file|document)/i;
+
+const IMAGE_DOCUMENT_UNREADABLE_ERROR_PATTERN =
+  /(?:unsupported\s+(?:image|file)\s+format|(?:cannot|can't|could not|couldn't|unable to|failed to)\s+(?:decode|parse|read)\s+(?:the\s+)?(?:image|image\s+bytes|image\s+data|file)|(?:invalid|malformed|corrupt(?:ed)?)\s+(?:image|image\s+bytes|image\s+data|file)|(?:unreadable|undecodable)\s+(?:image|image\s+file)|formato\s+(?:de|da)\s+(?:imagem|arquivo\s+de\s+imagem)\s+(?:não\s+suportado|inválido)|imagem\s+(?:inválida|ilegível|ilegivel|corrompida)|(?:não\s+(?:foi\s+possível|é\s+possível)|impossível)\s+(?:decodificar|analisar|ler)\s+(?:a\s+)?(?:imagem|arquivo(?:\s+de)?\s+imagem|arquivo|os?\s+bytes\s+da\s+imagem|bytes\s+(?:de|da)\s+imagem)|bytes?\s+(?:de|da)\s+imagem\s+(?:inválidos|invalidos|corrompidos?))/i;
+
+const IMAGE_PROVIDER_CAPABILITY_ERROR_PATTERN =
+  /(?:\b(?:model|provider|endpoint|route)\b[\s\S]{0,80}\b(?:does not|doesn't|cannot|can't|will not|won't)\b[\s\S]{0,30}\b(?:support|accept)\b|\b(?:not supported|unsupported)\b[\s\S]{0,80}\b(?:by|on|for)\s+(?:(?:the|this|requested)\s+)?(?:model|provider|endpoint|route)\b|\b(?:model|provider|endpoint|route)\b[\s\S]{0,50}\b(?:unsupported|not supported)\b|\b(?:modelo|provedor|endpoint|rota)\b[\s\S]{0,80}\b(?:não\s+(?:suporta|aceita)|incompatível)\b[\s\S]{0,30}\b(?:imagem|arquivo)\b|\b(?:não\s+suportado|não\s+aceito|incompatível)\b[\s\S]{0,80}\b(?:pelo|pela|por)\s+(?:modelo|provedor|endpoint|rota)\b)/i;
 
 export type OpenRouterClientErrorKind =
   | "invalid-response"
@@ -94,6 +116,7 @@ export type InvoiceExtractionUsage = {
 export type InvoiceExtractionAttempt = {
   attempt: number;
   diagnostic?: string;
+  diagnosticDetails?: Record<string, unknown>;
   kind: "success" | OpenRouterClientErrorKind;
   latencyMs: number;
   model: string;
@@ -108,6 +131,7 @@ export class OpenRouterClientError extends Error {
   public readonly diagnosticDetails?: Record<string, unknown>;
   public readonly recoveryDraft?: string;
   public readonly recoveryText?: string;
+  public readonly validatedExtraction?: InvoiceExtraction;
   public readonly attempts?: number;
   public readonly latencyMs?: number;
   public readonly model?: string;
@@ -128,6 +152,7 @@ export class OpenRouterClientError extends Error {
       diagnosticDetails?: Record<string, unknown>;
       recoveryDraft?: string;
       recoveryText?: string;
+      validatedExtraction?: InvoiceExtraction;
       attempts?: number;
       latencyMs?: number;
       model?: string;
@@ -144,6 +169,7 @@ export class OpenRouterClientError extends Error {
     this.diagnosticDetails = options?.diagnosticDetails;
     this.recoveryDraft = options?.recoveryDraft;
     this.recoveryText = options?.recoveryText;
+    this.validatedExtraction = options?.validatedExtraction;
     this.attempts = options?.attempts;
     this.latencyMs = options?.latencyMs;
     this.model = options?.model;
@@ -159,6 +185,7 @@ export type InvoiceExtractionRequest = {
   fileName: string;
   mimeType: "application/pdf" | "image/jpeg" | "image/png";
   signedUrl: string;
+  pageCount?: number | null;
 };
 
 export type InvoiceExtractionResult = {
@@ -168,6 +195,7 @@ export type InvoiceExtractionResult = {
   model: string;
   provider?: string;
   requestId?: string;
+  qualityLimitation?: InvoiceExtractionQualityLimitation;
   routingMetadata?: Record<string, string | number | boolean | null>;
   usage?: InvoiceExtractionUsage;
   latencyMs: number;
@@ -187,11 +215,15 @@ type OpenRouterClientOptions = {
   maxTokens?: number;
   model: string;
   fallbackModel?: string;
+  extractionFallbackReasoningEffort?: string;
+  extractionQualityGateEnabled?: boolean;
   pdfFallbackModel?: string;
+  pdfFallbackEngine?: OpenRouterPdfEngine;
   pdfModel?: string;
   pdfEngine: OpenRouterPdfEngine;
   pdfReasoningEffort?: string;
   reasoningEffort: string;
+  providerSort?: OpenRouterProviderSort;
   sleep?: (milliseconds: number) => Promise<void>;
   timeoutMs: number;
 };
@@ -229,17 +261,28 @@ function sanitizedProviderMessage(value: unknown) {
     .slice(0, 300);
 }
 
-function extractionProviderDiagnostic(status: number, message: string) {
+function extractionProviderDiagnostic(
+  status: number,
+  message: string,
+  providerCode?: unknown,
+  mimeType?: InvoiceExtractionRequest["mimeType"],
+) {
+  const isPdf = mimeType === "application/pdf" || mimeType === undefined;
+  const isImage = mimeType === "image/jpeg" || mimeType === "image/png";
   if (
     status === 400 &&
-    /(?:encrypted|password[- ]?protected|protected by password|corrupt(?:ed)?|malformed pdf|invalid pdf|empty (?:file|document)|zero[- ]byte|failed to (?:parse|read) (?:the )?(?:pdf|file|document)|unable to (?:parse|read) (?:the )?(?:pdf|file|document)|arquivo criptografado|protegido por senha|arquivo corrompido|documento corrompido|arquivo vazio)/i.test(
-      message,
-    )
+    ((isPdf && PDF_DOCUMENT_UNREADABLE_ERROR_PATTERN.test(message)) ||
+      (isImage &&
+        IMAGE_DOCUMENT_UNREADABLE_ERROR_PATTERN.test(message) &&
+        !IMAGE_PROVIDER_CAPABILITY_ERROR_PATTERN.test(message)))
   ) {
     return "document-unreadable" as const;
   }
+  if (status === 400 && isPdf && PDF_PARSER_REJECTION_PATTERN.test(message)) {
+    return "pdf-parser-rejected" as const;
+  }
   if (status === 400) return "provider-configuration-rejected" as const;
-  return "provider-request-failed" as const;
+  return getOpenRouterProviderDiagnostic({ message, providerCode, status });
 }
 
 function safeRoutingMetadata(value: unknown) {
@@ -272,9 +315,15 @@ async function readProviderError(response: Response) {
         metadata?: Record<string, unknown>;
       };
       metadata?: Record<string, unknown>;
+      openrouter_metadata?: Record<string, unknown>;
       provider?: unknown;
     };
-    const metadata = body.error?.metadata ?? body.metadata;
+    const metadata =
+      body.error?.metadata ?? body.openrouter_metadata ?? body.metadata;
+    const providerCode =
+      body.error?.code !== undefined
+        ? String(body.error.code).slice(0, 80)
+        : undefined;
     const routingMetadata = safeRoutingMetadata(metadata);
     const provider =
       typeof body.provider === "string"
@@ -290,12 +339,12 @@ async function readProviderError(response: Response) {
         : undefined;
     return {
       diagnosticDetails: {
-        ...(body.error?.code !== undefined
-          ? { providerCode: String(body.error.code).slice(0, 80) }
-          : {}),
+        providerMessage: sanitizedProviderMessage(body.error?.message),
+        ...(providerCode ? { providerCode } : {}),
         ...(routingMetadata ? { routing: routingMetadata } : {}),
       },
       message: sanitizedProviderMessage(body.error?.message),
+      providerCode,
       provider,
       recoveryText: extractOcrText(body),
       requestId: headerRequestId ?? metadataRequestId,
@@ -327,15 +376,23 @@ function createDocumentPart(request: InvoiceExtractionRequest) {
   } as const;
 }
 
+function annotationList(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
 function extractOcrText(responseBody: unknown) {
   if (typeof responseBody !== "object" || responseBody === null) return undefined;
   const root = responseBody as {
-    choices?: Array<{ message?: { annotations?: unknown[] } }>;
-    error?: { metadata?: { file_annotations?: unknown[] } };
+    choices?: Array<{ message?: { annotations?: unknown } }>;
+    error?: { metadata?: { file_annotations?: unknown } };
+    metadata?: { file_annotations?: unknown };
+    openrouter_metadata?: { file_annotations?: unknown };
   };
   const annotations = [
-    ...(root.choices?.[0]?.message?.annotations ?? []),
-    ...(root.error?.metadata?.file_annotations ?? []),
+    ...annotationList(root.choices?.[0]?.message?.annotations),
+    ...annotationList(root.error?.metadata?.file_annotations),
+    ...annotationList(root.metadata?.file_annotations),
+    ...annotationList(root.openrouter_metadata?.file_annotations),
   ];
   const seen = new Set<string>();
   const textParts: string[] = [];
@@ -380,7 +437,7 @@ function parseJsonContent(content: string) {
   }
 }
 
-type ExtractionLimitation = {
+export type InvoiceExtractionQualityLimitation = {
   diagnostic: string;
   details: Record<string, unknown>;
   message: string;
@@ -392,12 +449,14 @@ export function isInvoiceExtractionLimitationDiagnostic(
   return (
     diagnostic === "completion-token-limit" ||
     diagnostic === "ocr-only-partial" ||
-    diagnostic?.startsWith("pdf-") === true
+    diagnostic?.startsWith("pdf-") === true ||
+    diagnostic?.startsWith("evidence-") === true ||
+    diagnostic?.startsWith("image-") === true
   );
 }
 
 /**
- * PDFs only advance when the model proves that the reconciliation layer is
+ * Documents only advance when the model proves that the reconciliation layer is
  * complete. Page provenance improves the reviewer experience, but a missing
  * page number is metadata loss: it must not discard an otherwise complete and
  * internally consistent extraction.
@@ -405,20 +464,31 @@ export function isInvoiceExtractionLimitationDiagnostic(
 export function getInvoiceExtractionLimitation(
   extraction: InvoiceExtraction,
   mimeType: InvoiceExtractionRequest["mimeType"],
-): ExtractionLimitation | null {
-  if (mimeType !== "application/pdf") return null;
+): InvoiceExtractionQualityLimitation | null {
+  const prefix = mimeType === "application/pdf" ? "pdf" : "image";
 
   const coverage = extraction.itemCoverage;
+  const requiresItemCoverage =
+    extraction.items.length > 0 ||
+    extraction.documentKind === "FISCAL_INVOICE" ||
+    extraction.documentKind === "REIMBURSEMENT" ||
+    extraction.documentKind === "COMPOSITE";
+  if (!requiresItemCoverage) {
+    // A readable payment proof or OTHER document can legitimately have no
+    // line-item table. It proceeds to the Harness as insufficient information
+    // instead of being mislabeled as a technical extraction failure.
+    return null;
+  }
   if (coverage.status === "UNKNOWN") {
     return {
-      diagnostic: "pdf-item-coverage-unknown",
+      diagnostic: `${prefix}-item-coverage-unknown`,
       details: { itemCoverage: coverage },
-      message: "A cobertura integral do PDF não pôde ser comprovada.",
+      message: "A cobertura integral do documento não pôde ser comprovada.",
     };
   }
   if (coverage.status === "INCOMPLETE") {
     return {
-      diagnostic: "pdf-item-coverage-incomplete",
+      diagnostic: `${prefix}-item-coverage-incomplete`,
       details: { itemCoverage: coverage },
       message: "A extração identificou páginas ou itens ainda não cobertos.",
     };
@@ -433,9 +503,9 @@ export function getInvoiceExtractionLimitation(
   const hasCompositeStructure =
     extraction.documentKind === "REIMBURSEMENT" ||
     extraction.documentKind === "COMPOSITE" ||
+    new Set(extraction.items.map((item) => item.documentGroup).filter(Boolean)).size > 1 ||
     extraction.items.some(
       (item) =>
-        item.documentGroup !== null ||
         item.documentRole === "AGGREGATE_PAYMENT" ||
         item.documentRole === "SUPPORTING_DOCUMENT",
     );
@@ -491,7 +561,7 @@ export function getInvoiceExtractionLimitation(
 
   if (coverageIsInconsistent) {
     return {
-      diagnostic: "pdf-item-coverage-inconsistent",
+      diagnostic: `${prefix}-item-coverage-inconsistent`,
       details: {
         allLineNumbers: [...allLineNumbers].sort((left, right) => left - right),
         hasExplicitLayerSelection,
@@ -511,14 +581,14 @@ export function getInvoiceExtractionLimitation(
       extraction.items.some((item) => item.evidenceObservations.length === 0)
     ) {
       return {
-        diagnostic: "pdf-evidence-observations-missing",
+        diagnostic: `${prefix}-evidence-observations-missing`,
         details: {
           itemCoverage: coverage,
           itemLineNumbersWithoutEvidence: extraction.items
             .filter((item) => item.evidenceObservations.length === 0)
             .map((item) => item.lineNumber),
         },
-        message: "O PDF composto contém itens sem evidência documental associada.",
+        message: "O documento composto contém itens sem evidência documental associada.",
       };
     }
   }
@@ -595,6 +665,7 @@ function withRunTelemetry(
       diagnosticDetails: error.diagnosticDetails,
       recoveryDraft: error.recoveryDraft,
       recoveryText: error.recoveryText,
+      validatedExtraction: error.validatedExtraction,
       attempts: input.attempts,
       latencyMs: input.latencyMs,
       model: error.model ?? input.model,
@@ -630,6 +701,7 @@ export class OpenRouterInvoiceExtractionClient
     let lastModel: string | undefined;
     let lastProvider: string | undefined;
     let recoveryInput: { kind: "draft" | "ocr"; text: string } | undefined;
+    let readableCheckpoint: { data: InvoiceExtraction; model: string; provider?: string; diagnostic?: string } | undefined;
     let calls = 0;
     const attemptTrace: InvoiceExtractionAttempt[] = [];
     const primaryModel =
@@ -662,6 +734,11 @@ export class OpenRouterInvoiceExtractionClient
           request,
           selectedModel,
           recoveryInput,
+          undefined,
+          Boolean(
+            this.options.extractionQualityGateEnabled &&
+              index < modelsToTry.length - 1,
+          ),
         );
         accumulatedUsage = mergeUsage(accumulatedUsage, result.usage);
         attemptTrace.push({
@@ -686,9 +763,14 @@ export class OpenRouterInvoiceExtractionClient
         lastModel = normalizedError.model ?? selectedModel;
         lastProvider = normalizedError.provider ?? lastProvider;
         lastError = normalizedError;
+        if (normalizedError.validatedExtraction) {
+          readableCheckpoint = { data: normalizedError.validatedExtraction, model: selectedModel,
+            provider: normalizedError.provider, diagnostic: normalizedError.diagnostic };
+        }
         attemptTrace.push({
           attempt: calls,
           diagnostic: normalizedError.diagnostic,
+          diagnosticDetails: normalizedError.diagnosticDetails,
           kind: normalizedError.kind,
           latencyMs: normalizedError.latencyMs ?? 0,
           model: selectedModel,
@@ -700,8 +782,12 @@ export class OpenRouterInvoiceExtractionClient
         const isConfigurationRejection =
           normalizedError.kind === "provider" &&
           normalizedError.diagnostic === "provider-configuration-rejected";
+        const isEndpointUnavailable =
+          normalizedError.kind === "provider" &&
+          normalizedError.diagnostic === "provider-endpoint-unavailable";
         const fallbackEligible =
           isConfigurationRejection ||
+          isEndpointUnavailable ||
           normalizedError.kind === "timeout" ||
           normalizedError.kind === "invalid-response";
         const hasAnotherModel =
@@ -710,6 +796,22 @@ export class OpenRouterInvoiceExtractionClient
           calls < callBudget;
 
         if (!hasAnotherModel) {
+          // A later provider/parser failure cannot retroactively make a readable
+          // first result corrupt. Preserve its fields, but never its claim of completeness.
+          if (readableCheckpoint) {
+            const warning = "A segunda leitura não confirmou toda a extração. Os dados disponíveis foram preservados para conferência manual.";
+            return {
+              attempts: calls, attemptTrace, model: readableCheckpoint.model,
+              provider: readableCheckpoint.provider, latencyMs: Date.now() - extractionStartedAt,
+              data: { ...readableCheckpoint.data,
+                itemCoverage: { ...readableCheckpoint.data.itemCoverage, status: "UNKNOWN" },
+                warnings: [warning, ...readableCheckpoint.data.warnings].slice(0, 50) },
+              qualityLimitation: { diagnostic: request.mimeType === "application/pdf" ? "pdf-recovery-incomplete" : "image-recovery-incomplete", message: warning,
+                details: { initialDiagnostic: readableCheckpoint.diagnostic,
+                  recoveryDiagnostic: normalizedError.diagnostic, recoveryStatus: normalizedError.status } },
+              ...(accumulatedUsage ? { usage: accumulatedUsage } : {}),
+            };
+          }
           const ocrText =
             normalizedError.recoveryText ??
             (recoveryInput?.kind === "ocr" ? recoveryInput.text : undefined);
@@ -778,11 +880,27 @@ export class OpenRouterInvoiceExtractionClient
     selectedModel: string,
     recovery?: { kind: "draft" | "ocr"; text: string },
     maxTokensOverride?: number,
+    recoverOnQualityLimitation = false,
   ) {
     const startedAt = Date.now();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs);
     const isPdf = request.mimeType === "application/pdf";
+    const selectedFallbackModel = isPdf
+      ? this.options.pdfFallbackModel ?? this.options.fallbackModel
+      : this.options.fallbackModel;
+    const isFallbackModel =
+      Boolean(selectedFallbackModel) && selectedModel === selectedFallbackModel;
+    const selectedPdfEngine =
+      isPdf && isFallbackModel
+        ? this.options.pdfFallbackEngine ?? this.options.pdfEngine
+        : this.options.pdfEngine;
+    const primaryReasoningEffort = isPdf
+      ? this.options.pdfReasoningEffort ?? this.options.reasoningEffort
+      : this.options.reasoningEffort;
+    const selectedReasoningEffort = isFallbackModel
+      ? this.options.extractionFallbackReasoningEffort ?? primaryReasoningEffort
+      : primaryReasoningEffort;
     const payload = {
       model: selectedModel,
       messages: [
@@ -807,18 +925,19 @@ export class OpenRouterInvoiceExtractionClient
         json_schema: {
           name: "invoice_extraction",
           strict: true,
-          schema: INVOICE_EXTRACTION_JSON_SCHEMA,
+          schema: getProviderJsonSchema(selectedModel, INVOICE_EXTRACTION_JSON_SCHEMA),
         },
       },
       stream: false,
-      max_tokens: maxTokensOverride ?? this.options.maxTokens ?? 16_384,
+      provider: getOpenRouterProviderRouting(this.options.providerSort),
+      ...getOpenRouterOutputTokenLimit(
+        selectedModel,
+        maxTokensOverride ?? this.options.maxTokens ?? 16_384,
+      ),
       ...(supportsReasoningConfiguration(selectedModel)
         ? {
             reasoning: {
-              effort: isPdf
-                ? this.options.pdfReasoningEffort ??
-                  this.options.reasoningEffort
-                : this.options.reasoningEffort,
+              effort: selectedReasoningEffort,
               exclude: true,
             },
           }
@@ -828,7 +947,7 @@ export class OpenRouterInvoiceExtractionClient
           ? [
               {
                 id: "file-parser",
-                pdf: { engine: this.options.pdfEngine },
+                pdf: { engine: selectedPdfEngine },
               },
             ]
           : []),
@@ -869,6 +988,8 @@ export class OpenRouterInvoiceExtractionClient
             diagnostic: extractionProviderDiagnostic(
               response.status,
               providerError.message,
+              providerError.providerCode,
+              request.mimeType,
             ),
             diagnosticDetails: providerError.diagnosticDetails,
             latencyMs: Date.now() - startedAt,
@@ -914,11 +1035,130 @@ export class OpenRouterInvoiceExtractionClient
       if (!envelope.success) {
         const providerError = providerErrorEnvelopeSchema.safeParse(responseBody);
         if (providerError.success) {
+          const providerCode =
+            providerError.data.error.code !== undefined
+              ? String(providerError.data.error.code).slice(0, 80)
+              : undefined;
+          const explicitStatus = getOpenRouterProviderStatusCode(providerCode);
+          const responseRecord =
+            typeof responseBody === "object" && responseBody !== null
+              ? (responseBody as Record<string, unknown>)
+              : undefined;
+          const providerMetadata =
+            providerError.data.error.metadata ??
+            responseRecord?.openrouter_metadata ??
+            responseRecord?.metadata;
+          const routingMetadata = safeRoutingMetadata(
+            providerMetadata,
+          );
+          const provider =
+            typeof responseRecord?.provider === "string"
+              ? responseRecord.provider.slice(0, 160)
+              : typeof routingMetadata?.provider_name === "string"
+                ? routingMetadata.provider_name
+                : typeof routingMetadata?.provider === "string"
+                  ? routingMetadata.provider
+                  : undefined;
+          const message = sanitizedProviderMessage(
+            providerError.data.error.message,
+          );
+          const explicitDiagnostic =
+            explicitStatus !== undefined
+              ? extractionProviderDiagnostic(
+                  explicitStatus,
+                  message,
+                  providerCode,
+                  request.mimeType,
+                )
+              : undefined;
+          const diagnosticDetails = {
+            providerMessage: message,
+            ...(providerCode ? { providerCode } : {}),
+            ...(routingMetadata ? { routing: routingMetadata } : {}),
+          };
+          const requestId =
+            response.headers.get("x-openrouter-request-id") ??
+            response.headers.get("x-request-id") ??
+            (typeof routingMetadata?.request_id === "string"
+              ? routingMetadata.request_id
+              : undefined);
+          const errorOptions = {
+            cause: envelope.error,
+            diagnostic:
+              explicitDiagnostic ?? "provider-error-envelope",
+            diagnosticDetails,
+            provider,
+            recoveryText,
+            requestId,
+            routingMetadata,
+          };
+
+          // An explicit provider status in an otherwise HTTP-200 error
+          // envelope is authoritative. Preserve non-retryable billing,
+          // rate-limit, outage, and arbitrary-resource errors instead of
+          // turning a coded provider failure into a blind paid fallback.
+          if (
+            explicitDiagnostic === "document-unreadable" ||
+            explicitDiagnostic === "pdf-parser-rejected" ||
+            (explicitStatus !== undefined &&
+              isOpenRouterNonRetryableStatusCode(explicitStatus))
+          ) {
+            throw new OpenRouterClientError(
+              "provider",
+              message,
+              false,
+              explicitStatus,
+              undefined,
+              errorOptions,
+            );
+          }
+          if (explicitDiagnostic === "provider-configuration-rejected") {
+            throw new OpenRouterClientError(
+              "provider",
+              message,
+              true,
+              explicitStatus,
+              undefined,
+              errorOptions,
+            );
+          }
+          if (explicitDiagnostic === "provider-endpoint-unavailable") {
+            throw new OpenRouterClientError(
+              "provider",
+              message,
+              true,
+              explicitStatus,
+              undefined,
+              errorOptions,
+            );
+          }
+          if (explicitStatus === 408 || explicitStatus === 504) {
+            throw new OpenRouterClientError(
+              "timeout",
+              message,
+              true,
+              explicitStatus,
+              undefined,
+              errorOptions,
+            );
+          }
+          if (explicitStatus !== undefined) {
+            throw new OpenRouterClientError(
+              "provider",
+              message,
+              false,
+              explicitStatus,
+              undefined,
+              errorOptions,
+            );
+          }
           throw new OpenRouterClientError(
-            "provider",
-            providerError.data.error.message?.slice(0, 300) ??
-              "OpenRouter returned a provider error.",
+            "invalid-response",
+            message,
             true,
+            undefined,
+            undefined,
+            errorOptions,
           );
         }
         throw new OpenRouterClientError(
@@ -942,7 +1182,11 @@ export class OpenRouterInvoiceExtractionClient
         undefined;
       const routingMetadata = safeRoutingMetadata(
         typeof responseBody === "object" && responseBody !== null
-          ? (responseBody as { metadata?: unknown }).metadata
+          ? ((responseBody as {
+              metadata?: unknown;
+              openrouter_metadata?: unknown;
+            }).openrouter_metadata ??
+              (responseBody as { metadata?: unknown }).metadata)
           : undefined,
       );
       const responseTelemetry = {
@@ -1033,11 +1277,33 @@ export class OpenRouterInvoiceExtractionClient
         );
       }
 
+      const qualityLimitation = this.options.extractionQualityGateEnabled
+        ? getInvoiceExtractionLimitation(extraction.data, request.mimeType) ??
+          getEvidenceCoverageLimitation(extraction.data, request.pageCount)
+        : null;
+      if (qualityLimitation && recoverOnQualityLimitation) {
+        throw new OpenRouterClientError(
+          "invalid-response",
+          qualityLimitation.message,
+          true,
+          undefined,
+          undefined,
+          {
+            diagnostic: qualityLimitation.diagnostic,
+            diagnosticDetails: qualityLimitation.details,
+            recoveryText,
+            validatedExtraction: extraction.data,
+            ...responseTelemetry,
+          },
+        );
+      }
+
       return {
         data: extraction.data,
         latencyMs: Date.now() - startedAt,
         model: envelope.data.model,
         provider: envelope.data.provider,
+        ...(qualityLimitation ? { qualityLimitation } : {}),
         requestId,
         routingMetadata,
         ...(usage ? { usage } : {}),

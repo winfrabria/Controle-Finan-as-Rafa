@@ -188,6 +188,11 @@
     border-color: #c5e1d0;
   }
 
+  .comparison > .comparisonNeutral {
+    background: #f7faff;
+    border-color: #dce5ef;
+  }
+
   .comparison h2 {
     font-size: 10px;
     letter-spacing: 0.04em;
@@ -203,6 +208,11 @@
   .comparisonExpected h2,
   .comparisonExpected p {
     color: #217344;
+  }
+
+  .comparisonNeutral h2,
+  .comparisonNeutral p {
+    color: #425a7c;
   }
 
   .comparison p {
@@ -221,6 +231,14 @@
     border-top: 1px solid rgb(19 41 79 / 9%);
     margin-top: 7px;
     padding-top: 7px;
+  }
+
+  .comparison > .comparisonHint {
+    color: #607393;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.45;
+    margin: 0 2px;
   }
 
   .comparison > .comparisonDifference {

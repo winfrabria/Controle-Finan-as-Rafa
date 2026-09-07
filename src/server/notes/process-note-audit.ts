@@ -20,10 +20,10 @@ import {
 import {
   HARNESS_VERSIONS,
   buildVerificationChecks,
-  canRetainSuspiciousAfterVerificationFailure,
   evaluateHarness,
   evaluateUniversalRules,
   evaluateWorkRules,
+  explicitlyConfirmedVerificationFindings,
   isReadFailure,
   isSupportedFinding,
   resolveAuditEvaluatorModel,
@@ -39,14 +39,16 @@ import {
   type HarnessInvoice,
   type WorkRuleInput,
 } from "@/lib/audit-harness";
-import { invoiceExtractionSchema } from "@/lib/integrations/openrouter/extraction-contract";
+import { parseInvoiceExtractionPayload } from "@/lib/integrations/openrouter/extraction-contract";
+import { getEvidenceCoverageLimitation } from "@/lib/integrations/openrouter/evidence-coverage";
 import { prisma } from "@/server/db/prisma";
 import {
   getOpenRouterAuditDiscoveryClient,
   OpenRouterAuditDiscoveryError,
   type AuditDiscoveryClient,
+  type AuditDiscoveryResult,
 } from "@/server/integrations/openrouter/audit-client";
-import { OpenRouterClientError } from "@/server/integrations/openrouter/client";
+import { getInvoiceExtractionLimitation, OpenRouterClientError } from "@/server/integrations/openrouter/client";
 import type { VerificationClient } from "@/server/integrations/openrouter/verification-client";
 import {
   PUBLIC_CONTEXT_CAPABILITY_TTL_SECONDS,
@@ -55,7 +57,6 @@ import {
 import { invalidateNoteReads } from "@/server/notes/note-read-invalidation";
 import {
   runSelectiveVerification,
-  SelectiveVerificationError,
 } from "@/server/notes/run-selective-verification";
 import {
   createNotificationWithPushDeliveries,
@@ -203,7 +204,7 @@ async function loadAuditContext(noteId: string, contextSubmissionId?: string) {
         where: { kind: AiRunKind.EXTRACTION },
         orderBy: { createdAt: "desc" },
         take: 1,
-        select: { attempts: true },
+        select: { attempts: true, structuredResponse: true },
       },
     },
   });
@@ -216,11 +217,19 @@ async function loadAuditContext(noteId: string, contextSubmissionId?: string) {
     select: { id: true },
   });
 
-  const parsed = invoiceExtractionSchema.safeParse(note.extractedData);
+  const parsed = parseInvoiceExtractionPayload(note.extractedData);
   if (!parsed.success) {
     throw new AuditPipelineError("AUDIT_INVALID_EXTRACTION", "Os dados extraídos não são válidos.", { cause: parsed.error });
   }
   const invoice: HarnessInvoice = parsed.data;
+  const metadata = note.aiRuns[0]?.structuredResponse;
+  const recordedLimitation = metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? metadata.qualityLimitation : null;
+  const currentLimitation = getEvidenceCoverageLimitation(parsed.data, note.originalMimeType === "application/pdf" ? note.originalPageCount : 1) ??
+    getInvoiceExtractionLimitation(parsed.data, note.originalMimeType === "application/pdf" ? "application/pdf" : "image/png");
+  const extractionLimitation = currentLimitation?.message ??
+    (recordedLimitation && typeof recordedLimitation === "object" && !Array.isArray(recordedLimitation)
+      ? "A extração anterior não confirmou a cobertura integral do anexo." : null);
   const workRulesEnabled = process.env.HARNESS_WORK_RULES_ENABLED === "true";
   const activeRules = await prisma.auditRule.findMany({
     where: workRulesEnabled
@@ -291,6 +300,7 @@ async function loadAuditContext(noteId: string, contextSubmissionId?: string) {
     originalMimeType: note.originalMimeType,
     originalPageCount: note.originalPageCount,
     extractionAttempts: note.aiRuns[0]?.attempts ?? 1,
+    extractionLimitation,
     workRules,
   };
 }
@@ -371,7 +381,7 @@ export async function processNoteAudit(
   } = {},
 ) {
   const context = await loadAuditContext(noteId, dependencies.contextSubmissionId);
-  if (isReadFailure(context.invoice)) {
+  if (!context.extractionLimitation && isReadFailure(context.invoice)) {
     return finalizeReadFailure(
       noteId,
       context.noteVersion,
@@ -390,7 +400,8 @@ export async function processNoteAudit(
       selectedReasoning.effort,
     ),
   };
-  const auditModel = resolveAuditEvaluatorModel(process.env.OPENROUTER_AUDIT_MODEL);
+  const auditModel = context.extractionLimitation ? "local/deterministic"
+    : resolveAuditEvaluatorModel(process.env.OPENROUTER_AUDIT_MODEL);
   const canonicalContextAnswers = [...(context.contextAnswers ?? [])].sort(
     (left, right) =>
       `${left.code}:${left.type}`.localeCompare(`${right.code}:${right.type}`),
@@ -434,8 +445,15 @@ export async function processNoteAudit(
   });
 
   try {
-    const client = dependencies.client ?? getOpenRouterAuditDiscoveryClient();
-    const discovery = await client.discover({
+    // Do not purchase two more model calls to audit data already known to be
+    // incomplete. Preserve supported local findings, disclose the missing review.
+    const discovery: AuditDiscoveryResult = context.extractionLimitation ? {
+      attempts: 0, attemptTrace: [], model: "local/deterministic", provider: "local", latencyMs: 0,
+      usage: { costUsd: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      data: { findings: [], needsContext: false, contextQuestions: [],
+        coverage: { sufficientEvidence: false, checkedAreas: [], limitations: [context.extractionLimitation] },
+        summary: "A leitura ficou incompleta. Foram aplicadas somente regras locais sobre os dados disponíveis; auditoria e verificação por IA não foram executadas." },
+    } : await (dependencies.client ?? getOpenRouterAuditDiscoveryClient()).discover({
       contextAnswers: context.contextAnswers,
       invoice: context.invoice,
       deterministicFindings,
@@ -443,6 +461,10 @@ export async function processNoteAudit(
       reasoningEffort: reasoning.effort,
     });
     const baseResult = evaluateHarness({ ...context, aiDiscovery: discovery.data });
+    const verificationCandidates = [
+      ...baseResult.findings,
+      ...baseResult.unconfirmedAiFindings,
+    ];
     const verifierMode = resolveHarnessVerifierMode(
       process.env.HARNESS_VERIFIER_MODE,
       process.env.HARNESS_VERIFIER_GATE_APPROVED,
@@ -450,7 +472,7 @@ export async function processNoteAudit(
     const verificationSelection = selectVerification({
       aiCoverage: baseResult.coverage.ai,
       baseClassification: baseResult.classification,
-      baseFindings: baseResult.findings,
+      baseFindings: verificationCandidates,
       extractionAttempts: context.extractionAttempts,
       extractionRecovered: context.extractionAttempts > 1,
       invoice: context.invoice,
@@ -462,18 +484,16 @@ export async function processNoteAudit(
       | undefined;
     let verificationFailed = false;
 
-    if (verificationSelection.required && verifierMode !== "off") {
-      if (
-        context.originalMimeType !== "application/pdf" &&
-        context.originalMimeType !== "image/jpeg" &&
-        context.originalMimeType !== "image/png"
-      ) {
-        throw new AuditPipelineError(
-          "VERIFICATION_FILE_TYPE_UNSUPPORTED",
-          "O anexo não possui um tipo seguro para verificação independente.",
-        );
-      }
-      try {
+    if (!context.extractionLimitation && verificationSelection.required && verifierMode !== "off") {
+      const verificationMimeType =
+        context.originalMimeType === "application/pdf" ||
+        context.originalMimeType === "image/jpeg" ||
+        context.originalMimeType === "image/png"
+          ? context.originalMimeType
+          : null;
+      if (!verificationMimeType) {
+        verificationFailed = true;
+      } else try {
         verification = await runSelectiveVerification(
           {
             baseClassification: baseResult.classification,
@@ -481,45 +501,46 @@ export async function processNoteAudit(
             expectedPageCount: context.originalPageCount,
             fileName: context.originalFileName,
             filePath: context.originalFilePath,
-            initialFindings: baseResult.findings,
+            initialFindings: verificationCandidates,
             invoice: context.invoice,
-            mimeType: context.originalMimeType,
+            mimeType: verificationMimeType,
             noteId,
             originalFileSha256: context.originalFileSha256,
             processingJobId: dependencies.processingJobId,
           },
           { client: dependencies.verificationClient },
         );
-      } catch (error) {
+      } catch {
         verificationFailed = true;
-        if (
-          verifierMode === "enforce" &&
-          !canRetainSuspiciousAfterVerificationFailure({
-            classification: baseResult.classification,
-            findings: baseResult.findings,
-          })
-        ) {
-          if (error instanceof SelectiveVerificationError) {
-            throw new AuditPipelineError(error.code, error.message, { cause: error });
-          }
-          throw error;
-        }
+        // Verificação é uma salvaguarda seletiva. Timeout, resposta inválida ou
+        // falha do provedor descartam hipóteses não confirmadas, mas nunca
+        // interrompem o processamento nem removem achados determinísticos.
       }
     }
 
+    const explicitlyConfirmedFindings = verification?.coverage.complete
+      ? explicitlyConfirmedVerificationFindings(
+          baseResult.unconfirmedAiFindings,
+          verification.data.findings,
+        )
+      : [];
+    const verificationFindingsForEvaluation =
+      verifierMode === "enforce" && verification?.coverage.complete
+        ? verification?.data.findings ?? []
+        : explicitlyConfirmedFindings;
     const evaluatedResult =
-      verifierMode === "enforce" && verification
+      verificationFindingsForEvaluation.length > 0
         ? evaluateHarness({
             ...context,
             aiDiscovery: discovery.data,
-            verificationFindings: verification.data.findings,
+            verificationFindings: verificationFindingsForEvaluation,
           })
         : baseResult;
     const result =
-      verifierMode === "enforce" &&
-      verification &&
-      evaluatedResult.classification === "OK" &&
-      (!verification.coverage.complete || verification.data.status === "LIMITED")
+      (Boolean(context.extractionLimitation) || (verifierMode === "enforce" &&
+      verificationSelection.required &&
+      (verificationFailed || !verification?.coverage.complete || verification.data.status === "LIMITED"))) &&
+      evaluatedResult.classification === "OK"
         ? { ...evaluatedResult, classification: "INFORMATION_INSUFFICIENT" as const }
         : evaluatedResult;
     const allowNewContextQuestions = !dependencies.contextSubmissionId && context.contextQuestionCount === 0;
@@ -540,7 +561,7 @@ export async function processNoteAudit(
             informationInsufficient: true,
           })
         : result.classification;
-    const assurance = resolveAuditAssurance({
+    const resolvedAssurance = resolveAuditAssurance({
       aiCoverage: result.coverage.ai,
       classification: finalClassification,
       mode: verifierMode,
@@ -550,11 +571,26 @@ export async function processNoteAudit(
         ? "FAILED"
         : verification?.data.status ?? "NOT_RUN",
     });
+    const assurance = context.extractionLimitation ? {
+      band: "LIMITED" as const,
+      reason: "A extração não comprovou cobertura integral. Auditoria e verificação por IA não foram executadas; somente regras locais foram aplicadas aos dados disponíveis.",
+    } : result.unconfirmedAiFindings.length > 0
+      ? {
+          band: "LIMITED" as const,
+          reason: "Uma sugestão financeira ou de data da auditoria livre não foi confirmada no documento original e foi desconsiderada.",
+        }
+      : resolvedAssurance;
     const finalContextQuestions = dependencies.contextSubmissionId
       ? []
       : result.contextQuestions;
     const auditResult = auditResultValue(finalClassification);
     const finalStatus = noteStatus(finalClassification);
+    const safeContextSummary =
+      result.unconfirmedAiFindings.length === 0
+        ? sanitizedText(discovery.data.summary)
+        : finalClassification === "SUSPICIOUS"
+          ? "O diagnóstico mantém somente inconsistências sustentadas por regras locais ou pela verificação independente. Sugestões sem confirmação no documento original foram desconsideradas."
+          : "A auditoria livre sugeriu uma possível divergência financeira ou de data, mas ela não foi confirmada no documento original e não foi tratada como suspeita.";
     const keepsPublicContextCapability =
       finalClassification === "NEEDS_CONTEXT" &&
       !dependencies.contextSubmissionId &&
@@ -584,7 +620,7 @@ export async function processNoteAudit(
           assuranceVersion: HARNESS_VERSIONS.policy,
           classification: classificationValue(finalClassification),
           contextRound: targetContextRound,
-          contextSummary: sanitizedText(discovery.data.summary),
+          contextSummary: safeContextSummary,
           failureCode: null,
           failureMessage: null,
           processedAt: new Date(),
@@ -645,7 +681,13 @@ export async function processNoteAudit(
               finding.source === "AI_VERIFICATION",
             policyVersion: HARNESS_VERSIONS.policy,
             needsValidation: false,
-            evidence: toJson(finding.evidence),
+            evidence: toJson({
+              ...finding.evidence,
+              comparisonMode:
+                finding.comparisonMode ??
+                (finding.expectedValue === null ? "CONFLICT" : "REFERENCE"),
+              referenceBasis: finding.referenceBasis ?? null,
+            }),
             expectedValue: nullableJson(finding.expectedValue),
             actualValue: nullableJson(finding.actualValue),
           })),
@@ -707,6 +749,9 @@ export async function processNoteAudit(
             contextQuestionCount: finalContextQuestions.length,
             contextRound: targetContextRound,
             findingCount: supportedFindings.length,
+            unconfirmedAiFindingCodes: result.unconfirmedAiFindings.map(
+              (finding) => finding.code,
+            ),
             hasContextAnswers: Boolean(context.contextAnswers?.length),
             coverage: result.coverage,
             assurance,
@@ -718,6 +763,9 @@ export async function processNoteAudit(
               required: verificationSelection.required,
               reasons: verificationSelection.reasons,
               runId: verification?.runId ?? null,
+              explicitlyConfirmedFindingCodes: explicitlyConfirmedFindings.map(
+                (finding) => finding.code,
+              ),
               status: verificationFailed
                 ? "FAILED"
                 : verification?.data.status ?? "NOT_RUN",
@@ -739,10 +787,16 @@ export async function processNoteAudit(
           status: AiRunStatus.SUCCEEDED,
           structuredResponse: toJson({
             attemptTrace: discovery.attemptTrace,
+            executionMode: context.extractionLimitation ? "DETERMINISTIC_ONLY" : "AI_AUDIT",
+            skippedPaidStages: context.extractionLimitation ? ["AUDIT", "VERIFICATION"] : [],
+            extractionLimitation: context.extractionLimitation,
             auditResult: finalClassification,
             contextQuestionCodes: finalContextQuestions.map((question) => question.code),
             coverage: result.coverage,
             findingCodes: supportedFindings.map((finding) => finding.code),
+            unconfirmedAiFindingCodes: result.unconfirmedAiFindings.map(
+              (finding) => finding.code,
+            ),
             invalidWorkRules: work.invalidRules,
             summary: discovery.data.summary,
             assurance,
@@ -755,6 +809,9 @@ export async function processNoteAudit(
               required: verificationSelection.required,
               reasons: verificationSelection.reasons,
               runId: verification?.runId ?? null,
+              explicitlyConfirmedFindingCodes: explicitlyConfirmedFindings.map(
+                (finding) => finding.code,
+              ),
               status: verificationFailed
                 ? "FAILED"
                 : verification?.data.status ?? "NOT_RUN",

@@ -96,18 +96,42 @@ function parseStoredRun(run: { id: string; structuredResponse: Prisma.JsonValue 
 
 function safeFailure(error: unknown) {
   if (error instanceof SelectiveVerificationError) {
-    return { code: error.code, message: error.message };
+    return { code: error.code, message: error.message, latencyMs: undefined, diagnostic: undefined };
   }
   if (error instanceof OpenRouterClientError) {
     if (error.kind === "timeout") {
-      return { code: "VERIFICATION_TIMEOUT", message: "A verificação independente excedeu o tempo limite." };
+      return {
+        code: "VERIFICATION_TIMEOUT",
+        message: "A verificação independente excedeu o tempo limite.",
+        provider: error.provider,
+        requestId: error.requestId,
+        routingMetadata: error.routingMetadata,
+        latencyMs: error.latencyMs,
+        diagnostic: error.diagnostic,
+      };
     }
     if (error.kind === "invalid-response") {
-      return { code: "VERIFICATION_INVALID_RESPONSE", message: "A resposta da verificação independente não passou pelo contrato." };
+      return {
+        code: "VERIFICATION_INVALID_RESPONSE",
+        message: "A resposta da verificação independente não passou pelo contrato.",
+        provider: error.provider,
+        requestId: error.requestId,
+        routingMetadata: error.routingMetadata,
+        latencyMs: error.latencyMs,
+        diagnostic: error.diagnostic,
+      };
     }
-    return { code: "VERIFICATION_PROVIDER_ERROR", message: "O provedor não concluiu a verificação independente." };
+    return {
+      code: "VERIFICATION_PROVIDER_ERROR",
+      message: "O provedor não concluiu a verificação independente.",
+      provider: error.provider,
+      requestId: error.requestId,
+      routingMetadata: error.routingMetadata,
+      latencyMs: error.latencyMs,
+      diagnostic: error.diagnostic,
+    };
   }
-  return { code: "VERIFICATION_PROVIDER_ERROR", message: "A verificação independente não foi concluída." };
+  return { code: "VERIFICATION_PROVIDER_ERROR", message: "A verificação independente não foi concluída.", latencyMs: undefined, diagnostic: undefined };
 }
 
 export async function runSelectiveVerification(
@@ -127,6 +151,7 @@ export async function runSelectiveVerification(
       coverage: validateVerificationCoverage({
         expectedChecks: input.expectedChecks,
         expectedPageCount: input.expectedPageCount,
+        initialFindings: input.initialFindings,
         response: data,
       }),
       data,
@@ -179,6 +204,7 @@ export async function runSelectiveVerification(
           coverage: validateVerificationCoverage({
             expectedChecks: input.expectedChecks,
             expectedPageCount: input.expectedPageCount,
+            initialFindings: input.initialFindings,
             response: data,
           }),
           data,
@@ -222,11 +248,14 @@ export async function runSelectiveVerification(
     const coverage = validateVerificationCoverage({
       expectedChecks: input.expectedChecks,
       expectedPageCount: input.expectedPageCount,
+      initialFindings: input.initialFindings,
       response: result.data,
     });
     if (
       coverage.duplicateKeys.length > 0 ||
       coverage.unknownKeys.length > 0 ||
+      coverage.invalidConfirmationCodes.length > 0 ||
+      coverage.invalidFindingPages.length > 0 ||
       coverage.unlinkedFindingCodes.length > 0 ||
       coverage.orphanCheckFindingCodes.length > 0
     ) {
@@ -251,6 +280,7 @@ export async function runSelectiveVerification(
         structuredResponse: toJson({
           coverage,
           requestId: result.requestId ?? null,
+          routing: result.routingMetadata ?? null,
           response: result.data,
         }),
         totalTokens: result.usage?.totalTokens,
@@ -267,7 +297,14 @@ export async function runSelectiveVerification(
         completedAt: new Date(),
         errorCode: failure.code,
         errorMessage: failure.message,
+        latencyMs: failure.latencyMs,
+        provider: failure.provider ?? null,
         status: AiRunStatus.FAILED,
+        structuredResponse: toJson({
+          diagnostic: failure.diagnostic ?? null,
+          requestId: failure.requestId ?? null,
+          routing: failure.routingMetadata ?? null,
+        }),
       },
     });
     throw new SelectiveVerificationError(failure.code, failure.message, { cause: error });

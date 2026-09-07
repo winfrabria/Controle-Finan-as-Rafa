@@ -582,6 +582,14 @@
         "invoice": {
           "documentKind": "COMPOSITE",
           "documentNumber": "COMPOSTO-SINTETICO-001",
+          "supportCoverage": {
+            "status": "COMPLETE",
+            "referencedDocuments": ["Nota fiscal", "Comprovante de pagamento"],
+            "presentDocuments": ["Nota fiscal", "Comprovante de pagamento"],
+            "missingDocuments": [],
+            "basis": "DOCUMENT_REFERENCES",
+            "evidence": "Nota fiscal e respectivo comprovante presentes no conjunto sintético."
+          },
           "supplierName": "Fornecedor Sintetico",
           "supplierTaxId": "11222333000181",
           "issuedAt": "2026-08-17",
@@ -613,6 +621,14 @@
         "invoice": {
           "documentKind": "COMPOSITE",
           "documentNumber": "COMBUSTIVEL-SINTETICO-001",
+          "supportCoverage": {
+            "status": "COMPLETE",
+            "referencedDocuments": ["Nota fiscal", "Relatório de abastecimentos"],
+            "presentDocuments": ["Nota fiscal", "Relatório de abastecimentos"],
+            "missingDocuments": [],
+            "basis": "DOCUMENT_REFERENCES",
+            "evidence": "Nota fiscal e relatório correspondente presentes no conjunto sintético."
+          },
           "supplierName": "Posto Sintetico",
           "supplierTaxId": "11222333000181",
           "issuedAt": "2026-08-16",
@@ -707,6 +723,14 @@
         "invoice": {
           "documentKind": "COMPOSITE",
           "documentNumber": "MULTIPAGINA-SINTETICO-001",
+          "supportCoverage": {
+            "status": "COMPLETE",
+            "referencedDocuments": ["Resumo", "Comprovante A", "Comprovante B"],
+            "presentDocuments": ["Resumo", "Comprovante A", "Comprovante B"],
+            "missingDocuments": [],
+            "basis": "DOCUMENT_REFERENCES",
+            "evidence": "Resumo e os dois comprovantes referenciados presentes no conjunto sintético."
+          },
           "supplierName": null,
           "supplierTaxId": null,
           "issuedAt": "2026-08-14",
@@ -801,6 +825,14 @@
         "invoice": {
           "documentKind": "COMPOSITE",
           "documentNumber": "PAPEIS-FISCAIS-SINTETICO-001",
+          "supportCoverage": {
+            "status": "COMPLETE",
+            "referencedDocuments": ["Documento fiscal"],
+            "presentDocuments": ["Documento fiscal"],
+            "missingDocuments": [],
+            "basis": "DOCUMENT_REFERENCES",
+            "evidence": "Documento fiscal completo com papéis distintos de emissor e tomador; nenhum documento externo referenciado."
+          },
           "supplierName": null,
           "supplierTaxId": null,
           "issuedAt": "2026-08-11",

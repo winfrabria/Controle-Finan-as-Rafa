@@ -7,23 +7,22 @@ import {
   AiRunStatus,
   NoteStatus,
   ProcessingStage,
-  ReasoningEffort,
 } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import {
-  HARNESS_MODEL,
   HARNESS_VERSIONS,
-  resolveAuditReasoningEffort,
-  resolveHarnessModel,
-  resolvePdfModel,
+  resolveHarnessVerifierMode,
 } from "@/lib/audit-harness";
 import type { InvoiceExtraction } from "@/lib/integrations/openrouter/extraction-contract";
+import { extractionReasoningStorage, type ExtractionReasoningEffort } from "@/lib/integrations/openrouter/extraction-reasoning";
+import { getOpenRouterConfig } from "@/server/integrations/openrouter/config";
 import { prisma } from "@/server/db/prisma";
 import {
   getOpenRouterInvoiceExtractionClient,
   isInvoiceExtractionLimitationDiagnostic,
   type InvoiceExtractionAttempt,
   type InvoiceExtractionClient,
+  type InvoiceExtractionQualityLimitation,
   OpenRouterClientError,
 } from "@/server/integrations/openrouter";
 import { createInvoiceSignedUrl } from "@/server/storage";
@@ -36,12 +35,14 @@ const SUPPORTED_MIME_TYPES: ReadonlySet<string> = new Set([
 
 export type ExtractionPipelineErrorCode =
   | "EXTRACTION_CONFLICT"
+  | "EXTRACTION_CONFIGURATION_INVALID"
   | "EXTRACTION_CREDIT_EXHAUSTED"
   | "EXTRACTION_DOCUMENT_UNREADABLE"
   | "EXTRACTION_INCOMPLETE"
   | "EXTRACTION_INVALID_RESPONSE"
   | "EXTRACTION_NOT_ALLOWED"
   | "EXTRACTION_PROVIDER_ERROR"
+  | "EXTRACTION_PERSISTENCE_FAILED"
   | "EXTRACTION_REQUEST_REJECTED"
   | "EXTRACTION_SOURCE_UNAVAILABLE"
   | "EXTRACTION_TIMEOUT"
@@ -63,7 +64,8 @@ export type ExtractionFailureCategory =
   | "CONFIGURATION"
   | "TIMEOUT"
   | "EXTRACTION_INCOMPLETE"
-  | "DOCUMENT_UNREADABLE";
+  | "DOCUMENT_UNREADABLE"
+  | "PERSISTENCE";
 
 function isRetryableFailedNote(failureCode: string | null) {
   return failureCode?.startsWith("EXTRACTION_") ?? false;
@@ -90,7 +92,7 @@ type ExtractionFailureDetails = {
   totalTokens?: number;
 };
 
-function getFailureDetails(error: unknown): ExtractionFailureDetails {
+function getFailureDetails(error: unknown, stage: "PERSISTENCE" | "SOURCE" | "PROVIDER"): ExtractionFailureDetails {
   if (error instanceof OpenRouterClientError) {
     const providerDetails = {
       attemptTrace: error.attemptTrace,
@@ -141,6 +143,11 @@ function getFailureDetails(error: unknown): ExtractionFailureDetails {
       };
     }
 
+    if (error.diagnostic === "pdf-parser-rejected") {
+      return { ...providerDetails, code: "EXTRACTION_PROVIDER_ERROR", category: "PROVIDER",
+        message: "O serviço de leitura não conseguiu interpretar o PDF. Isso não comprova que o arquivo esteja corrompido ou protegido." };
+    }
+
     if (error.kind === "invalid-response") {
       return {
         code: "EXTRACTION_INVALID_RESPONSE",
@@ -177,6 +184,16 @@ function getFailureDetails(error: unknown): ExtractionFailureDetails {
     };
   }
 
+  if (stage === "PERSISTENCE") return {
+    code: "EXTRACTION_PERSISTENCE_FAILED",
+    category: "PERSISTENCE",
+    message: "Não foi possível registrar o resultado da extração. Tente novamente pelo painel administrativo.",
+  };
+  if (stage === "PROVIDER") return {
+    code: "EXTRACTION_PROVIDER_ERROR",
+    category: "PROVIDER",
+    message: "O serviço de extração está temporariamente indisponível.",
+  };
   return {
     code: "EXTRACTION_SOURCE_UNAVAILABLE",
     category: "PROVIDER",
@@ -184,7 +201,7 @@ function getFailureDetails(error: unknown): ExtractionFailureDetails {
   };
 }
 
-async function claimNote(noteId: string) {
+async function claimNote(noteId: string, processingJobId?: string) {
   return prisma.$transaction(async (transaction) => {
     const note = await transaction.note.findUnique({
       where: { id: noteId },
@@ -194,6 +211,7 @@ async function claimNote(noteId: string) {
         originalFileName: true,
         originalFilePath: true,
         originalMimeType: true,
+        originalPageCount: true,
         processingStage: true,
         status: true,
         version: true,
@@ -207,13 +225,21 @@ async function claimNote(noteId: string) {
       );
     }
 
+    // A generic pre-extraction interruption can be retried only by the durable
+    // job that currently owns this note. Never relax claims for a second caller.
+    const genericRecoveryJob = note.failureCode === "PIPELINE_FAILED" && processingJobId
+      ? await transaction.processingJob.findFirst({ where: {
+          id: processingJobId, noteId, status: "RUNNING", type: "FULL_AUDIT",
+        }, select: { id: true } })
+      : null;
+    const retryable = isRetryableFailedNote(note.failureCode) || Boolean(genericRecoveryJob);
     const canProcess =
       note.status === NoteStatus.RECEIVED ||
       (note.status === NoteStatus.FAILED &&
-        isRetryableFailedNote(note.failureCode)) ||
+        retryable) ||
       (note.status === NoteStatus.PROCESSING &&
         note.processingStage === ProcessingStage.EXTRACTING &&
-        isRetryableFailedNote(note.failureCode));
+        retryable);
 
     if (!canProcess) {
       throw new ExtractionPipelineError(
@@ -303,6 +329,7 @@ function toJsonValue(value: unknown) {
 }
 
 async function persistExtraction(input: {
+  extractionReasoningEffort: ExtractionReasoningEffort;
   aiRunId: string;
   attemptTrace: InvoiceExtractionAttempt[];
   attempts: number;
@@ -311,6 +338,7 @@ async function persistExtraction(input: {
   model: string;
   noteId: string;
   provider?: string;
+  qualityLimitation?: InvoiceExtractionQualityLimitation;
   requestId?: string;
   routingMetadata?: Record<string, string | number | boolean | null>;
   usage?: {
@@ -376,7 +404,7 @@ async function persistExtraction(input: {
         type: "EXTRACTION_COMPLETED",
         fromStatus: NoteStatus.PROCESSING,
         toStatus: NoteStatus.PROCESSING,
-        data: {
+        data: toJsonValue({
           attempts: input.attempts,
           attemptTrace: input.attemptTrace,
           itemCount: input.extraction.items.length,
@@ -384,7 +412,10 @@ async function persistExtraction(input: {
           provider: input.provider ?? null,
           requestId: input.requestId ?? null,
           readConfidence: input.extraction.readConfidence,
-        },
+          qualityLimitation: input.qualityLimitation
+            ? toJsonValue(input.qualityLimitation)
+            : null,
+        }),
       },
     });
 
@@ -401,16 +432,18 @@ async function persistExtraction(input: {
         provider: input.provider,
         status: AiRunStatus.SUCCEEDED,
         structuredResponse: toJsonValue({
+          extractionReasoningEffort: input.extractionReasoningEffort,
           documentNumber: input.extraction.documentNumber,
           itemCoverage: input.extraction.itemCoverage,
           itemCount: input.extraction.items.length,
           readConfidence: input.extraction.readConfidence,
           warnings: input.extraction.warnings,
+          qualityLimitation: input.qualityLimitation ?? null,
           attemptTrace: input.attemptTrace,
           requestId: input.requestId ?? null,
           routing: input.routingMetadata ?? null,
           extractionQuality:
-            input.extraction.itemCoverage.status === "COMPLETE"
+            !input.qualityLimitation && input.extraction.itemCoverage.status === "COMPLETE"
               ? "COMPLETE"
               : "EXTRACTION_INCOMPLETE",
         }),
@@ -432,42 +465,46 @@ export async function processNoteExtraction(
   noteId: string,
   dependencies: { client?: InvoiceExtractionClient; processingJobId?: string } = {},
 ) {
-  const note = await claimNote(noteId);
-  const extractingPdf = note.originalMimeType === "application/pdf";
-  const configuredReasoning = resolveAuditReasoningEffort(
-    extractingPdf
-      ? process.env.OPENROUTER_PDF_REASONING_EFFORT
-      : process.env.OPENROUTER_EXTRACTION_REASONING_EFFORT,
-    "high",
-  );
-  const idempotencyKey = `extract:${dependencies.processingJobId ?? note.id}:${note.claimedVersion}`;
-  const aiRun = await prisma.aiRun.create({
-    data: {
-      idempotencyKey,
-      kind: AiRunKind.EXTRACTION,
-      model: extractingPdf
-        ? resolvePdfModel(process.env.OPENROUTER_PDF_MODEL)
-        : resolveHarnessModel(process.env.OPENROUTER_EXTRACTION_MODEL, HARNESS_MODEL),
-      noteId: note.id,
-      policyVersion: HARNESS_VERSIONS.policy,
-      processingJobId: dependencies.processingJobId,
-      promptVersion: HARNESS_VERSIONS.prompt,
-      reasoningEffort:
-        configuredReasoning === "xhigh"
-          ? ReasoningEffort.XHIGH
-          : configuredReasoning === "high"
-            ? ReasoningEffort.HIGH
-            : ReasoningEffort.MAX,
-      requestFingerprint: createHash("sha256")
-        .update(`${note.id}:${note.claimedVersion}:${note.originalFileName}`)
-        .digest("hex"),
-      schemaVersion: HARNESS_VERSIONS.schema,
-      status: AiRunStatus.RUNNING,
-    },
-    select: { id: true },
-  });
-
+  // Validate configuration before claiming the note or doing paid work. A bad
+  // environment is terminal for this job, not a reason to replay extraction.
+  let config: ReturnType<typeof getOpenRouterConfig>;
   try {
+    config = getOpenRouterConfig(process.env, "extraction");
+    getOpenRouterConfig(process.env, "audit");
+    const verifierMode = resolveHarnessVerifierMode(process.env.HARNESS_VERIFIER_MODE, process.env.HARNESS_VERIFIER_GATE_APPROVED);
+    if (verifierMode !== "off") getOpenRouterConfig(process.env, "verification");
+  } catch (error) {
+    throw new ExtractionPipelineError("EXTRACTION_CONFIGURATION_INVALID",
+      "A configuração de IA é inválida. Revise modelo e esforço de extração/auditoria no ambiente.",
+      { cause: error });
+  }
+  const note = await claimNote(noteId, dependencies.processingJobId);
+  const extractingPdf = note.originalMimeType === "application/pdf";
+  const configuredReasoning = (extractingPdf ? config.pdfReasoningEffort : config.reasoningEffort) as ExtractionReasoningEffort;
+  let aiRun: { id: string } | undefined;
+  let failureStage: "PERSISTENCE" | "SOURCE" | "PROVIDER" = "PERSISTENCE";
+  try {
+    const idempotencyKey = `extract:${dependencies.processingJobId ?? note.id}:${note.claimedVersion}`;
+    aiRun = await prisma.aiRun.create({
+      data: {
+        idempotencyKey,
+        kind: AiRunKind.EXTRACTION,
+        model: extractingPdf ? config.pdfModel! : config.model,
+        noteId: note.id,
+        policyVersion: HARNESS_VERSIONS.policy,
+        processingJobId: dependencies.processingJobId,
+        promptVersion: HARNESS_VERSIONS.prompt,
+        reasoningEffort: extractionReasoningStorage(configuredReasoning),
+        structuredResponse: { extractionReasoningEffort: configuredReasoning },
+        requestFingerprint: createHash("sha256")
+          .update(`${note.id}:${note.claimedVersion}:${note.originalFileName}`)
+          .digest("hex"),
+        schemaVersion: HARNESS_VERSIONS.schema,
+        status: AiRunStatus.RUNNING,
+      },
+      select: { id: true },
+    });
+
     if (!SUPPORTED_MIME_TYPES.has(note.originalMimeType)) {
       throw new ExtractionPipelineError(
         "EXTRACTION_SOURCE_UNAVAILABLE",
@@ -475,10 +512,12 @@ export async function processNoteExtraction(
       );
     }
 
+    failureStage = "SOURCE";
     const { signedUrl } = await createInvoiceSignedUrl({
       path: note.originalFilePath,
       expiresInSeconds: 30 * 60,
     });
+    failureStage = "PROVIDER";
     const client =
       dependencies.client ?? getOpenRouterInvoiceExtractionClient();
     const result = await client.extractInvoice({
@@ -488,9 +527,13 @@ export async function processNoteExtraction(
         | "image/jpeg"
         | "image/png",
       signedUrl,
+      pageCount: extractingPdf ? note.originalPageCount : 1,
     });
 
+    failureStage = "PERSISTENCE";
     return await persistExtraction({
+      extractionReasoningEffort: result.model === (extractingPdf ? config.pdfModel : config.model)
+        ? configuredReasoning : config.extractionFallbackReasoningEffort ?? "high",
       aiRunId: aiRun.id,
       attempts: result.attempts,
       attemptTrace: result.attemptTrace ?? [],
@@ -499,6 +542,7 @@ export async function processNoteExtraction(
       model: result.model,
       noteId: note.id,
       provider: result.provider,
+      qualityLimitation: result.qualityLimitation,
       requestId: result.requestId,
       routingMetadata: result.routingMetadata,
       usage: result.usage,
@@ -516,7 +560,7 @@ export async function processNoteExtraction(
             code: error.code,
             message: error.message,
           }
-        : getFailureDetails(error);
+        : getFailureDetails(error, failureStage);
 
     await recordExtractionFailure(note.id, note.claimedVersion, failure);
     const hasFailureDiagnostics = Boolean(
@@ -528,7 +572,7 @@ export async function processNoteExtraction(
         failure.routingMetadata ||
         failure.attemptTrace,
     );
-    await prisma.aiRun.update({
+    if (aiRun) await prisma.aiRun.update({
       where: { id: aiRun.id },
       data: {
         attempts: failure.attempts,
@@ -545,6 +589,8 @@ export async function processNoteExtraction(
         ...(hasFailureDiagnostics
           ? {
               structuredResponse: toJsonValue({
+                extractionReasoningEffort: (failure.attempts ?? 1) > 1
+                  ? config.extractionFallbackReasoningEffort ?? "high" : configuredReasoning,
                 category: failure.category,
                 attemptTrace: failure.attemptTrace ?? [],
                 diagnostic: failure.diagnostic ?? null,

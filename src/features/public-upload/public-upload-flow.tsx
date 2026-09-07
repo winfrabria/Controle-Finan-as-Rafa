@@ -1358,10 +1358,32 @@ export function PublicUploadFlow() {
                       ? "Lendo nota fiscal"
                       : "Conferindo informações"
                   }
-                  text="Aguarde enquanto conferimos a nota fiscal enviada."
+                  text={
+                    processingPhase === "READING"
+                      ? "Aguarde enquanto lemos o documento enviado."
+                      : "Documento lido; conferência continua em segundo plano."
+                  }
                 >
                   <ProcessingSteps current={processingPhase} />
                   <p className={styles.pulsing}>Análise em andamento</p>
+                  <div className={styles.processingActions}>
+                    <button
+                      className={styles.submitBtn}
+                      onClick={sendAnotherNote}
+                      type="button"
+                    >
+                      <IconFilePlus /> Enviar outra nota
+                    </button>
+                    {processingPhase === "CHECKING" ? (
+                      <button
+                        className={styles.btnOutline}
+                        onClick={() => setView("pending")}
+                        type="button"
+                      >
+                        Acompanhar esta nota
+                      </button>
+                    ) : null}
+                  </div>
                 </Status>
               ) : null}
               {view === "pending" ? (
@@ -1376,14 +1398,23 @@ export function PublicUploadFlow() {
                       Protocolo: <strong>{protocol}</strong>
                     </p>
                   ) : null}
-                  <button
-                    className={styles.submitBtn}
-                    disabled={!isOnline}
-                    onClick={retryProcessing}
-                    type="button"
-                  >
-                    Consultar andamento
-                  </button>
+                  <div className={styles.processingActions}>
+                    <button
+                      className={styles.submitBtn}
+                      onClick={sendAnotherNote}
+                      type="button"
+                    >
+                      <IconFilePlus /> Enviar outra nota
+                    </button>
+                    <button
+                      className={styles.btnOutline}
+                      disabled={!isOnline}
+                      onClick={retryProcessing}
+                      type="button"
+                    >
+                      Consultar andamento
+                    </button>
+                  </div>
                 </Status>
               ) : null}
               {view === "context" ? (

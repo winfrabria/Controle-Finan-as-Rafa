@@ -1,14 +1,20 @@
 import type {
   AiDiscoveryResponse,
+  ContextAnswerForAudit,
   ContextQuestion,
   DuplicateCandidate,
   HarnessFinding,
   HarnessInvoice,
   WorkRuleInput,
 } from "./contracts";
+import {
+  contextQuestionSchema,
+  harnessFindingSchema,
+} from "./contracts";
 import { decideClassification } from "./decision-matrix";
 import {
   hasInsufficientAuditBasis,
+  hasUncertainSupportCoverage,
   isReadFailure,
   selectReasoningEffort,
 } from "./policy";
@@ -17,6 +23,11 @@ import {
   evaluateWorkRules,
   hasCompleteItemCoverage,
 } from "./rules";
+import {
+  isAiDiscoveryFindingExplicitlyConfirmed,
+  requiresIndependentAiConfirmation,
+  type VerificationFinding,
+} from "./verification";
 import { HARNESS_VERSIONS } from "./versions";
 
 function stableJson(value: unknown): string {
@@ -38,6 +49,97 @@ const INTERNAL_CONTRADICTION_PATTERN =
   /\b(?:diverg\w*|diferen\w*|enquanto|versus|vs\.?|n[aã]o\s+(?:confere|corresponde|bate)|para\s+resultar)\b/iu;
 const EXTERNAL_CONTEXT_PATTERN =
   /\b(?:fato|dado|informa[çc][aã]o|par[aâ]metro|cadastro|autoriza[çc][aã]o|aprova[çc][aã]o)\s+extern\w*\b|\b(?:n[aã]o|sem)\s+(?:consta\w*|informa\w*|presen\w*|dispon[ií]v\w*|cadastr\w*)\s+(?:no|na|nos|nas|em)\s+(?:anexo|documento|nota|comprovante|sistema|cadastro)\b|\b(?:autoriza[çc][aã]o|aprova[çc][aã]o)[\s\S]{0,60}\b(?:pendente|extern\w*|da\s+obra)\b/iu;
+const SUPPORT_SET_COMPLETENESS_CODE = "SUPPORT_SET_COMPLETENESS";
+
+function normalizedContextValue(value: string | number | boolean) {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("pt-BR");
+}
+
+function resolveSupportCoverage(input: {
+  invoice: HarnessInvoice;
+  contextAnswers?: ContextAnswerForAudit[];
+}) {
+  const coverage = input.invoice.supportCoverage;
+  if (
+    !coverage ||
+    coverage.status !== "PARTIAL" ||
+    coverage.missingDocuments.length === 0
+  ) {
+    return {
+      finding: null,
+      informationInsufficient: hasUncertainSupportCoverage(input.invoice),
+      question: null,
+    };
+  }
+
+  const answer = input.contextAnswers?.find(
+    (candidate) => candidate.code === SUPPORT_SET_COMPLETENESS_CODE,
+  );
+  if (!answer) {
+    return {
+      finding: null,
+      informationInsufficient: false,
+      question: contextQuestionSchema.parse({
+        code: SUPPORT_SET_COMPLETENESS_CODE,
+        options: [
+          { label: "Sim", value: "YES_COMPLETE_SET" },
+          { label: "Não", value: "NO_PARTIAL_SET" },
+          { label: "Não sei", value: "UNKNOWN" },
+        ],
+        prompt: "Este arquivo contém todo o conjunto cobrado neste boleto?",
+        rationale:
+          "O boleto cita documentos que não foram localizados no arquivo enviado. A resposta define se a ausência pode ser auditada ou se falta contexto.",
+        required: true,
+        type: "SINGLE_SELECT",
+      }),
+    };
+  }
+
+  const normalized = normalizedContextValue(answer.value);
+  const confirmedComplete =
+    normalized === "yes_complete_set" || normalized === "sim";
+  if (!confirmedComplete) {
+    return {
+      finding: null,
+      informationInsufficient: true,
+      question: null,
+    };
+  }
+
+  return {
+    informationInsufficient: false,
+    question: null,
+    finding: harnessFindingSchema.parse({
+      code: "SUPPORT_DOCUMENTS_MISSING_FROM_CONFIRMED_SET",
+      title: "Documentos citados na cobrança não foram encontrados",
+      description:
+        "O usuário confirmou que o arquivo representa o conjunto completo, mas alguns documentos citados pela cobrança não foram localizados.",
+      category: "DOCUMENT_COVERAGE",
+      severity: "WARNING",
+      source: "UNIVERSAL_RULE",
+      confidence: 0.99,
+      justification:
+        "A suspeita depende da confirmação explícita de que o arquivo enviado contém todo o conjunto cobrado.",
+      references: ["CONTEXTO:CONJUNTO_COMPLETO_CONFIRMADO"],
+      evidence: {
+        referencedDocuments: coverage.referencedDocuments,
+        presentDocuments: coverage.presentDocuments,
+        missingDocuments: coverage.missingDocuments,
+        coverageBasis: coverage.basis,
+        summary: `${coverage.missingDocuments.length} documento(s) citado(s) não localizado(s).`,
+      },
+      comparisonMode: "REFERENCE",
+      referenceBasis: "USER_CONFIRMED_COMPLETE_SET",
+      expectedValue: "Todos os documentos citados presentes",
+      actualValue: coverage.missingDocuments,
+      noteItemLineNumber: null,
+    }),
+  };
+}
 
 function normalizeComparableToken(value: string) {
   return value.replace(/\s+/g, " ").trim().toLocaleLowerCase("pt-BR");
@@ -673,6 +775,7 @@ export function filterAiDiscoveryFindings(
 
 export function evaluateHarness(input: {
   invoice: HarnessInvoice;
+  contextAnswers?: ContextAnswerForAudit[];
   workRules?: WorkRuleInput[];
   duplicates?: DuplicateCandidate[];
   aiDiscovery?: AiDiscoveryResponse;
@@ -685,6 +788,7 @@ export function evaluateHarness(input: {
       classification: "READ_FAILED" as const,
       contextQuestions: [],
       findings: [],
+      unconfirmedAiFindings: [],
       coverage: { deterministic: false, ai: false, areas: [] as string[] },
       reasoning: { effort: "high" as const, triggers: [] as string[] },
       versions: HARNESS_VERSIONS,
@@ -697,6 +801,10 @@ export function evaluateHarness(input: {
     now: input.now,
   });
   const work = evaluateWorkRules(input.invoice, input.workRules ?? []);
+  const supportCoverage = resolveSupportCoverage({
+    invoice: input.invoice,
+    contextAnswers: input.contextAnswers,
+  });
   const discoveredFindings = [
     ...(input.aiDiscovery?.findings ?? []),
     ...(input.verificationFindings ?? []),
@@ -704,6 +812,24 @@ export function evaluateHarness(input: {
   const aiFindings = filterAiDiscoveryFindings(
     discoveredFindings,
     input.workRules ?? [],
+  );
+  const verificationFindings = (input.verificationFindings ?? []).filter(
+    (finding): finding is VerificationFinding =>
+      finding.source === "AI_VERIFICATION" &&
+      "confirmsInitialFindingCode" in finding,
+  );
+  const protectedDiscoveryFindings = aiFindings.filter(
+    requiresIndependentAiConfirmation,
+  );
+  const unconfirmedAiFindings = protectedDiscoveryFindings.filter(
+    (finding) =>
+      !isAiDiscoveryFindingExplicitlyConfirmed(finding, verificationFindings),
+  );
+  // Sugestões financeiras ou de data da descoberta livre são hipóteses. Elas
+  // nunca são persistidas como achado: quando confirmadas, o achado canônico é
+  // o AI_VERIFICATION que consultou o documento original.
+  const gatedAiFindings = aiFindings.filter(
+    (finding) => !requiresIndependentAiConfirmation(finding),
   );
   // A lacuna de cobertura é um sinal interno que pode impedir um falso
   // TOTAL_MISMATCH, mas não deve virar card de diagnóstico para o revisor.
@@ -715,14 +841,15 @@ export function evaluateHarness(input: {
   );
   const routedContext = routeContextQuestions(
     input.aiDiscovery?.contextQuestions ?? [],
-    [...universal.findings, ...work.findings, ...aiFindings],
+    [...universal.findings, ...work.findings, ...gatedAiFindings],
   );
   const findings = deduplicateHarnessFindings(
     reconcileFindingPrecedence([
       ...universal.findings,
       ...work.findings,
+      ...(supportCoverage.finding ? [supportCoverage.finding] : []),
       ...reconciliationSignals,
-      ...aiFindings,
+      ...gatedAiFindings,
       ...routedContext.promotedFindings,
     ].map((finding) => resolveFindingDocumentGroup(finding, input.invoice))).filter(
       (finding) =>
@@ -737,9 +864,14 @@ export function evaluateHarness(input: {
   );
   const deterministicCoverage = universal.covered || work.covered;
   const aiCoverage = input.aiDiscovery?.coverage.sufficientEvidence ?? false;
-  const contextQuestions = routedContext.contextQuestions;
+  const contextQuestions = [
+    ...(supportCoverage.question ? [supportCoverage.question] : []),
+    ...routedContext.contextQuestions,
+  ];
   const contextRequired =
-    contextQuestions.length > 0 && (input.aiDiscovery?.needsContext ?? false);
+    supportCoverage.question !== null ||
+    (routedContext.contextQuestions.length > 0 &&
+      (input.aiDiscovery?.needsContext ?? false));
   const declaredContextWithoutQuestion =
     input.aiDiscovery?.needsContext === true && contextQuestions.length === 0;
 
@@ -754,12 +886,16 @@ export function evaluateHarness(input: {
     // camadas econômicas ausentes da extração. Achados objetivos continuam
     // tendo precedência, mas a ausência dessa base nunca encerra como OK.
     informationInsufficient:
-      hasInsufficientAuditBasis(input.invoice) || declaredContextWithoutQuestion,
+      hasInsufficientAuditBasis(input.invoice) ||
+      supportCoverage.informationInsufficient ||
+      declaredContextWithoutQuestion ||
+      unconfirmedAiFindings.length > 0,
   });
 
   return {
     classification,
     findings,
+    unconfirmedAiFindings,
     contextQuestions: classification === "NEEDS_CONTEXT" ? contextQuestions : [],
     coverage: {
       deterministic: deterministicCoverage,

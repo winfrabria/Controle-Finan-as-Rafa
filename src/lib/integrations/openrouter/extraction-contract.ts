@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidIsoCalendarDate } from "@/lib/calendar-date";
 
 import { INVOICE_EXTRACTION_PROMPT } from "@/lib/audit-harness/prompts";
 
@@ -51,7 +52,7 @@ const isoDate = z.preprocess(
   z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)))
+    .refine(isValidIsoCalendarDate, "Invalid calendar date")
     .nullable()
     .default(null),
 );
@@ -76,6 +77,21 @@ export const invoiceItemCoverageSchema = z
   })
   .strict();
 
+export const invoiceSupportCoverageSchema = z
+  .object({
+    status: z.enum(["COMPLETE", "PARTIAL", "UNKNOWN"]),
+    referencedDocuments: z.array(z.string().trim().min(1)).max(200).default([]),
+    presentDocuments: z.array(z.string().trim().min(1)).max(200).default([]),
+    missingDocuments: z.array(z.string().trim().min(1)).max(200).default([]),
+    basis: z.enum([
+      "DOCUMENT_REFERENCES",
+      "EXPLICIT_COMPLETENESS_STATEMENT",
+      "NONE",
+    ]),
+    evidence: nullableText,
+  })
+  .strict();
+
 export const invoiceBoundingBoxSchema = z
   .object({
     x: z.number().nonnegative(),
@@ -93,6 +109,15 @@ const UNKNOWN_ITEM_COVERAGE = {
   firstLineNumber: null,
   lastLineNumber: null,
   missingLineNumbers: [] as number[],
+  evidence: null,
+};
+
+const UNKNOWN_SUPPORT_COVERAGE = {
+  status: "UNKNOWN" as const,
+  referencedDocuments: [] as string[],
+  presentDocuments: [] as string[],
+  missingDocuments: [] as string[],
+  basis: "NONE" as const,
   evidence: null,
 };
 
@@ -181,6 +206,18 @@ export const invoiceExtractionItemSchema = z
   })
   .strict();
 
+export const invoicePageCoverageSchema = z.object({
+  page: z.number().int().positive(),
+  complete: z.boolean(),
+  sources: z.array(z.object({
+    kind: z.enum(["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"]),
+    count: z.number().int().positive().max(500),
+  }).strict()).max(6),
+  fieldsReviewed: z.boolean(),
+  requirementScope: z.enum(["ALL_FIELDS", "SPECIFIC_FIELDS", "NONE", "UNKNOWN"]),
+  requirementEvidence: nullableText,
+}).strict();
+
 export const invoiceExtractionSchema = z
   .object({
     documentKind: documentKindSchema.default("OTHER"),
@@ -192,6 +229,9 @@ export const invoiceExtractionSchema = z
     currency: z.string().trim().length(3).default("BRL"),
     items: z.array(invoiceExtractionItemSchema).max(500),
     itemCoverage: invoiceItemCoverageSchema.default(UNKNOWN_ITEM_COVERAGE),
+    supportCoverage: invoiceSupportCoverageSchema.optional(),
+    // Optional for historical rows; the provider contract requests it on new reads.
+    pageCoverage: z.array(invoicePageCoverageSchema).max(500).optional(),
     requiredFieldChecks: z
       .array(invoiceRequiredFieldCheckSchema)
       .max(50)
@@ -330,6 +370,55 @@ function normalizedItemCoverage(
   };
 }
 
+function normalizedSupportCoverage(value: unknown) {
+  if (!isRecord(value)) return UNKNOWN_SUPPORT_COVERAGE;
+
+  const normalizeDocuments = (candidate: unknown) =>
+    Array.isArray(candidate)
+      ? [...new Set(candidate.flatMap((entry) => {
+          const normalized = normalizeNullableText(entry);
+          return typeof normalized === "string" ? [normalized] : [];
+        }))].slice(0, 200)
+      : [];
+
+  const referencedDocuments = normalizeDocuments(
+    value.referencedDocuments ?? value.referenced_documents,
+  );
+  const presentDocuments = normalizeDocuments(
+    value.presentDocuments ?? value.present_documents,
+  );
+  const missingDocuments = normalizeDocuments(
+    value.missingDocuments ?? value.missing_documents,
+  );
+  const rawBasis =
+    typeof value.basis === "string" ? value.basis.trim().toUpperCase() : "NONE";
+  const basis = [
+    "DOCUMENT_REFERENCES",
+    "EXPLICIT_COMPLETENESS_STATEMENT",
+    "NONE",
+  ].includes(rawBasis)
+    ? rawBasis
+    : "NONE";
+  const rawStatus =
+    typeof value.status === "string" ? value.status.trim().toUpperCase() : "UNKNOWN";
+  const status =
+    missingDocuments.length > 0
+      ? "PARTIAL"
+      : rawStatus === "COMPLETE" && basis !== "NONE"
+        ? "COMPLETE"
+        : "UNKNOWN";
+
+  const parsed = invoiceSupportCoverageSchema.safeParse({
+    status,
+    referencedDocuments,
+    presentDocuments,
+    missingDocuments,
+    basis,
+    evidence: normalizeNullableText(value.evidence),
+  });
+  return parsed.success ? parsed.data : UNKNOWN_SUPPORT_COVERAGE;
+}
+
 function normalizedDocumentKind(value: unknown, searchableText: string) {
   if (typeof value === "string") {
     const normalized = value.trim().toUpperCase();
@@ -430,6 +519,7 @@ function normalizedRequiredFieldChecks(value: unknown) {
 
   const explicitRequirementPattern =
     /(?:\*\s*$|\bobrigat[oó]ri[oa]s?\b|\bpreenchimento\s+obrigat[oó]rio\b|\brequired\s+field\b|\bmandatory\b)/i;
+  const explicitDocumentLabelPattern = /\*\s*$/;
 
   return value.slice(0, 50).flatMap((rawCheck) => {
     if (!isRecord(rawCheck)) return [];
@@ -467,23 +557,49 @@ function normalizedRequiredFieldChecks(value: unknown) {
         rawCheck.requirement_evidence ??
         rawCheck.requiredBecause,
     );
+    const labelWithoutMarker = label.replace(/\s*\*\s*$/, "").trim();
+    const hasArithmeticExpression = /\d\s*(?:\*|×|x|\/|\+|-)\s*\d/i.test(
+      labelWithoutMarker,
+    );
+    const hasMeaningfulRequiredLabel =
+      labelWithoutMarker.length >= 2 &&
+      /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(labelWithoutMarker) &&
+      !/^[\d\s()+\-×x*/.,=]+$/i.test(labelWithoutMarker) &&
+      !labelWithoutMarker.includes("*") &&
+      !hasArithmeticExpression;
+    const labelExplicitlyMarksRequirement =
+      explicitDocumentLabelPattern.test(label) &&
+      hasMeaningfulRequiredLabel;
+    const normalizedRequirementBasis = rawRequirementBasis
+      ?.trim()
+      .toUpperCase();
     const inferredExplicitRequirement =
       requiredByDocument &&
-      explicitRequirementPattern.test(
-        `${suppliedRequirementEvidence ?? ""} ${evidence ?? ""}`,
-      );
+      normalizedRequirementBasis !== "VERIFIED_POLICY" &&
+      (labelExplicitlyMarksRequirement ||
+        explicitRequirementPattern.test(
+          `${suppliedRequirementEvidence ?? ""} ${evidence ?? ""}`,
+        ));
     const requirementBasis =
-      rawRequirementBasis?.trim().toUpperCase() ??
-      (inferredExplicitRequirement ? "EXPLICIT_DOCUMENT" : "NONE");
+      normalizedRequirementBasis === "VERIFIED_POLICY"
+        ? "VERIFIED_POLICY"
+        : inferredExplicitRequirement
+          ? "EXPLICIT_DOCUMENT"
+          : normalizedRequirementBasis ?? "NONE";
+    const requirementEvidence =
+      suppliedRequirementEvidence ??
+      (requirementBasis === "EXPLICIT_DOCUMENT"
+        ? labelExplicitlyMarksRequirement
+          ? label
+          : evidence
+        : null);
 
     const parsed = invoiceRequiredFieldCheckSchema.safeParse({
       field,
       label,
       requiredByDocument,
       requirementBasis,
-      requirementEvidence:
-        suppliedRequirementEvidence ??
-        (requirementBasis === "EXPLICIT_DOCUMENT" ? evidence : null),
+      requirementEvidence,
       present,
       page:
         typeof rawCheck.page === "number" &&
@@ -511,13 +627,61 @@ function unwrapExtractionPayload(value: unknown) {
   return value;
 }
 
+export const INVALID_DOCUMENT_DATE_WARNING =
+  "Uma data extraída não existe no calendário e precisa ser conferida no documento original.";
+
+/** Preserve readable fields and the original excerpt, never invent a date. */
+function recoverInvalidDocumentDates(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  let invalidDate = false;
+  const repairDateFields = (record: Record<string, unknown>, keys: string[]) => {
+    const repaired = { ...record };
+    for (const key of keys) {
+      const raw = record[key];
+      if (raw === undefined || raw === null || raw === "") continue;
+      if (!isoDate.safeParse(raw).success) {
+        repaired[key] = null;
+        invalidDate = true;
+      }
+    }
+    return repaired;
+  };
+  const repaired = repairDateFields(value, ["issuedAt", "issued_at"]);
+  if (Array.isArray(value.items)) {
+    repaired.items = value.items.map((item) => {
+      if (!isRecord(item)) return item;
+      const repairedItem = { ...item };
+      for (const key of ["evidenceObservations", "evidence_observations", "evidence"]) {
+        const observations = item[key];
+        if (Array.isArray(observations)) {
+          repairedItem[key] = observations.map((observation) =>
+            isRecord(observation)
+              ? repairDateFields(observation, ["date", "issuedAt"])
+              : observation,
+          );
+        }
+      }
+      return repairedItem;
+    });
+  }
+  if (invalidDate) {
+    repaired.warnings = [
+      INVALID_DOCUMENT_DATE_WARNING,
+      ...normalizedWarnings(value.warnings).filter(
+        (warning) => warning !== INVALID_DOCUMENT_DATE_WARNING,
+      ),
+    ].slice(0, 50);
+  }
+  return repaired;
+}
+
 /**
  * Normaliza apenas desvios estruturais seguros e comuns de modelos. Não cria
  * valores fiscais: campos ausentes continuam null, itens sem descrição são
  * descartados e a ordem observada vira a numeração canônica persistida.
  */
 export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
-  const unwrapped = unwrapExtractionPayload(value);
+  const unwrapped = recoverInvalidDocumentDates(unwrapExtractionPayload(value));
   if (!isRecord(unwrapped)) return unwrapped;
   const payload = unwrapped;
 
@@ -618,6 +782,11 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
       payload.itemCoverage ?? payload.item_coverage,
       items,
     ),
+    supportCoverage: normalizedSupportCoverage(
+      payload.supportCoverage ?? payload.support_coverage,
+    ),
+    pageCoverage: z.array(invoicePageCoverageSchema).max(500).safeParse(payload.pageCoverage).success
+      ? payload.pageCoverage : undefined,
     requiredFieldChecks: normalizedRequiredFieldChecks(
       payload.requiredFieldChecks ??
         payload.required_field_checks ??
@@ -637,7 +806,8 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
 }
 
 export function parseInvoiceExtractionPayload(value: unknown) {
-  const direct = invoiceExtractionSchema.safeParse(value);
+  const recovered = recoverInvalidDocumentDates(unwrapExtractionPayload(value));
+  const direct = invoiceExtractionSchema.safeParse(recovered);
   if (direct.success) {
     return invoiceExtractionSchema.safeParse({
       ...direct.data,
@@ -645,10 +815,14 @@ export function parseInvoiceExtractionPayload(value: unknown) {
         direct.data.itemCoverage,
         direct.data.items,
       ),
+      supportCoverage: normalizedSupportCoverage(direct.data.supportCoverage),
+      requiredFieldChecks: normalizedRequiredFieldChecks(
+        direct.data.requiredFieldChecks,
+      ),
     });
   }
   return invoiceExtractionSchema.safeParse(
-    normalizeInvoiceExtractionPayload(value),
+    normalizeInvoiceExtractionPayload(recovered),
   );
 }
 
@@ -673,6 +847,7 @@ export function createOcrFallbackExtraction(
     issuedAt: null,
     items: [],
     itemCoverage: UNKNOWN_ITEM_COVERAGE,
+    supportCoverage: UNKNOWN_SUPPORT_COVERAGE,
     markdown,
     readConfidence: hasFinancialSignal ? 0.65 : 0.6,
     supplierName: null,
@@ -712,6 +887,8 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
     "currency",
     "items",
     "itemCoverage",
+    "supportCoverage",
+    "pageCoverage",
     "requiredFieldChecks",
     "markdown",
     "readConfidence",
@@ -740,6 +917,30 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
       description: "Decimal string without currency symbols.",
     },
     currency: { type: "string", minLength: 3, maxLength: 3 },
+    pageCoverage: {
+      type: "array", maxItems: 500,
+      items: {
+        type: "object", additionalProperties: false,
+        required: ["page", "complete", "sources", "fieldsReviewed", "requirementScope", "requirementEvidence"],
+        properties: {
+          page: { type: "integer", minimum: 1 },
+          complete: { type: "boolean" },
+          sources: {
+            type: "array", maxItems: 6,
+            items: {
+              type: "object", additionalProperties: false, required: ["kind", "count"],
+              properties: {
+                kind: { type: "string", enum: ["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"] },
+                count: { type: "integer", minimum: 1, maximum: 500 },
+              },
+            },
+          },
+          fieldsReviewed: { type: "boolean" },
+          requirementScope: { type: "string", enum: ["ALL_FIELDS", "SPECIFIC_FIELDS", "NONE", "UNKNOWN"] },
+          requirementEvidence: { type: ["string", "null"] },
+        },
+      },
+    },
     items: {
       type: "array",
       maxItems: 500,
@@ -870,6 +1071,47 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
           type: "array",
           maxItems: 500,
           items: { type: "integer", minimum: 1 },
+        },
+        evidence: { type: ["string", "null"] },
+      },
+    },
+    supportCoverage: {
+      type: "object",
+      additionalProperties: false,
+      description:
+        "Coverage of documents referenced by an aggregate charge. This is separate from item row coverage.",
+      required: [
+        "status",
+        "referencedDocuments",
+        "presentDocuments",
+        "missingDocuments",
+        "basis",
+        "evidence",
+      ],
+      properties: {
+        status: { type: "string", enum: ["COMPLETE", "PARTIAL", "UNKNOWN"] },
+        referencedDocuments: {
+          type: "array",
+          maxItems: 200,
+          items: { type: "string", minLength: 1 },
+        },
+        presentDocuments: {
+          type: "array",
+          maxItems: 200,
+          items: { type: "string", minLength: 1 },
+        },
+        missingDocuments: {
+          type: "array",
+          maxItems: 200,
+          items: { type: "string", minLength: 1 },
+        },
+        basis: {
+          type: "string",
+          enum: [
+            "DOCUMENT_REFERENCES",
+            "EXPLICIT_COMPLETENESS_STATEMENT",
+            "NONE",
+          ],
         },
         evidence: { type: ["string", "null"] },
       },

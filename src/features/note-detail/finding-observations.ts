@@ -30,6 +30,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+export function findingEvidenceField(value: unknown) {
+  if (!isRecord(value)) return null;
+  const field = value.field ?? value.fieldName;
+  return typeof field === "string" ? field : null;
+}
+
 export function extractFindingEvidenceObservations(
   value: unknown,
 ): FindingEvidenceObservation[] {

@@ -14,21 +14,18 @@ import {
   type GoldenCase,
 } from "@/lib/audit-harness/evals";
 import {
+  AUDIT_BENCHMARK_MODEL_PROFILES,
+  AUDIT_BENCHMARK_MODELS,
   AUDIT_EVALUATOR_MODELS,
   type AuditEvaluatorModel,
 } from "@/lib/audit-harness/versions";
 import { OpenRouterAuditDiscoveryClient } from "@/server/integrations/openrouter/audit-client";
 import { getOpenRouterConfig } from "@/server/integrations/openrouter/config";
 
-const DEFAULT_CASES = [
-  "nfe-simple-consistent",
-  "composite-partial-coverage-no-total-mismatch",
-  "explicit-contradiction-becomes-finding",
-  "external-context-legitimate-question",
-] as const;
-
 type Arguments = {
   online: boolean;
+  plan: boolean;
+  phase: "elimination" | "final";
   models: AuditEvaluatorModel[];
   caseIds: string[];
   casesPath: string;
@@ -45,6 +42,8 @@ function usage(): never {
       "  --cases <arquivo>      corpus versionado",
       "  --out <arquivo>        relatório JSON",
       "  --repetitions <1-5>    repetições sequenciais por caso",
+      "  --phase <elimination|final> rodada do benchmark",
+      "  --plan                 gera manifesto sem chamar provedor",
       "  --online               obrigatório; impede gasto acidental",
     ].join("\n"),
   );
@@ -61,14 +60,19 @@ function parseCsv(value: string | undefined) {
 function parseArguments(argv: string[]): Arguments {
   const values = new Map<string, string>();
   let online = false;
+  let plan = false;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--online") {
       online = true;
       continue;
     }
+    if (argument === "--plan") {
+      plan = true;
+      continue;
+    }
     if (
-      !["--models", "--case-ids", "--cases", "--out", "--repetitions"].includes(
+      !["--models", "--case-ids", "--cases", "--out", "--repetitions", "--phase"].includes(
         argument,
       )
     ) {
@@ -88,23 +92,30 @@ function parseArguments(argv: string[]): Arguments {
     );
   }
 
+  if (online === plan) {
+    throw new Error("Escolha exatamente um modo: --plan ou --online.");
+  }
+  const phase = values.get("--phase") ?? "elimination";
+  if (phase !== "elimination" && phase !== "final") {
+    throw new Error("--phase deve ser elimination ou final.");
+  }
   const requestedCases = parseCsv(values.get("--case-ids"));
-  const repetitions = Number.parseInt(values.get("--repetitions") ?? "1", 10);
+  const repetitions = Number.parseInt(
+    values.get("--repetitions") ?? (phase === "final" ? "3" : "1"),
+    10,
+  );
   if (!Number.isInteger(repetitions) || repetitions < 1 || repetitions > 5) {
     throw new Error("--repetitions deve ser um inteiro entre 1 e 5.");
   }
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   return {
     online,
+    plan,
+    phase,
     models: (requestedModels.length > 0
       ? requestedModels
-      : [
-          "openai/gpt-5.6-luna",
-          "openai/gpt-5.6-terra",
-          "google/gemini-3.7-flash",
-          "openai/gpt-5.6-sol",
-        ]) as AuditEvaluatorModel[],
-    caseIds: requestedCases.length > 0 ? requestedCases : [...DEFAULT_CASES],
+      : [...AUDIT_BENCHMARK_MODELS]) as AuditEvaluatorModel[],
+    caseIds: requestedCases,
     casesPath:
       values.get("--cases") ??
       "src/lib/audit-harness/evals/__fixtures__/golden-cases.v1.json",
@@ -129,7 +140,9 @@ async function loadCases(casesPath: string, caseIds: string[]) {
   const raw = JSON.parse(await readFile(path.resolve(casesPath), "utf8")) as unknown;
   const parsed = goldenCasesFileSchema.parse(raw);
   const wanted = new Set(caseIds);
-  const selected = parsed.cases.filter((goldenCase) => wanted.has(goldenCase.id));
+  const selected = caseIds.length === 0
+    ? parsed.cases
+    : parsed.cases.filter((goldenCase) => wanted.has(goldenCase.id));
   const missing = caseIds.filter(
     (id) => !selected.some((goldenCase) => goldenCase.id === id),
   );
@@ -248,8 +261,41 @@ async function evaluateModel(
 
 async function main() {
   const args = parseArguments(process.argv.slice(2));
-  if (!args.online) usage();
   const cases = await loadCases(args.casesPath, args.caseIds);
+
+  if (args.plan) {
+    const report = {
+      generatedAt: new Date().toISOString(),
+      mode: "plan-no-provider-call",
+      phase: args.phase,
+      chargedProviderCalls: 0,
+      configuration: {
+        caseIds: cases.map((goldenCase) => goldenCase.id),
+        models: args.models.map((model) => ({
+          model,
+          profile:
+            model in AUDIT_BENCHMARK_MODEL_PROFILES
+              ? AUDIT_BENCHMARK_MODEL_PROFILES[
+                  model as keyof typeof AUDIT_BENCHMARK_MODEL_PROFILES
+                ]
+              : null,
+        })),
+        repetitions: args.repetitions,
+        promotionRequirements: {
+          criticalFalsePositives: 0,
+          knownCaseRegressions: 0,
+          structuredResponseRate: 0.99,
+          qualityAtLeastTerra: true,
+        },
+      },
+    };
+    const outputPath = path.resolve(args.outputPath);
+    await mkdir(path.dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    console.log(`[benchmark] plano sem chamadas pagas: ${outputPath}`);
+    console.log(`[benchmark] ${args.models.length} modelos · ${cases.length} casos · ${args.repetitions} repetição(ões)`);
+    return;
+  }
 
   // Sequencial por desenho: concorrência entre provedores não pode distorcer
   // latência, retry e custo da comparação.
@@ -264,6 +310,7 @@ async function main() {
   const report = {
     generatedAt: new Date().toISOString(),
     mode: "online-controlled",
+    phase: args.phase,
     configuration: {
       caseIds: args.caseIds,
       models: args.models,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { effectiveRunReasoning } from "@/lib/integrations/openrouter/extraction-reasoning";
 import { z } from "zod";
 
 import { ADMIN_ONLY_ROLES } from "@/server/auth/access-policy";
@@ -47,6 +48,6 @@ export async function GET(request: NextRequest) {
       totalTokens: true,
     },
   });
-  return NextResponse.json({ runs }, { headers: { "Cache-Control": "private, no-store" } });
+  return NextResponse.json({ runs: runs.map((run) => ({ ...run, reasoningEffort: effectiveRunReasoning(run) })) }, { headers: { "Cache-Control": "private, no-store" } });
 }
 

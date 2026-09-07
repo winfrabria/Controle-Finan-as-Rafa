@@ -1,4 +1,5 @@
 import "server-only";
+import { effectiveRunReasoning } from "@/lib/integrations/openrouter/extraction-reasoning";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/db/prisma";
@@ -21,6 +22,7 @@ import {
   sanitizeReviewerMarkdown,
   sanitizeReviewerText,
 } from "./reviewer-data-policy";
+import { findingComparisonMetadata } from "@/features/internal-notes/finding-display";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -209,7 +211,9 @@ export async function loadNoteDetail(
 
   const forReviewer = input.role === "REVIEWER";
   const safeJson = (value: Prisma.JsonValue | null) =>
-    forReviewer ? sanitizeReviewerJson(value) : value;
+    forReviewer
+      ? sanitizeReviewerJson(value, { preserveDocumentUrl: false })
+      : value;
   const safeText = (value: string) =>
     forReviewer ? sanitizeReviewerText(value) : value;
   const documentSource: NoteDetailSource = {
@@ -221,6 +225,10 @@ export async function loadNoteDetail(
     ? note.findings.filter((finding) => finding.category !== "DOCUMENT_TYPE")
     : note.findings;
   const findings: NoteDetailFinding[] = visibleFindings.map((finding) => {
+    const comparison = findingComparisonMetadata(
+      finding.evidence,
+      finding.expectedValue,
+    );
     const evidence = safeJson(finding.evidence);
     const ruleConfiguration = safeJson(finding.rule?.configuration ?? null);
     const sources = deduplicateSources([
@@ -247,6 +255,7 @@ export async function loadNoteDetail(
       affectedItem: finding.noteItem,
       category: safeText(finding.category),
       code: finding.code,
+      comparisonMode: comparison.comparisonMode,
       createdAt: finding.createdAt,
       description: safeText(finding.description),
       evidence,
@@ -254,6 +263,7 @@ export async function loadNoteDetail(
       expectedValue: safeJson(finding.expectedValue),
       id: finding.id,
       needsValidation: finding.needsValidation,
+      referenceBasis: comparison.referenceBasis,
       rule: finding.rule
         ? {
             code: finding.rule.code,
@@ -431,6 +441,7 @@ export async function loadNoteDetail(
       technical: {
         aiRuns: note.aiRuns.map((run) => ({
           ...run,
+          reasoningEffort: effectiveRunReasoning(run),
           costUsd: run.costUsd?.toString() ?? null,
         })),
         auditFeedbacks: note.auditFeedbacks.map((feedback) => ({

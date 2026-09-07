@@ -6,6 +6,83 @@
   margin: 18px 0;
 }
 
+.collapsiblePanel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.collapsibleSummary {
+  align-items: center;
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  list-style: none;
+  min-height: 72px;
+  padding: 14px 18px;
+}
+
+.collapsibleSummary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsibleSummary:focus-visible {
+  outline: 3px solid rgba(7, 92, 255, .24);
+  outline-offset: -3px;
+}
+
+.collapsibleSummary > span:nth-child(2) {
+  display: grid;
+  gap: 3px;
+}
+
+.collapsibleSummary strong {
+  color: #102b55;
+  font-size: 14px;
+}
+
+.collapsibleSummary small {
+  color: #637493;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.summaryIcon {
+  align-items: center;
+  background: #edf4ff;
+  border-radius: 10px;
+  color: #075cff;
+  display: inline-flex;
+  font-size: 16px;
+  font-weight: 900;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.summaryAction {
+  color: #075cff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.collapsiblePanel[open] .summaryAction::before {
+  content: "Fechar";
+}
+
+.collapsiblePanel[open] .summaryAction {
+  font-size: 0;
+}
+
+.collapsiblePanel[open] .summaryAction::before {
+  font-size: 12px;
+}
+
+.collapsibleContent {
+  border-top: 1px solid #e4ebf3;
+  padding: 18px;
+}
+
 .assurance {
   display: flex;
   gap: 12px;

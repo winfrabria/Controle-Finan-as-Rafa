@@ -12,12 +12,22 @@ import {
 } from "@/generated/prisma/enums";
 import {
   auditRecoveryIdempotencyKey,
+  isProcessingJobClaimRace,
+  ProcessingJobError,
   canScheduleAuditRecovery,
   pipelineFailureDetails,
   processingFailureLifecycle,
   runClaimedProcessingJobPipeline,
   scheduleNoteAuditRecoveryInTransaction,
 } from "./processing-jobs";
+
+test("disputa esperada entre upload e polling não oculta falhas reais", () => {
+  assert.equal(isProcessingJobClaimRace(new ProcessingJobError("JOB_CONFLICT", "Outro worker assumiu")), true);
+  assert.equal(isProcessingJobClaimRace(new ProcessingJobError("JOB_NOT_CLAIMABLE", "Job já assumido")), true);
+  assert.equal(isProcessingJobClaimRace(new ProcessingJobError("JOB_NOT_FOUND", "Ausente")), false);
+  assert.equal(isProcessingJobClaimRace({ code: "EXTRACTION_CONFLICT" }), false);
+  assert.equal(isProcessingJobClaimRace(new Error("Erro real")), false);
+});
 
 test("recuperação audit-only aceita falso READ_FAILED com extração persistida", () => {
   assert.equal(

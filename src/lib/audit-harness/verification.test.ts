@@ -4,10 +4,12 @@ import test from "node:test";
 import {
   buildVerificationChecks,
   canRetainSuspiciousAfterVerificationFailure,
+  explicitlyConfirmedVerificationFindings,
   evaluateHarness,
   resolveAuditAssurance,
   selectVerification,
   validateVerificationCoverage,
+  VERIFICATION_JSON_SCHEMA,
   verificationResponseSchema,
   type HarnessFinding,
   type HarnessInvoice,
@@ -96,6 +98,12 @@ function response(expectedChecks: ReturnType<typeof buildVerificationChecks>): V
   };
 }
 
+test("schema do provedor exige vínculo explícito sem uniqueItems", () => {
+  const serialized = JSON.stringify(VERIFICATION_JSON_SCHEMA);
+  assert.equal(serialized.includes("confirmsInitialFindingCode"), true);
+  assert.equal(serialized.includes("uniqueItems"), false);
+});
+
 test("seleciona verificação por sinais genéricos e nunca por caso real", () => {
   const selected = selectVerification({
     aiCoverage: false,
@@ -114,12 +122,12 @@ test("seleciona verificação por sinais genéricos e nunca por caso real", () =
   assert.deepEqual(
     new Set(selected.reasons),
     new Set([
-      "COMPOSITE_DOCUMENT",
-      "LONG_DOCUMENT",
+      "SUPPORT_COVERAGE_NOT_COMPLETE",
       "LOW_READABLE_CONFIDENCE",
       "MULTIPLE_EXTRACTION_WARNINGS",
       "RECOVERED_EXTRACTION",
       "HIGH_VALUE",
+      "AI_FINANCIAL_OR_DATE_CONFIRMATION_REQUIRED",
       "AI_ONLY_SUSPICION",
       "INSUFFICIENT_AUDIT_COVERAGE",
     ]),
@@ -195,6 +203,7 @@ test("achado do verificador exige página, referência e evidência concreta", (
     actualValue: "110.00",
     category: "AMOUNT",
     code: "VERIFIER_AMOUNT",
+    confirmsInitialFindingCode: null,
     confidence: 0.9,
     description: "Divergência",
     evidence: {
@@ -215,6 +224,40 @@ test("achado do verificador exige página, referência e evidência concreta", (
   assert.equal(verificationResponseSchema.safeParse(value).success, false);
 });
 
+test("resposta persistida antiga sem vínculo explícito continua legível", () => {
+  const checks = buildVerificationChecks(invoice());
+  const value = response(checks) as unknown as {
+    findings: Array<Record<string, unknown>>;
+  };
+  value.findings = [{
+    actualValue: null,
+    category: "AMOUNT",
+    code: "LEGACY_AMOUNT",
+    confidence: 0.8,
+    description: "Achado persistido antes do vínculo explícito.",
+    evidence: {
+      field: "total",
+      lineNumber: 1,
+      page: 1,
+      source: "Página 1",
+      summary: "Valor encontrado no documento.",
+    },
+    expectedValue: null,
+    justification: "Registro histórico.",
+    noteItemLineNumber: 1,
+    references: ["Página 1"],
+    severity: "WARNING",
+    source: "AI_VERIFICATION",
+    title: "Achado legado",
+  }];
+
+  const parsed = verificationResponseSchema.parse({
+    ...value,
+    status: "FINDINGS",
+  });
+  assert.equal(parsed.findings[0].confirmsInitialFindingCode, null);
+});
+
 test("achado sem check correspondente não pode certificar cobertura", () => {
   const checks = buildVerificationChecks(invoice());
   const value = response(checks);
@@ -222,6 +265,7 @@ test("achado sem check correspondente não pode certificar cobertura", () => {
   value.findings = [{
     ...aiFinding(),
     actualValue: "110.00",
+    confirmsInitialFindingCode: null,
     evidence: {
       field: "total",
       lineNumber: 1,
@@ -280,6 +324,7 @@ test("faixa de garantia não expõe score e sinaliza risco não verificado", () 
 test("achado independente sustentado promove suspeita sem remover achados anteriores", () => {
   const discovery = {
     ...aiFinding(),
+    confirmsInitialFindingCode: null,
     source: "AI_VERIFICATION" as const,
   };
   const result = evaluateHarness({
@@ -304,11 +349,18 @@ test("achado independente sustentado promove suspeita sem remover achados anteri
   );
 });
 
-test("falha do verificador não apaga suspeita já sustentada", () => {
+test("falha do verificador preserva regra local, mas não hipótese financeira da IA", () => {
   assert.equal(
     canRetainSuspiciousAfterVerificationFailure({
       classification: "SUSPICIOUS",
       findings: [aiFinding()],
+    }),
+    false,
+  );
+  assert.equal(
+    canRetainSuspiciousAfterVerificationFailure({
+      classification: "SUSPICIOUS",
+      findings: [{ ...aiFinding(), source: "UNIVERSAL_RULE" }],
     }),
     true,
   );
@@ -317,6 +369,241 @@ test("falha do verificador não apaga suspeita já sustentada", () => {
       classification: "OK",
       findings: [],
     }),
+    false,
+  );
+});
+
+test("AI_DISCOVERY financeiro sem verificação não vira suspeita", () => {
+  const hypothesis = {
+    ...aiFinding(),
+    actualValue: "140.00",
+    code: "INVOICE_BILLING_AMOUNT_MISMATCH",
+    evidence: {
+      field: "billingAmount",
+      lineNumber: null,
+      page: 4,
+      source: "Texto extraído",
+      summary: "A extração sugeriu dois valores diferentes.",
+    },
+    expectedValue: "910.00",
+    source: "AI_DISCOVERY" as const,
+  };
+  const result = evaluateHarness({
+    aiDiscovery: {
+      contextQuestions: [],
+      coverage: {
+        checkedAreas: ["totais"],
+        limitations: [],
+        sufficientEvidence: true,
+      },
+      findings: [hypothesis],
+      needsContext: false,
+      summary: "Possível divergência de valor.",
+    },
+    invoice: invoice({ supplierTaxId: null }),
+  });
+
+  assert.equal(result.classification, "INFORMATION_INSUFFICIENT");
+  assert.equal(result.findings.some((finding) => finding.code === hypothesis.code), false);
+  assert.deepEqual(result.unconfirmedAiFindings.map((finding) => finding.code), [
+    hypothesis.code,
+  ]);
+});
+
+test("verificação explicitamente vinculada substitui a hipótese financeira", () => {
+  const hypothesis = {
+    ...aiFinding(),
+    code: "INVOICE_BILLING_AMOUNT_MISMATCH",
+    actualValue: "140.00",
+    evidence: {
+      field: "billingAmount",
+      lineNumber: null,
+      page: 1,
+      source: "Texto extraído",
+      summary: "A extração sugeriu dois valores diferentes.",
+    },
+    expectedValue: "R$ 910,00",
+    source: "AI_DISCOVERY" as const,
+  };
+  const confirmed = {
+    ...hypothesis,
+    actualValue: "R$ 140,00",
+    confirmsInitialFindingCode: hypothesis.code,
+    evidence: {
+      field: "billingAmount",
+      lineNumber: null,
+      page: 1,
+      source: "Página 1 do documento original",
+      summary: "Os dois valores estão legíveis no original.",
+    },
+    expectedValue: "910.00",
+    source: "AI_VERIFICATION" as const,
+  };
+  const result = evaluateHarness({
+    aiDiscovery: {
+      contextQuestions: [],
+      coverage: {
+        checkedAreas: ["totais"],
+        limitations: [],
+        sufficientEvidence: true,
+      },
+      findings: [hypothesis],
+      needsContext: false,
+      summary: "Possível divergência de valor.",
+    },
+    invoice: invoice({ supplierTaxId: null }),
+    verificationFindings: [confirmed],
+  });
+
+  assert.equal(result.classification, "SUSPICIOUS");
+  assert.equal(result.unconfirmedAiFindings.length, 0);
+  const checks = buildVerificationChecks(invoice());
+  const verificationResponse = response(checks);
+  verificationResponse.status = "FINDINGS";
+  verificationResponse.findings = [confirmed];
+  verificationResponse.checks[1] = {
+    ...verificationResponse.checks[1],
+    evidence: [{
+      field: "billingAmount",
+      page: 1,
+      quote: "Valores divergentes",
+      source: "Página 1",
+    }],
+    findingCode: confirmed.code,
+    state: "FINDING",
+  };
+  assert.equal(
+    validateVerificationCoverage({
+      expectedChecks: checks,
+      expectedPageCount: 2,
+      initialFindings: [hypothesis],
+      response: verificationResponse,
+    }).complete,
+    true,
+  );
+  assert.equal(
+    result.findings.some(
+      (finding) =>
+        finding.code === hypothesis.code &&
+        finding.source === "AI_VERIFICATION",
+    ),
+    true,
+  );
+  assert.equal(
+    result.findings.some((finding) => finding.source === "AI_DISCOVERY"),
+    false,
+  );
+});
+
+test("confirmação rejeita código, valores ou página divergentes", () => {
+  const hypothesis = {
+    ...aiFinding(),
+    code: "INVOICE_BILLING_AMOUNT_MISMATCH",
+    actualValue: "140.00",
+    evidence: {
+      field: "billingAmount",
+      lineNumber: null,
+      page: 1,
+      source: "Texto extraído",
+      summary: "A extração sugeriu dois valores diferentes.",
+    },
+    expectedValue: "910.00",
+    source: "AI_DISCOVERY" as const,
+  };
+  const candidate = {
+    ...hypothesis,
+    confirmsInitialFindingCode: hypothesis.code,
+    evidence: {
+      field: "billingAmount",
+      lineNumber: null,
+      page: 1,
+      source: "Página 1 do documento original",
+      summary: "Valores conferidos no original.",
+    },
+    source: "AI_VERIFICATION" as const,
+  };
+
+  assert.equal(
+    explicitlyConfirmedVerificationFindings(
+      [hypothesis],
+      [{ ...candidate, code: "OUTRO_CODIGO" }],
+    ).length,
+    0,
+  );
+  assert.equal(
+    explicitlyConfirmedVerificationFindings(
+      [hypothesis],
+      [{ ...candidate, actualValue: "141.00" }],
+    ).length,
+    0,
+  );
+
+  const checks = buildVerificationChecks(invoice());
+  const invalidPage = response(checks);
+  invalidPage.status = "FINDINGS";
+  invalidPage.findings = [{ ...candidate, evidence: { ...candidate.evidence, page: 3 } }];
+  invalidPage.checks[1] = {
+    ...invalidPage.checks[1],
+    evidence: [{
+      field: "billingAmount",
+      page: 1,
+      quote: "Valores divergentes",
+      source: "Página 1",
+    }],
+    findingCode: candidate.code,
+    state: "FINDING",
+  };
+  const coverage = validateVerificationCoverage({
+    expectedChecks: checks,
+    expectedPageCount: 2,
+    initialFindings: [hypothesis],
+    response: invalidPage,
+  });
+  assert.deepEqual(coverage.invalidFindingPages, [hypothesis.code]);
+  assert.equal(coverage.complete, false);
+});
+
+test("hipótese não confirmada não remove achado determinístico local", () => {
+  const hypothesis = {
+    ...aiFinding(),
+    actualValue: "140.00",
+    code: "INVOICE_BILLING_AMOUNT_MISMATCH",
+    evidence: {
+      field: "billingAmount",
+      lineNumber: null,
+      page: 1,
+      source: "Texto extraído",
+      summary: "A extração sugeriu dois valores diferentes.",
+    },
+    expectedValue: "910.00",
+    source: "AI_DISCOVERY" as const,
+  };
+  const result = evaluateHarness({
+    aiDiscovery: {
+      contextQuestions: [],
+      coverage: {
+        checkedAreas: ["totais"],
+        limitations: [],
+        sufficientEvidence: true,
+      },
+      findings: [hypothesis],
+      needsContext: false,
+      summary: "Possível divergência de valor.",
+    },
+    invoice: invoice({ supplierTaxId: "00000000000000" }),
+  });
+
+  assert.equal(result.classification, "SUSPICIOUS");
+  assert.equal(
+    result.findings.some(
+      (finding) =>
+        finding.code === "INVALID_CNPJ" &&
+        finding.source === "UNIVERSAL_RULE",
+    ),
+    true,
+  );
+  assert.equal(
+    result.findings.some((finding) => finding.code === hypothesis.code),
     false,
   );
 });

@@ -70,6 +70,8 @@ export const harnessFindingSchema = z
     // evidence from large documents.
     references: z.array(z.string().trim().min(1).max(500)).max(100),
     evidence: z.record(z.string(), z.unknown()),
+    comparisonMode: z.enum(["REFERENCE", "CONFLICT"]).nullable().optional(),
+    referenceBasis: z.string().trim().min(1).max(500).nullable().optional(),
     expectedValue: z.unknown().nullable(),
     actualValue: z.unknown().nullable(),
     noteItemLineNumber: z.number().int().positive().nullable(),
@@ -259,6 +261,17 @@ export type HarnessInvoice = {
     firstLineNumber: number | null;
     lastLineNumber: number | null;
     missingLineNumbers: number[];
+    evidence: string | null;
+  };
+  supportCoverage?: {
+    status: "COMPLETE" | "PARTIAL" | "UNKNOWN";
+    referencedDocuments: string[];
+    presentDocuments: string[];
+    missingDocuments: string[];
+    basis:
+      | "DOCUMENT_REFERENCES"
+      | "EXPLICIT_COMPLETENESS_STATEMENT"
+      | "NONE";
     evidence: string | null;
   };
   requiredFieldChecks?: Array<{

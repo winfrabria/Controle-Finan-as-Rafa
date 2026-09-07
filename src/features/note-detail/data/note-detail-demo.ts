@@ -398,7 +398,9 @@ export function createDemoNoteDetail({
     ...base,
     analysis: {
       ...base.analysis,
-      rawExtraction: sanitizeReviewerJson(base.analysis.rawExtraction),
+      rawExtraction: sanitizeReviewerJson(base.analysis.rawExtraction, {
+        preserveDocumentUrl: false,
+      }),
     },
     viewerRole: "REVIEWER",
   };

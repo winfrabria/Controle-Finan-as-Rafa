@@ -40,12 +40,14 @@ type Verdict = keyof typeof VERDICTS;
 
 export function AuditFeedbackPanel({
   assurance,
+  collapsible = false,
   currentFeedback,
   feedbackEnabled = true,
   noteId,
   noteVersion,
 }: {
   assurance: { band: "HIGH" | "MEDIUM" | "LIMITED"; reason: string } | null;
+  collapsible?: boolean;
   currentFeedback: NoteDetailAuditFeedback | null;
   feedbackEnabled?: boolean;
   noteId: string;
@@ -85,8 +87,8 @@ export function AuditFeedbackPanel({
     ? { HIGH: "Garantia alta", MEDIUM: "Garantia média", LIMITED: "Garantia limitada" }[assurance.band]
     : "Garantia não calculada";
 
-  return (
-    <section className={styles.panel} aria-label="Garantia e feedback da auditoria">
+  const content = (
+    <div className={collapsible ? styles.collapsibleContent : undefined}>
       <div className={styles.assurance}>
         <span className={`${styles.badge} ${assurance ? styles[assurance.band.toLowerCase() as "high" | "medium" | "limited"] : styles.limited}`}>
           {assuranceLabel}
@@ -146,6 +148,32 @@ export function AuditFeedbackPanel({
           </div>
         </fieldset>
       </form> : null}
+    </div>
+  );
+
+  if (collapsible) {
+    return (
+      <details className={`${styles.panel} ${styles.collapsiblePanel}`}>
+        <summary className={styles.collapsibleSummary}>
+          <span className={styles.summaryIcon} aria-hidden="true">✓</span>
+          <span>
+            <strong>Feedback sobre o diagnóstico</strong>
+            <small>
+              {currentFeedback
+                ? "Feedback registrado. Abra para consultar ou atualizar."
+                : "Opcional — ajude a melhorar a auditoria sem aprovar ou rejeitar a nota."}
+            </small>
+          </span>
+          <span className={styles.summaryAction}>Abrir</span>
+        </summary>
+        {content}
+      </details>
+    );
+  }
+
+  return (
+    <section className={styles.panel} aria-label="Garantia e feedback da auditoria">
+      {content}
     </section>
   );
 }

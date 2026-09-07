@@ -8,17 +8,16 @@ import {
   compactFindingFieldPath,
   formatFindingParts,
   formatFindingValueLines,
+  formatReviewerConflictValueCards,
+  formatReviewerFindingValueLines,
   formatReviewerFindingParts,
   humanizeFindingText,
   humanizeReviewerFindingText,
+  reviewerObservationValue,
 } from "@/features/internal-notes/finding-display";
 
-import type {
-  NoteDetailFinding,
-  NoteDetailItem,
-} from "./data";
+import type { NoteDetailFinding } from "./data";
 import {
-  formatDecimal,
   jsonSummary,
   severityLabel,
 } from "./note-detail-format";
@@ -28,6 +27,7 @@ import {
 } from "./finding-comparison-labels";
 import {
   extractFindingEvidenceObservations,
+  findingEvidenceField,
   findingObservationKindLabel,
   formatFindingObservationAmount,
   formatFindingObservationDate,
@@ -36,17 +36,19 @@ import {
   type FindingEvidenceObservation,
   type FindingEvidenceObservationSummary,
 } from "./finding-observations";
+import {
+  extractReviewerEvidenceFields,
+  type ReviewerEvidenceFields,
+} from "./reviewer-evidence-fields";
 import styles from "./note-detail.module.css";
 
 export function NoteAnalysisExplorer({
   documentUrl,
   findings,
-  items,
   reviewer,
 }: {
   documentUrl: string | null;
   findings: NoteDetailFinding[];
-  items: NoteDetailItem[];
   reviewer: boolean;
 }) {
   const [selectedId, setSelectedId] = useState(findings[0]?.id ?? "");
@@ -75,8 +77,6 @@ export function NoteAnalysisExplorer({
     );
   }
 
-  const affectedItem =
-    items.find((item) => item.id === selected.affectedItem?.id) ?? null;
   const selectedIndex = findings.findIndex(
     (finding) => finding.id === selected.id,
   );
@@ -102,6 +102,9 @@ export function NoteAnalysisExplorer({
   )?.page ?? null;
   const evidenceDocumentUrl = documentUrl
     ? `${documentUrl.split("#")[0]}${firstEvidencePage ? `#page=${firstEvidencePage}` : ""}`
+    : null;
+  const reviewerEvidenceFields = reviewer
+    ? extractReviewerEvidenceFields(selected.evidence)
     : null;
   const evidenceParts = (reviewer
     ? formatReviewerFindingParts
@@ -139,6 +142,11 @@ export function NoteAnalysisExplorer({
           part.label,
         ),
     )
+    .filter(
+      (part) =>
+        !reviewerEvidenceFields ||
+        !isReviewerRequiredFieldsSummaryLabel(part.label),
+    )
     .filter((part) =>
       reviewerTextIsDistinct(part.value, [
         selectedTitle,
@@ -146,10 +154,31 @@ export function NoteAnalysisExplorer({
         selectedExplanation,
       ]),
     );
-  const hasMeaningfulComparison =
-    selected.expectedValue !== null &&
-    selected.actualValue !== null &&
-    jsonSummary(selected.expectedValue) !== jsonSummary(selected.actualValue);
+  const comparisonMode =
+    selected.comparisonMode ??
+    (selected.referenceBasis || selected.sources.some((source) => source.kind === "reference")
+      ? "REFERENCE"
+      : "CONFLICT");
+  const comparisonIdentity = {
+    category: selected.category,
+    code: selected.code,
+    field: findingEvidenceField(selected.evidence),
+    title: selected.title,
+  };
+  const conflictValueCards = formatReviewerConflictValueCards(
+    selected.actualValue,
+    selected.expectedValue,
+    comparisonIdentity,
+    evidenceSummaries.slice(0, 4).map((observation) => ({
+      label: findingObservationKindLabel(observation.kind),
+      value: reviewerObservationValue(observation, comparisonIdentity),
+    })),
+  );
+  const hasMeaningfulComparison = comparisonMode === "CONFLICT"
+    ? conflictValueCards.length > 0
+    : selected.actualValue !== null &&
+      selected.expectedValue !== null &&
+      jsonSummary(selected.expectedValue) !== jsonSummary(selected.actualValue);
   const comparisonLabels = findingComparisonLabels(selected);
   const comparisonDifference = findingComparisonDifference(selected);
   const showExplanation = reviewerTextIsDistinct(selectedExplanation, [
@@ -159,6 +188,9 @@ export function NoteAnalysisExplorer({
     selectedDescription,
     selectedExplanation,
   ]);
+  const comparisonLines = reviewer
+    ? formatReviewerFindingValueLines
+    : (value: string) => formatFindingValueLines(value);
 
   const selectFinding = (index: number) => {
     const next = findings[index];
@@ -262,34 +294,58 @@ export function NoteAnalysisExplorer({
         </p>
 
         {hasMeaningfulComparison ? (
-          <section className={styles.comparison}>
-          <div className={styles.comparisonActual}>
-            <h3>{comparisonLabels.actual}</h3>
-            <p>
-              {formatFindingValueLines(jsonSummary(selected.actualValue)).map(displayText).map(
-                (line, index) => (
-                  <span key={`${line}-${index}`}>{line}</span>
-                ),
-              )}
-            </p>
-          </div>
-          <div className={styles.comparisonExpected}>
-            <h3>{comparisonLabels.expected}</h3>
-            <p>
-              {formatFindingValueLines(
-                jsonSummary(selected.expectedValue, "Sem referência comparável"),
-              ).map(displayText).map((line, index) => (
-                <span key={`${line}-${index}`}>{line}</span>
+          comparisonMode === "CONFLICT" ? (
+            <section className={`${styles.comparison} ${styles.comparisonConflict}`}>
+              {conflictValueCards.map((card, cardIndex) => (
+                <div
+                  className={styles.comparisonConflictCard}
+                  key={`${card.label}-${cardIndex}`}
+                >
+                  <h3>{card.label}</h3>
+                  <p>
+                    {card.lines.map((line, lineIndex) => (
+                      <span key={`${line}-${lineIndex}`}>{displayText(line)}</span>
+                    ))}
+                  </p>
+                </div>
               ))}
-            </p>
-          </div>
-          {comparisonDifference ? (
-            <div className={styles.comparisonDifference}>
-              <h3>Diferença</h3>
-              <strong>{comparisonDifference}</strong>
-            </div>
-          ) : null}
-          </section>
+              <small className={styles.comparisonConflictHint}>
+                Os valores acima foram encontrados em fontes diferentes. Não há
+                referência comprovada para escolher um deles como correto.
+              </small>
+            </section>
+          ) : (
+            <section className={styles.comparison}>
+              <div className={styles.comparisonActual}>
+                <h3>{comparisonLabels.actual}</h3>
+                <p>
+                  {comparisonLines(
+                    jsonSummary(selected.actualValue),
+                    comparisonIdentity,
+                  ).map(displayText).map((line, index) => (
+                    <span key={`${line}-${index}`}>{line}</span>
+                  ))}
+                </p>
+              </div>
+              <div className={styles.comparisonExpected}>
+                <h3>{comparisonLabels.expected}</h3>
+                <p>
+                  {comparisonLines(
+                    jsonSummary(selected.expectedValue, "Sem referência comparável"),
+                    comparisonIdentity,
+                  ).map(displayText).map((line, index) => (
+                    <span key={`${line}-${index}`}>{line}</span>
+                  ))}
+                </p>
+              </div>
+              {comparisonDifference ? (
+                <div className={styles.comparisonDifference}>
+                  <h3>Diferença</h3>
+                  <strong>{comparisonDifference}</strong>
+                </div>
+              ) : null}
+            </section>
+          )
         ) : null}
 
         {showExplanation ? (
@@ -301,6 +357,9 @@ export function NoteAnalysisExplorer({
           <p className={styles.analysisLocationIntro}>
             Localização do apontamento no arquivo original.
           </p>
+          {reviewerEvidenceFields ? (
+            <ReviewerRequiredFields data={reviewerEvidenceFields} />
+          ) : null}
           {evidenceLocationParts.length ? (
             <EvidenceFacts parts={evidenceLocationParts.slice(0, 3)} />
           ) : null}
@@ -326,27 +385,9 @@ export function NoteAnalysisExplorer({
                 : "Abrir documento original"}
             </a>
           ) : null}
-          {affectedItem || selected.affectedItem ? (
-            <article className={styles.analysisEvidenceCard}>
-              <span className={styles.analysisEvidenceEyebrow}>Item relacionado</span>
-              <strong>
-                {displayText(
-                  affectedItem?.description ??
-                    selected.affectedItem?.description ??
-                    "Item identificado no documento",
-                )}
-              </strong>
-              <dl>
-                {!reviewer || !isInternalDocumentCode(affectedItem?.code ?? selected.affectedItem?.code) ? (
-                  <div><dt>Código</dt><dd>{affectedItem?.code ?? selected.affectedItem?.code ?? "Não identificado"}</dd></div>
-                ) : null}
-                <div><dt>Unidade</dt><dd>{affectedItem?.unit ?? "Não identificada"}</dd></div>
-                <div><dt>Quantidade</dt><dd>{formatDecimal(affectedItem?.quantity ?? null, 0)}</dd></div>
-                <div><dt>Valor unitário</dt><dd>{formatDecimal(affectedItem?.unitPrice ?? null)}</dd></div>
-                <div><dt>Valor total</dt><dd>{formatDecimal(affectedItem?.totalAmount ?? null)}</dd></div>
-              </dl>
-            </article>
-          ) : evidenceObservations.length === 0 && evidenceNarrativeParts.length === 0 ? (
+          {!reviewerEvidenceFields &&
+          evidenceObservations.length === 0 &&
+          evidenceNarrativeParts.length === 0 ? (
             <p className={styles.analysisEvidenceEmpty}>
               A localização exata não foi informada. Confira o arquivo original.
             </p>
@@ -477,8 +518,38 @@ function EvidenceFacts({ parts }: { parts: ReturnType<typeof formatReviewerFindi
   );
 }
 
-function isInternalDocumentCode(value: string | null | undefined) {
-  return Boolean(value && /^D\d{1,4}$/i.test(value.trim()));
+function ReviewerRequiredFields({
+  data,
+}: {
+  data: ReviewerEvidenceFields;
+}) {
+  return (
+    <div className={styles.reviewerRequiredFields}>
+      <p className={styles.reviewerRequiredFieldsSummary}>{data.summary}</p>
+      <details>
+        <summary>{data.expandLabel}</summary>
+        <div>
+          {data.fields.map((field, index) => (
+            <article key={`${field.label}:${field.page ?? ""}:${index}`}>
+              <header>
+                <strong>{humanizeReviewerFindingText(field.label)}</strong>
+                {field.page ? <small>Página {field.page}</small> : null}
+              </header>
+              {field.excerpt ? (
+                <p>{humanizeReviewerFindingText(field.excerpt)}</p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function isReviewerRequiredFieldsSummaryLabel(value: string) {
+  return /^(?:campos?\s+n[aã]o\s+preenchidos?|missing\s+fields)$/iu.test(
+    value.trim(),
+  );
 }
 
 function FindingSection({

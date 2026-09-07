@@ -310,7 +310,7 @@ test("associação de placa e equipamento sem cadastro ativo não vira suspeita"
   assert.equal(result.findings.length, 0);
 });
 
-test("divergência objetiva com valores e localização continua sustentando suspeita", () => {
+test("divergência financeira da descoberta exige verificação independente", () => {
   const result = evaluateHarness({
     invoice: sparseInvoice,
     aiDiscovery: {
@@ -336,8 +336,12 @@ test("divergência objetiva com valores e localização continua sustentando sus
     },
   });
 
-  assert.equal(result.classification, "SUSPICIOUS");
-  assert.equal(result.findings.length, 1);
+  assert.equal(result.classification, "INFORMATION_INSUFFICIENT");
+  assert.equal(result.findings.length, 0);
+  assert.deepEqual(
+    result.unconfirmedAiFindings.map((finding) => finding.code),
+    ["DOCUMENT_AMOUNT_MISMATCH"],
+  );
 });
 
 test("pergunta de contexto permanece quando a observação da IA é apenas informativa", () => {
@@ -763,6 +767,15 @@ function reimbursementWithAiAmountFinding(options: {
             text: "Despesa R$ 18,00",
           },
           {
+            kind: "RECEIPT",
+            documentGroup: options.deterministicGroup,
+            label: "Recibo item 19",
+            amount: "18.00",
+            date: "2026-05-26",
+            page: 1,
+            text: "Recibo R$ 18,00",
+          },
+          {
             kind: "PAYMENT",
             documentGroup: options.deterministicGroup,
             label: "Pagamento",
@@ -821,7 +834,21 @@ function reimbursementWithAiAmountFinding(options: {
     summary: "Valores auditados.",
   };
 
-  return evaluateHarness({ aiDiscovery, invoice }).findings.filter((finding) => {
+  const verificationFinding = {
+    ...aiDiscovery.findings[0],
+    confirmsInitialFindingCode: aiDiscovery.findings[0].code,
+    evidence: {
+      ...aiDiscovery.findings[0].evidence,
+      source: "Página 20 do documento original",
+    },
+    source: "AI_VERIFICATION" as const,
+  };
+
+  return evaluateHarness({
+    aiDiscovery,
+    invoice,
+    verificationFindings: [verificationFinding],
+  }).findings.filter((finding) => {
     const expected = String(finding.expectedValue ?? "").replace(/\D/g, "");
     const actual = String(finding.actualValue ?? "").replace(/\D/g, "");
     return expected === "1800" && actual === "2800";
@@ -1007,8 +1034,18 @@ test("preserva descobertas distintas quando a mesma página contém grupos ambí
     summary: "Dois eventos distintos avaliados.",
   };
 
+  const verificationFindings = aiDiscovery.findings.map((finding) => ({
+    ...finding,
+    confirmsInitialFindingCode: finding.code,
+    evidence: {
+      ...finding.evidence,
+      source: "Página 20 do documento original",
+    },
+    source: "AI_VERIFICATION" as const,
+  }));
+
   assert.equal(
-    evaluateHarness({ aiDiscovery, invoice }).findings.filter((finding) =>
+    evaluateHarness({ aiDiscovery, invoice, verificationFindings }).findings.filter((finding) =>
       finding.code.startsWith("AI_EVENT_"),
     ).length,
     2,

@@ -18,6 +18,7 @@ import type { NoteDetailData } from "./data";
 import { AdminComparativeAuditView } from "./admin-comparative-audit-view";
 import { AuditFeedbackPanel } from "./audit-feedback-panel";
 import { NoteDetailActions } from "./note-detail-actions";
+import { NoteReadAction } from "./note-read-action";
 import {
   formatCurrency,
   formatDate,
@@ -151,6 +152,7 @@ export function NoteDetailView({
 
         <AuditFeedbackPanel
           assurance={data.analysis.assurance}
+          collapsible
           currentFeedback={data.feedback}
           feedbackEnabled={
             data.processingStage === "COMPLETED" &&
@@ -159,6 +161,8 @@ export function NoteDetailView({
           noteId={data.id}
           noteVersion={data.version}
         />
+
+        <NoteReadAction noteId={data.id} />
 
         <div className={styles.detailGrid}>
           <section className={`${styles.card} ${styles.documentCard}`}>

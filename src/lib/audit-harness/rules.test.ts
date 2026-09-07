@@ -1176,32 +1176,32 @@ test("sinaliza uma vez quando pagamento agregado não reconcilia com os produtos
   );
 });
 
-test("sinaliza boleto agregado quando os documentos fiscais anexados não cobrem o pagamento", () => {
+test("não trata suportes ausentes do boleto como irregularidade comprovada", () => {
   const result = evaluateUniversalRules({
     invoice: invoice({
       documentKind: "COMPOSITE",
-      documentNumber: "3098",
-      totalAmount: "2142.29",
+      documentNumber: "LOTE-SINTETICO",
+      totalAmount: "900.00",
       items: [
         {
           lineNumber: 1,
-          description: "Boleto referente aos documentos 3055 A 3098",
+          description: "Cobrança agregada referente a múltiplos documentos",
           documentGroup: "LOTE-A",
           documentRole: "AGGREGATE_PAYMENT",
           countsTowardDocumentTotal: true,
           quantity: "1",
-          unitPrice: "2142.29",
-          totalAmount: "2142.29",
+          unitPrice: "900.00",
+          totalAmount: "900.00",
         },
         {
           lineNumber: 2,
-          description: "NF-e 3098 — peças e materiais",
+          description: "Documento fiscal de suporte parcial",
           documentGroup: "LOTE-A",
           documentRole: "SUPPORTING_DOCUMENT",
           countsTowardDocumentTotal: false,
           quantity: "1",
-          unitPrice: "473.93",
-          totalAmount: "473.93",
+          unitPrice: "350.00",
+          totalAmount: "350.00",
         },
       ],
     }),
@@ -1210,13 +1210,10 @@ test("sinaliza boleto agregado quando os documentos fiscais anexados não cobrem
   const gap = result.findings.find(
     (finding) => finding.code.startsWith("COMPOSITE_PAYMENT_DOCUMENT_GAP"),
   );
-  assert.ok(gap);
-  assert.equal(gap.expectedValue, "2142.29");
-  assert.equal(gap.actualValue, "473.93");
-  assert.equal(gap.evidence.unsupportedAmount, "1668.36");
+  assert.equal(gap, undefined);
 });
 
-test("aplica a conciliação documental a outro fornecedor, outra cobrança e outros valores", () => {
+test("não inventa conciliação documental para outro conjunto parcial", () => {
   const result = evaluateUniversalRules({
     invoice: invoice({
       documentKind: "COMPOSITE",
@@ -1263,13 +1260,10 @@ test("aplica a conciliação documental a outro fornecedor, outra cobrança e ou
   const gap = result.findings.find((finding) =>
     finding.code.startsWith("COMPOSITE_PAYMENT_DOCUMENT_GAP"),
   );
-  assert.ok(gap);
-  assert.equal(gap.expectedValue, "950.00");
-  assert.equal(gap.actualValue, "550.00");
-  assert.equal(gap.evidence.unsupportedAmount, "400.00");
+  assert.equal(gap, undefined);
 });
 
-test("preserva o achado de cobertura e elimina o total genérico duplicado", () => {
+test("ausência de suporte não cria card nem total genérico duplicado", () => {
   const result = evaluateHarness({
     invoice: invoice({
       documentKind: "COMPOSITE",
@@ -1306,7 +1300,7 @@ test("preserva o achado de cobertura e elimina o total genérico duplicado", () 
     result.findings.some((finding) =>
       finding.code.startsWith("COMPOSITE_PAYMENT_DOCUMENT_GAP"),
     ),
-    true,
+    false,
   );
   assert.equal(
     result.findings.some((finding) => finding.code === "TOTAL_MISMATCH"),
@@ -1759,9 +1753,7 @@ test("não compara emissão, vencimento e datas diárias como se fossem o mesmo 
   const dateFinding = result.findings.find(
     (finding) => finding.code === "EVIDENCE_DATE_MISMATCH_1",
   );
-  assert.ok(dateFinding);
-  assert.equal(dateFinding.actualValue, "2026-05-03 × 2026-05-04");
-  assert.doesNotMatch(String(dateFinding.actualValue), /2026-06-15/);
+  assert.equal(dateFinding, undefined);
 });
 
 test("não suspeita apenas porque o comprovante é recibo, pedido ou orçamento", () => {

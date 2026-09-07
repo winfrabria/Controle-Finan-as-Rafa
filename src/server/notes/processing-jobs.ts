@@ -468,6 +468,11 @@ export async function processProcessingJob(
   }
 }
 
+export function isProcessingJobClaimRace(error: unknown) {
+  return error instanceof ProcessingJobError &&
+    (error.code === "JOB_NOT_CLAIMABLE" || error.code === "JOB_CONFLICT");
+}
+
 export async function scheduleNoteAuditRecoveryInTransaction(
   transaction: Prisma.TransactionClient,
   noteId: string,

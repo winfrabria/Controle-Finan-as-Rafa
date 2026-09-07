@@ -6,6 +6,7 @@ import type {
   HarnessInvoice,
 } from "./contracts";
 import { isSupportedFinding } from "./decision-matrix";
+import { hasUncertainSupportCoverage } from "./policy";
 import type { HarnessVerifierMode } from "./versions";
 
 export const auditAssuranceBandSchema = z.enum(["HIGH", "MEDIUM", "LIMITED"]);
@@ -68,6 +69,10 @@ export const verificationFindingSchema = z
     actualValue: z.string().trim().max(1_000).nullable(),
     category: z.string().trim().min(1).max(100),
     code: z.string().trim().min(1).max(100),
+    // Older verification runs were persisted before the explicit hypothesis
+    // link existed. Treat the missing field as an unlinked finding so those
+    // runs remain readable without weakening the new provider contract.
+    confirmsInitialFindingCode: z.string().trim().min(1).max(100).nullable().default(null),
     confidence: z.number().min(0).max(1),
     description: z.string().trim().min(1).max(2_000),
     evidence: verificationFindingEvidenceSchema,
@@ -183,9 +188,10 @@ export const VERIFICATION_JSON_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["code", "title", "description", "category", "severity", "source", "confidence", "justification", "references", "evidence", "expectedValue", "actualValue", "noteItemLineNumber"],
-        properties: {
-          code: { type: "string", minLength: 1, maxLength: 100 },
+          required: ["code", "confirmsInitialFindingCode", "title", "description", "category", "severity", "source", "confidence", "justification", "references", "evidence", "expectedValue", "actualValue", "noteItemLineNumber"],
+          properties: {
+            code: { type: "string", minLength: 1, maxLength: 100 },
+            confirmsInitialFindingCode: { type: ["string", "null"], minLength: 1, maxLength: 100 },
           title: { type: "string", minLength: 1, maxLength: 180 },
           description: { type: "string", minLength: 1, maxLength: 2000 },
           category: { type: "string", minLength: 1, maxLength: 100 },
@@ -218,6 +224,7 @@ export const VERIFICATION_JSON_SCHEMA = {
 } as const;
 
 export type VerificationResponse = z.infer<typeof verificationResponseSchema>;
+export type VerificationFinding = z.infer<typeof verificationFindingSchema>;
 export type AuditAssuranceBand = z.infer<typeof auditAssuranceBandSchema>;
 
 export type VerificationCheckRequest = {
@@ -232,6 +239,134 @@ export type VerificationSelection = {
   reasons: string[];
 };
 
+const FINANCIAL_OR_DATE_FINDING_PATTERN =
+  /(?:^|[^a-z])(?:amounts?|totals?|prices?|values?|valor(?:es)?|preco(?:s)?|payment|pagamento|billing|fatura|cobranca|arithmetic|quantity|data|datas|dates?|periodo|period|emissao|issued|vencimento|due)(?:$|[^a-z])/u;
+
+function normalizedSemanticText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function comparableClaimValue(value: unknown) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `money:${value.toFixed(2)}`;
+  }
+  if (typeof value !== "string") return normalizedSemanticText(JSON.stringify(value));
+
+  const text = value.trim();
+  const date = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/u);
+  if (date) {
+    const year = date[3].length === 2 ? `20${date[3]}` : date[3];
+    return `date:${year}-${date[2].padStart(2, "0")}-${date[1].padStart(2, "0")}`;
+  }
+  const isoDate = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/u);
+  if (isoDate) {
+    return `date:${isoDate[1]}-${isoDate[2].padStart(2, "0")}-${isoDate[3].padStart(2, "0")}`;
+  }
+
+  const compact = text
+    .replace(/^R\$\s*/iu, "")
+    .replace(/\s+/g, "");
+  if (/^-?[\d.,]+$/u.test(compact)) {
+    const lastComma = compact.lastIndexOf(",");
+    const lastDot = compact.lastIndexOf(".");
+    let normalized = compact;
+    if (lastComma >= 0 && lastDot >= 0) {
+      normalized = lastComma > lastDot
+        ? compact.replace(/\./g, "").replace(",", ".")
+        : compact.replace(/,/g, "");
+    } else if (lastComma >= 0 || lastDot >= 0) {
+      const separator = lastComma >= 0 ? "," : ".";
+      const parts = compact.split(separator);
+      const trailingDigits = parts.at(-1)?.length ?? 0;
+      if (trailingDigits === 3 && parts.slice(1).every((part) => part.length === 3)) {
+        normalized = parts.join("");
+      } else if (trailingDigits >= 1 && trailingDigits <= 2) {
+        normalized = `${parts.slice(0, -1).join("")}.${parts.at(-1)}`;
+      }
+    }
+    const parsed = Number(normalized);
+    if (Number.isFinite(parsed)) return `money:${parsed.toFixed(2)}`;
+  }
+
+  return `text:${normalizedSemanticText(text)}`;
+}
+
+function claimPairMatches(
+  initial: Pick<HarnessFinding, "actualValue" | "expectedValue">,
+  verification: Pick<VerificationFinding, "actualValue" | "expectedValue">,
+) {
+  const initialValues = [
+    comparableClaimValue(initial.expectedValue),
+    comparableClaimValue(initial.actualValue),
+  ];
+  const verificationValues = [
+    comparableClaimValue(verification.expectedValue),
+    comparableClaimValue(verification.actualValue),
+  ];
+  if (
+    initialValues.some((value) => value === null) ||
+    verificationValues.some((value) => value === null)
+  ) return false;
+  return initialValues.sort().join("|") === verificationValues.sort().join("|");
+}
+
+export function requiresIndependentAiConfirmation(finding: HarnessFinding) {
+  if (finding.source !== "AI_DISCOVERY" || finding.severity === "INFO") return false;
+  const evidenceField = typeof finding.evidence.field === "string"
+    ? finding.evidence.field
+    : "";
+  const semanticIdentity = normalizedSemanticText(
+    `${finding.code} ${finding.category} ${evidenceField}`,
+  );
+  if (FINANCIAL_OR_DATE_FINDING_PATTERN.test(semanticIdentity)) return true;
+
+  const expected = comparableClaimValue(finding.expectedValue);
+  const actual = comparableClaimValue(finding.actualValue);
+  return (
+    expected !== null &&
+    actual !== null &&
+    ((expected.startsWith("money:") && actual.startsWith("money:")) ||
+      (expected.startsWith("date:") && actual.startsWith("date:")))
+  );
+}
+
+export function explicitlyConfirmedVerificationFindings(
+  initialFindings: HarnessFinding[],
+  verificationFindings: VerificationFinding[],
+) {
+  return verificationFindings.filter((verification) => {
+    if (
+      verification.severity === "INFO" ||
+      !verification.confirmsInitialFindingCode ||
+      !isSupportedFinding(verification)
+    ) return false;
+    return initialFindings.some(
+      (initial) =>
+        requiresIndependentAiConfirmation(initial) &&
+        initial.code === verification.confirmsInitialFindingCode &&
+        initial.code === verification.code &&
+        claimPairMatches(initial, verification),
+    );
+  });
+}
+
+export function isAiDiscoveryFindingExplicitlyConfirmed(
+  finding: HarnessFinding,
+  verificationFindings: VerificationFinding[],
+) {
+  return explicitlyConfirmedVerificationFindings(
+    [finding],
+    verificationFindings,
+  ).length > 0;
+}
+
 export function canRetainSuspiciousAfterVerificationFailure(input: {
   classification: HarnessClassification;
   findings: HarnessFinding[];
@@ -239,7 +374,10 @@ export function canRetainSuspiciousAfterVerificationFailure(input: {
   return (
     input.classification === "SUSPICIOUS" &&
     input.findings.some(
-      (finding) => finding.severity !== "INFO" && isSupportedFinding(finding),
+      (finding) =>
+        finding.severity !== "INFO" &&
+        isSupportedFinding(finding) &&
+        !requiresIndependentAiConfirmation(finding),
     )
   );
 }
@@ -283,8 +421,7 @@ export function selectVerification(input: {
 
   const reasons: string[] = [];
   const kind = input.invoice.documentKind;
-  if (kind === "REIMBURSEMENT" || kind === "COMPOSITE") reasons.push("COMPOSITE_DOCUMENT");
-  if ((input.pageCount ?? 0) >= 5) reasons.push("LONG_DOCUMENT");
+  if (hasUncertainSupportCoverage(input.invoice)) reasons.push("SUPPORT_COVERAGE_NOT_COMPLETE");
   if (
     (kind === "FISCAL_INVOICE" || kind === "REIMBURSEMENT" || kind === "COMPOSITE") &&
     input.invoice.itemCoverage?.status !== "COMPLETE"
@@ -296,6 +433,9 @@ export function selectVerification(input: {
   if ((input.extractionAttempts ?? 1) > 1 || input.extractionRecovered) reasons.push("RECOVERED_EXTRACTION");
   const total = input.invoice.totalAmount === null ? null : Number(input.invoice.totalAmount);
   if (total !== null && Number.isFinite(total) && total >= 50_000) reasons.push("HIGH_VALUE");
+  if (input.baseFindings.some(requiresIndependentAiConfirmation)) {
+    reasons.push("AI_FINANCIAL_OR_DATE_CONFIRMATION_REQUIRED");
+  }
   if (
     input.baseClassification === "SUSPICIOUS" &&
     input.baseFindings.length > 0 &&
@@ -311,6 +451,7 @@ export function selectVerification(input: {
 export function validateVerificationCoverage(input: {
   expectedChecks: VerificationCheckRequest[];
   expectedPageCount: number | null;
+  initialFindings?: HarnessFinding[];
   response: VerificationResponse;
 }) {
   const expectedKeys = new Set(input.expectedChecks.map((check) => check.key));
@@ -339,6 +480,23 @@ export function validateVerificationCoverage(input: {
     (check) => check.state === "LIMITATION",
   );
   const hasOverflow = expectedKeys.has("document:item-check-overflow");
+  const invalidFindingPages = input.response.findings
+    .filter(
+      (finding) =>
+        input.expectedPageCount !== null &&
+        finding.evidence.page > input.expectedPageCount,
+    )
+    .map((finding) => finding.code);
+  const invalidConfirmationCodes = input.response.findings
+    .filter(
+      (finding) =>
+        finding.confirmsInitialFindingCode !== null &&
+        explicitlyConfirmedVerificationFindings(
+          input.initialFindings ?? [],
+          [finding],
+        ).length === 0,
+    )
+    .map((finding) => finding.confirmsInitialFindingCode as string);
   const complete =
     duplicateKeys.length === 0 &&
     unknownKeys.length === 0 &&
@@ -347,6 +505,8 @@ export function validateVerificationCoverage(input: {
     orphanCheckFindingCodes.length === 0 &&
     !hasLimitationCheck &&
     !hasOverflow &&
+    invalidFindingPages.length === 0 &&
+    invalidConfirmationCodes.length === 0 &&
     input.expectedPageCount !== null &&
     input.response.pageCoverage.status === "COMPLETE" &&
     input.response.pageCoverage.expectedPageCount === input.expectedPageCount &&
@@ -356,6 +516,8 @@ export function validateVerificationCoverage(input: {
   return {
     complete,
     duplicateKeys,
+    invalidConfirmationCodes,
+    invalidFindingPages,
     missingKeys,
     missingPages,
     orphanCheckFindingCodes,

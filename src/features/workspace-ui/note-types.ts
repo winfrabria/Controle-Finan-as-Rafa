@@ -2,6 +2,7 @@ export type NoteFindingVisual = {
   actualValue?: string | null;
   category?: string | null;
   code?: string | null;
+  comparisonMode?: "REFERENCE" | "CONFLICT" | null;
   description: string;
   evidence?: string | null;
   evidenceDetails?: { label: string; value: string }[];
@@ -15,6 +16,7 @@ export type NoteFindingVisual = {
   }>;
   expectedValue?: string | null;
   justification?: string | null;
+  referenceBasis?: string | null;
   severity?: string | null;
   title: string;
 };

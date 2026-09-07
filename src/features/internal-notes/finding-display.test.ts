@@ -3,12 +3,18 @@ import test from "node:test";
 
 import {
   compactFindingFieldPath,
+  findingComparisonMetadata,
+  formatReviewerConflictValueCards,
+  formatReviewerConflictValueLines,
   formatFindingParts,
   formatReviewerFindingParts,
+  formatReviewerFindingValueLines,
   formatFindingValueLines,
   formatFindingValue,
   humanizeFindingText,
   humanizeReviewerFindingText,
+  reviewerFindingValueDimension,
+  reviewerObservationValue,
 } from "./finding-display";
 
 test("resume caminhos longos de evidência para leitura rápida", () => {
@@ -35,15 +41,15 @@ test("formata valores monetários dos achados sem perder a fonte", () => {
 test("traduz a conciliação de boleto agregado sem expor chaves técnicas", () => {
   assert.deepEqual(
     formatFindingParts({
-      aggregateTotal: "2142.29",
-      supportingTotal: "473.93",
-      unsupportedAmount: "1668.36",
+      aggregateTotal: "900.00",
+      supportingTotal: "350.00",
+      unsupportedAmount: "550.00",
       supportingDocumentCount: 1,
     }),
     [
-      { label: "Valor cobrado", value: "R$\u00a02.142,29" },
-      { label: "Valor comprovado", value: "R$\u00a0473,93" },
-      { label: "Valor sem documento no anexo", value: "R$\u00a01.668,36" },
+      { label: "Valor cobrado", value: "R$\u00a0900,00" },
+      { label: "Valor comprovado", value: "R$\u00a0350,00" },
+      { label: "Valor sem documento no anexo", value: "R$\u00a0550,00" },
       { label: "Documentos encontrados", value: "1" },
     ],
   );
@@ -152,6 +158,28 @@ test("formata datas ISO nas comparações para leitura humana", () => {
   );
 });
 
+test("resume campos obrigatórios vazios com contagem e dois exemplos", () => {
+  assert.deepEqual(
+    formatReviewerFindingValueLines(
+      "Aprovador, Motivo, Ficha Nº, Assinatura do Solicitante, Assinatura do Financeiro, Assinatura do Aprovador",
+      {
+        code: "REQUIRED_FIELDS_EMPTY",
+        title: "Campos obrigatórios não foram preenchidos",
+      },
+    ),
+    [
+      "6 campos obrigatórios vazios",
+      "Exemplos: Aprovador e Motivo",
+    ],
+  );
+});
+
+test("limita prosa longa em comparação sem ocultar o detalhe bruto", () => {
+  const [line] = formatReviewerFindingValueLines("x".repeat(220));
+  assert.equal(line.length, 150);
+  assert.match(line, /…$/u);
+});
+
 test("formata a conciliação financeira para o revisor sem detalhes internos", () => {
   assert.deepEqual(
     formatReviewerFindingParts({
@@ -190,5 +218,208 @@ test("oculta grupo documental interno apenas na apresentação do revisor", () =
       "Ficha e comprovante pertencem ao documento relacionado D08.",
     ),
     "Ficha e comprovante pertencem aos documentos da mesma despesa.",
+  );
+});
+
+test("resume campos obrigatórios e remove metadados técnicos da evidência", () => {
+  const parts = formatReviewerFindingParts({
+    comparisonMode: "REFERENCE",
+    documentRole: "supporting_document",
+    fields: [
+      {
+        boundingBox: [1, 2, 3, 4],
+        label: "Ficha de Reemb. Nº",
+        requirementBasis: "EXPLICIT_DOCUMENT",
+      },
+      {
+        label: "Tel. Solicitante",
+        requirementEvidence: "O preenchimento é obrigatório.",
+      },
+      { label: "Aprovador" },
+    ],
+    referenceBasis: "DOCUMENT_POLICY",
+  });
+
+  assert.deepEqual(parts, [
+    {
+      label: "Campos não preenchidos",
+      value:
+        "3 campos obrigatórios vazios. Exemplos: Ficha de Reemb. Nº e Tel. Solicitante.",
+    },
+  ]);
+});
+
+test("resolve conflito sem referência e preserva referência explícita", () => {
+  assert.deepEqual(findingComparisonMetadata({}, null), {
+    comparisonMode: "CONFLICT",
+    referenceBasis: null,
+  });
+  assert.deepEqual(findingComparisonMetadata({}, "44.50"), {
+    comparisonMode: "CONFLICT",
+    referenceBasis: null,
+  });
+  assert.deepEqual(
+    findingComparisonMetadata(
+      {
+        fields: [
+          {
+            label: "Aprovador",
+            requirementBasis: "EXPLICIT_DOCUMENT",
+          },
+        ],
+      },
+      "Campos obrigatórios preenchidos",
+    ),
+    {
+      comparisonMode: "REFERENCE",
+      referenceBasis: "EXPLICIT_DOCUMENT",
+    },
+  );
+  assert.deepEqual(
+    findingComparisonMetadata(
+      {
+        comparisonMode: "REFERENCE",
+        referenceBasis: "CORROBORATED_SHEET_AND_RECEIPT",
+      },
+      "18.00",
+    ),
+    {
+      comparisonMode: "REFERENCE",
+      referenceBasis: "CORROBORATED_SHEET_AND_RECEIPT",
+    },
+  );
+});
+
+test("mostra todos os valores legados de um conflito sem inventar referência", () => {
+  assert.deepEqual(
+    formatReviewerConflictValueLines("40.00 × 40.00", "44.50", {
+      category: "AMOUNTS",
+      code: "EVIDENCE_AMOUNT_MISMATCH_12",
+    }),
+    ["R$\u00a040,00", "R$\u00a044,50"],
+  );
+});
+
+test("separa conflito em cartões neutros e preserva a fonte observada", () => {
+  assert.deepEqual(
+    formatReviewerConflictValueCards(
+      ["40.00"],
+      "44.50",
+      { category: "AMOUNTS", code: "EVIDENCE_AMOUNT_MISMATCH_12" },
+      [
+        { label: "Ficha", value: "40.00" },
+        { label: "Pagamento", value: "44.50" },
+      ],
+    ),
+    [
+      { label: "Ficha", lines: ["R$\u00a040,00"] },
+      { label: "Pagamento", lines: ["R$\u00a044,50"] },
+    ],
+  );
+});
+
+test("localiza valor numérico agregado no cartão da fonte sem perder moeda", () => {
+  assert.deepEqual(
+    formatReviewerConflictValueCards(
+      ["40.00"],
+      null,
+      { category: "AMOUNTS", code: "EVIDENCE_AMOUNT_MISMATCH_12" },
+      [{ label: "Ficha", value: 40 }],
+    ),
+    [{ label: "Ficha", lines: ["R$\u00a040,00"] }],
+  );
+});
+
+test("agrupa fontes que confirmam o mesmo valor sem criar cartões repetidos", () => {
+  assert.deepEqual(
+    formatReviewerConflictValueCards(
+      ["40.00", "44.50"],
+      null,
+      { category: "AMOUNTS", code: "EVIDENCE_AMOUNT_MISMATCH_12" },
+      [
+        { label: "Ficha", value: "40.00" },
+        { label: "Pagamento", value: "40.00" },
+        { label: "Venda ou pedido", value: "44.50" },
+      ],
+    ),
+    [
+      { label: "Ficha / Pagamento", lines: ["R$\u00a040,00"] },
+      { label: "Venda ou pedido", lines: ["R$\u00a044,50"] },
+    ],
+  );
+});
+
+test("usa rótulos neutros quando o conflito legado não informa a fonte", () => {
+  assert.deepEqual(
+    formatReviewerConflictValueCards(
+      "R$ 40,00 × R$ 44,50",
+      null,
+      { category: "AMOUNTS", code: "EVIDENCE_AMOUNT_MISMATCH_12" },
+    ),
+    [
+      { label: "Valor encontrado 1", lines: ["R$\u00a040,00"] },
+      { label: "Valor encontrado 2", lines: ["R$\u00a044,50"] },
+    ],
+  );
+});
+
+test("ignora placeholders legados em vez de mostrá-los como valor encontrado", () => {
+  assert.deepEqual(
+    formatReviewerConflictValueCards(
+      "40.00",
+      "Sem referência comparável",
+      { category: "AMOUNTS", code: "EVIDENCE_AMOUNT_MISMATCH_12" },
+    ),
+    [{ label: "Valor encontrado 1", lines: ["R$\u00a040,00"] }],
+  );
+});
+
+test("escolhe a dimensão sem misturar data e valor da mesma observação", () => {
+  const identity = {
+    category: "DATES",
+    code: "EVIDENCE_DATE_MISMATCH_7",
+    title: "Datas divergentes",
+  };
+
+  assert.equal(reviewerFindingValueDimension(identity), "date");
+  assert.equal(
+    reviewerObservationValue(
+      { amount: "40.00", date: "2026-05-18" },
+      identity,
+    ),
+    "2026-05-18",
+  );
+  assert.deepEqual(
+    formatReviewerConflictValueCards(
+      ["2026-05-18", "2026-05-19"],
+      null,
+      identity,
+      [
+        { label: "Ficha", value: "2026-05-18" },
+        { label: "Pagamento", value: "2026-05-19" },
+      ],
+    ),
+    [
+      { label: "Ficha", lines: ["18/05/2026"] },
+      { label: "Pagamento", lines: ["19/05/2026"] },
+    ],
+  );
+});
+
+test("não herda fallback de valor para fonte sem a dimensão observada", () => {
+  assert.deepEqual(
+    formatReviewerConflictValueCards(
+      ["40.00", "44.50"],
+      null,
+      { category: "AMOUNTS", code: "EVIDENCE_AMOUNT_MISMATCH_12" },
+      [
+        { label: "Ficha" },
+        { label: "Pagamento", value: "44.50" },
+      ],
+    ),
+    [
+      { label: "Pagamento", lines: ["R$\u00a044,50"] },
+      { label: "Valor encontrado 1", lines: ["R$\u00a040,00"] },
+    ],
   );
 });

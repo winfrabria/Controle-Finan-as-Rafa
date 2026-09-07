@@ -2,11 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  FAST_EXTRACTION_MODEL,
+  FAST_EXTRACTION_REVIEW_MODEL,
   HARNESS_FALLBACK_MODEL,
   HARNESS_PDF_MODEL,
 } from "@/lib/audit-harness/versions";
+import { evaluateHarness, evaluateUniversalRules } from "@/lib/audit-harness";
 import {
   invoiceExtractionSchema,
+  INVALID_DOCUMENT_DATE_WARNING,
   parseInvoiceExtractionPayload,
   type InvoiceExtraction,
 } from "@/lib/integrations/openrouter/extraction-contract";
@@ -91,6 +95,19 @@ function successResponse(
   );
 }
 
+test("nota simples com um identificador de grupo não exige segunda extração", () => {
+  const simple = invoiceExtractionSchema.parse({ ...validExtraction, items: validExtraction.items.map(item => ({ ...item, documentGroup: "doc-1" })) });
+  assert.equal(getInvoiceExtractionLimitation(simple, "application/pdf"), null);
+  assert.equal(getInvoiceExtractionLimitation(simple, "image/png"), null);
+});
+
+test("imagem composta e imagem de cobertura parcial também acionam revisão seletiva", () => {
+  const composite = invoiceExtractionSchema.parse({ ...validExtraction, documentKind: "COMPOSITE" });
+  assert.equal(getInvoiceExtractionLimitation(composite, "image/png")?.diagnostic, "image-evidence-observations-missing");
+  const partial = invoiceExtractionSchema.parse({ ...validExtraction, itemCoverage: { ...validExtraction.itemCoverage, status: "INCOMPLETE" } });
+  assert.equal(getInvoiceExtractionLimitation(partial, "image/jpeg")?.diagnostic, "image-item-coverage-incomplete");
+});
+
 test("normaliza formatos monetários e campos ausentes sem inventar conteúdo", () => {
   const parsed = invoiceExtractionSchema.parse({
     documentNumber: "075",
@@ -114,6 +131,95 @@ test("normaliza formatos monetários e campos ausentes sem inventar conteúdo", 
   assert.equal(parsed.items[0]?.quantity, null);
   assert.equal(parsed.itemCoverage.status, "UNKNOWN");
   assert.deepEqual(parsed.warnings, []);
+});
+
+test("recupera emissão impossível sem transformar a data em fato nem perder a leitura", () => {
+  const withoutDate: Partial<InvoiceExtraction> = { ...validExtraction };
+  delete withoutDate.issuedAt;
+  for (const issuedAt of [
+    "2026-02-31",
+    "31/02/2026",
+    "2026-02-31T10:30:00Z",
+    "2026-02-29",
+    "1900-02-29",
+    "2026-04-31",
+    "2026-00-10",
+    "2026-13-10",
+    "2026-01-00",
+    "2026-01-32",
+  ]) {
+    const payloads = [
+      { ...validExtraction, issuedAt },
+      { result: { ...withoutDate, issued_at: issuedAt } },
+    ];
+    for (const payload of payloads) {
+      const parsed = parseInvoiceExtractionPayload(payload);
+      assert.equal(invoiceExtractionSchema.safeParse({ ...validExtraction, issuedAt }).success, false);
+      assert.ok(parsed.success);
+      assert.equal(parsed.data.issuedAt, null);
+      assert.ok(parsed.data.warnings.includes(INVALID_DOCUMENT_DATE_WARNING));
+      assert.equal(parsed.data.totalAmount, validExtraction.totalAmount);
+      assert.equal(parsed.data.items.length, validExtraction.items.length);
+      assert.equal(evaluateHarness({ invoice: parsed.data }).classification, "INFORMATION_INSUFFICIENT");
+    }
+  }
+});
+
+test("data inválida na evidência preserva item, valor e trecho sem criar suspeita", () => {
+  const payload: InvoiceExtraction = { ...validExtraction, totalAmount: "20.00",
+    items: [{ ...validExtraction.items[0], lineNumber: 19, quantity: "1", unitPrice: "20.00", totalAmount: "20.00",
+      evidenceObservations: [
+        {kind: "SHEET", documentGroup: "qa", label: "Ficha", amount: "20.00", date: "2026-02-31", page: 1, text: "Ficha em 31/02/2026: R$ 20,00"},
+        {kind: "PAYMENT", documentGroup: "qa", label: "Pagamento", amount: "20.00", date: "2026-03-03", page: 2, text: "Pagamento em 03/03/2026: R$ 20,00"},
+      ],
+    }],
+    itemCoverage: { ...validExtraction.itemCoverage, firstLineNumber: 19, lastLineNumber: 19 },
+  };
+  const original = structuredClone(payload);
+  const parsed = parseInvoiceExtractionPayload(payload);
+  assert.ok(parsed.success);
+  assert.equal(parsed.data.items[0].lineNumber, 19);
+  assert.equal(parsed.data.items[0].evidenceObservations.length, 2);
+  assert.equal(parsed.data.items[0].evidenceObservations[0].date, null);
+  assert.equal(parsed.data.items[0].evidenceObservations[0].amount, "20.00");
+  assert.equal(parsed.data.items[0].evidenceObservations[0].text, original.items[0].evidenceObservations[0].text);
+  assert.equal(parsed.data.items[0].evidenceObservations[1].date, "2026-03-03");
+  const result = evaluateHarness({ invoice: parsed.data });
+  assert.equal(result.classification, "INFORMATION_INSUFFICIENT");
+  assert.equal(result.findings.length, 0);
+  assert.deepEqual(payload, original);
+  const reparsed = parseInvoiceExtractionPayload(parsed.data);
+  assert.ok(reparsed.success);
+  assert.deepEqual(reparsed.data, parsed.data);
+  const legacy = evaluateHarness({ invoice: payload });
+  assert.equal(legacy.classification, "INFORMATION_INSUFFICIENT");
+  assert.equal(legacy.findings.length, 0);
+});
+
+test("preserva datas válidas, anos bissextos e emissão ausente", () => {
+  const dates: Array<[string | null, string | null]> = [
+    ["2024-02-29", "2024-02-29"],
+    ["29/02/2000", "2000-02-29"],
+    [" 30/04/2026 ", "2026-04-30"],
+    ["2026-12-31", "2026-12-31"],
+    ["2026-07-31T23:30:00-03:00", "2026-07-31"],
+    [null, null],
+  ];
+  const withoutDate: Partial<InvoiceExtraction> = { ...validExtraction };
+  delete withoutDate.issuedAt;
+  for (const [issuedAt, expected] of dates) {
+    for (const payload of [
+      { ...validExtraction, issuedAt },
+      { result: { ...withoutDate, issued_at: issuedAt } },
+    ]) {
+      const parsed = parseInvoiceExtractionPayload(payload);
+      assert.ok(parsed.success, `Data válida rejeitada: ${issuedAt}`);
+      assert.equal(parsed.data.issuedAt, expected);
+    }
+  }
+  const missingDate = parseInvoiceExtractionPayload(withoutDate);
+  assert.ok(missingDate.success);
+  assert.equal(missingDate.data.issuedAt, null);
 });
 
 test("normaliza cobertura parcial e impede que uma contagem declarada maior pareça completa", () => {
@@ -260,6 +366,140 @@ test("normaliza papéis documentais e campos obrigatórios sem depender de uma N
   ]);
 });
 
+test("deriva EXPLICIT_DOCUMENT de um requiredField marcado com asterisco", () => {
+  const parsed = parseInvoiceExtractionPayload({
+    currency: "BRL",
+    documentKind: "REIMBURSEMENT",
+    documentNumber: null,
+    issuedAt: null,
+    items: [],
+    markdown: "Ficha sintética.",
+    readConfidence: 0.9,
+    required_field_checks: [
+      {
+        field: "approver",
+        label: "Aprovador *",
+        required: true,
+        filled: false,
+      },
+      {
+        field: "cost_center",
+        label: "Centro de custo",
+        required: true,
+        filled: false,
+      },
+      {
+        field: "marker",
+        label: "*",
+        required: true,
+        filled: false,
+      },
+      {
+        field: "calculation",
+        label: "2 * 3 *",
+        required: true,
+        filled: false,
+      },
+    ],
+    supplierName: null,
+    supplierTaxId: null,
+    totalAmount: null,
+    warnings: [],
+  });
+
+  assert.equal(parsed.success, true);
+  if (!parsed.success) return;
+  assert.equal(parsed.data.requiredFieldChecks[0]?.requirementBasis, "EXPLICIT_DOCUMENT");
+  assert.equal(parsed.data.requiredFieldChecks[0]?.requirementEvidence, "Aprovador *");
+  assert.equal(parsed.data.requiredFieldChecks[1]?.requirementBasis, "NONE");
+  assert.equal(parsed.data.requiredFieldChecks[1]?.requirementEvidence, null);
+  assert.equal(parsed.data.requiredFieldChecks[2]?.requirementBasis, "NONE");
+  assert.equal(parsed.data.requiredFieldChecks[3]?.requirementBasis, "NONE");
+});
+
+test("label marcado e evidência concreta sustentam o achado de campo obrigatório", () => {
+  const parsed = parseInvoiceExtractionPayload({
+    currency: "BRL",
+    documentKind: "REIMBURSEMENT",
+    documentNumber: null,
+    issuedAt: null,
+    items: [],
+    markdown: "Formulário com campo de aprovação.",
+    readConfidence: 0.95,
+    required_field_checks: [
+      {
+        field: "approver",
+        label: "Aprovador *",
+        required: true,
+        filled: false,
+        page: 1,
+        evidence: "Campo visivelmente vazio no documento.",
+      },
+    ],
+    supplierName: null,
+    supplierTaxId: null,
+    totalAmount: null,
+    warnings: [],
+  });
+
+  assert.equal(parsed.success, true);
+  if (!parsed.success) return;
+  const result = evaluateUniversalRules({ invoice: parsed.data });
+  assert.equal(
+    result.findings.some(
+      (finding) => finding.code === "REQUIRED_DOCUMENT_FIELDS_MISSING",
+    ),
+    true,
+  );
+});
+
+test("normaliza requiredFieldChecks canônico antes das regras universais", () => {
+  const parsed = parseInvoiceExtractionPayload({
+    ...validExtraction,
+    requiredFieldChecks: [
+      {
+        field: "approver",
+        label: "Aprovador *",
+        requiredByDocument: true,
+        requirementBasis: "NONE",
+        requirementEvidence: null,
+        present: false,
+        page: 1,
+        evidence: "Campo visivelmente vazio no documento.",
+      },
+      {
+        field: "authorization",
+        label: "Autorização",
+        requiredByDocument: true,
+        requirementBasis: "VERIFIED_POLICY",
+        requirementEvidence: "A política global verificada declara obrigatório o preenchimento da autorização.",
+        present: false,
+        page: 1,
+        evidence: "Campo sem preenchimento.",
+      },
+    ],
+  });
+
+  assert.equal(parsed.success, true);
+  if (!parsed.success) return;
+  assert.equal(parsed.data.requiredFieldChecks[0]?.requirementBasis, "EXPLICIT_DOCUMENT");
+  assert.equal(parsed.data.requiredFieldChecks[0]?.requirementEvidence, "Aprovador *");
+  assert.equal(parsed.data.requiredFieldChecks[0]?.evidence, "Campo visivelmente vazio no documento.");
+  assert.equal(parsed.data.requiredFieldChecks[1]?.requirementBasis, "VERIFIED_POLICY");
+  assert.equal(
+    parsed.data.requiredFieldChecks[1]?.requirementEvidence,
+    "A política global verificada declara obrigatório o preenchimento da autorização.",
+  );
+  assert.equal(parsed.data.requiredFieldChecks[1]?.evidence, "Campo sem preenchimento.");
+  const result = evaluateUniversalRules({ invoice: parsed.data });
+  assert.equal(
+    result.findings.some(
+      (finding) => finding.code === "REQUIRED_DOCUMENT_FIELDS_MISSING",
+    ),
+    true,
+  );
+});
+
 test("preserva separadamente ficha, venda e pagamento em documento composto", () => {
   const parsed = parseInvoiceExtractionPayload({
     currency: "BRL",
@@ -364,8 +604,13 @@ test("PDF usa o modelo estável configurado e aceita a reconciliação por camad
     { id: "file-parser", pdf: { engine: "native" } },
     { id: "response-healing" },
   ]);
-  assert.equal(requestedPayload?.provider, undefined);
-  assert.equal(requestedPayload?.max_tokens, 16_384);
+  assert.deepEqual(requestedPayload?.provider, {
+    require_parameters: true,
+    sort: "latency",
+    zdr: true,
+  });
+  assert.equal(requestedPayload?.max_completion_tokens, 16_384);
+  assert.equal("max_tokens" in (requestedPayload ?? {}), false);
   assert.equal("temperature" in (requestedPayload ?? {}), false);
 });
 
@@ -407,8 +652,11 @@ test("usa o Sol uma vez quando o PDF do Terra atinge o limite de saída", async 
   assert.equal(result.model, HARNESS_FALLBACK_MODEL);
   assert.equal(result.usage?.completionTokens, 8_202);
   assert.equal(result.usage?.costUsd, 0.04);
-  assert.equal(payloads[0]?.max_tokens, 8_192);
-  assert.equal(payloads[1]?.max_tokens, 8_192);
+  assert.equal(payloads[0]?.max_completion_tokens, 8_192);
+  assert.equal(payloads[1]?.max_completion_tokens, 8_192);
+  for (const payload of payloads) {
+    assert.equal("max_tokens" in payload, false);
+  }
   for (const payload of payloads) {
     assert.match(JSON.stringify(payload.messages), /file_data/);
     assert.deepEqual(payload.plugins, [
@@ -424,9 +672,13 @@ test("mantém falha segura quando até a janela ampliada termina truncada", asyn
     apiKey: "test-key",
     fetchImplementation: async (_url, init) => {
       calls += 1;
-      const payload = JSON.parse(String(init?.body)) as { max_tokens: number };
+      const payload = JSON.parse(String(init?.body)) as {
+        max_completion_tokens?: number;
+        max_tokens?: number;
+      };
       return successResponse(HARNESS_PDF_MODEL, {
-        completionTokens: payload.max_tokens,
+        completionTokens:
+          payload.max_completion_tokens ?? payload.max_tokens,
         costUsd: 0.02,
       });
     },
@@ -869,6 +1121,150 @@ test("resposta inválida é reconstruída uma vez antes de falhar o job", async 
   assert.doesNotMatch(JSON.stringify(payloads[1]?.messages), /file_data/);
 });
 
+test("envelope de erro HTTP 200 vira resposta estrutural e recua uma vez para Sol", async () => {
+  let calls = 0;
+  const payloads: Array<Record<string, unknown>> = [];
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async (_url, init) => {
+      calls += 1;
+      payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      if (calls === 1) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "NO_ELIGIBLE_ENDPOINT",
+              message: "Provider error token=must-not-escape",
+              metadata: {
+                request_id: "error-envelope-request",
+                provider_name: "Azure",
+                raw: "internal-data-must-not-escape",
+              },
+            },
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        );
+      }
+      return successResponse(HARNESS_FALLBACK_MODEL);
+    },
+    maxAttempts: 5,
+    model: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "mistral-ocr",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  const result = await client.extractInvoice({
+    fileName: "documento.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento.pdf?token=redacted",
+  });
+
+  assert.equal(calls, 2);
+  assert.deepEqual(
+    payloads.map((payload) => payload.model),
+    [HARNESS_PDF_MODEL, HARNESS_FALLBACK_MODEL],
+  );
+  assert.equal(result.attempts, 2);
+  assert.equal(result.attemptTrace?.[0]?.kind, "invalid-response");
+  assert.equal(result.attemptTrace?.[0]?.diagnostic, "provider-error-envelope");
+  assert.equal(result.attemptTrace?.[0]?.requestId, "error-envelope-request");
+  assert.equal(JSON.stringify(result.attemptTrace).includes("must-not-escape"), false);
+  assert.match(JSON.stringify(payloads[1]?.messages), /file_data/);
+});
+
+for (const status of [402, 429, 503]) {
+  test(`envelope HTTP 200 com código ${status} não abre fallback pago`, async () => {
+    let calls = 0;
+    const client = new OpenRouterInvoiceExtractionClient({
+      apiKey: "test-key",
+      fetchImplementation: async () => {
+        calls += 1;
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: status,
+              message: `Provider returned HTTP ${status}.`,
+            },
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        );
+      },
+      maxAttempts: 2,
+      model: HARNESS_PDF_MODEL,
+      pdfFallbackModel: HARNESS_FALLBACK_MODEL,
+      pdfModel: HARNESS_PDF_MODEL,
+      pdfEngine: "mistral-ocr",
+      reasoningEffort: "high",
+      sleep: async () => undefined,
+      timeoutMs: 1_000,
+    });
+
+    await assert.rejects(
+      client.extractInvoice({
+        fileName: "documento.pdf",
+        mimeType: "application/pdf",
+        signedUrl: "https://storage.test/documento.pdf?token=redacted",
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof OpenRouterClientError);
+        assert.equal(error.kind, "provider");
+        assert.equal(error.status, status);
+        assert.equal(error.retryable, false);
+        assert.equal(error.attempts, 1);
+        return true;
+      },
+    );
+    assert.equal(calls, 1);
+  });
+}
+
+test("envelope HTTP 200 com erro 400 de imagem ilegível não abre fallback", async () => {
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async () => {
+      calls += 1;
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: 400,
+            message: "Could not parse image bytes.",
+          },
+        }),
+        { headers: { "content-type": "application/json" }, status: 200 },
+      );
+    },
+    maxAttempts: 2,
+    model: HARNESS_PDF_MODEL,
+    fallbackModel: HARNESS_FALLBACK_MODEL,
+    pdfEngine: "mistral-ocr",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  await assert.rejects(
+    client.extractInvoice({
+      fileName: "documento.png",
+      mimeType: "image/png",
+      signedUrl: "https://storage.test/documento-image?token=redacted",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof OpenRouterClientError);
+      assert.equal(error.kind, "provider");
+      assert.equal(error.status, 400);
+      assert.equal(error.diagnostic, "document-unreadable");
+      assert.equal(error.attempts, 1);
+      return true;
+    },
+  );
+  assert.equal(calls, 1);
+});
+
 test("reconstrói JSON com o OCR já obtido sem reler o PDF", async () => {
   const payloads: Array<Record<string, unknown>> = [];
   const client = new OpenRouterInvoiceExtractionClient({
@@ -1069,8 +1465,121 @@ test("PDF com configuração incompatível recua para Sol na mesma execução", 
   assert.equal(result.attempts, 2);
   assert.equal(result.model, HARNESS_FALLBACK_MODEL);
   assert.match(JSON.stringify(payloads[1]?.messages), /file_data/);
-  assert.equal(payloads[0]?.provider, undefined);
-  assert.equal(payloads[1]?.provider, undefined);
+  assert.deepEqual(payloads[0]?.provider, {
+    require_parameters: true,
+    sort: "latency",
+    zdr: true,
+  });
+  assert.deepEqual(payloads[1]?.provider, {
+    require_parameters: true,
+    sort: "latency",
+    zdr: true,
+  });
+});
+
+test("HTTP 404 por ausência de endpoint elegível aciona Sol uma única vez", async () => {
+  const payloads: Array<Record<string, unknown>> = [];
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async (_url, init) => {
+      const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      payloads.push(payload);
+      if (payloads.length === 1) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 404,
+              message: "No endpoints found that support the requested parameters.",
+              metadata: {
+                provider_name: "Azure",
+                request_id: "route-request-404",
+                route: "openai-zdr",
+                raw: "internal-data-must-not-escape",
+              },
+            },
+          }),
+          {
+            status: 404,
+            headers: {
+              "content-type": "application/json",
+              "x-openrouter-request-id": "openrouter-request-404",
+            },
+          },
+        );
+      }
+      return successResponse(HARNESS_FALLBACK_MODEL);
+    },
+    maxAttempts: 5,
+    model: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "mistral-ocr",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  const result = await client.extractInvoice({
+    fileName: "documento.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento.pdf?token=redacted",
+  });
+
+  assert.deepEqual(
+    payloads.map((payload) => payload.model),
+    [HARNESS_PDF_MODEL, HARNESS_FALLBACK_MODEL],
+  );
+  assert.equal(payloads[0]?.max_completion_tokens, 16_384);
+  assert.equal(payloads[1]?.max_completion_tokens, 16_384);
+  assert.equal(result.attempts, 2);
+  assert.equal(result.attemptTrace?.[0]?.status, 404);
+  assert.equal(
+    result.attemptTrace?.[0]?.diagnostic,
+    "provider-endpoint-unavailable",
+  );
+  assert.equal(result.attemptTrace?.[0]?.requestId, "openrouter-request-404");
+  assert.equal(JSON.stringify(result.attemptTrace).includes("must-not-escape"), false);
+});
+
+test("HTTP 404 arbitrário não abre fallback pago", async () => {
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async () => {
+      calls += 1;
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: 404,
+            message: "The requested upload record was not found.",
+          },
+        }),
+        { headers: { "content-type": "application/json" }, status: 404 },
+      );
+    },
+    maxAttempts: 5,
+    model: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "mistral-ocr",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  await assert.rejects(
+    client.extractInvoice({
+      fileName: "documento.pdf",
+      mimeType: "application/pdf",
+      signedUrl: "https://storage.test/documento.pdf?token=redacted",
+    }),
+    (error: unknown) =>
+      error instanceof OpenRouterClientError &&
+      error.status === 404 &&
+      error.attempts === 1 &&
+      error.diagnostic === "provider-request-failed",
+  );
+  assert.equal(calls, 1);
 });
 
 test("HTTP 400 reaproveita file_annotations no Sol sem reler o PDF", async () => {
@@ -1150,6 +1659,11 @@ test("HTTP 400 reaproveita file_annotations no Sol sem reler o PDF", async () =>
   assert.deepEqual(result.attemptTrace?.[0], {
     attempt: 1,
     diagnostic: "provider-configuration-rejected",
+    diagnosticDetails: {
+      providerCode: "PROVIDER_BAD_REQUEST",
+      providerMessage: "unsupported parameter; token=[REDACTED]",
+      routing: { provider_name: "OpenAI", request_id: "route-request-123", route: "openai-primary" },
+    },
     kind: "provider",
     latencyMs: result.attemptTrace?.[0]?.latencyMs,
     model: HARNESS_PDF_MODEL,
@@ -1163,6 +1677,117 @@ test("HTTP 400 reaproveita file_annotations no Sol sem reler o PDF", async () =>
     status: 400,
   });
   assert.equal(JSON.stringify(result.attemptTrace).includes("must-not-escape"), false);
+});
+
+test("timeout primário reaproveita file_annotations no Sol distinto sem reler o PDF", async () => {
+  const payloads: Array<Record<string, unknown>> = [];
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async (_url, init) => {
+      const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      payloads.push(payload);
+      if (payloads.length === 1) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "UPSTREAM_TIMEOUT",
+              message: "The upstream model timed out.",
+              metadata: {
+                file_annotations: [
+                  {
+                    type: "file",
+                    file: {
+                      hash: "safe-timeout-pdf-hash",
+                      content: [
+                        {
+                          type: "text",
+                          text: "Página 1. OCR recuperado com total R$ 1.148,50.",
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          }),
+          { headers: { "content-type": "application/json" }, status: 408 },
+        );
+      }
+      return successResponse(HARNESS_FALLBACK_MODEL);
+    },
+    maxAttempts: 2,
+    model: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "mistral-ocr",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  const result = await client.extractInvoice({
+    fileName: "documento.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento.pdf?token=redacted",
+  });
+
+  assert.deepEqual(
+    payloads.map((payload) => payload.model),
+    [HARNESS_PDF_MODEL, HARNESS_FALLBACK_MODEL],
+  );
+  assert.equal(result.attempts, 2);
+  assert.match(JSON.stringify(payloads[1]?.messages), /OCR recuperado/);
+  assert.doesNotMatch(JSON.stringify(payloads[1]?.messages), /file_data/);
+  assert.deepEqual(payloads[1]?.plugins, [{ id: "response-healing" }]);
+});
+
+test("HTTP 408 sem file_annotations reenvia o PDF uma única vez ao Sol", async () => {
+  const payloads: Array<Record<string, unknown>> = [];
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async (_url, init) => {
+      const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      payloads.push(payload);
+      if (payloads.length === 1) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "UPSTREAM_TIMEOUT",
+              message: "The upstream model timed out.",
+            },
+          }),
+          { headers: { "content-type": "application/json" }, status: 408 },
+        );
+      }
+      return successResponse(HARNESS_FALLBACK_MODEL);
+    },
+    maxAttempts: 5,
+    model: HARNESS_PDF_MODEL,
+    pdfFallbackModel: HARNESS_FALLBACK_MODEL,
+    pdfModel: HARNESS_PDF_MODEL,
+    pdfEngine: "mistral-ocr",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  const result = await client.extractInvoice({
+    fileName: "documento.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento.pdf?token=redacted",
+  });
+
+  assert.equal(payloads.length, 2);
+  assert.equal(result.attempts, 2);
+  assert.deepEqual(
+    payloads.map((payload) => payload.model),
+    [HARNESS_PDF_MODEL, HARNESS_FALLBACK_MODEL],
+  );
+  assert.match(JSON.stringify(payloads[1]?.messages), /file_data/);
+  assert.deepEqual(payloads[1]?.plugins, [
+    { id: "file-parser", pdf: { engine: "mistral-ocr" } },
+    { id: "response-healing" },
+  ]);
 });
 
 test("PDF criptografado termina como documento ilegível sem acionar o Sol", async () => {
@@ -1210,6 +1835,121 @@ test("PDF criptografado termina como documento ilegível sem acionar o Sol", asy
   assert.equal(calls, 1);
 });
 
+for (const [mimeType, message] of [
+  ["image/jpeg", "unsupported image format"],
+  ["image/png", "could not parse image bytes"],
+] as const) {
+  test(`${mimeType} ilegível termina sem fallback pago`, async () => {
+    let calls = 0;
+    const client = new OpenRouterInvoiceExtractionClient({
+      apiKey: "test-key",
+      fetchImplementation: async () => {
+        calls += 1;
+        return new Response(
+          JSON.stringify({
+            error: { code: "IMAGE_PARSE_ERROR", message },
+          }),
+          {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      },
+      maxAttempts: 2,
+      model: HARNESS_PDF_MODEL,
+      fallbackModel: HARNESS_FALLBACK_MODEL,
+      pdfEngine: "mistral-ocr",
+      reasoningEffort: "high",
+      timeoutMs: 1_000,
+    });
+
+    await assert.rejects(
+      client.extractInvoice({
+        fileName: `documento.${mimeType === "image/jpeg" ? "jpg" : "png"}`,
+        mimeType,
+        signedUrl: "https://storage.test/documento-image?token=redacted",
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof OpenRouterClientError);
+        assert.equal(error.diagnostic, "document-unreadable");
+        assert.equal(error.attempts, 1);
+        return true;
+      },
+    );
+    assert.equal(calls, 1);
+  });
+}
+
+test("incompatibilidade de imagem do modelo permanece configuração, não documento ilegível", async () => {
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    fetchImplementation: async (_url, init) => {
+      calls += 1;
+      const payload = JSON.parse(String(init?.body)) as { model: string };
+      if (calls === 1) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "UNSUPPORTED_INPUT",
+              message: "Unsupported image format for this model.",
+            },
+          }),
+          { status: 400, headers: { "content-type": "application/json" } },
+        );
+      }
+      return successResponse(payload.model);
+    },
+    maxAttempts: 2,
+    model: HARNESS_PDF_MODEL,
+    fallbackModel: HARNESS_FALLBACK_MODEL,
+    pdfEngine: "mistral-ocr",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  const result = await client.extractInvoice({
+    fileName: "documento.png",
+    mimeType: "image/png",
+    signedUrl: "https://storage.test/documento-image?token=redacted",
+  });
+
+  assert.equal(calls, 2);
+  assert.equal(result.attempts, 2);
+  assert.equal(result.attemptTrace?.[0]?.diagnostic, "provider-configuration-rejected");
+});
+
+for (const mimeType of ["image/jpeg", "image/png"] as const) {
+  test(`${mimeType} usa payload de imagem sem file-parser`, async () => {
+    let requestedPayload: Record<string, unknown> | undefined;
+    const client = new OpenRouterInvoiceExtractionClient({
+      apiKey: "test-key",
+      fetchImplementation: async (_url, init) => {
+        requestedPayload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return successResponse(HARNESS_PDF_MODEL);
+      },
+      maxAttempts: 1,
+      model: HARNESS_PDF_MODEL,
+      fallbackModel: HARNESS_FALLBACK_MODEL,
+      pdfEngine: "mistral-ocr",
+      reasoningEffort: "high",
+      timeoutMs: 1_000,
+    });
+
+    await client.extractInvoice({
+      fileName: `documento.${mimeType === "image/jpeg" ? "jpg" : "png"}`,
+      mimeType,
+      signedUrl: "https://storage.test/documento-image?token=redacted",
+    });
+
+    assert.match(JSON.stringify(requestedPayload?.messages), /image_url/);
+    assert.doesNotMatch(JSON.stringify(requestedPayload?.messages), /file_data/);
+    assert.deepEqual(requestedPayload?.plugins, [{ id: "response-healing" }]);
+    assert.doesNotMatch(JSON.stringify(requestedPayload?.plugins), /file-parser/);
+  });
+}
+
 test("preserva HTTP 402 como falha não repetível de saldo", async () => {
   let calls = 0;
   const primaryModel = "google/gemini-3.6-flash";
@@ -1248,4 +1988,228 @@ test("preserva HTTP 402 como falha não repetível de saldo", async () => {
       /\$0\.50/.test(error.message),
   );
   assert.equal(calls, 1);
+});
+
+for (const status of [429, 503]) {
+  test(`HTTP ${status} não abre fallback pago`, async () => {
+    const requestedModels: string[] = [];
+    const client = new OpenRouterInvoiceExtractionClient({
+      apiKey: "test-key",
+      fetchImplementation: async (_url, init) => {
+        const payload = JSON.parse(String(init?.body)) as { model: string };
+        requestedModels.push(payload.model);
+        return new Response(
+          JSON.stringify({ error: { message: "Provider temporarily unavailable." } }),
+          { headers: { "content-type": "application/json" }, status },
+        );
+      },
+      maxAttempts: 2,
+      model: HARNESS_PDF_MODEL,
+      pdfFallbackModel: HARNESS_FALLBACK_MODEL,
+      pdfModel: HARNESS_PDF_MODEL,
+      pdfEngine: "mistral-ocr",
+      reasoningEffort: "high",
+      sleep: async () => undefined,
+      timeoutMs: 1_000,
+    });
+
+    await assert.rejects(
+      client.extractInvoice({
+        fileName: "documento.pdf",
+        mimeType: "application/pdf",
+        signedUrl: "https://storage.test/documento.pdf?token=redacted",
+      }),
+      (error: unknown) =>
+        error instanceof OpenRouterClientError &&
+        error.status === status &&
+        error.attempts === 1,
+    );
+    assert.deepEqual(requestedModels, [HARNESS_PDF_MODEL]);
+  });
+}
+
+test("pipeline adaptativo revisa cobertura insuficiente com outro modelo", async () => {
+  const payloads: Array<Record<string, unknown>> = [];
+  const incompleteExtraction: InvoiceExtraction = {
+    ...validExtraction,
+    itemCoverage: {
+      ...validExtraction.itemCoverage,
+      status: "UNKNOWN",
+      evidence: "A pagina seguinte nao foi confirmada.",
+    },
+  };
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    extractionQualityGateEnabled: true,
+    fetchImplementation: async (_url, init) => {
+      payloads.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      calls += 1;
+      return calls === 1
+        ? successResponse(FAST_EXTRACTION_MODEL, {
+            extraction: incompleteExtraction,
+          })
+        : successResponse(FAST_EXTRACTION_REVIEW_MODEL);
+    },
+    maxAttempts: 2,
+    model: FAST_EXTRACTION_MODEL,
+    extractionFallbackReasoningEffort: "high",
+    pdfFallbackEngine: "native",
+    pdfFallbackModel: FAST_EXTRACTION_REVIEW_MODEL,
+    pdfModel: FAST_EXTRACTION_MODEL,
+    pdfEngine: "native",
+    providerSort: "throughput",
+    reasoningEffort: "low",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  const result = await client.extractInvoice({
+    fileName: "documento.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento.pdf?token=redacted",
+  });
+
+  assert.equal(result.attempts, 2);
+  assert.equal(result.model, FAST_EXTRACTION_REVIEW_MODEL);
+  assert.deepEqual(
+    payloads.map((payload) => payload.model),
+    [FAST_EXTRACTION_MODEL, FAST_EXTRACTION_REVIEW_MODEL],
+  );
+  assert.match(JSON.stringify(payloads[0]?.plugins), /native/);
+  assert.match(JSON.stringify(payloads[1]?.plugins), /native/);
+  assert.deepEqual(payloads.map((payload) => payload.reasoning), [
+    { effort: "low", exclude: true },
+    { effort: "high", exclude: true },
+  ]);
+  assert.equal(
+    (payloads[0]?.provider as { sort?: string }).sort,
+    "throughput",
+  );
+});
+
+test("documento OTHER legivel sem tabela nao gasta uma segunda chamada", async () => {
+  let calls = 0;
+  const otherDocument: InvoiceExtraction = {
+    ...validExtraction,
+    documentKind: "OTHER",
+    documentNumber: null,
+    itemCoverage: {
+      status: "UNKNOWN",
+      declaredItemCount: null,
+      extractedItemCount: 0,
+      firstLineNumber: null,
+      lastLineNumber: null,
+      missingLineNumbers: [],
+      evidence: "Documento sem tabela de itens.",
+    },
+    items: [],
+    totalAmount: null,
+  };
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    extractionQualityGateEnabled: true,
+    fetchImplementation: async () => {
+      calls += 1;
+      return successResponse(FAST_EXTRACTION_MODEL, {
+        extraction: otherDocument,
+      });
+    },
+    maxAttempts: 2,
+    model: FAST_EXTRACTION_MODEL,
+    pdfFallbackModel: FAST_EXTRACTION_REVIEW_MODEL,
+    pdfModel: FAST_EXTRACTION_MODEL,
+    pdfEngine: "native",
+    reasoningEffort: "high",
+    timeoutMs: 1_000,
+  });
+
+  const result = await client.extractInvoice({
+    fileName: "documento-generico.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento-generico.pdf?token=redacted",
+  });
+
+  assert.equal(calls, 1);
+  assert.equal(result.attempts, 1);
+  assert.equal(result.qualityLimitation, undefined);
+});
+
+test("segunda leitura parcial segue para informacao insuficiente com telemetria", async () => {
+  const incompleteExtraction: InvoiceExtraction = {
+    ...validExtraction,
+    itemCoverage: {
+      ...validExtraction.itemCoverage,
+      status: "UNKNOWN",
+      evidence: "Cobertura nao comprovada.",
+    },
+  };
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test-key",
+    extractionQualityGateEnabled: true,
+    fetchImplementation: async (_url, init) => {
+      const payload = JSON.parse(String(init?.body)) as { model: string };
+      return successResponse(payload.model, { extraction: incompleteExtraction });
+    },
+    maxAttempts: 2,
+    model: FAST_EXTRACTION_MODEL,
+    pdfFallbackModel: FAST_EXTRACTION_REVIEW_MODEL,
+    pdfModel: FAST_EXTRACTION_MODEL,
+    pdfEngine: "native",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+  });
+
+  const result = await client.extractInvoice({
+    fileName: "documento-parcial.pdf",
+    mimeType: "application/pdf",
+    signedUrl: "https://storage.test/documento-parcial.pdf?token=redacted",
+  });
+
+  assert.equal(result.attempts, 2);
+  assert.equal(result.qualityLimitation?.diagnostic, "pdf-item-coverage-unknown");
+  assert.equal(result.data.itemCoverage.status, "UNKNOWN");
+});
+
+for (const failure of ["parser", "encrypted", "timeout", "credit", "network"] as const) {
+  test(`leitura válida com cobertura inconsistente sobrevive à falha ${failure} do fallback`, async () => {
+    let calls = 0;
+    const client = new OpenRouterInvoiceExtractionClient({
+      apiKey: "offline-key", model: FAST_EXTRACTION_MODEL, pdfModel: FAST_EXTRACTION_MODEL,
+      pdfFallbackModel: FAST_EXTRACTION_REVIEW_MODEL, pdfEngine: "native", pdfFallbackEngine: "native",
+      reasoningEffort: "low", extractionFallbackReasoningEffort: "high", extractionQualityGateEnabled: true,
+      maxAttempts: 2, timeoutMs: 1000, sleep: async () => {},
+      fetchImplementation: async (_url, init) => {
+        const payload = JSON.parse(String(init?.body)); calls++;
+        assert.match(JSON.stringify(payload.plugins), /native/);
+        if (calls === 1) return successResponse(FAST_EXTRACTION_MODEL, { extraction: {
+          ...validExtraction, itemCoverage: { ...validExtraction.itemCoverage, firstLineNumber: 2 },
+        }, costUsd: 0.001 });
+        if (failure === "network") throw new TypeError("fetch failed");
+        const status = failure === "timeout" ? 408 : failure === "credit" ? 402 : 400;
+        const message = failure === "encrypted" ? "PDF is encrypted" : "Unable to parse PDF; token=private-example";
+        return new Response(JSON.stringify({ error: { code: status, message } }), { status });
+      },
+    });
+    const result = await client.extractInvoice({ fileName: "synthetic.pdf", mimeType: "application/pdf", signedUrl: "https://storage.invalid/test.pdf" });
+    assert.equal(calls,2);assert.equal(result.attempts,2);
+    assert.equal(result.data.documentNumber,validExtraction.documentNumber);
+    assert.equal(result.model,FAST_EXTRACTION_MODEL);
+    assert.equal(result.data.itemCoverage.status,"UNKNOWN");
+    assert.equal(result.qualityLimitation?.diagnostic,"pdf-recovery-incomplete");
+    assert.equal(result.usage?.costUsd,0.001);
+    assert.equal(result.attemptTrace?.[0].diagnostic,"pdf-item-coverage-inconsistent");
+    assert.ok(result.attemptTrace?.[0].diagnosticDetails);
+    assert.doesNotMatch(JSON.stringify(result.attemptTrace),/private-example/);
+  });
+}
+
+test("falha genérica do parser não é prova de documento corrompido",async()=>{
+  const client=new OpenRouterInvoiceExtractionClient({apiKey:"offline-key",model:FAST_EXTRACTION_MODEL,
+    pdfEngine:"native",reasoningEffort:"low",maxAttempts:1,timeoutMs:1000,
+    fetchImplementation:async()=>new Response(JSON.stringify({error:{code:400,message:"Unable to parse PDF; token=private-value"}}),{status:400})});
+  await assert.rejects(client.extractInvoice({fileName:"synthetic.pdf",mimeType:"application/pdf",signedUrl:"https://storage.invalid/test.pdf"}),
+    (e:unknown)=>e instanceof OpenRouterClientError && e.diagnostic==="pdf-parser-rejected" &&
+      e.diagnosticDetails?.providerMessage==="Unable to parse PDF; token=[REDACTED]");
 });

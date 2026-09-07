@@ -14,6 +14,13 @@ import {
 } from "@/lib/audit-harness";
 import { getOpenRouterConfig } from "./config";
 import { OpenRouterClientError } from "./client";
+import {
+  getOpenRouterProviderStatusCode,
+  getOpenRouterOutputTokenLimit,
+  getOpenRouterProviderDiagnostic,
+  getOpenRouterProviderRouting,
+  isOpenRouterNonRetryableStatusCode,
+} from "./routing";
 
 const OPENROUTER_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions";
 const RETRYABLE_STATUS_CODES = new Set([408, 409, 429, 500, 502, 503, 504]);
@@ -52,6 +59,16 @@ const responseSchema = z.object({
     }).optional(),
   }).optional(),
 }).passthrough();
+
+const providerErrorEnvelopeSchema = z
+  .object({
+    error: z.object({
+      code: z.union([z.string(), z.number()]).optional(),
+      message: z.string().optional(),
+      metadata: z.unknown().optional(),
+    }).passthrough(),
+  })
+  .passthrough();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -184,11 +201,21 @@ async function safeProviderErrorDetails(response: Response) {
     undefined;
   try {
     const body = (await response.json()) as {
-      error?: { code?: unknown; metadata?: Record<string, unknown> };
+      error?: {
+        code?: unknown;
+        message?: unknown;
+        metadata?: Record<string, unknown>;
+      };
       metadata?: Record<string, unknown>;
+      openrouter_metadata?: Record<string, unknown>;
       provider?: unknown;
     };
-    const metadata = body.error?.metadata ?? body.metadata;
+    const metadata =
+      body.error?.metadata ?? body.openrouter_metadata ?? body.metadata;
+    const providerCode =
+      body.error?.code !== undefined
+        ? String(body.error.code).slice(0, 80)
+        : undefined;
     const routingMetadata = safeRoutingMetadata(metadata);
     const provider =
       typeof body.provider === "string"
@@ -198,13 +225,16 @@ async function safeProviderErrorDetails(response: Response) {
           : undefined;
     return {
       diagnosticDetails: {
-        ...(body.error?.code !== undefined
-          ? { providerCode: String(body.error.code).slice(0, 80) }
-          : {}),
+        ...(providerCode ? { providerCode } : {}),
         ...(typeof metadata?.route === "string"
           ? { route: metadata.route.slice(0, 160) }
           : {}),
       },
+      message:
+        typeof body.error?.message === "string"
+          ? body.error.message.slice(0, 300)
+          : undefined,
+      providerCode,
       provider,
       requestId:
         requestId ??
@@ -214,7 +244,7 @@ async function safeProviderErrorDetails(response: Response) {
       routingMetadata,
     };
   } catch {
-    return { requestId };
+    return { message: undefined, providerCode: undefined, requestId };
   }
 }
 
@@ -253,9 +283,14 @@ type Options = Omit<
   ReturnType<typeof getOpenRouterConfig>,
   | "fallbackModel"
   | "fallbackReasoningEffort"
+  | "extractionFallbackReasoningEffort"
   | "pdfModel"
   | "pdfFallbackModel"
+  | "pdfFallbackEngine"
   | "pdfReasoningEffort"
+  | "extractionPipelineMode"
+  | "extractionQualityGateEnabled"
+  | "providerSort"
   | "reasoningEffort"
   | "maxTokens"
   | "webSearchEnabled"
@@ -280,6 +315,7 @@ export type AuditDiscoveryAttempt = {
     | "invalid-audit-json"
     | "invalid-audit-schema"
     | "provider-configuration-rejected"
+    | "provider-endpoint-unavailable"
     | "provider-error"
     | "request-timeout";
   kind: "invalid-response" | "provider" | "success" | "timeout";
@@ -298,6 +334,8 @@ function safeAttemptDiagnostics(error: OpenRouterClientError) {
       ? ("request-timeout" as const)
       : error.diagnostic === "provider-configuration-rejected"
         ? ("provider-configuration-rejected" as const)
+        : error.diagnostic === "provider-endpoint-unavailable"
+          ? ("provider-endpoint-unavailable" as const)
       : error.kind === "provider"
         ? ("provider-error" as const)
         : error.message.includes("envelope")
@@ -363,12 +401,13 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
   async discover(request: AuditDiscoveryRequest): Promise<AuditDiscoveryResult> {
     const startedAt = Date.now();
     const attemptTrace: AuditDiscoveryAttempt[] = [];
+    const callBudget = Math.min(2, Math.max(1, this.options.maxAttempts));
     let route = {
       model: this.options.model,
       reasoningEffort: request.reasoningEffort,
     };
 
-    for (let attempt = 1; attempt <= this.options.maxAttempts; attempt += 1) {
+    for (let attempt = 1; attempt <= callBudget; attempt += 1) {
       const attemptStartedAt = Date.now();
       try {
         const result = await this.performRequest(
@@ -401,16 +440,23 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
           model: route.model,
           status: normalized.status,
         });
-        const hasAnotherAttempt = attempt < this.options.maxAttempts;
+        const hasAnotherAttempt = attempt < callBudget;
         const hasDistinctFallback = Boolean(
           this.options.fallbackModel &&
             this.options.fallbackModel !== this.options.model,
         );
+        const isConfigurationRejection =
+          normalized.kind === "provider" &&
+          normalized.diagnostic === "provider-configuration-rejected";
+        const isEndpointUnavailable =
+          normalized.kind === "provider" &&
+          normalized.diagnostic === "provider-endpoint-unavailable";
         const canRetry =
           hasDistinctFallback &&
           (normalized.kind === "timeout" ||
             normalized.kind === "invalid-response" ||
-            (normalized.kind === "provider" && normalized.status === 400));
+            isConfigurationRejection ||
+            isEndpointUnavailable);
 
         if (!hasAnotherAttempt || !canRetry) {
           throw new OpenRouterAuditDiscoveryError(
@@ -482,7 +528,8 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
             type: "json_schema",
             json_schema: { name: "audit_discovery", strict: true, schema: AI_DISCOVERY_JSON_SCHEMA },
           },
-          max_tokens: this.options.maxTokens ?? 8_192,
+          provider: getOpenRouterProviderRouting(),
+          ...getOpenRouterOutputTokenLimit(model, this.options.maxTokens ?? 8_192),
           stream: false,
           ...(this.options.webSearchEnabled
             ? {
@@ -515,7 +562,11 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
             diagnostic:
               response.status === 400
                 ? "provider-configuration-rejected"
-                : "provider-request-failed",
+                : getOpenRouterProviderDiagnostic({
+                    message: providerDetails.message,
+                    providerCode: providerDetails.providerCode,
+                    status: response.status,
+                  }),
             diagnosticDetails: providerDetails.diagnosticDetails,
             provider: providerDetails.provider,
             requestId: providerDetails.requestId,
@@ -545,6 +596,106 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
       }
       const envelope = responseSchema.safeParse(body);
       if (!envelope.success) {
+        const providerError = providerErrorEnvelopeSchema.safeParse(body);
+        if (providerError.success) {
+          const providerCode =
+            providerError.data.error.code !== undefined
+              ? String(providerError.data.error.code).slice(0, 80)
+              : undefined;
+          const explicitStatus = getOpenRouterProviderStatusCode(providerCode);
+          const responseRecord = isRecord(body) ? body : undefined;
+          const providerMetadata =
+            providerError.data.error.metadata ??
+            responseRecord?.openrouter_metadata ??
+            responseRecord?.metadata;
+          const routingMetadata = safeRoutingMetadata(providerMetadata);
+          const provider =
+            typeof responseRecord?.provider === "string"
+              ? responseRecord.provider.slice(0, 160)
+              : typeof routingMetadata?.provider_name === "string"
+                ? routingMetadata.provider_name
+                : undefined;
+          const diagnostic =
+            explicitStatus === 400
+              ? "provider-configuration-rejected"
+              : explicitStatus !== undefined
+                ? getOpenRouterProviderDiagnostic({
+                    message: providerError.data.error.message,
+                    providerCode,
+                    status: explicitStatus,
+                  })
+                : "provider-error-envelope";
+          const errorOptions = {
+            cause: envelope.error,
+            diagnostic,
+            diagnosticDetails: {
+              ...(providerCode ? { providerCode } : {}),
+              ...(routingMetadata ? { routing: routingMetadata } : {}),
+            },
+            provider,
+            requestId:
+              response.headers.get("x-openrouter-request-id") ??
+              response.headers.get("x-request-id") ??
+              (typeof routingMetadata?.request_id === "string"
+                ? routingMetadata.request_id
+                : undefined),
+            routingMetadata,
+          };
+
+          if (
+            explicitStatus !== undefined &&
+            isOpenRouterNonRetryableStatusCode(explicitStatus)
+          ) {
+            throw new OpenRouterClientError(
+              "provider",
+              "OpenRouter audit provider rejected the request.",
+              false,
+              explicitStatus,
+              undefined,
+              errorOptions,
+            );
+          }
+          if (diagnostic === "provider-endpoint-unavailable") {
+            throw new OpenRouterClientError(
+              "provider",
+              "OpenRouter audit provider has no eligible endpoint.",
+              true,
+              explicitStatus,
+              undefined,
+              errorOptions,
+            );
+          }
+          if (explicitStatus === 408 || explicitStatus === 504) {
+            throw new OpenRouterClientError(
+              "timeout",
+              "OpenRouter audit request exceeded the provider time limit.",
+              true,
+              explicitStatus,
+              undefined,
+              errorOptions,
+            );
+          }
+          if (diagnostic === "provider-configuration-rejected") {
+            throw new OpenRouterClientError(
+              "provider",
+              "OpenRouter audit provider rejected the request.",
+              true,
+              explicitStatus,
+              undefined,
+              errorOptions,
+            );
+          }
+          if (explicitStatus !== undefined) {
+            throw new OpenRouterClientError(
+              "provider",
+              "OpenRouter audit provider rejected the request.",
+              false,
+              explicitStatus,
+              undefined,
+              errorOptions,
+            );
+          }
+        }
         throw new OpenRouterClientError("invalid-response", "OpenRouter returned an invalid audit envelope.", true, undefined, undefined, { cause: envelope.error });
       }
 
@@ -567,7 +718,9 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
         response.headers.get("x-request-id") ??
         undefined;
       const routingMetadata = safeRoutingMetadata(
-        isRecord(body) ? body.metadata : undefined,
+        isRecord(body)
+          ? body.openrouter_metadata ?? body.metadata
+          : undefined,
       );
       const webSources = webSourcesFrom(
         envelope.data.choices[0].message.annotations,

@@ -88,6 +88,84 @@ final result: passed
 
 ---
 
+## QA final — estabilização do Harness e evidências (2026-08-29)
+
+### Referência e implementação
+
+- Referência visual: `C:\Users\PdrArth\AppData\Local\Temp\codex-clipboard-0421f1cb-4bdd-408a-85e3-2a5f29e89351.png`.
+- Implementação local: `http://localhost:3001`, branch `codex/stabilize-universal-docs`.
+- Capturas: `artifacts/qa/reviewer-harness-1-finding-2048.png`, `artifacts/qa/reviewer-harness-4-findings-2048.png` e `artifacts/qa/note-detail-harness-4-findings-2048.png`.
+- A lista mantém a hierarquia compacta alaranjada da referência; a análise detalhada usa duas áreas e remove a terceira coluna permanente de evidências.
+
+### Casos e interações validados
+
+- Caso real com 1 achado: a comparação legada sem base verificável passou a exibir `Valores encontrados`, sem inventar valor esperado.
+- Caso real com 4 achados: datas e valores conflitantes aparecem neutros; o item 12 mostra R$ 40,00 e R$ 44,50 sem escolher uma referência arbitrária.
+- Campos obrigatórios explícitos: `7 campos obrigatórios vazios`, dois exemplos e referência `Campos obrigatórios preenchidos`.
+- Metadados internos `documentRole`, `boundingBox` e `requirementBasis`: ausentes do conteúdo do REVIEWER.
+- Navegação anterior/próximo: passou nos quatro achados.
+- Feedback: abriu como card recolhível; nenhum feedback foi enviado.
+- Botão grande `Marcar como lida`: presente; o POST não foi disparado para preservar os dados de teste.
+- Overflow horizontal: ausente nos viewports desktop capturados.
+- Console das telas de lista e detalhe: nenhum erro ou aviso.
+- A base atual possui no máximo 4 achados por nota. O comportamento de lista não impõe limite ou truncamento e os formatadores cobrem listas extensas, mas o QA visual de 10+ achados exige um novo documento com esse estado; nenhum dado artificial foi inserido no banco.
+
+### Verificação técnica
+
+- `npm run test:harness`: 236 testes, 233 aprovados, 3 integrações ignoradas por dependerem do banco, 0 falhas.
+- `npm run test:pwa`: 36/36.
+- `npm run test:upload`: 47/47.
+- `npm run test:note-detail`: 10/10.
+- `npm run check`: passou sem avisos.
+- `npm run build`: passou, com 44 rotas geradas.
+- `npm run evals:harness:plan`: 8 modelos e 20 casos, sem chamadas pagas. As rodadas online permanecem pendentes por crédito do provedor e não alteram o modelo de produção.
+
+### Escopo preservado
+
+- Telas exclusivas atuais do PWA não foram redesenhadas nesta etapa.
+- Nenhum commit, push ou deploy foi executado.
+- Nenhuma nota foi apagada ou alterada durante o QA.
+
+final result: passed
+
+---
+
+## QA local — Harness verificado e achados compactos (2026-08-29)
+
+### Fonte e implementação
+
+- **Referência visual aprovada:** `C:/Users/PdrArth/AppData/Local/Temp/codex-clipboard-0421f1cb-4bdd-408a-85e3-2a5f29e89351.png`.
+- **Implementação comparada:** `C:/Users/PdrArth/AppData/Local/Temp/codex-clipboard-af3d3f9a-e90b-40be-a26a-b5bedb4c1148.png`.
+- **Tela pública verificada ao vivo:** `/enviar-nota`, ambiente local na porta 3001.
+- **Estado desktop:** lista de achados, encontrado em vermelho, referência em verde e evidências em cartões claros.
+
+### Ajustes desta rodada
+
+- Campos obrigatórios extensos passaram a mostrar contagem e no máximo dois exemplos no resumo.
+- Comparações longas são compactadas no cartão; o conteúdo integral continua disponível no detalhe.
+- O painel rápido mostra no máximo dois locais de evidência e informa quantos locais adicionais existem.
+- Feedback permanece em cartão recolhível e a análise detalhada oferece a ação grande `Marcar como lida`.
+- O seletor público de obra foi exercitado com busca por cidade e retornou somente a obra correspondente.
+
+### Verificação técnica
+
+- `npm run test:harness`: 227 aprovados, 3 ignorados por dependência de banco, 0 falhas.
+- `npm run test:upload`: 44/44.
+- `npm run test:note-detail`: 10/10.
+- `npm run test:pwa`: 36/36.
+- `npm run test:push`: 40/40.
+- `npm run check`: passou após regenerar os tipos temporários do Next.js.
+- `npm run build`: passou, com 44 páginas geradas.
+- Console da tela pública: sem erros ou alertas de aplicação.
+
+### Limitação conhecida
+
+A tela autenticada pós-limpeza ainda não possui uma nota processada para produzir uma nova captura equivalente. A comparação final com dados reais deve ser repetida depois do primeiro upload de teste do usuário; nenhuma credencial foi transmitida automaticamente.
+
+final result: BLOCKED — aguardando o primeiro upload de teste para a captura autenticada final
+
+---
+
 ## QA visual — envio público PWA para aprovação
 
 ### Protótipos

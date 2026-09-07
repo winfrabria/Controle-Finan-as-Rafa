@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   AUDIT_POLICY,
+  FAST_EXTRACTION_MODEL,
+  FAST_EXTRACTION_REVIEW_MODEL,
   HARNESS_FALLBACK_MODEL,
   HARNESS_MODEL,
   HARNESS_PDF_MODEL,
@@ -99,16 +101,16 @@ test("configura Gemini high também para extração e leitura de PDF", () => {
     {
       NODE_ENV: "test",
       OPENROUTER_API_KEY: "test-only",
-      OPENROUTER_EXTRACTION_MODEL: "google/gemini-3.6-flash",
+      OPENROUTER_EXTRACTION_MODEL: "google/gemini-3.7-flash",
       OPENROUTER_EXTRACTION_REASONING_EFFORT: "high",
-      OPENROUTER_PDF_MODEL: "google/gemini-3.6-flash",
+      OPENROUTER_PDF_MODEL: "google/gemini-3.7-flash",
       OPENROUTER_PDF_REASONING_EFFORT: "high",
     },
     "extraction",
   );
 
-  assert.equal(config.model, "google/gemini-3.6-flash");
-  assert.equal(config.pdfModel, "google/gemini-3.6-flash");
+  assert.equal(config.model, "google/gemini-3.7-flash");
+  assert.equal(config.pdfModel, "google/gemini-3.7-flash");
   assert.equal(config.pdfFallbackModel, HARNESS_FALLBACK_MODEL);
   assert.equal(config.reasoningEffort, "high");
   assert.equal(config.pdfReasoningEffort, "high");
@@ -131,6 +133,30 @@ test("usa Terra high tanto na extração quanto na auditoria", () => {
   assert.equal(config.maxTokens, 16_384);
 });
 
+test("pipeline adaptativo prioriza extrator rápido e revisão visual distinta", () => {
+  const config = getOpenRouterConfig(
+    {
+      NODE_ENV: "test",
+      OPENROUTER_API_KEY: "test-only",
+      OPENROUTER_EXTRACTION_PIPELINE: "adaptive",
+    },
+    "extraction",
+  );
+
+  assert.equal(config.model, FAST_EXTRACTION_MODEL);
+  assert.equal(config.pdfModel, FAST_EXTRACTION_MODEL);
+  assert.equal(config.fallbackModel, FAST_EXTRACTION_REVIEW_MODEL);
+  assert.equal(config.pdfFallbackModel, FAST_EXTRACTION_REVIEW_MODEL);
+  assert.equal(config.pdfEngine, "native");
+  assert.equal(config.pdfFallbackEngine, "native");
+  assert.equal(config.extractionQualityGateEnabled, true);
+  assert.equal(config.providerSort, "throughput");
+  assert.equal(config.reasoningEffort, "low");
+  assert.equal(config.pdfReasoningEffort, "low");
+  assert.equal(config.extractionFallbackReasoningEffort, "high");
+  assert.equal(config.timeoutMs, 60_000);
+});
+
 test("envia modelo fixo, xhigh controlado e exclui reasoning da resposta", async () => {
   let payload: Record<string, unknown> | undefined;
   const client = new OpenRouterAuditDiscoveryClient({
@@ -151,8 +177,13 @@ test("envia modelo fixo, xhigh controlado e exclui reasoning da resposta", async
   });
   assert.equal(payload?.model, HARNESS_MODEL);
   assert.deepEqual(payload?.reasoning, { effort: "xhigh", exclude: true });
-  assert.equal(payload?.max_tokens, 8_192);
-  assert.equal(payload?.provider, undefined);
+  assert.equal(payload?.max_completion_tokens, 8_192);
+  assert.equal("max_tokens" in (payload ?? {}), false);
+  assert.deepEqual(payload?.provider, {
+    require_parameters: true,
+    sort: "latency",
+    zdr: true,
+  });
   assert.equal("temperature" in (payload ?? {}), false);
   assert.equal("tools" in (payload ?? {}), false);
   const systemPrompt = (payload?.messages as Array<{ role: string; content: string }> | undefined)?.[0]?.content ?? "";
@@ -430,6 +461,45 @@ test("usa Sol uma vez quando a resposta estruturada do Terra é inválida", asyn
   );
 });
 
+for (const status of [402, 429, 503]) {
+  test(`envelope HTTP 200 da auditoria com código ${status} não abre fallback`, async () => {
+    let calls = 0;
+    const client = new OpenRouterAuditDiscoveryClient({
+      apiKey: "test-only",
+      appUrl: undefined,
+      fallbackModel: AUDIT_POLICY.fallbackModel,
+      model: HARNESS_MODEL,
+      maxAttempts: 2,
+      pdfEngine: "native",
+      timeoutMs: 1_000,
+      sleep: async () => undefined,
+      fetchImplementation: async () => {
+        calls += 1;
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: status,
+              message: `Provider returned HTTP ${status}.`,
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      },
+    });
+
+    await assert.rejects(
+      client.discover(discoveryRequest),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal((error as { status?: number }).status, status);
+        assert.equal((error as { attempts?: number }).attempts, 1);
+        return true;
+      },
+    );
+    assert.equal(calls, 1);
+  });
+}
+
 test("HTTP 400 da auditoria registra metadados seguros e aciona o Sol", async () => {
   const payloads: Array<Record<string, unknown>> = [];
   const headers: Array<Record<string, string>> = [];
@@ -478,8 +548,16 @@ test("HTTP 400 da auditoria registra metadados seguros e aciona o Sol", async ()
     payloads.map((payload) => payload.model),
     [HARNESS_MODEL, HARNESS_FALLBACK_MODEL],
   );
-  assert.equal(payloads[0]?.provider, undefined);
-  assert.equal(payloads[1]?.provider, undefined);
+  assert.deepEqual(payloads[0]?.provider, {
+    require_parameters: true,
+    sort: "latency",
+    zdr: true,
+  });
+  assert.deepEqual(payloads[1]?.provider, {
+    require_parameters: true,
+    sort: "latency",
+    zdr: true,
+  });
   assert.equal(headers[0]?.["X-OpenRouter-Metadata"], "enabled");
   assert.equal(headers[1]?.["X-OpenRouter-Metadata"], "enabled");
   assert.deepEqual(result.attemptTrace[0], {
@@ -499,3 +577,148 @@ test("HTTP 400 da auditoria registra metadados seguros e aciona o Sol", async ()
   });
   assert.equal(JSON.stringify(result.attemptTrace).includes("must-not-escape"), false);
 });
+
+test("HTTP 404 sem endpoint elegível aciona Sol high e usa o parâmetro compatível", async () => {
+  const requestedModels: string[] = [];
+  const payloads: Array<Record<string, unknown>> = [];
+  const client = new OpenRouterAuditDiscoveryClient({
+    apiKey: "test-only",
+    appUrl: undefined,
+    fallbackModel: HARNESS_FALLBACK_MODEL,
+    model: HARNESS_MODEL,
+    maxAttempts: 5,
+    pdfEngine: "native",
+    reasoningEffort: "high",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+    fetchImplementation: async (_url, init) => {
+      const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      payloads.push(payload);
+      requestedModels.push(String(payload.model));
+      if (requestedModels.length === 1) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 404,
+              message: "No eligible endpoints found for the requested model parameters.",
+              metadata: {
+                provider_name: "Azure",
+                route: "openai-zdr",
+                raw: "internal-data-must-not-escape",
+              },
+            },
+          }),
+          { status: 404, headers: { "content-type": "application/json" } },
+        );
+      }
+      return successfulAuditResponse(HARNESS_FALLBACK_MODEL);
+    },
+  });
+
+  const result = await client.discover(discoveryRequest);
+
+  assert.deepEqual(requestedModels, [HARNESS_MODEL, HARNESS_FALLBACK_MODEL]);
+  assert.equal(payloads[0]?.max_completion_tokens, 8_192);
+  assert.equal(payloads[1]?.max_completion_tokens, 8_192);
+  assert.equal(result.attempts, 2);
+  assert.equal(result.model, HARNESS_FALLBACK_MODEL);
+  assert.equal(result.attemptTrace[0]?.status, 404);
+  assert.equal(result.attemptTrace[0]?.detail, "provider-endpoint-unavailable");
+  assert.equal(JSON.stringify(result.attemptTrace).includes("must-not-escape"), false);
+});
+
+test("HTTP 404 arbitrário da auditoria não abre fallback", async () => {
+  let calls = 0;
+  const client = new OpenRouterAuditDiscoveryClient({
+    apiKey: "test-only",
+    appUrl: undefined,
+    fallbackModel: HARNESS_FALLBACK_MODEL,
+    model: HARNESS_MODEL,
+    maxAttempts: 5,
+    pdfEngine: "native",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+    fetchImplementation: async () => {
+      calls += 1;
+      return new Response(
+        JSON.stringify({
+          error: { code: 404, message: "The requested audit record was not found." },
+        }),
+        { status: 404, headers: { "content-type": "application/json" } },
+      );
+    },
+  });
+
+  await assert.rejects(
+    client.discover(discoveryRequest),
+    (error: unknown) =>
+      error instanceof Error &&
+      "status" in error &&
+      (error as { status?: number }).status === 404 &&
+      "attempts" in error &&
+      (error as { attempts?: number }).attempts === 1,
+  );
+  assert.equal(calls, 1);
+});
+
+test("404 de endpoint no Sol termina após uma única recuperação", async () => {
+  const requestedModels: string[] = [];
+  const client = new OpenRouterAuditDiscoveryClient({
+    apiKey: "test-only",
+    appUrl: undefined,
+    fallbackModel: HARNESS_FALLBACK_MODEL,
+    model: HARNESS_MODEL,
+    maxAttempts: 5,
+    pdfEngine: "native",
+    sleep: async () => undefined,
+    timeoutMs: 1_000,
+    fetchImplementation: async (_url, init) => {
+      const payload = JSON.parse(String(init?.body)) as { model: string };
+      requestedModels.push(payload.model);
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: 404,
+            message: "No eligible endpoints found for the requested model parameters.",
+          },
+        }),
+        { status: 404, headers: { "content-type": "application/json" } },
+      );
+    },
+  });
+
+  await assert.rejects(
+    client.discover(discoveryRequest),
+    (error: unknown) =>
+      error instanceof Error &&
+      "attempts" in error &&
+      (error as { attempts?: number }).attempts === 2,
+  );
+  assert.deepEqual(requestedModels, [HARNESS_MODEL, HARNESS_FALLBACK_MODEL]);
+});
+
+for (const status of [402, 429, 503]) {
+  test(`HTTP ${status} da auditoria não abre fallback pago`, async () => {
+    let calls = 0;
+    const client = new OpenRouterAuditDiscoveryClient({
+      apiKey: "test-only",
+      appUrl: undefined,
+      fallbackModel: HARNESS_FALLBACK_MODEL,
+      model: HARNESS_MODEL,
+      maxAttempts: 5,
+      pdfEngine: "native",
+      sleep: async () => undefined,
+      timeoutMs: 1_000,
+      fetchImplementation: async () => {
+        calls += 1;
+        return new Response(
+          JSON.stringify({ error: { message: "Provider unavailable." } }),
+          { status, headers: { "content-type": "application/json" } },
+        );
+      },
+    });
+
+    await assert.rejects(() => client.discover(discoveryRequest));
+    assert.equal(calls, 1);
+  });
+}

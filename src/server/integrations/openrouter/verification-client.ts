@@ -15,6 +15,11 @@ import {
 import { resolveHarnessVerifierReasoningEffort } from "@/lib/audit-harness/versions";
 import { getOpenRouterConfig } from "./config";
 import { OpenRouterClientError } from "./client";
+import {
+  getOpenRouterOutputTokenLimit,
+  getOpenRouterProviderDiagnostic,
+  getOpenRouterProviderRouting,
+} from "./routing";
 
 const OPENROUTER_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -31,6 +36,33 @@ const responseSchema = z.object({
     total_tokens: z.number().optional(),
   }).optional(),
 }).passthrough();
+
+const ROUTING_METADATA_KEYS = [
+  "model",
+  "provider",
+  "provider_name",
+  "request_id",
+  "route",
+  "upstream_id",
+  "upstream_status",
+] as const;
+
+function safeRoutingMetadata(value: unknown) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const source = value as Record<string, unknown>;
+  const entries = ROUTING_METADATA_KEYS.flatMap((key) => {
+    const entry = source[key];
+    return typeof entry === "string" ||
+      typeof entry === "number" ||
+      typeof entry === "boolean" ||
+      entry === null
+      ? [[key, typeof entry === "string" ? entry.slice(0, 160) : entry] as const]
+      : [];
+  });
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
 
 export type VerificationRequest = {
   baseClassification: HarnessClassification;
@@ -50,6 +82,7 @@ export type VerificationResult = {
   model: string;
   provider?: string;
   requestId?: string;
+  routingMetadata?: Record<string, string | number | boolean | null>;
   usage?: {
     completionTokens?: number;
     costUsd?: number;
@@ -83,13 +116,56 @@ function documentPart(request: VerificationRequest) {
   return { type: "image_url", image_url: { url: request.signedUrl } } as const;
 }
 
-function safeProviderError(status: number) {
+async function safeProviderError(response: Response) {
+  const status = response.status;
+  const requestId =
+    response.headers.get("x-openrouter-request-id") ??
+    response.headers.get("x-request-id") ??
+    undefined;
+  let provider: string | undefined;
+  let providerCode: string | undefined;
+  let message: string | undefined;
+  let routingMetadata:
+    | Record<string, string | number | boolean | null>
+    | undefined;
+  try {
+    const body = await response.json() as Record<string, unknown>;
+    const error =
+      typeof body.error === "object" && body.error !== null
+        ? body.error as Record<string, unknown>
+        : undefined;
+    providerCode =
+      error?.code !== undefined
+        ? String(error.code).slice(0, 80)
+        : undefined;
+    message =
+      typeof error?.message === "string"
+        ? error.message.slice(0, 300)
+        : undefined;
+    const metadata =
+      error?.metadata ?? body.openrouter_metadata ?? body.metadata;
+    routingMetadata = safeRoutingMetadata(metadata);
+    provider =
+      typeof body.provider === "string"
+        ? body.provider.slice(0, 160)
+        : typeof routingMetadata?.provider_name === "string"
+          ? routingMetadata.provider_name
+          : undefined;
+  } catch {
+    // Status and headers remain sufficient when the body is not JSON.
+  }
+  const details = { provider, requestId, routingMetadata };
   if (status === 408 || status === 504) {
     return new OpenRouterClientError(
       "timeout",
       `OpenRouter verification timed out (HTTP ${status}).`,
       false,
       status,
+      undefined,
+      {
+        ...details,
+        ...(providerCode ? { diagnosticDetails: { providerCode } } : {}),
+      },
     );
   }
   return new OpenRouterClientError(
@@ -97,6 +173,16 @@ function safeProviderError(status: number) {
     `OpenRouter verification request failed (HTTP ${status}).`,
     false,
     status,
+    undefined,
+    {
+      ...details,
+      diagnostic: getOpenRouterProviderDiagnostic({
+        message,
+        providerCode,
+        status,
+      }),
+      ...(providerCode ? { diagnosticDetails: { providerCode } } : {}),
+    },
   );
 }
 
@@ -123,7 +209,6 @@ export class OpenRouterVerificationClient implements VerificationClient {
           ...(this.options.appUrl ? { "HTTP-Referer": this.options.appUrl } : {}),
         },
         body: JSON.stringify({
-          max_tokens: this.options.maxTokens,
           messages: [
             { role: "system", content: AUDIT_VERIFICATION_PROMPT.system },
             {
@@ -158,12 +243,14 @@ export class OpenRouterVerificationClient implements VerificationClient {
               strict: true,
             },
           },
+          provider: getOpenRouterProviderRouting(),
+          ...getOpenRouterOutputTokenLimit(this.options.model, this.options.maxTokens),
           stream: false,
         }),
         signal: controller.signal,
       });
 
-      if (!response.ok) throw safeProviderError(response.status);
+      if (!response.ok) throw await safeProviderError(response);
 
       let body: unknown;
       try {
@@ -216,6 +303,12 @@ export class OpenRouterVerificationClient implements VerificationClient {
       }
 
       const usage = envelope.data.usage;
+      const routingMetadata = safeRoutingMetadata(
+        typeof body === "object" && body !== null
+          ? ((body as Record<string, unknown>).openrouter_metadata ??
+              (body as Record<string, unknown>).metadata)
+          : undefined,
+      );
       return {
         attempts: 1,
         data: parsed.data,
@@ -226,6 +319,7 @@ export class OpenRouterVerificationClient implements VerificationClient {
           response.headers.get("x-openrouter-request-id") ??
           response.headers.get("x-request-id") ??
           undefined,
+        routingMetadata,
         ...(usage
           ? {
               usage: {
@@ -238,16 +332,25 @@ export class OpenRouterVerificationClient implements VerificationClient {
           : {}),
       };
     } catch (error) {
-      if (error instanceof OpenRouterClientError) throw error;
-      if (error instanceof Error && error.name === "AbortError") {
+      // Aborting while response.json() consumes the body is also a timeout.
+      // Its inner parser catch must not mislabel the deadline as malformed JSON.
+      if (controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) {
         throw new OpenRouterClientError(
           "timeout",
           "OpenRouter verification timed out.",
           false,
           undefined,
           undefined,
-          { cause: error },
+          { cause: error, diagnostic: "verification-deadline-exceeded", latencyMs: Date.now() - startedAt, model: this.options.model },
         );
+      }
+      if (error instanceof OpenRouterClientError) {
+        throw new OpenRouterClientError(error.kind, error.message, error.retryable, error.status, error.retryAfterMs, {
+          cause: error, diagnostic: error.diagnostic, diagnosticDetails: error.diagnosticDetails,
+          latencyMs: Date.now() - startedAt, model: error.model ?? this.options.model,
+          provider: error.provider, requestId: error.requestId, routingMetadata: error.routingMetadata,
+          usage: error.usage,
+        });
       }
       throw new OpenRouterClientError(
         "provider",
@@ -255,7 +358,7 @@ export class OpenRouterVerificationClient implements VerificationClient {
         false,
         undefined,
         undefined,
-        { cause: error },
+        { cause: error, latencyMs: Date.now() - startedAt, model: this.options.model },
       );
     } finally {
       clearTimeout(timeout);

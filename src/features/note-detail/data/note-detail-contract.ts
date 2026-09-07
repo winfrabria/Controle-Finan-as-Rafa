@@ -12,7 +12,6 @@ import type {
   NoteClassification,
   NoteStatus,
   ProcessingStage,
-  ReasoningEffort,
   UserRole,
   ValidationDecision,
 } from "@/generated/prisma/enums";
@@ -47,6 +46,7 @@ export type NoteDetailFinding = {
   } | null;
   category: string;
   code: string;
+  comparisonMode?: "REFERENCE" | "CONFLICT";
   createdAt: Date;
   description: string;
   evidence: Prisma.JsonValue | null;
@@ -54,6 +54,7 @@ export type NoteDetailFinding = {
   expectedValue: Prisma.JsonValue | null;
   id: string;
   needsValidation: boolean;
+  referenceBasis?: string | null;
   rule: {
     code: string;
     description: string | null;
@@ -93,7 +94,7 @@ export type AdminNoteAiRun = {
   promptVersion?: string;
   promptTokens: number | null;
   provider: string | null;
-  reasoningEffort: ReasoningEffort;
+  reasoningEffort: string;
   schemaVersion?: string;
   startedAt: Date;
   status: AiRunStatus;

@@ -16,6 +16,7 @@ import type { NoteDetailData } from "./data";
 import { AuditFeedbackPanel } from "./audit-feedback-panel";
 import { NoteAnalysisExplorer } from "./note-analysis-explorer";
 import { NoteDocumentPreview } from "./note-document-preview";
+import { NoteReadAction } from "./note-read-action";
 import { formatCurrency, formatDate, formatDecimal } from "./note-detail-format";
 import { ReviewerMobileNoteDetail } from "./reviewer-mobile-note-detail";
 import styles from "./note-detail.module.css";
@@ -144,13 +145,13 @@ export function NoteAnalysisView({
         <NoteAnalysisExplorer
           documentUrl={documentUrl}
           findings={data.analysis.findings}
-          items={data.items}
           reviewer={role === "reviewer"}
         />
 
         {role === "reviewer" ? (
           <AuditFeedbackPanel
             assurance={data.analysis.assurance}
+            collapsible
             currentFeedback={data.feedback}
             feedbackEnabled={
               data.processingStage === "COMPLETED" &&
@@ -160,6 +161,8 @@ export function NoteAnalysisView({
             noteVersion={data.version}
           />
         ) : null}
+
+        {role === "reviewer" ? <NoteReadAction noteId={data.id} /> : null}
 
         <section className={styles.analysisSourceSection}>
           <header className={styles.analysisSourceHeader}>

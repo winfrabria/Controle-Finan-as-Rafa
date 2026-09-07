@@ -1,15 +1,15 @@
 import "server-only";
+import { resolveExtractionReasoningEffort } from "@/lib/integrations/openrouter/extraction-reasoning";
 
 import { AUDIT_POLICY } from "@/lib/audit-harness/policy";
 import {
-  HARNESS_MODEL,
   resolveAuditEvaluatorModel,
   resolveAuditReasoningEffort,
-  resolveHarnessFallbackModel,
-  resolveHarnessModel,
+  resolveExtractionFallbackModel,
+  resolveExtractionModel,
+  resolveExtractionPipelineMode,
   resolveHarnessVerifierModel,
   resolveHarnessVerifierReasoningEffort,
-  resolvePdfModel,
 } from "@/lib/audit-harness/versions";
 
 export type OpenRouterPdfEngine = "cloudflare-ai" | "mistral-ocr" | "native";
@@ -66,12 +66,21 @@ export function getOpenRouterConfig(
   environment: NodeJS.ProcessEnv = process.env,
   workload: OpenRouterWorkload = "audit",
 ) {
+  const extractionPipelineMode = resolveExtractionPipelineMode(
+    workload === "extraction"
+      ? environment.OPENROUTER_EXTRACTION_PIPELINE
+      : undefined,
+  );
   const pdfEngine = (environment.OPENROUTER_PDF_ENGINE ||
-    "mistral-ocr") as OpenRouterPdfEngine;
+    (extractionPipelineMode === "adaptive"
+      ? "native"
+      : "mistral-ocr")) as OpenRouterPdfEngine;
+  const pdfFallbackEngine = (environment.OPENROUTER_PDF_FALLBACK_ENGINE ||
+    pdfEngine) as OpenRouterPdfEngine;
 
-  if (!PDF_ENGINES.has(pdfEngine)) {
+  if (!PDF_ENGINES.has(pdfEngine) || !PDF_ENGINES.has(pdfFallbackEngine)) {
     throw new Error(
-      "OPENROUTER_PDF_ENGINE must be cloudflare-ai, mistral-ocr or native.",
+      "OPENROUTER_PDF_ENGINE and OPENROUTER_PDF_FALLBACK_ENGINE must be cloudflare-ai, mistral-ocr or native.",
     );
   }
 
@@ -122,9 +131,9 @@ export function getOpenRouterConfig(
     maxTokens,
     model:
       workload === "extraction"
-        ? resolveHarnessModel(
+        ? resolveExtractionModel(
             environment.OPENROUTER_EXTRACTION_MODEL,
-            HARNESS_MODEL,
+            extractionPipelineMode,
           )
         : workload === "verification"
           ? resolveHarnessVerifierModel(environment.OPENROUTER_VERIFIER_MODEL)
@@ -133,32 +142,44 @@ export function getOpenRouterConfig(
       workload === "audit"
         ? AUDIT_POLICY.fallbackModel
         : workload === "extraction"
-          ? resolveHarnessFallbackModel(
+          ? resolveExtractionFallbackModel(
               environment.OPENROUTER_EXTRACTION_FALLBACK_MODEL,
+              extractionPipelineMode,
             )
           : undefined,
     fallbackReasoningEffort:
       workload === "audit" ? AUDIT_POLICY.fallbackReasoningEffort : undefined,
+    extractionFallbackReasoningEffort:
+      workload === "extraction"
+        ? resolveExtractionReasoningEffort(environment.OPENROUTER_EXTRACTION_FALLBACK_REASONING_EFFORT, "high", "OPENROUTER_EXTRACTION_FALLBACK_REASONING_EFFORT")
+        : undefined,
     pdfModel:
       workload === "extraction"
-        ? resolvePdfModel(environment.OPENROUTER_PDF_MODEL)
+        ? resolveExtractionModel(
+            environment.OPENROUTER_PDF_MODEL,
+            extractionPipelineMode,
+            "pdf",
+          )
         : undefined,
     // The fallback is deliberately different from Terra. It is only consumed
     // by the bounded client recovery path after a configuration rejection,
-    // timeout or structurally invalid response.
+    // eligible-endpoint absence, timeout or structurally invalid response.
     pdfFallbackModel:
       workload === "extraction"
-        ? resolveHarnessFallbackModel(
+        ? resolveExtractionFallbackModel(
             environment.OPENROUTER_PDF_FALLBACK_MODEL,
+            extractionPipelineMode,
           )
         : undefined,
     pdfReasoningEffort:
       workload === "extraction"
-        ? environment.OPENROUTER_PDF_REASONING_EFFORT ?? "high"
+        ? resolveExtractionReasoningEffort(environment.OPENROUTER_PDF_REASONING_EFFORT,
+          extractionPipelineMode === "adaptive" ? "low" : "high", "OPENROUTER_PDF_REASONING_EFFORT")
         : undefined,
     reasoningEffort:
       workload === "extraction"
-        ? environment.OPENROUTER_EXTRACTION_REASONING_EFFORT ?? "high"
+        ? resolveExtractionReasoningEffort(environment.OPENROUTER_EXTRACTION_REASONING_EFFORT,
+          extractionPipelineMode === "adaptive" ? "low" : "high", "OPENROUTER_EXTRACTION_REASONING_EFFORT")
         : workload === "verification"
           ? resolveHarnessVerifierReasoningEffort(
               environment.OPENROUTER_VERIFIER_REASONING_EFFORT,
@@ -168,19 +189,49 @@ export function getOpenRouterConfig(
               AUDIT_POLICY.defaultReasoningEffort,
             ),
     pdfEngine,
-    // PDFs longos e escaneados podem continuar transmitindo a resposta depois
-    // de 60s. O limite de 120s acomoda extração e auditoria em high sem deixar
-    // uma requisição isolada ocupar todo o orçamento da rota.
-    timeoutMs: Math.min(
-      parseInteger(
-        environment.OPENROUTER_TIMEOUT_MS,
-        120_000,
-        1_000,
-        120_000,
-        "OPENROUTER_TIMEOUT_MS",
+    pdfFallbackEngine,
+    extractionPipelineMode,
+    extractionQualityGateEnabled:
+      workload === "extraction" &&
+      parseBoolean(
+        environment.OPENROUTER_EXTRACTION_QUALITY_GATE,
+        extractionPipelineMode === "adaptive",
+        "OPENROUTER_EXTRACTION_QUALITY_GATE",
       ),
-      120_000,
-    ),
+    providerSort:
+      workload === "extraction" && extractionPipelineMode === "adaptive"
+        ? ("throughput" as const)
+        : ("latency" as const),
+    // O verificador é uma salvaguarda seletiva e nunca pode segurar o fluxo
+    // principal por mais de 30 segundos por padrão. Extração e descoberta
+    // continuam com o orçamento próprio de documentos longos.
+    timeoutMs:
+      workload === "verification"
+        ? parseInteger(
+            environment.OPENROUTER_VERIFIER_TIMEOUT_MS,
+            30_000,
+            1_000,
+            120_000,
+            "OPENROUTER_VERIFIER_TIMEOUT_MS",
+          )
+        : Math.min(
+            parseInteger(
+              workload === "extraction"
+                ? environment.OPENROUTER_EXTRACTION_TIMEOUT_MS ??
+                    environment.OPENROUTER_TIMEOUT_MS
+                : environment.OPENROUTER_TIMEOUT_MS,
+              workload === "extraction" &&
+                extractionPipelineMode === "adaptive"
+                ? 60_000
+                : 120_000,
+              1_000,
+              120_000,
+              workload === "extraction"
+                ? "OPENROUTER_EXTRACTION_TIMEOUT_MS"
+                : "OPENROUTER_TIMEOUT_MS",
+            ),
+            120_000,
+          ),
     webSearchEnabled:
       workload === "audit" &&
       parseBoolean(

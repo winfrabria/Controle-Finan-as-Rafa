@@ -1,29 +1,116 @@
 export const HARNESS_VERSIONS = {
-  policy: "2026-08-25.1",
-  prompt: "2026-08-25.1",
-  schema: "2026-08-25.1",
-  rules: "2026-08-25.1",
+  policy: "2026-09-06.1",
+  prompt: "2026-09-07.1",
+  schema: "2026-09-07.1",
+  rules: "2026-09-06.1",
 } as const;
 
 export const HARNESS_MODEL = "openai/gpt-5.6-terra" as const;
 export const HARNESS_PDF_MODEL = "openai/gpt-5.6-terra" as const;
 export const HARNESS_FALLBACK_MODEL = "openai/gpt-5.6-sol" as const;
 export const HARNESS_VERIFIER_MODEL = "openai/gpt-5.6-sol" as const;
+export const FAST_EXTRACTION_MODEL = "google/gemini-3.1-flash-lite" as const;
+export const FAST_EXTRACTION_REVIEW_MODEL = "google/gemini-3.7-flash" as const;
 
 export type HarnessVerifierMode = "off" | "shadow" | "enforce";
+export type ExtractionPipelineMode = "legacy" | "adaptive";
 
 export const AUDIT_EVALUATOR_MODELS = [
   HARNESS_MODEL,
   "openai/gpt-5.6-luna",
+  "google/gemini-3.1-flash-lite",
   "google/gemini-3.7-flash",
   "google/gemini-3.6-flash",
+  "openai/gpt-5-nano",
+  "qwen/qwen3.8-flash",
+  "z-ai/glm-5.3-flash",
+  "deepseek/deepseek-v4-flash-vision-exp",
   "openai/gpt-5.6-sol",
 ] as const;
 
 export type AuditEvaluatorModel = (typeof AUDIT_EVALUATOR_MODELS)[number];
+
+export const AUDIT_BENCHMARK_MODELS = [
+  "google/gemini-3.1-flash-lite",
+  "openai/gpt-5.6-luna",
+  "google/gemini-3.7-flash",
+  "openai/gpt-5-nano",
+  "qwen/qwen3.8-flash",
+  "z-ai/glm-5.3-flash",
+  "deepseek/deepseek-v4-flash-vision-exp",
+  HARNESS_MODEL,
+] as const satisfies readonly AuditEvaluatorModel[];
+
+export const AUDIT_BENCHMARK_MODEL_PROFILES: Record<
+  (typeof AUDIT_BENCHMARK_MODELS)[number],
+  {
+    nativePdf: boolean;
+    productionEligible: boolean;
+    role: string;
+    structuredOutput: "JSON_SCHEMA" | "JSON_ONLY";
+  }
+> = {
+  "google/gemini-3.1-flash-lite": {
+    nativePdf: true,
+    productionEligible: true,
+    role: "Candidato principal de extração multimodal econômica",
+    structuredOutput: "JSON_SCHEMA",
+  },
+  "openai/gpt-5.6-luna": {
+    nativePdf: true,
+    productionEligible: true,
+    role: "Candidato econômico de baixo risco de integração",
+    structuredOutput: "JSON_SCHEMA",
+  },
+  "google/gemini-3.7-flash": {
+    nativePdf: true,
+    productionEligible: true,
+    role: "Desafiante de qualidade multimodal",
+    structuredOutput: "JSON_SCHEMA",
+  },
+  "openai/gpt-5-nano": {
+    nativePdf: true,
+    productionEligible: true,
+    role: "Extração econômica sobre OCR preparado",
+    structuredOutput: "JSON_SCHEMA",
+  },
+  "qwen/qwen3.8-flash": {
+    nativePdf: false,
+    productionEligible: true,
+    role: "Extração multimodal após parser",
+    structuredOutput: "JSON_SCHEMA",
+  },
+  "z-ai/glm-5.3-flash": {
+    nativePdf: false,
+    productionEligible: false,
+    role: "Desafiante econômico sem garantia de JSON Schema",
+    structuredOutput: "JSON_ONLY",
+  },
+  "deepseek/deepseek-v4-flash-vision-exp": {
+    nativePdf: false,
+    productionEligible: false,
+    role: "Benchmark experimental apenas com corpus sanitizado",
+    structuredOutput: "JSON_ONLY",
+  },
+  "openai/gpt-5.6-terra": {
+    nativePdf: true,
+    productionEligible: true,
+    role: "Controle atual",
+    structuredOutput: "JSON_SCHEMA",
+  },
+};
 export type AuditReasoningEffort = "high" | "max" | "xhigh";
 
 const AUDIT_EVALUATOR_MODEL_SET = new Set<string>(AUDIT_EVALUATOR_MODELS);
+const EXTRACTION_RUNTIME_MODELS = new Set<string>([
+  HARNESS_MODEL,
+  HARNESS_FALLBACK_MODEL,
+  FAST_EXTRACTION_MODEL,
+  FAST_EXTRACTION_REVIEW_MODEL,
+  "openai/gpt-5.6-luna",
+  "openai/gpt-5-nano",
+  "qwen/qwen3.8-flash",
+]);
 const AUDIT_REASONING_EFFORT_SET = new Set<AuditReasoningEffort>([
   "high",
   "max",
@@ -82,6 +169,59 @@ export function resolveHarnessModel(
 
 export function resolvePdfModel(configured: string | undefined) {
   return resolveHarnessModel(configured, HARNESS_PDF_MODEL);
+}
+
+export function resolveExtractionPipelineMode(
+  configured: string | undefined,
+): ExtractionPipelineMode {
+  const mode = configured?.trim() || "legacy";
+  if (mode !== "legacy" && mode !== "adaptive") {
+    throw new Error(
+      "OPENROUTER_EXTRACTION_PIPELINE must be legacy or adaptive.",
+    );
+  }
+  return mode;
+}
+
+/**
+ * The adaptive path separates mechanical document reading from the expensive
+ * audit. Production stays on the legacy pair unless the environment opts in.
+ */
+export function resolveExtractionModel(
+  configured: string | undefined,
+  mode: ExtractionPipelineMode,
+  kind: "document" | "pdf" = "document",
+) {
+  const fallback =
+    mode === "adaptive"
+      ? FAST_EXTRACTION_MODEL
+      : kind === "pdf"
+        ? HARNESS_PDF_MODEL
+        : HARNESS_MODEL;
+  const model = configured?.trim() || fallback;
+  if (!EXTRACTION_RUNTIME_MODELS.has(model)) {
+    throw new Error(
+      `OpenRouter extraction model is not approved: ${model}.`,
+    );
+  }
+  return model;
+}
+
+export function resolveExtractionFallbackModel(
+  configured: string | undefined,
+  mode: ExtractionPipelineMode,
+) {
+  const fallback =
+    mode === "adaptive"
+      ? FAST_EXTRACTION_REVIEW_MODEL
+      : HARNESS_FALLBACK_MODEL;
+  const model = configured?.trim() || fallback;
+  if (!EXTRACTION_RUNTIME_MODELS.has(model)) {
+    throw new Error(
+      `OpenRouter extraction fallback model is not approved: ${model}.`,
+    );
+  }
+  return model;
 }
 
 /**

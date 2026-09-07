@@ -6,8 +6,6 @@ import { useRef, useState } from "react";
 
 import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
 import {
-  formatFindingValue,
-  formatFindingValueLines,
   formatReviewerFindingParts,
   humanizeReviewerFindingText,
 } from "@/features/internal-notes/finding-display";
@@ -19,10 +17,7 @@ import type {
   NoteDetailItem,
 } from "./data";
 import { AuditFeedbackPanel } from "./audit-feedback-panel";
-import {
-  findingComparisonDifference,
-  findingComparisonLabels,
-} from "./finding-comparison-labels";
+import { buildReviewerMobileComparison } from "./reviewer-mobile-comparison";
 import {
   extractFindingEvidenceObservations,
   findingObservationKindLabel,
@@ -297,19 +292,7 @@ function FindingSummary({
 }) {
   const description = humanizeReviewerFindingText(finding.description);
   const explanation = humanizeReviewerFindingText(finding.explanation);
-  const labels = findingComparisonLabels(finding);
-  const difference = findingComparisonDifference(finding);
-  const actual = formatFindingValueLines(
-    formatFindingValue(finding.actualValue, "Não informado"),
-  ).map(humanizeReviewerFindingText);
-  const expected = formatFindingValueLines(
-    formatFindingValue(finding.expectedValue, "Sem referência comparável"),
-  ).map(humanizeReviewerFindingText);
-  const hasMeaningfulComparison =
-    finding.expectedValue !== null &&
-    finding.actualValue !== null &&
-    formatFindingValue(finding.expectedValue) !==
-      formatFindingValue(finding.actualValue);
+  const comparison = buildReviewerMobileComparison(finding);
   const showExplanation = reviewerTextIsDistinct(explanation, [description]);
   const evidence = findingEvidence(finding, description, explanation);
   const firstObservation = evidence.observations[0] ?? null;
@@ -323,21 +306,41 @@ function FindingSummary({
       </div>
       <p className={styles.focusDescription}>{description}</p>
 
-      {hasMeaningfulComparison ? (
-        <section className={styles.comparison} aria-label="Comparativo do achado">
-          <div className={styles.comparisonActual}>
-            <h2>{labels.actual}</h2>
-            <p>{actual.map((line, lineIndex) => <span key={`${line}-${lineIndex}`}>{line}</span>)}</p>
-          </div>
-          <div className={styles.comparisonExpected}>
-            <h2>{labels.expected}</h2>
-            <p>{expected.map((line, lineIndex) => <span key={`${line}-${lineIndex}`}>{line}</span>)}</p>
-          </div>
-          {difference ? (
+      {comparison.cards.length ? (
+        <section
+          aria-label="Comparativo do achado"
+          className={styles.comparison}
+          data-mode={comparison.mode.toLowerCase()}
+        >
+          {comparison.cards.map((card, cardIndex) => (
+            <div
+              className={
+                card.tone === "actual"
+                  ? styles.comparisonActual
+                  : card.tone === "expected"
+                    ? styles.comparisonExpected
+                    : styles.comparisonNeutral
+              }
+              key={`${card.label}-${cardIndex}`}
+            >
+              <h2>{card.label}</h2>
+              <p>
+                {card.lines.map((line, lineIndex) => (
+                  <span key={`${line}-${lineIndex}`}>
+                    {humanizeReviewerFindingText(line)}
+                  </span>
+                ))}
+              </p>
+            </div>
+          ))}
+          {comparison.difference ? (
             <div className={styles.comparisonDifference}>
               <span>Diferença</span>
-              <strong>{difference}</strong>
+              <strong>{comparison.difference}</strong>
             </div>
+          ) : null}
+          {comparison.hint ? (
+            <p className={styles.comparisonHint}>{comparison.hint}</p>
           ) : null}
         </section>
       ) : null}

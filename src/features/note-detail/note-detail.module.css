@@ -1155,6 +1155,79 @@
   overflow-wrap: anywhere;
 }
 
+.reviewerRequiredFields {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.reviewerRequiredFieldsSummary {
+  background: #f7faff;
+  border: 1px solid #dce5ef;
+  border-radius: 8px;
+  color: #17345e;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 9px 10px;
+}
+
+.reviewerRequiredFields > details {
+  border: 1px dashed #cbd9ea;
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.reviewerRequiredFields > details > summary {
+  color: #075cff;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  list-style-position: inside;
+  padding: 9px 10px;
+}
+
+.reviewerRequiredFields > details > div {
+  display: grid;
+  gap: 8px;
+  padding: 0 8px 8px;
+}
+
+.reviewerRequiredFields article {
+  background: #f8faff;
+  border: 1px solid #e0e8f2;
+  border-radius: 7px;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.reviewerRequiredFields article > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.reviewerRequiredFields article strong {
+  color: #17345e;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.reviewerRequiredFields article small {
+  color: #637493;
+  flex: 0 0 auto;
+  font-size: 10px;
+}
+
+.reviewerRequiredFields article p {
+  color: #526788;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .evidenceObservationList {
   display: grid;
   gap: 9px;
@@ -1335,6 +1408,83 @@
   background: #e5f6ec;
 }
 
+.comparison.comparisonConflict {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.comparison.comparisonConflict > .comparisonConflictCard {
+  background: #f7f9fc;
+  border-right: 0;
+  border-color: #d9e3ee;
+}
+
+.comparisonConflictCard h3 {
+  color: #526788;
+}
+
+.comparisonConflictCard span {
+  background: #fff;
+  border: 1px solid #d9e3ee;
+  color: #17345e;
+  margin-right: 6px;
+}
+
+.comparison.comparisonConflict > .comparisonConflictCard:only-child {
+  grid-column: 1 / -1;
+}
+
+.comparison.comparisonConflict > .comparisonConflictHint {
+  grid-column: 1 / -1;
+  color: #637493;
+  display: block;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 9px;
+}
+
+@media (min-width: 1024px) {
+  .comparison {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    gap: 10px;
+  }
+
+  .comparison > div {
+    border: 1px solid #d9e3ee;
+    border-radius: 8px;
+  }
+
+  .comparison > div:first-child {
+    border-right: 1px solid #d9e3ee;
+  }
+
+  .comparison > .comparisonActual,
+  .comparison > .comparisonExpected,
+  .comparison.comparisonConflict > .comparisonConflictCard {
+    border: 1px solid #d9e3ee;
+    border-radius: 8px;
+  }
+
+  .comparison > .comparisonDifference {
+    border: 1px solid #d9e3ee;
+    border-radius: 8px;
+    margin: 0;
+  }
+
+  .comparison > .comparisonConflictHint {
+    background: #f7f9fc;
+    border: 1px solid #d9e3ee;
+    border-radius: 8px;
+    margin: 0;
+    padding: 9px 12px;
+  }
+
+  .comparison.comparisonConflict > .comparisonConflictCard:only-of-type {
+    grid-column: 1 / -1;
+  }
+}
+
 .affectedItems,
 .justification {
   margin-left: 25px;
@@ -1466,6 +1616,60 @@
 
 .analysisBottomBack {
   margin-top: 14px;
+}
+
+.desktopReadAction {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.desktopReadAction button {
+  align-items: center;
+  background: #075cff;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 800;
+  gap: 10px;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 22px;
+  width: 100%;
+}
+
+.desktopReadAction button:hover {
+  background: #004bd4;
+}
+
+.desktopReadAction button:focus-visible {
+  outline: 3px solid rgba(7, 92, 255, .28);
+  outline-offset: 3px;
+}
+
+.desktopReadAction button:disabled {
+  cursor: default;
+  opacity: .72;
+}
+
+.desktopReadAction button span {
+  align-items: center;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  display: inline-flex;
+  height: 21px;
+  justify-content: center;
+  width: 21px;
+}
+
+.desktopReadAction p {
+  color: #a12622;
+  font-size: 12px;
+  margin: 0;
+  text-align: center;
 }
 
 .analysisEvidenceCard {
@@ -1998,6 +2202,10 @@
 }
 
 @media (max-width: 1023px) {
+  .desktopReadAction {
+    display: none;
+  }
+
   .reviewerDesktopAnalysis {
     display: none;
   }
@@ -2368,6 +2576,10 @@
   .comparison {
     grid-template-columns: 1fr;
     margin-left: 0;
+  }
+
+  .comparison.comparisonConflict {
+    grid-template-columns: 1fr;
   }
 
   .evidenceFacts {

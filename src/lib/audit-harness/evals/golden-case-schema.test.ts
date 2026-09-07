@@ -21,6 +21,18 @@ test("contrato versionado aceita o arquivo de fixtures sintéticas", () => {
   assert.equal(parsed.success, true);
 });
 
+test("corpus preserva a cobertura documental explícita dos conjuntos completos", () => {
+  const file = goldenCasesFileSchema.parse(loadFixture());
+  const complete = file.cases.filter(
+    (entry) => entry.input.invoice.supportCoverage?.status === "COMPLETE",
+  );
+  assert.equal(complete.length, 4);
+  for (const entry of complete) {
+    assert.ok(entry.input.invoice.supportCoverage?.evidence);
+    assert.deepEqual(entry.input.invoice.supportCoverage?.missingDocuments, []);
+  }
+});
+
 test("corpus inclui todas as categorias genericas da rodada de estabilizacao", () => {
   const file = loadFixture();
   const categories = new Set(

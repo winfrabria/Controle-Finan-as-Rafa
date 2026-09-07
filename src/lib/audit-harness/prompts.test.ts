@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AUDIT_DISCOVERY_PROMPT, INVOICE_EXTRACTION_PROMPT } from "./prompts";
+import {
+  AUDIT_DISCOVERY_PROMPT,
+  AUDIT_VERIFICATION_PROMPT,
+  INVOICE_EXTRACTION_PROMPT,
+} from "./prompts";
 
 test("exige cobertura completa de fichas de reembolso e valores concorrentes", () => {
   assert.match(INVOICE_EXTRACTION_PROMPT.system, /todas as páginas/i);
@@ -38,4 +42,11 @@ test("separa contradição interna de contexto externo", () => {
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /variação textual[\s\S]*identificadores fiscais diferentes/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /associação de placa[\s\S]*regra ativa da obra/i);
   assert.match(AUDIT_DISCOVERY_PROMPT.system, /diferença de data[\s\S]*mesma transação/i);
+});
+
+test("verificador trata achado inicial como hipótese e exige confirmação explícita", () => {
+  assert.match(AUDIT_VERIFICATION_PROMPT.system, /hipóteses não confiáveis/i);
+  assert.match(AUDIT_VERIFICATION_PROMPT.system, /PDF original/i);
+  assert.match(AUDIT_VERIFICATION_PROMPT.system, /confirmsInitialFindingCode/i);
+  assert.match(AUDIT_VERIFICATION_PROMPT.system, /Página inexistente/i);
 });

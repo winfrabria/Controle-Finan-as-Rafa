@@ -8,9 +8,15 @@ import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity
 import { sanitizeReviewerText } from "@/features/note-detail/data/reviewer-data-policy";
 import {
   compactFindingFieldPath,
-  formatFindingValueLines,
+  formatReviewerConflictValueCards,
+  formatReviewerFindingValueLines,
   humanizeFindingText,
+  reviewerObservationValue,
 } from "@/features/internal-notes/finding-display";
+import {
+  formatFindingObservationAmount,
+  formatFindingObservationDate,
+} from "@/features/note-detail/finding-observations";
 
 import { Icon } from "./ui-icons";
 import { PortalShell, type PortalRole } from "./portal-shell";
@@ -247,7 +253,9 @@ function compactEvidenceDetails(finding: NoteFindingVisual) {
 }
 
 function compactEvidenceValue(label: string, value: string) {
-  return label === "Campo" ? compactFindingFieldPath(value) : value;
+  return compactFindingDescription(
+    label === "Campo" ? compactFindingFieldPath(value) : value,
+  );
 }
 
 function compactFindingDescription(value: string) {
@@ -289,6 +297,34 @@ function findingListComparisonLabels(finding: NoteFindingVisual) {
     return { actual: "Valor encontrado", expected: "Valor de referência" };
   }
   return { actual: "Encontrado", expected: "Esperado / referência" };
+}
+
+function findingLocationKindLabel(value: string) {
+  const labels: Record<string, string> = {
+    BILL: "Boleto",
+    BOLETO: "Boleto",
+    DISCOUNT: "Desconto",
+    FISCAL_DOCUMENT: "Nota fiscal",
+    INVOICE: "Nota fiscal",
+    NF: "Nota fiscal",
+    NFE: "Nota fiscal",
+    NFCE: "Nota fiscal",
+    OTHER: "Outro registro",
+    PAYMENT: "Pagamento",
+    RECEIPT: "Recibo",
+    SALE: "Venda ou pedido",
+    SHEET: "Ficha",
+  };
+  const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  return labels[normalized] ?? (humanizeFindingText(value) || "Fonte não identificada");
+}
+
+function findingLocationDate(value: string) {
+  return formatFindingObservationDate(value) ?? value;
+}
+
+function findingLocationAmount(value: string) {
+  return formatFindingObservationAmount(value) ?? value;
 }
 
 export function ReviewerNotesView({
@@ -871,8 +907,35 @@ export function ReviewerNotesView({
                       ].filter(Boolean);
                       const comparisonLabels =
                         findingListComparisonLabels(finding);
+                      const comparisonMode =
+                        finding.comparisonMode ??
+                        (finding.referenceBasis
+                          ? "REFERENCE"
+                          : "CONFLICT");
                       const severityTone = findingSeverityTone(
                         finding.severity,
+                      );
+                      const findingIdentity = {
+                        category: finding.category,
+                        code: finding.code,
+                        title: finding.title,
+                      };
+                      const conflictValueCards =
+                        formatReviewerConflictValueCards(
+                          finding.actualValue,
+                          finding.expectedValue,
+                          findingIdentity,
+                          (finding.evidenceLocations ?? []).map((location) => ({
+                            label: findingLocationKindLabel(location.kind),
+                            value: reviewerObservationValue(location, findingIdentity),
+                          })),
+                        );
+                      const visibleEvidenceLocations =
+                        finding.evidenceLocations?.slice(0, 2) ?? [];
+                      const hiddenEvidenceLocationCount = Math.max(
+                        (finding.evidenceLocations?.length ?? 0) -
+                          visibleEvidenceLocations.length,
+                        0,
                       );
                       return (
                         <details
@@ -896,12 +959,34 @@ export function ReviewerNotesView({
                           <div className={styles.findingBody}>
                             <p className={styles.findingBodyLead}>{shortDescription}</p>
                             {finding.expectedValue || finding.actualValue ? (
-                              <div className={styles.comparisonGrid}>
-                                {finding.actualValue ? (
-                                  <div className={styles.comparisonActual}>
+                              <div
+                                className={styles.comparisonGrid}
+                                data-mode={comparisonMode.toLowerCase()}
+                              >
+                                {comparisonMode === "CONFLICT" ? (
+                                  conflictValueCards.map((card, cardIndex) => (
+                                    <div
+                                      className={styles.comparisonConflict}
+                                      key={`${card.label}-${cardIndex}`}
+                                    >
+                                      <span>{card.label}</span>
+                                      <strong>
+                                        {card.lines.map((line, lineIndex) => (
+                                          <i key={`${line}-${lineIndex}`}>{line}</i>
+                                        ))}
+                                      </strong>
+                                    </div>
+                                  ))
+                                ) : finding.actualValue ? (
+                                  <div
+                                    className={styles.comparisonActual}
+                                  >
                                     <span>{comparisonLabels.actual}</span>
                                     <strong>
-                                      {formatFindingValueLines(finding.actualValue).map(
+                                      {formatReviewerFindingValueLines(
+                                        finding.actualValue,
+                                        findingIdentity,
+                                      ).map(
                                         (line, lineIndex) => (
                                           <i key={`${line}-${lineIndex}`}>{line}</i>
                                         ),
@@ -909,11 +994,14 @@ export function ReviewerNotesView({
                                     </strong>
                                   </div>
                                 ) : null}
-                                {finding.expectedValue ? (
+                                {comparisonMode === "REFERENCE" && finding.expectedValue ? (
                                   <div className={styles.comparisonExpected}>
                                     <span>{comparisonLabels.expected}</span>
                                     <strong>
-                                      {formatFindingValueLines(finding.expectedValue).map(
+                                      {formatReviewerFindingValueLines(
+                                        finding.expectedValue,
+                                        findingIdentity,
+                                      ).map(
                                         (line, lineIndex) => (
                                           <i key={`${line}-${lineIndex}`}>{line}</i>
                                         ),
@@ -921,32 +1009,64 @@ export function ReviewerNotesView({
                                     </strong>
                                   </div>
                                 ) : null}
+                                {comparisonMode === "CONFLICT" ? (
+                                  <small className={styles.comparisonConflictHint}>
+                                    Os valores acima foram encontrados em fontes
+                                    diferentes. Não há referência comprovada para
+                                    escolher um deles como correto.
+                                  </small>
+                                ) : null}
                               </div>
                             ) : null}
-                            {finding.evidenceLocations?.length ? (
+                            {visibleEvidenceLocations.length ? (
                               <div className={styles.findingLocations}>
                                 <span>Onde encontramos</span>
                                 <div>
-                                  {finding.evidenceLocations.map((location, locationIndex) => (
+                                  {visibleEvidenceLocations.map((location, locationIndex) => (
                                     <article key={`${location.kind}-${location.page ?? ""}-${locationIndex}`}>
                                       <header>
-                                        <strong>{location.kind}</strong>
+                                        <strong>{findingLocationKindLabel(location.kind)}</strong>
                                         {location.page ? <small>Página {location.page}</small> : null}
                                       </header>
                                       {location.label ? <b>{humanizeFindingText(location.label)}</b> : null}
                                       {location.text ? <p>{compactFindingDescription(humanizeFindingText(location.text))}</p> : null}
                                       {location.amount || location.date ? (
                                         <footer>
-                                          {location.date ? <span>{location.date}</span> : null}
-                                          {location.amount ? <strong>{location.amount}</strong> : null}
+                                          {location.date ? <span>{findingLocationDate(location.date)}</span> : null}
+                                          {location.amount ? <strong>{findingLocationAmount(location.amount)}</strong> : null}
                                         </footer>
                                       ) : null}
                                     </article>
                                   ))}
                                 </div>
+                                {hiddenEvidenceLocationCount > 0 ? (
+                                  <small className={styles.moreEvidenceLocations}>
+                                    +{hiddenEvidenceLocationCount} {hiddenEvidenceLocationCount === 1
+                                      ? "outro local na análise completa"
+                                      : "outros locais na análise completa"}
+                                  </small>
+                                ) : null}
+                              </div>
+                            ) : evidenceDetails.length ? (
+                              <div className={styles.findingLocations}>
+                                <span>Onde encontramos</span>
+                                <div>
+                                  <article>
+                                    <header>
+                                      <strong>Evidência registrada</strong>
+                                    </header>
+                                    {evidenceDetails.map((part, partIndex) => (
+                                      <p key={`${part.label}-${partIndex}`}>
+                                        <b>{part.label}</b>: {part.value}
+                                      </p>
+                                    ))}
+                                  </article>
+                                </div>
                               </div>
                             ) : null}
-                            {!hasStructuredEvidence && finding.evidence ? (
+                            {finding.evidence &&
+                            (!hasStructuredEvidence ||
+                              (!visibleEvidenceLocations.length && !evidenceDetails.length)) ? (
                               <div className={styles.evidenceBlock}>
                                 <span>Trecho da evidência</span>
                                 <p>{humanizeFindingText(finding.evidence)}</p>

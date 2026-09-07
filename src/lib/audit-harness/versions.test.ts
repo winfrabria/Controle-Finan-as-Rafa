@@ -2,10 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  FAST_EXTRACTION_MODEL,
+  FAST_EXTRACTION_REVIEW_MODEL,
   HARNESS_MODEL,
   HARNESS_PDF_MODEL,
   resolveAuditEvaluatorModel,
   resolveAuditReasoningEffort,
+  resolveExtractionFallbackModel,
+  resolveExtractionModel,
+  resolveExtractionPipelineMode,
   resolveHarnessModel,
   resolveHarnessVerifierMode,
   resolveHarnessVerifierModel,
@@ -46,6 +51,27 @@ test("troca o avaliador somente pela variável experimental explícita", () => {
   assert.equal(resolveAuditReasoningEffort("max"), "max");
   assert.throws(() => resolveAuditEvaluatorModel("modelo/desconhecido"));
   assert.throws(() => resolveAuditReasoningEffort("medium"));
+});
+
+test("pipeline adaptativo separa extração rápida, revisão visual e auditoria", () => {
+  assert.equal(resolveExtractionPipelineMode(undefined), "legacy");
+  assert.equal(resolveExtractionPipelineMode("adaptive"), "adaptive");
+  assert.equal(
+    resolveExtractionModel(undefined, "adaptive"),
+    FAST_EXTRACTION_MODEL,
+  );
+  assert.equal(
+    resolveExtractionModel(undefined, "adaptive", "pdf"),
+    FAST_EXTRACTION_MODEL,
+  );
+  assert.equal(
+    resolveExtractionFallbackModel(undefined, "adaptive"),
+    FAST_EXTRACTION_REVIEW_MODEL,
+  );
+  assert.throws(() => resolveExtractionPipelineMode("experimental"));
+  assert.throws(() =>
+    resolveExtractionModel("modelo/sem-contrato", "adaptive"),
+  );
 });
 
 test("verificador fica off por padrão e enforce exige gate humano", () => {

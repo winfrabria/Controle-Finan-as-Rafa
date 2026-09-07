@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { effectiveRunReasoning } from "@/lib/integrations/openrouter/extraction-reasoning";
 import { notFound } from "next/navigation";
 
 import { attachmentReference } from "@/features/internal-notes/attachment-reference";
@@ -314,7 +315,7 @@ async function loadLog(kind: string, id: string): Promise<LoadedLog | null> {
         { label: "Status", value: run.status },
         { label: "Modelo", value: run.model },
         { label: "Provedor", value: run.provider ?? "Não informado" },
-        { label: "Esforço", value: run.reasoningEffort },
+        { label: "Esforço", value: effectiveRunReasoning(run) },
         { label: "Versão da política", value: run.policyVersion },
         { label: "Versão do prompt", value: run.promptVersion },
         { label: "Versão do schema", value: run.schemaVersion },

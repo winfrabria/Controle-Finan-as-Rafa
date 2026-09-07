@@ -1,4 +1,5 @@
 import { LogsView } from "@/features/workspace-ui/portal-views";
+import { effectiveRunReasoning } from "@/lib/integrations/openrouter/extraction-reasoning";
 import { auditResultLabel } from "@/features/workspace-ui/audit-result-label";
 import type { AuditLog, LogClassification } from "@/features/workspace-ui/logs-explorer";
 import { attachmentReference } from "@/features/internal-notes/attachment-reference";
@@ -347,7 +348,7 @@ export default async function AdminLogsPage({ searchParams }: PageProps) {
       status: runStatusLabel(run.status),
       technical: {
         costUsd: run.costUsd?.toString(),
-        effort: run.reasoningEffort,
+        effort: effectiveRunReasoning(run),
         error: run.errorCode ?? undefined,
         explanation: narrative.explanation,
         latencyMs: run.latencyMs ?? undefined,

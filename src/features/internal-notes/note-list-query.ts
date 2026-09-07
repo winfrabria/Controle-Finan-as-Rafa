@@ -13,7 +13,12 @@ import { prisma } from "@/server/db/prisma";
 
 import { normalizeResponsibleName } from "@/lib/works/responsible-name";
 
-import { formatFindingParts, formatFindingValue } from "./finding-display";
+import {
+  findingComparisonMetadata,
+  formatFindingParts,
+  formatFindingValue,
+  formatReviewerFindingParts,
+} from "./finding-display";
 import {
   findingObservationKindLabel,
   formatFindingObservationAmount,
@@ -55,6 +60,7 @@ export type NoteListItem = {
     actualValue: string | null;
     category: string;
     code?: string;
+    comparisonMode?: "REFERENCE" | "CONFLICT";
     description: string;
     evidence: string | null;
     evidenceDetails: { label: string; value: string }[];
@@ -68,6 +74,7 @@ export type NoteListItem = {
     }>;
     expectedValue: string | null;
     justification: string;
+    referenceBasis?: string | null;
     severity: string;
     title: string;
   }[];
@@ -320,6 +327,13 @@ export async function listNotes(
       documentNumber: note.documentNumber,
       findingCount: note._count.findings,
       findings: note.findings.map((finding) => {
+        const comparison = findingComparisonMetadata(
+          finding.evidence,
+          finding.expectedValue,
+        );
+        const evidenceDetails = options.sanitizeForReviewer
+          ? formatReviewerFindingParts(finding.evidence)
+          : formatFindingParts(finding.evidence);
         const evidenceLocations = summarizeFindingEvidenceObservations(
           extractFindingEvidenceObservations(finding.evidence),
         )
@@ -343,12 +357,16 @@ export async function listNotes(
           actualValue: stringifyJson(finding.actualValue),
           category: finding.category,
           code: finding.code,
+          comparisonMode: comparison.comparisonMode,
           description: finding.description,
-          evidence: stringifyJson(finding.evidence),
-          evidenceDetails: formatFindingParts(finding.evidence),
+          evidence: options.sanitizeForReviewer
+            ? evidenceDetails.map((part) => `${part.label}: ${part.value}`).join(" · ") || null
+            : stringifyJson(finding.evidence),
+          evidenceDetails,
           evidenceLocations,
           expectedValue: stringifyJson(finding.expectedValue),
           justification: finding.justification,
+          referenceBasis: comparison.referenceBasis,
           severity: finding.severity,
           title: finding.title,
         };

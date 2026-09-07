@@ -6,6 +6,7 @@ export {
   type InvoiceExtractionAttempt,
   type InvoiceExtractionRequest,
   type InvoiceExtractionResult,
+  type InvoiceExtractionQualityLimitation,
   OpenRouterClientError,
   OpenRouterInvoiceExtractionClient,
 } from "@/server/integrations/openrouter/client";
@@ -23,3 +24,14 @@ export {
   type VerificationRequest,
   type VerificationResult,
 } from "@/server/integrations/openrouter/verification-client";
+export {
+  getOpenRouterOutputTokenLimit,
+  getOpenRouterOutputTokenParameter,
+  getOpenRouterProviderStatusCode,
+  getOpenRouterProviderDiagnostic,
+  getOpenRouterProviderRouting,
+  isOpenRouterNonRetryableStatusCode,
+  isOpenRouterEndpointUnavailable404,
+  type OpenRouterOutputTokenLimit,
+  type OpenRouterOutputTokenParameter,
+} from "@/server/integrations/openrouter/routing";

@@ -11,7 +11,7 @@ import {
   publicCapabilityCookieOptions,
   PUBLIC_CAPABILITY_TTL_SECONDS,
 } from "@/server/notes/public-capability";
-import { processProcessingJob } from "@/server/notes/processing-jobs";
+import { isProcessingJobClaimRace, processProcessingJob } from "@/server/notes/processing-jobs";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -130,6 +130,7 @@ export async function POST(request: Request) {
           workerId: `upload:${requestId}`,
         });
       } catch (error) {
+        if (isProcessingJobClaimRace(error)) return;
         console.error("Background note processing failed", {
           jobId: note.processingJobId,
           message: error instanceof Error ? error.message : "unknown error",

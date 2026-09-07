@@ -8,7 +8,7 @@ import {
 } from "@/generated/prisma/enums";
 import { prisma } from "@/server/db/prisma";
 import { toPublicContextQuestion } from "@/server/notes/context-questions";
-import { processProcessingJob } from "@/server/notes/processing-jobs";
+import { isProcessingJobClaimRace, processProcessingJob } from "@/server/notes/processing-jobs";
 import { statusFor } from "@/server/notes/public-status";
 import {
   getPublicCapabilityCookieName,
@@ -118,6 +118,9 @@ export async function GET(
           workerId: `public-status:${id}`,
         });
       } catch (error) {
+        // Upload and polling can race to claim the same job. The losing worker
+        // did not fail processing; the winner continues under the durable lock.
+        if (isProcessingJobClaimRace(error)) return;
         console.error("Public status processing recovery failed", {
           jobId: latestJob.id,
           message: error instanceof Error ? error.message : "unknown error",

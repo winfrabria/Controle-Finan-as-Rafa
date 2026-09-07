@@ -1,5 +1,6 @@
 import type { HarnessFinding, HarnessInvoice } from "./contracts";
-import { isOcrFallbackExtraction } from "@/lib/integrations/openrouter/extraction-contract";
+import { INVALID_DOCUMENT_DATE_WARNING, isOcrFallbackExtraction } from "@/lib/integrations/openrouter/extraction-contract";
+import { isValidIsoCalendarDate } from "@/lib/calendar-date";
 import {
   HARNESS_FALLBACK_MODEL,
   HARNESS_MODEL,
@@ -138,9 +139,26 @@ export function isReadFailure(invoice: HarnessInvoice) {
  * is not a read failure: it is completed as information insufficient, while
  * objective findings supported by the document remain eligible to win.
  */
+export function hasUncertainSupportCoverage(invoice: HarnessInvoice) {
+  if (invoice.supportCoverage?.status === "PARTIAL") return true;
+  const requiresSupportCoverage =
+    invoice.documentKind === "COMPOSITE" ||
+    invoice.documentKind === "REIMBURSEMENT" ||
+    invoice.items.some((item) => item.documentRole === "AGGREGATE_PAYMENT");
+  return requiresSupportCoverage && invoice.supportCoverage?.status !== "COMPLETE";
+}
+
 export function hasInsufficientAuditBasis(invoice: HarnessInvoice) {
   if (isOcrFallbackExtraction(invoice)) return true;
   if (hasInvalidExplicitTotalLayer(invoice)) return true;
+  if (hasUncertainSupportCoverage(invoice)) return true;
+  if (
+    invoice.warnings.includes(INVALID_DOCUMENT_DATE_WARNING) ||
+    (invoice.issuedAt !== null && !isValidIsoCalendarDate(invoice.issuedAt)) ||
+    invoice.items.some((item) => item.evidenceObservations?.some(
+      (observation) => observation.date !== null && !isValidIsoCalendarDate(observation.date),
+    ))
+  ) return true;
 
   const requiresItemCoverage =
     invoice.documentKind === "FISCAL_INVOICE" ||

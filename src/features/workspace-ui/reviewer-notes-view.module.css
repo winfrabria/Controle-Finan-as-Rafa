@@ -864,6 +864,34 @@
   color: #147247;
 }
 
+.comparisonGrid[data-mode="conflict"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.comparisonGrid > .comparisonConflict {
+  background: #f7f9fc;
+  border-color: #d9e3ee;
+}
+
+.comparisonGrid > .comparisonConflict span {
+  color: #526788;
+}
+
+.comparisonGrid > .comparisonConflict strong {
+  color: #17345e;
+}
+
+.comparisonGrid[data-mode="conflict"] > .comparisonConflict:only-child {
+  grid-column: 1 / -1;
+}
+
+.comparisonConflictHint {
+  grid-column: 1 / -1;
+  color: #637493;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .findingLocations {
   border-top: 1px solid #e5ebf3;
   display: grid;
@@ -911,6 +939,13 @@
 .findingLocations article footer span {
   color: #6c7f9f;
   font-size: 10px;
+}
+
+.moreEvidenceLocations {
+  color: #526788;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.4;
 }
 
 .findingLocations article b {
@@ -1594,6 +1629,10 @@
   }
 
   .comparisonGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .comparisonGrid[data-mode="conflict"] {
     grid-template-columns: 1fr;
   }
 
