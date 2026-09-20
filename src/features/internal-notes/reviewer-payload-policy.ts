@@ -14,27 +14,35 @@ export function sanitizeReviewerNoteListItem(item: NoteListItem): NoteListItem {
     ...item,
     processingFailureMessage: safeNullableText(item.processingFailureMessage ?? null),
     assurance: item.assurance ? { ...item.assurance, reason: sanitizeReviewerText(item.assurance.reason) } : null,
-    findings: item.findings.map((finding) => ({
-      ...finding,
-      actualValue: safeNullableText(finding.actualValue),
-      category: sanitizeReviewerText(finding.category),
-      description: sanitizeReviewerText(finding.description),
-      evidence: safeNullableText(finding.evidence),
-      evidenceDetails: finding.evidenceDetails.map((part) => ({
-        label: sanitizeReviewerText(part.label),
-        value: sanitizeReviewerText(part.value),
-      })),
-      evidenceLocations: finding.evidenceLocations?.map((location) => ({
-        ...location,
-        kind: sanitizeReviewerText(location.kind),
-        label: safeNullableText(location.label),
-        text: safeNullableText(location.text),
-        value: safeNullableText(location.value ?? null),
-      })) ?? [],
-      expectedValue: safeNullableText(finding.expectedValue),
-      justification: sanitizeReviewerText(finding.justification),
-      title: sanitizeReviewerText(finding.title),
-    })),
+    findings: item.findings.map((finding) => {
+      const publicFinding = { ...finding };
+      delete publicFinding.code;
+      delete publicFinding.comparisonMode;
+      delete publicFinding.referenceBasis;
+      delete publicFinding.requiresSourceReview;
+
+      return {
+        ...publicFinding,
+        actualValue: safeNullableText(finding.actualValue),
+        category: sanitizeReviewerText(finding.category),
+        description: sanitizeReviewerText(finding.description),
+        evidence: safeNullableText(finding.evidence),
+        evidenceDetails: finding.evidenceDetails.map((part) => ({
+          label: sanitizeReviewerText(part.label),
+          value: sanitizeReviewerText(part.value),
+        })),
+        evidenceLocations: finding.evidenceLocations?.map((location) => ({
+          ...location,
+          kind: sanitizeReviewerText(location.kind),
+          label: safeNullableText(location.label),
+          text: safeNullableText(location.text),
+          value: safeNullableText(location.value ?? null),
+        })) ?? [],
+        expectedValue: safeNullableText(finding.expectedValue),
+        justification: sanitizeReviewerText(finding.justification),
+        title: sanitizeReviewerText(finding.title),
+      };
+    }),
     primaryFinding: safeNullableText(item.primaryFinding),
   };
 }

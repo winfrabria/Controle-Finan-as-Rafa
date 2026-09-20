@@ -112,9 +112,15 @@ test(
         jobs: await prisma.processingJob.count({ where: { note: { workId: work.id } } }),
         notes: await prisma.note.count({ where: { workId: work.id } }),
       };
+      let attachmentRead = false;
       await assert.rejects(
         createNoteUpload({
-          bytes: Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+          bytes: async () => {
+            attachmentRead = true;
+            return Uint8Array.from([
+              0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+            ]);
+          },
           contentType: "image/png",
           fileName: "rate-limit.png",
           workId: work.id,
@@ -130,6 +136,11 @@ test(
           assert.equal(error.httpStatus, 429);
           return true;
         },
+      );
+      assert.equal(
+        attachmentRead,
+        false,
+        "a cota deve rejeitar antes de copiar ou interpretar o anexo",
       );
       assert.deepEqual(
         {

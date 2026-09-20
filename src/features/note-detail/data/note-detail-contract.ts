@@ -45,7 +45,7 @@ export type NoteDetailFinding = {
     lineNumber: number;
   } | null;
   category: string;
-  code: string;
+  code?: string;
   comparisonMode?: "REFERENCE" | "CONFLICT";
   createdAt: Date;
   description: string;
@@ -163,7 +163,7 @@ export type NoteDetailBase = {
     assurance: {
       band: AuditAssuranceBand;
       reason: string;
-      version: string;
+      version?: string;
     } | null;
     auditResult?: AuditResult | null;
     classification: NoteClassification | null;

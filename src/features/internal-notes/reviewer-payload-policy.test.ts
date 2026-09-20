@@ -29,6 +29,9 @@ test("sanitiza achados antes das props do REVIEWER sem mutar a origem", () => {
         evidenceDetails: [{ label: "Página", value: restrictedText }],
         expectedValue: restrictedText,
         justification: restrictedText,
+        code: "INTERNAL_RULE_CODE",
+        comparisonMode: "REFERENCE",
+        referenceBasis: "VERIFIED_POLICY",
         severity: "HIGH",
         requiresSourceReview: true,
         title: restrictedText,
@@ -59,7 +62,14 @@ test("sanitiza achados antes das props do REVIEWER sem mutar a origem", () => {
   assert.match(serialized, /Divergência confirmada/i);
   assert.match(original.findings[0]!.description, /Confiança: 93%/i);
   assert.equal(sanitized.assurance?.band, "LIMITED");
-  assert.equal(sanitized.findings[0].requiresSourceReview, true);
+  assert.equal(sanitized.findings[0].code, undefined);
+  assert.equal(sanitized.findings[0].comparisonMode, undefined);
+  assert.equal(sanitized.findings[0].referenceBasis, undefined);
+  assert.equal(sanitized.findings[0].requiresSourceReview, undefined);
+  assert.doesNotMatch(
+    serialized,
+    /INTERNAL_RULE_CODE|VERIFIED_POLICY|comparisonMode|referenceBasis|requiresSourceReview/,
+  );
   assert.match(original.assurance!.reason, /Confiança: 93%/i);
 });
 

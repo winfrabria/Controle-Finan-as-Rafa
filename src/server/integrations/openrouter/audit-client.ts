@@ -79,6 +79,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const POLICY_QUESTION_PATTERN =
   /\b(?:quais?|qual)\s+(?:regras?|pol[ií]ticas?|crit[eé]rios?|par[aâ]metros?|limites?)\b|\b(?:defina|estabele[çc]a|informe)\s+(?:as?\s+)?(?:regras?|pol[ií]ticas?|crit[eé]rios?|par[aâ]metros?|limites?)\b|\b(?:what|which)\s+(?:rules?|polic(?:y|ies)|criteria|parameters?|limits?)\b|\b(?:define|establish|provide|set)\s+(?:the\s+)?(?:rules?|polic(?:y|ies)|criteria|parameters?|limits?)\b/i;
+const SENSITIVE_QUESTION_PATTERN =
+  /\b(?:senha|password|passcode|pin|otp|2fa|mfa|token|segredo|secret|credencia(?:l|is)|credentials?|chave\s+(?:de\s+)?api|api\s*key|c[oó]digo\s+(?:de\s+)?(?:autentica[çc][aã]o|verifica[çc][aã]o|acesso)|authentication\s+code|verification\s+code|n[uú]mero\s+(?:do\s+)?cart[aã]o|card\s+number|cvv|cvc|conta\s+banc[aá]ria|bank\s+account|ag[eê]ncia\s+banc[aá]ria|chave\s+pix|pix\s+key|cpf)\b/i;
 const OPAQUE_OPTION_PATTERN = /^(?:all|any|unknown|undefined|null)\b/i;
 
 function usableSelectOptions(options: unknown) {
@@ -120,7 +122,25 @@ export function normalizeAuditContent(value: unknown) {
     if (!isRecord(question)) return [];
     const prompt = typeof question.prompt === "string" ? question.prompt.trim() : "";
     const type = question.type;
-    if (!prompt || POLICY_QUESTION_PATTERN.test(prompt)) return [];
+    const questionText = [
+      prompt,
+      typeof question.rationale === "string" ? question.rationale : "",
+      ...(Array.isArray(question.options)
+        ? question.options.flatMap((option) =>
+            isRecord(option)
+              ? [
+                  typeof option.label === "string" ? option.label : "",
+                  typeof option.value === "string" ? option.value : "",
+                ]
+              : [],
+          )
+        : []),
+    ].join(" ");
+    if (
+      !prompt ||
+      POLICY_QUESTION_PATTERN.test(prompt) ||
+      SENSITIVE_QUESTION_PATTERN.test(questionText)
+    ) return [];
 
     if (type !== "SINGLE_SELECT") {
       return [{ ...question, prompt, options: [] }];

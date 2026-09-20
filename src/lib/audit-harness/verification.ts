@@ -289,9 +289,6 @@ export type VerificationSelection = {
   reasons: string[];
 };
 
-const FINANCIAL_OR_DATE_FINDING_PATTERN =
-  /(?:^|[^a-z])(?:amounts?|totals?|prices?|values?|valor(?:es)?|preco(?:s)?|payment|pagamento|billing|fatura|cobranca|arithmetic|quantity|data|datas|dates?|periodo|period|emissao|issued|vencimento|due)(?:$|[^a-z])/u;
-
 function normalizedSemanticText(value: string) {
   return value
     .normalize("NFD")
@@ -407,25 +404,10 @@ function conflictClaimSet(values: unknown[]): Set<string> {
 }
 
 export function requiresIndependentAiConfirmation(finding: HarnessFinding) {
-  if (finding.source !== "AI_DISCOVERY" || finding.severity === "INFO") return false;
-  if (finding.comparisonMode === "CONFLICT" ||
-    (Array.isArray(finding.evidence.observations) && finding.evidence.observations.length >= 2)) return true;
-  const evidenceField = typeof finding.evidence.field === "string"
-    ? finding.evidence.field
-    : "";
-  const semanticIdentity = normalizedSemanticText(
-    `${finding.code} ${finding.category} ${evidenceField}`,
-  );
-  if (FINANCIAL_OR_DATE_FINDING_PATTERN.test(semanticIdentity)) return true;
-
-  const expected = comparableClaimValue(finding.expectedValue);
-  const actual = comparableClaimValue(finding.actualValue);
-  return (
-    expected !== null &&
-    actual !== null &&
-    ((expected.startsWith("money:") && actual.startsWith("money:")) ||
-      (expected.startsWith("date:") && actual.startsWith("date:")))
-  );
+  // Discovery is model-authored and receives document text that must be treated
+  // as untrusted. No non-informational discovery may decide the public
+  // classification by itself, irrespective of category or value type.
+  return finding.source === "AI_DISCOVERY" && finding.severity !== "INFO";
 }
 
 export function explicitlyConfirmedVerificationFindings(
@@ -811,7 +793,15 @@ export function resolveAuditAssurance(input: {
     return { band: "LIMITED", reason: "O arquivo não permitiu uma leitura confiável." };
   }
   if (input.selection.required && input.mode === "off") {
-    return { band: "LIMITED", reason: "O anexo possui fatores de risco que ainda não passaram pela verificação independente." };
+    return input.aiCoverage
+      ? {
+          band: "MEDIUM",
+          reason: "As regras e a auditoria cobriram os dados disponíveis. Hipóteses da IA que exigiam confirmação independente foram descartadas do diagnóstico.",
+        }
+      : {
+          band: "LIMITED",
+          reason: "A auditoria não comprovou cobertura suficiente dos dados disponíveis.",
+        };
   }
   if (input.selection.required && input.verificationStatus === "FAILED" && input.verificationFailureCode) {
     return { band: "LIMITED", reason: verificationFailureReason(input.verificationFailureCode) };

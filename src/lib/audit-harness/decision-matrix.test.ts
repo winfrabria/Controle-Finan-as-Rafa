@@ -190,14 +190,14 @@ test("documento OTHER legível sem base auditável termina como informação ins
   );
 });
 
-test("achado sustentado warning exige classificação suspeita", () => {
+test("achado confirmado pelo verificador exige classificação suspeita", () => {
   assert.equal(decideClassification({
     readFailed: false,
     deterministicCoverage: false,
     aiCoverage: false,
     findings: [{
       code: "X", title: "X", description: "X", category: "X", severity: "WARNING",
-      source: "AI_DISCOVERY", confidence: 0.8, justification: "Evidência objetiva.",
+      source: "AI_VERIFICATION", confidence: 0.8, justification: "Evidência objetiva.",
       references: ["DANFE:campo:value"],
       evidence: { field: "value", summary: "O campo diverge do documento." }, expectedValue: null, actualValue: "value",
       noteItemLineNumber: null,
@@ -336,7 +336,7 @@ test("divergência financeira da descoberta exige verificação independente", (
     },
   });
 
-  assert.equal(result.classification, "INFORMATION_INSUFFICIENT");
+  assert.equal(result.classification, "OK");
   assert.equal(result.findings.length, 0);
   assert.deepEqual(
     result.unconfirmedAiFindings.map((finding) => finding.code),
@@ -361,7 +361,7 @@ test("pergunta de contexto permanece quando a observação da IA é apenas infor
   }), "NEEDS_CONTEXT");
 });
 
-test("achado livre sustentado vai direto para suspeita mesmo com pergunta acessória", () => {
+test("achado livre sem verificação não supera uma pergunta de contexto", () => {
   assert.equal(decideClassification({
     readFailed: false,
     deterministicCoverage: true,
@@ -375,7 +375,7 @@ test("achado livre sustentado vai direto para suspeita mesmo com pergunta acess�
       evidence: { field: "valor", summary: "Venda de R$ 44,50 e pagamento de R$ 40,00." },
       expectedValue: "R$ 44,50", actualValue: "R$ 40,00", noteItemLineNumber: null,
     }],
-  }), "SUSPICIOUS");
+  }), "NEEDS_CONTEXT");
 });
 
 test("lacuna de cobertura impede falso total divergente e deduplica a mesma diferença", () => {
@@ -559,7 +559,7 @@ test("reanálise após contexto termina em informação insuficiente ou suspeita
     aiCoverage: true,
     findings: [{
       code: "CTX-CONFIRMED", title: "Divergência confirmada", description: "O valor diverge.", category: "TOTALS",
-      severity: "WARNING", source: "AI_DISCOVERY", confidence: 0.9,
+      severity: "WARNING", source: "AI_VERIFICATION", confidence: 0.9,
       justification: "A resposta confirmou a divergência observada.", references: ["DANFE:total"],
       evidence: { field: "totalAmount", summary: "O total informado não confere." },
       expectedValue: "100.00", actualValue: "150.00", noteItemLineNumber: null,
@@ -676,13 +676,13 @@ test("dois valores em pergunta de autorização externa não viram contradição
   assert.deepEqual(routed.promotedFindings, []);
 });
 
-test("resposta genérica não apaga contradição objetiva já comprovada", () => {
+test("contradição promovida de pergunta continua hipótese até verificação", () => {
   const routed = routeContextQuestions(objectiveQuestions);
   assert.equal(resolvePostContextClassification({
     deterministicCoverage: true,
     aiCoverage: true,
     findings: routed.promotedFindings,
-  }), "SUSPICIOUS");
+  }), "OK");
 });
 
 test("remove repetições semânticas do mesmo achado e preserva itens distintos", () => {

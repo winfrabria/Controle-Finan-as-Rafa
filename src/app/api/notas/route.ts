@@ -48,12 +48,24 @@ export async function POST(request: Request) {
   }
 
   const { maxFileSizeBytes } = getInvoiceStorageConfig();
-  const contentLength = Number(request.headers.get("content-length"));
+  const rawContentLength = request.headers.get("content-length");
+  const contentLength = Number(rawContentLength);
 
   if (
-    Number.isFinite(contentLength) &&
-    contentLength > maxFileSizeBytes + MULTIPART_OVERHEAD_LIMIT_BYTES
+    rawContentLength === null ||
+    rawContentLength.trim() === "" ||
+    !Number.isSafeInteger(contentLength) ||
+    contentLength <= 0
   ) {
+    return errorResponse(
+      "TAMANHO_DA_REQUISICAO_NAO_INFORMADO",
+      "Não foi possível confirmar o tamanho do arquivo enviado.",
+      411,
+      requestId,
+    );
+  }
+
+  if (contentLength > maxFileSizeBytes + MULTIPART_OVERHEAD_LIMIT_BYTES) {
     return errorResponse(
       "ARQUIVO_MUITO_GRANDE",
       "O arquivo ultrapassa o limite permitido.",
@@ -107,7 +119,7 @@ export async function POST(request: Request) {
 
   try {
     const note = await createNoteUpload({
-      bytes: await file.arrayBuffer(),
+      bytes: () => file.arrayBuffer(),
       contentType: file.type,
       fileName: file.name,
       workId: workId.trim(),

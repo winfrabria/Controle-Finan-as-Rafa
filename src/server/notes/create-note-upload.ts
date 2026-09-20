@@ -7,6 +7,7 @@ import {
   ProcessingJobStatus,
   ProcessingStage,
 } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 import {
   InvoiceFileValidationError,
   validateInvoiceFile,
@@ -105,7 +106,10 @@ async function markNoteAsFailed(noteId: string, failureCode: string) {
 }
 
 export async function createNoteUpload(input: {
-  bytes: ArrayBuffer | Uint8Array;
+  bytes:
+    | ArrayBuffer
+    | Uint8Array
+    | (() => Promise<ArrayBuffer | Uint8Array>);
   contentType: string;
   fileName: string;
   workId: string;
@@ -116,22 +120,6 @@ export async function createNoteUpload(input: {
       400,
       "Selecione uma obra válida.",
     );
-  }
-
-  let file;
-
-  try {
-    file = validateInvoiceFile({
-      bytes: input.bytes,
-      contentType: input.contentType,
-      fileName: input.fileName,
-    });
-  } catch (error) {
-    if (error instanceof InvoiceFileValidationError) {
-      throw mapFileValidationError(error);
-    }
-
-    throw error;
   }
 
   let rateLimitConfig: ReturnType<typeof getPublicUploadRateLimitConfig>;
@@ -146,18 +134,9 @@ export async function createNoteUpload(input: {
     );
   }
 
-  const noteId = randomUUID();
-  const attachmentMetadata = await computeAttachmentMetadata({
-    bytes: file.bytes,
-    mimeType: file.mimeType,
-  });
-  const capability = createPublicCapability(noteId);
-  const path = createInvoiceObjectPath({
-    extension: file.extension,
-    noteId,
-    workId: input.workId,
-  });
-  const { job, work } = await prisma.$transaction(async (transaction) => {
+  const admitUpload = async (
+    transaction: Prisma.TransactionClient,
+  ) => {
     const work = await transaction.work.findFirst({
       where: { id: input.workId, active: true },
       select: { id: true, name: true },
@@ -175,6 +154,46 @@ export async function createNoteUpload(input: {
       config: rateLimitConfig,
       workId: work.id,
     });
+
+    return work;
+  };
+
+  // Reject unavailable works and exhausted quotas before copying or parsing the
+  // attachment. The transactional check below is intentionally repeated when
+  // the Note is created so concurrent requests still cannot overrun the cap.
+  await prisma.$transaction(admitUpload);
+
+  const bytes =
+    typeof input.bytes === "function" ? await input.bytes() : input.bytes;
+  let file;
+
+  try {
+    file = validateInvoiceFile({
+      bytes,
+      contentType: input.contentType,
+      fileName: input.fileName,
+    });
+  } catch (error) {
+    if (error instanceof InvoiceFileValidationError) {
+      throw mapFileValidationError(error);
+    }
+
+    throw error;
+  }
+
+  const noteId = randomUUID();
+  const attachmentMetadata = await computeAttachmentMetadata({
+    bytes: file.bytes,
+    mimeType: file.mimeType,
+  });
+  const capability = createPublicCapability(noteId);
+  const path = createInvoiceObjectPath({
+    extension: file.extension,
+    noteId,
+    workId: input.workId,
+  });
+  const { job, work } = await prisma.$transaction(async (transaction) => {
+    const work = await admitUpload(transaction);
 
     const note = await transaction.note.create({
       data: {

@@ -709,12 +709,7 @@ export async function processNoteAudit(
     } : supportLimitationReason ? {
       band: "LIMITED" as const,
       reason: supportLimitationReason,
-    } : result.unconfirmedAiFindings.length > 0
-      ? {
-          band: "LIMITED" as const,
-          reason: `${verificationFailed ? `${resolvedAssurance.reason} ` : ""}Uma hipótese da auditoria por IA não teve confirmação independente e não sustenta o diagnóstico.`,
-        }
-      : resolvedAssurance;
+    } : resolvedAssurance;
     const finalContextQuestions = dependencies.contextSubmissionId
       ? []
       : result.contextQuestions;

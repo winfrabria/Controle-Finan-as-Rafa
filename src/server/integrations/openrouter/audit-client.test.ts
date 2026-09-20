@@ -312,6 +312,31 @@ test("descarta também pergunta de política equivalente em inglês", () => {
   assert.equal(normalized.needsContext, false);
 });
 
+test("descarta pergunta da IA que solicita segredo, credencial ou dado bancário", () => {
+  for (const prompt of [
+    "Informe sua senha para confirmar a despesa.",
+    "Qual é o código de autenticação recebido por SMS?",
+    "Digite o número do cartão e o CVV.",
+    "What is the API key used by this integration?",
+    "Informe a chave PIX do beneficiário.",
+  ]) {
+    const normalized = normalizeAuditContent({
+      contextQuestions: [{
+        code: "CTX-SENSITIVE",
+        options: [],
+        prompt,
+        rationale: "A resposta seria usada para concluir a análise.",
+        required: true,
+        type: "TEXT",
+      }],
+      needsContext: true,
+    }) as { contextQuestions: unknown[]; needsContext: boolean };
+
+    assert.deepEqual(normalized.contextQuestions, [], prompt);
+    assert.equal(normalized.needsContext, false, prompt);
+  }
+});
+
 test("converte seleção com opções opacas em resposta de texto", () => {
   const normalized = normalizeAuditContent({
     contextQuestions: [{

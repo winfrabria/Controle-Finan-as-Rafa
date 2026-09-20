@@ -400,7 +400,7 @@ test("achado sem check correspondente não pode certificar cobertura", () => {
   assert.deepEqual(coverage.unlinkedFindingCodes, ["AI_AMOUNT_MISMATCH"]);
 });
 
-test("faixa de garantia não expõe score e sinaliza risco não verificado", () => {
+test("faixa de garantia não expõe score e distingue auditoria coberta sem verificador", () => {
   const selection = { required: true, reasons: ["LONG_DOCUMENT"] };
   assert.equal(
     resolveAuditAssurance({
@@ -410,7 +410,7 @@ test("faixa de garantia não expõe score e sinaliza risco não verificado", () 
       selection,
       verificationStatus: "NOT_RUN",
     }).band,
-    "LIMITED",
+    "MEDIUM",
   );
   assert.equal(
     resolveAuditAssurance({
@@ -561,7 +561,7 @@ test("AI_DISCOVERY financeiro sem verificação não vira suspeita", () => {
     invoice: invoice({ supplierTaxId: null }),
   });
 
-  assert.equal(result.classification, "INFORMATION_INSUFFICIENT");
+  assert.equal(result.classification, "OK");
   assert.equal(result.findings.some((finding) => finding.code === hypothesis.code), false);
   assert.deepEqual(result.unconfirmedAiFindings.map((finding) => finding.code), [
     hypothesis.code,

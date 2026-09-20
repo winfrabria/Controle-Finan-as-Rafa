@@ -239,7 +239,7 @@ export async function loadNoteDetail(
     const ruleConfiguration = safeJson(finding.rule?.configuration ?? null);
     const sources = deduplicateSources([
       documentSource,
-      ...(finding.rule
+      ...(!forReviewer && finding.rule
         ? [
             {
               kind: "rule" as const,
@@ -249,7 +249,9 @@ export async function loadNoteDetail(
           ]
         : []),
       ...extractSources(evidence, "evidence", safeText),
-      ...extractSources(ruleConfiguration, "reference", safeText),
+      ...(!forReviewer
+        ? extractSources(ruleConfiguration, "reference", safeText)
+        : []),
       ...extractExternalReferenceSources(
         safeJson(finding.references),
         safeText,
@@ -260,8 +262,8 @@ export async function loadNoteDetail(
       actualValue: safeJson(finding.actualValue),
       affectedItem: finding.noteItem,
       category: safeText(finding.category),
-      code: finding.code,
-      comparisonMode: comparison.comparisonMode,
+      ...(!forReviewer ? { code: finding.code } : {}),
+      comparisonMode: forReviewer ? undefined : comparison.comparisonMode,
       createdAt: finding.createdAt,
       description: safeText(finding.description),
       evidence,
@@ -269,8 +271,8 @@ export async function loadNoteDetail(
       expectedValue: safeJson(finding.expectedValue),
       id: finding.id,
       needsValidation: finding.needsValidation,
-      referenceBasis: comparison.referenceBasis,
-      rule: finding.rule
+      referenceBasis: forReviewer ? undefined : comparison.referenceBasis,
+      rule: !forReviewer && finding.rule
         ? {
             code: finding.rule.code,
             description: finding.rule.description
@@ -345,8 +347,8 @@ export async function loadNoteDetail(
         note.assuranceBand && note.assuranceReason && note.assuranceVersion
           ? {
               band: note.assuranceBand,
-              reason: note.assuranceReason,
-              version: note.assuranceVersion,
+              reason: safeText(note.assuranceReason),
+              ...(!forReviewer ? { version: note.assuranceVersion } : {}),
             }
           : null,
       auditResult: note.auditResult,

@@ -972,8 +972,7 @@ export function evaluateHarness(input: {
       input.extractionLimited === true ||
       hasInsufficientAuditBasis(input.invoice) ||
       supportCoverage.informationInsufficient ||
-      declaredContextWithoutQuestion ||
-      unconfirmedAiFindings.length > 0,
+      declaredContextWithoutQuestion,
   });
 
   return {

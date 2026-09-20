@@ -62,8 +62,7 @@ export function decideClassification(
 
   const conclusiveAiFinding = input.findings.some(
     (finding) =>
-      (finding.source === "AI_DISCOVERY" ||
-        finding.source === "AI_VERIFICATION") &&
+      finding.source === "AI_VERIFICATION" &&
       finding.severity !== "INFO" &&
       isSupportedFinding(finding),
   );
