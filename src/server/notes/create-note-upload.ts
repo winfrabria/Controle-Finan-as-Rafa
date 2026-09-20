@@ -13,6 +13,10 @@ import {
 } from "@/lib/storage";
 import { prisma } from "@/server/db/prisma";
 import { NoteUploadError } from "@/server/notes/note-upload-error";
+import {
+  enforcePublicUploadRateLimit,
+  getPublicUploadRateLimitConfig,
+} from "@/server/notes/public-upload-rate-limit";
 import { computeAttachmentMetadata } from "@/server/notes/attachment-metadata";
 import {
   createPublicCapability,
@@ -130,6 +134,18 @@ export async function createNoteUpload(input: {
     throw error;
   }
 
+  let rateLimitConfig: ReturnType<typeof getPublicUploadRateLimitConfig>;
+  try {
+    rateLimitConfig = getPublicUploadRateLimitConfig();
+  } catch (error) {
+    throw new NoteUploadError(
+      "UPLOAD_INDISPONIVEL",
+      503,
+      "O recebimento está temporariamente indisponível. Tente novamente.",
+      { cause: error },
+    );
+  }
+
   const noteId = randomUUID();
   const attachmentMetadata = await computeAttachmentMetadata({
     bytes: file.bytes,
@@ -154,6 +170,11 @@ export async function createNoteUpload(input: {
         "A obra selecionada não está disponível para envio.",
       );
     }
+
+    await enforcePublicUploadRateLimit(transaction, {
+      config: rateLimitConfig,
+      workId: work.id,
+    });
 
     const note = await transaction.note.create({
       data: {

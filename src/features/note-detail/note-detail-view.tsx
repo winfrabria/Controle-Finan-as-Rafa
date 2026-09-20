@@ -24,6 +24,8 @@ import {
   formatDate,
   formatDateTime,
   formatDecimal,
+  formatQuantity,
+  formatUnitPrice,
 } from "./note-detail-format";
 import styles from "./note-detail.module.css";
 import { NoteDocumentPreview } from "./note-document-preview";
@@ -55,10 +57,11 @@ export function NoteDetailView({
     data.analysis.auditResult,
     data.analysis.classification,
     data.status,
+    data.analysis.findings.length,
   );
   const classification =
     rawClassification === "Suspeita" && data.analysis.findings.length === 0
-      ? "Análise incompleta"
+      ? "Revisão manual"
       : rawClassification;
   const primaryFinding = data.analysis.findings[0] ?? null;
   const latestValidation = data.validations.at(-1) ?? null;
@@ -162,7 +165,7 @@ export function NoteDetailView({
           noteVersion={data.version}
         />
 
-        <NoteReadAction noteId={data.id} />
+        <NoteReadAction key={`${data.id}:${data.version}`} noteId={data.id} noteVersion={data.version} isRead={data.isRead} />
 
         <div className={styles.detailGrid}>
           <section className={`${styles.card} ${styles.documentCard}`}>
@@ -320,8 +323,8 @@ export function NoteDetailView({
                     <td>{item.code ?? "—"}</td>
                     <td>{item.description}</td>
                     <td>{item.unit ?? "—"}</td>
-                    <td>{formatDecimal(item.quantity, 0)}</td>
-                    <td>{formatDecimal(item.unitPrice)}</td>
+                    <td>{formatQuantity(item.quantity)}</td>
+                    <td>{formatUnitPrice(item.unitPrice)}</td>
                     <td>{formatDecimal(item.totalAmount)}</td>
                   </tr>
                 ))}
@@ -338,8 +341,8 @@ export function NoteDetailView({
                 <h3>{item.description}</h3>
                 <dl>
                   <div><dt>Unidade</dt><dd>{item.unit ?? "—"}</dd></div>
-                  <div><dt>Quantidade</dt><dd>{formatDecimal(item.quantity, 0)}</dd></div>
-                  <div><dt>Valor unitário</dt><dd>{formatDecimal(item.unitPrice)}</dd></div>
+                  <div><dt>Quantidade</dt><dd>{formatQuantity(item.quantity)}</dd></div>
+                  <div><dt>Valor unitário</dt><dd>{formatUnitPrice(item.unitPrice)}</dd></div>
                 </dl>
               </article>
             ))}

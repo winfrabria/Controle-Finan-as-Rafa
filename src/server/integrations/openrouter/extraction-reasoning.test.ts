@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getOpenRouterConfig } from "./config";
+
+test("extração adaptativa compartilha prazo total; auditoria e legado não mudam", () => {
+  const env = { NODE_ENV: "test" as const, OPENROUTER_API_KEY: "synthetic", OPENROUTER_EXTRACTION_PIPELINE: "adaptive" };
+  assert.equal(getOpenRouterConfig(env, "extraction").totalTimeoutMs, 90_000);
+  assert.equal(getOpenRouterConfig({ ...env, OPENROUTER_EXTRACTION_TOTAL_TIMEOUT_MS: "60000" }, "extraction").totalTimeoutMs, 60_000);
+  assert.equal(getOpenRouterConfig({ ...env, OPENROUTER_EXTRACTION_PIPELINE: "legacy" }, "extraction").totalTimeoutMs, undefined);
+  assert.equal(getOpenRouterConfig(env, "audit").totalTimeoutMs, undefined);
+  for (const value of ["0", "NaN", "240001"]) {
+    assert.throws(() => getOpenRouterConfig({ ...env, OPENROUTER_EXTRACTION_TOTAL_TIMEOUT_MS: value }, "extraction"), /OPENROUTER_EXTRACTION_TOTAL_TIMEOUT_MS/);
+  }
+});
 import { effectiveRunReasoning, extractionReasoningStorage } from "@/lib/integrations/openrouter/extraction-reasoning";
 
 test("extração aceita esforços econômicos sem relaxar a política da auditoria", () => {
@@ -12,7 +23,7 @@ test("extração aceita esforços econômicos sem relaxar a política da auditor
     assert.equal(config.pdfReasoningEffort, effort);
     assert.equal(getOpenRouterConfig(env, "audit").reasoningEffort, "high");
   }
-  assert.throws(() => getOpenRouterConfig({ NODE_ENV: "test", OPENROUTER_API_KEY: "offline-key", OPENROUTER_AUDIT_REASONING_EFFORT: "low" }, "audit"));
+  assert.equal(getOpenRouterConfig({ NODE_ENV: "test", OPENROUTER_API_KEY: "offline-key", OPENROUTER_AUDIT_REASONING_EFFORT: "low" }, "audit").reasoningEffort, "low");
 });
 
 test("configuração inválida identifica o campo certo antes de enviar documento", () => {

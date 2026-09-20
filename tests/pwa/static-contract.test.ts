@@ -30,6 +30,21 @@ async function configuredHeaders(pathname: string) {
   );
 }
 
+test("respostas recebem cabeçalhos globais de isolamento e privacidade", async () => {
+  const headers = await configuredHeaders("/:path*");
+  assert.equal(headers.get("cross-origin-opener-policy"), "same-origin");
+  assert.equal(
+    headers.get("permissions-policy"),
+    "camera=(), geolocation=(), microphone=()",
+  );
+  assert.equal(
+    headers.get("referrer-policy"),
+    "strict-origin-when-cross-origin",
+  );
+  assert.equal(headers.get("x-content-type-options"), "nosniff");
+  assert.equal(headers.get("x-frame-options"), "DENY");
+});
+
 test("offline.html é estático, neutro e não executa código", async () => {
   const html = await readFile(path.join(workspace, "public", "offline.html"), "utf8");
   assert.match(html, /offline|sem conexão|sem conexao/i);

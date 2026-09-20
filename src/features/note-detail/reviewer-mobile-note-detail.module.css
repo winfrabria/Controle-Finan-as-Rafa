@@ -58,8 +58,10 @@
     text-align: center;
   }
 
-  .appBarTitle strong {
+  .appBarTitle h1 {
     font-size: 15px;
+    font-weight: 700;
+    margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -79,6 +81,19 @@
       max(14px, var(--app-safe-left, env(safe-area-inset-left, 0px)));
   }
 
+  .documentIdentity {
+    align-items: start;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-bottom: 14px;
+  }
+
+  .documentIdentity > div { display: grid; gap: 4px; min-width: 0; }
+  .documentIdentity > div:last-child { text-align: right; }
+  .documentIdentity span { color: #526581; font-size: 12px; }
+  .documentIdentity strong { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+
   .focusFinding,
   .noteSummary,
   .noFindings {
@@ -88,16 +103,7 @@
   }
 
   .focusFinding {
-    border-top: 3px solid #e89214;
     padding: 17px 16px 16px;
-  }
-
-  .focusFinding[data-tone="critical"] {
-    border-top-color: #c74639;
-  }
-
-  .focusFinding[data-tone="info"] {
-    border-top-color: #2875d8;
   }
 
   .severityPill {
@@ -130,7 +136,7 @@
 
   .focusTitle > span {
     align-items: center;
-    background: #e89214;
+    background: #246fd3;
     border-radius: 50%;
     color: #fff;
     display: inline-flex;
@@ -149,7 +155,7 @@
     background: #2875d8;
   }
 
-  .focusTitle h1 {
+  .focusTitle h2 {
     font-size: clamp(19px, 5.3vw, 23px);
     letter-spacing: -0.025em;
     line-height: 1.25;
@@ -179,13 +185,13 @@
   }
 
   .comparison > .comparisonActual {
-    background: #fff0ee;
-    border-color: #efc3bc;
+    background: #fff;
+    border-color: #dce5ef;
   }
 
   .comparison > .comparisonExpected {
-    background: #eff9f3;
-    border-color: #c5e1d0;
+    background: #fff;
+    border-color: #dce5ef;
   }
 
   .comparison > .comparisonNeutral {
@@ -193,24 +199,24 @@
     border-color: #dce5ef;
   }
 
-  .comparison h2 {
+  .comparison h3 {
     font-size: 10px;
     letter-spacing: 0.04em;
     margin: 0 0 7px;
     text-transform: uppercase;
   }
 
-  .comparisonActual h2,
+  .comparisonActual h3,
   .comparisonActual p {
     color: #a63d33;
   }
 
-  .comparisonExpected h2,
+  .comparisonExpected h3,
   .comparisonExpected p {
-    color: #217344;
+    color: #17345e;
   }
 
-  .comparisonNeutral h2,
+  .comparisonNeutral h3,
   .comparisonNeutral p {
     color: #425a7c;
   }
@@ -268,7 +274,7 @@
     padding: 13px;
   }
 
-  .attentionReason h2 {
+  .attentionReason h3 {
     font-size: 13px;
     margin: 0;
   }
@@ -460,7 +466,7 @@
   }
 
   .noFindings > svg {
-    color: #149342;
+    color: #64748b;
     height: 26px;
     width: 26px;
   }

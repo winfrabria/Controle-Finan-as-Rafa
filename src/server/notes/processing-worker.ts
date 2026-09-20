@@ -77,6 +77,7 @@ async function findNextDueProcessingJobId() {
   const candidate = await prisma.processingJob.findFirst({
     where: {
       attempt: { lt: prisma.processingJob.fields.maxAttempts },
+      idempotencyKey: { not: { startsWith: "isolated-manual:" } },
       availableAt: { lte: new Date() },
       status: {
         in: [ProcessingJobStatus.PENDING, ProcessingJobStatus.FAILED],

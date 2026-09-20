@@ -48,16 +48,18 @@ persistir qualquer dado extraído.
    Flash só é chamado quando há rejeição compatível, timeout, resposta inválida
    ou cobertura documental não comprovada. Uma segunda leitura ainda parcial é
    persistida com limitação explícita e segue de forma segura para
-   `INFORMATION_INSUFFICIENT`, em vez de inventar um achado.
+   `INFORMATION_INSUFFICIENT`, em vez de inventar um achado. Na persistência
+   pública essa saída usa `READ_FAILED`, para nunca aparecer como `OK`.
 4. Quando houver `file_annotations`, o OCR retornado pelo OpenRouter é
    reutilizado sem reler o PDF. PDF nativo é usado no caminho normal; Mistral
    OCR entra apenas na recuperação configurada.
 5. Se os provedores não devolverem uma estrutura utilizável, a nota termina em
    `FAILED/FAILED` com categoria técnica segura e reprocessamento administrativo.
    O job externo não repete automaticamente as chamadas já executadas pelo cliente.
-6. Arquivo vazio, corrompido, criptografado, protegido por senha ou realmente
-   ilegível termina em `READ_FAILED/COMPLETED`. Documento legível sem base
-   auditável continua para `INFORMATION_INSUFFICIENT`, não para falha de leitura.
+6. Arquivo vazio, corrompido, criptografado, protegido por senha, realmente
+   ilegível ou sem cobertura suficiente para uma conclusão termina em
+   `READ_FAILED/COMPLETED`. Internamente o motor preserva a distinção
+   `INFORMATION_INSUFFICIENT`, mas a interface nunca a converte em aprovação.
 
 O corpo bruto do provedor, prompts, URLs assinadas, segredos e raciocínio nunca
 são persistidos ou enviados ao cliente.

@@ -226,14 +226,11 @@ export default function AtualizarSenhaPage() {
                   Sua nova senha foi salva com sucesso. Você já pode acessar a
                   plataforma.
                 </p>
-                <button
-                  onClick={() => {
-                    window.location.assign("/auth/landing");
-                  }}
-                  className={styles.btnPrimary}
-                >
+                {/* Native navigation re-enters the server session/role landing
+                    without prefetching or reusing the recovery page's router cache. */}
+                <a href="/auth/landing" className={styles.btnPrimary}>
                   Acessar Plataforma <IconArrowRight />
-                </button>
+                </a>
               </div>
             ) : (
               <>

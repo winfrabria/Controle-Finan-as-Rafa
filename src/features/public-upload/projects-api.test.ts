@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { requestProjects } from "./projects-api";
+import { projectMatchesSearch, requestProjects } from "./projects-api";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -25,6 +25,12 @@ test("carrega e valida as obras públicas", async () => {
   assert.equal(calls[0]?.input, "/api/obras");
   assert.equal(calls[0]?.init?.cache, "no-store");
   assert.equal(calls[0]?.init?.credentials, "same-origin");
+});
+
+test("busca considera código, nome e local sem depender do código estar no nome", () => {
+  const project = { id: "synthetic", nome: "Praça Central", codigo: "TEST-207", local: "Goiânia" };
+  for (const query of ["test-207", "praca", "GOIANIA", " "]) assert.equal(projectMatchesSearch(project, query), true);
+  assert.equal(projectMatchesSearch(project, "outra obra"), false);
 });
 
 test("repete uma vez quando a primeira consulta falha", async () => {

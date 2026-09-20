@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
 
 import type { NoteDetailAuditFeedback } from "./data";
 import styles from "./audit-feedback-panel.module.css";
@@ -40,6 +41,7 @@ type Verdict = keyof typeof VERDICTS;
 
 export function AuditFeedbackPanel({
   assurance,
+  showAssurance = true,
   collapsible = false,
   currentFeedback,
   feedbackEnabled = true,
@@ -47,6 +49,7 @@ export function AuditFeedbackPanel({
   noteVersion,
 }: {
   assurance: { band: "HIGH" | "MEDIUM" | "LIMITED"; reason: string } | null;
+  showAssurance?: boolean;
   collapsible?: boolean;
   currentFeedback: NoteDetailAuditFeedback | null;
   feedbackEnabled?: boolean;
@@ -54,33 +57,36 @@ export function AuditFeedbackPanel({
   noteVersion: number;
 }) {
   const router = useRouter();
-  const initialVerdict = (currentFeedback?.verdict ?? "CORRECT") as Verdict;
-  const [verdict, setVerdict] = useState<Verdict>(initialVerdict);
+  const initialVerdict = (currentFeedback?.verdict ?? null) as Verdict | null;
+  const [verdict, setVerdict] = useState<Verdict | null>(initialVerdict);
   const [reasonCode, setReasonCode] = useState(
-    currentFeedback?.reasonCode ?? Object.keys(REASONS[initialVerdict])[0],
+    currentFeedback?.reasonCode ?? (initialVerdict ? Object.keys(REASONS[initialVerdict])[0] : ""),
   );
   const [comment, setComment] = useState(currentFeedback?.comment ?? "");
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const dirty = verdict !== initialVerdict || comment !== (currentFeedback?.comment ?? "") ||
+    reasonCode !== (currentFeedback?.reasonCode ?? (initialVerdict ? Object.keys(REASONS[initialVerdict])[0] : ""));
+  useEffect(() => {
+    if (feedbackEnabled && dirty && state !== "saved") return beginPwaCriticalActivity();
+  }, [dirty, feedbackEnabled, state]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (!verdict || !reasonCode || state === "saving") return;
     setState("saving");
-    const response = await fetch(`/api/notas/${noteId}/audit-feedback`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        comment: comment.trim() || null,
-        noteVersion,
-        reasonCode,
-        verdict,
-      }),
-    });
-    if (!response.ok) {
+    try {
+      const response = await fetch(`/api/notas/${noteId}/audit-feedback`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(15_000),
+        body: JSON.stringify({ comment: comment.trim() || null, noteVersion, reasonCode, verdict }),
+      });
+      if (!response.ok) throw new Error("Feedback request failed.");
+      setState("saved");
+      router.refresh();
+    } catch {
       setState("error");
-      return;
     }
-    setState("saved");
-    router.refresh();
   }
 
   const assuranceLabel = assurance
@@ -89,7 +95,7 @@ export function AuditFeedbackPanel({
 
   const content = (
     <div className={collapsible ? styles.collapsibleContent : undefined}>
-      <div className={styles.assurance}>
+      {showAssurance ? <div className={styles.assurance}>
         <span className={`${styles.badge} ${assurance ? styles[assurance.band.toLowerCase() as "high" | "medium" | "limited"] : styles.limited}`}>
           {assuranceLabel}
         </span>
@@ -97,10 +103,10 @@ export function AuditFeedbackPanel({
           <strong>Quanto este diagnóstico pôde ser conferido</strong>
           <p>{assurance?.reason ?? "A auditoria ainda não registrou uma faixa de garantia."}</p>
         </div>
-      </div>
+      </div> : null}
 
       {feedbackEnabled ? <form onSubmit={submit}>
-        <fieldset className={styles.form}>
+        <fieldset className={styles.form} disabled={state === "saving"}>
           <legend><strong>Este diagnóstico ajudou?</strong></legend>
           <p>Seu retorno melhora a auditoria. Ele não aprova nem rejeita a despesa.</p>
           <div className={styles.choices}>
@@ -115,6 +121,7 @@ export function AuditFeedbackPanel({
                     setState("idle");
                   }}
                   type="radio"
+                  required
                   value={value}
                 />
                 {VERDICTS[value]}
@@ -123,8 +130,9 @@ export function AuditFeedbackPanel({
           </div>
           <label className={styles.field}>
             Motivo
-            <select value={reasonCode} onChange={(event) => setReasonCode(event.target.value)}>
-              {Object.entries(REASONS[verdict]).map(([value, label]) => (
+            <select disabled={!verdict} value={reasonCode} onChange={(event) => { setReasonCode(event.target.value); setState("idle"); }}>
+              {!verdict ? <option value="">Selecione uma avaliação acima</option> : null}
+              {Object.entries(verdict ? REASONS[verdict] : {}).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
@@ -134,17 +142,17 @@ export function AuditFeedbackPanel({
             <textarea
               maxLength={1_000}
               minLength={verdict === "MISSED_ISSUE" ? 10 : undefined}
-              onChange={(event) => setComment(event.target.value)}
+              onChange={(event) => { setComment(event.target.value); setState("idle"); }}
               required={verdict === "MISSED_ISSUE"}
               value={comment}
             />
           </label>
           <div className={styles.actions}>
-            <button disabled={state === "saving"} type="submit">
+            <button disabled={!verdict || state === "saving"} type="submit">
               {state === "saving" ? "Salvando…" : currentFeedback ? "Atualizar feedback" : "Enviar feedback"}
             </button>
-            {state === "saved" ? <p className={styles.success}>Feedback registrado.</p> : null}
-            {state === "error" ? <p className={styles.error}>Não foi possível salvar. Atualize e tente novamente.</p> : null}
+            {state === "saved" ? <p role="status" className={styles.success}>Feedback registrado.</p> : null}
+            {state === "error" ? <p role="alert" className={styles.error}>Não foi possível confirmar o salvamento. Confira a conexão e tente novamente; seu texto foi preservado.</p> : null}
           </div>
         </fieldset>
       </form> : null}
@@ -164,7 +172,7 @@ export function AuditFeedbackPanel({
                 : "Opcional — ajude a melhorar a auditoria sem aprovar ou rejeitar a nota."}
             </small>
           </span>
-          <span className={styles.summaryAction}>Abrir</span>
+          <span className={styles.summaryAction} aria-hidden="true">⌄</span>
         </summary>
         {content}
       </details>

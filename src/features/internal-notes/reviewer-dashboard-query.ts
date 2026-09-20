@@ -37,13 +37,21 @@ function classificationValue(note: {
   processingJobStatus: ProcessingJobStatus | null;
   status: NoteStatus;
 }): ReviewerDashboardNote["classification"] {
-  if (note.auditResult === AuditResult.READ_FAILED) return "Falha de leitura";
-  if (note.classification === "NO_PARAMETER") return "Informação insuficiente";
-  if (note.auditResult === AuditResult.NEEDS_CONTEXT) return "Precisa de informação";
+  if (
+    note.status === NoteStatus.READ_FAILED ||
+    note.auditResult === AuditResult.READ_FAILED
+  ) {
+    return "Falha de leitura";
+  }
+  if (note.status === NoteStatus.FAILED) return "Falha de processamento";
+  if (note.auditResult === AuditResult.NEEDS_CONTEXT) {
+    return note.classification === "NO_PARAMETER" && note.status === NoteStatus.OK
+      ? "Falha de leitura"
+      : "Precisa de informação";
+  }
+  if (note.classification === "NO_PARAMETER") return "Falha de leitura";
   if (note.auditResult === AuditResult.SUSPICIOUS) return "Suspeita";
   if (note.auditResult === AuditResult.OK) return "OK";
-  if (note.status === NoteStatus.READ_FAILED) return "Falha de leitura";
-  if (note.status === NoteStatus.FAILED) return "Falha de processamento";
   if (note.status === NoteStatus.RECEIVED) {
     if (
       note.processingJobStatus === ProcessingJobStatus.PENDING ||
@@ -70,7 +78,7 @@ export async function listReviewerDashboardNotes(
   options: { sanitizeForReviewer?: boolean } = {},
 ): Promise<ReviewerDashboardNote[]> {
   const visibleFindingWhere = {
-    status: { not: FindingStatus.FALSE_POSITIVE },
+    status: FindingStatus.OPEN,
     ...(options.sanitizeForReviewer
       ? { category: { not: "DOCUMENT_TYPE" } }
       : {}),

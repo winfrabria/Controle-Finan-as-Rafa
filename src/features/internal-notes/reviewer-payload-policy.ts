@@ -12,6 +12,8 @@ function safeNullableText(value: string | null) {
 export function sanitizeReviewerNoteListItem(item: NoteListItem): NoteListItem {
   return {
     ...item,
+    processingFailureMessage: safeNullableText(item.processingFailureMessage ?? null),
+    assurance: item.assurance ? { ...item.assurance, reason: sanitizeReviewerText(item.assurance.reason) } : null,
     findings: item.findings.map((finding) => ({
       ...finding,
       actualValue: safeNullableText(finding.actualValue),
@@ -27,6 +29,7 @@ export function sanitizeReviewerNoteListItem(item: NoteListItem): NoteListItem {
         kind: sanitizeReviewerText(location.kind),
         label: safeNullableText(location.label),
         text: safeNullableText(location.text),
+        value: safeNullableText(location.value ?? null),
       })) ?? [],
       expectedValue: safeNullableText(finding.expectedValue),
       justification: sanitizeReviewerText(finding.justification),

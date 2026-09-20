@@ -50,7 +50,10 @@ test("troca o avaliador somente pela variável experimental explícita", () => {
   assert.equal(resolveAuditReasoningEffort("high"), "high");
   assert.equal(resolveAuditReasoningEffort("max"), "max");
   assert.throws(() => resolveAuditEvaluatorModel("modelo/desconhecido"));
-  assert.throws(() => resolveAuditReasoningEffort("medium"));
+  assert.equal(resolveAuditReasoningEffort("medium"), "medium");
+  assert.equal(resolveAuditReasoningEffort("low"), "low");
+  assert.equal(resolveAuditEvaluatorModel("google/gemini-3.8-flash"), "google/gemini-3.8-flash");
+  assert.throws(() => resolveAuditReasoningEffort("none"));
 });
 
 test("pipeline adaptativo separa extração rápida, revisão visual e auditoria", () => {

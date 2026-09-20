@@ -11,15 +11,14 @@ const version = rawVersion.trim().replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 32);
 
 if (version) {
   const source = await readFile(workerPath, "utf8");
+  if (!/const WORKER_VERSION = "[^"]+";/.test(source)) {
+    throw new Error("Não foi possível localizar WORKER_VERSION em public/sw.js.");
+  }
   const stamped = source.replace(
     /const WORKER_VERSION = "[^"]+";/,
     `const WORKER_VERSION = "${version}";`,
   );
 
-  if (stamped === source) {
-    throw new Error("Não foi possível localizar WORKER_VERSION em public/sw.js.");
-  }
-
-  await writeFile(workerPath, stamped, "utf8");
+  if (stamped !== source) await writeFile(workerPath, stamped, "utf8");
   console.log(`PWA worker version: ${version}`);
 }

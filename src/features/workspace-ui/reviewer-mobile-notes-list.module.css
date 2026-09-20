@@ -258,10 +258,10 @@
   .cardTopline { align-items: baseline; display: flex; gap: 8px; justify-content: space-between; }
   .cardTopline strong { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cardTopline small { color: #60718d; flex: 0 0 auto; font-size: 12px; }
-  .supplier, .work, .reason { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .supplier, .work { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .supplier { color: #213c66; font-size: 14px; }
   .work { color: #657692; font-size: 12px; }
-  .reason { border-top: 1px solid #e8edf4; color: #314d75; font-size: 13px; margin-top: 6px; padding-top: 9px; }
+  .reason { border-top: 1px solid #e8edf4; color: #314d75; font-size: 13px; line-height: 1.45; margin-top: 6px; overflow-wrap: anywhere; padding-top: 9px; }
 
   .cardFooter {
     align-items: center;

@@ -1,7 +1,5 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-
 import {
   AiRunKind,
   AiRunStatus,
@@ -15,17 +13,22 @@ import {
 } from "@/lib/audit-harness";
 import type { InvoiceExtraction } from "@/lib/integrations/openrouter/extraction-contract";
 import { extractionReasoningStorage, type ExtractionReasoningEffort } from "@/lib/integrations/openrouter/extraction-reasoning";
-import { getOpenRouterConfig } from "@/server/integrations/openrouter/config";
+import { getOpenRouterConfig, selectDocumentExtractionConfig, shouldReadVisualPdfWindows } from "@/server/integrations/openrouter/config";
+import { WindowedExtractionClient } from "@/server/integrations/openrouter/windowed-extraction";
 import { prisma } from "@/server/db/prisma";
 import {
   getOpenRouterInvoiceExtractionClient,
   isInvoiceExtractionLimitationDiagnostic,
   type InvoiceExtractionAttempt,
   type InvoiceExtractionClient,
+  type InvoiceExtractionResult,
   type InvoiceExtractionQualityLimitation,
   OpenRouterClientError,
 } from "@/server/integrations/openrouter";
 import { createInvoiceSignedUrl } from "@/server/storage";
+import { resolveAiDocumentSource } from "@/server/storage/ai-document-source";
+import { costCoverage } from "@/lib/integrations/openrouter/cost-coverage";
+import { createExtractionCheckpoint, extractionCheckpointFingerprint, readExtractionCheckpoint, safePersistenceDiagnostic } from "./extraction-checkpoint";
 
 const SUPPORTED_MIME_TYPES: ReadonlySet<string> = new Set([
   "application/pdf",
@@ -44,6 +47,7 @@ export type ExtractionPipelineErrorCode =
   | "EXTRACTION_PROVIDER_ERROR"
   | "EXTRACTION_PERSISTENCE_FAILED"
   | "EXTRACTION_REQUEST_REJECTED"
+  | "EXTRACTION_RATE_LIMITED"
   | "EXTRACTION_SOURCE_UNAVAILABLE"
   | "EXTRACTION_TIMEOUT"
   | "NOTE_NOT_FOUND";
@@ -167,6 +171,16 @@ function getFailureDetails(error: unknown, stage: "PERSISTENCE" | "SOURCE" | "PR
       };
     }
 
+    if (error.status === 429) {
+      return {
+        ...providerDetails,
+        code: "EXTRACTION_RATE_LIMITED",
+        category: "PROVIDER",
+        message: "O serviço de IA está temporariamente limitado. Aguarde antes de solicitar o reprocessamento.",
+        diagnostic: "provider-rate-limited",
+      };
+    }
+
     if (!error.retryable) {
       return {
         code: "EXTRACTION_REQUEST_REJECTED",
@@ -188,6 +202,8 @@ function getFailureDetails(error: unknown, stage: "PERSISTENCE" | "SOURCE" | "PR
     code: "EXTRACTION_PERSISTENCE_FAILED",
     category: "PERSISTENCE",
     message: "Não foi possível registrar o resultado da extração. Tente novamente pelo painel administrativo.",
+    diagnostic: "extraction-persistence-failed",
+    diagnosticDetails: safePersistenceDiagnostic(error),
   };
   if (stage === "PROVIDER") return {
     code: "EXTRACTION_PROVIDER_ERROR",
@@ -209,6 +225,7 @@ async function claimNote(noteId: string, processingJobId?: string) {
         failureCode: true,
         id: true,
         originalFileName: true,
+        originalFileSha256: true,
         originalFilePath: true,
         originalMimeType: true,
         originalPageCount: true,
@@ -340,6 +357,7 @@ async function persistExtraction(input: {
   provider?: string;
   qualityLimitation?: InvoiceExtractionQualityLimitation;
   requestId?: string;
+  reusedFromRunId?: string;
   routingMetadata?: Record<string, string | number | boolean | null>;
   usage?: {
     completionTokens?: number;
@@ -411,6 +429,7 @@ async function persistExtraction(input: {
           model: input.model,
           provider: input.provider ?? null,
           requestId: input.requestId ?? null,
+          reusedFromRunId: input.reusedFromRunId ?? null,
           readConfidence: input.extraction.readConfidence,
           qualityLimitation: input.qualityLimitation
             ? toJsonValue(input.qualityLimitation)
@@ -438,9 +457,11 @@ async function persistExtraction(input: {
           itemCount: input.extraction.items.length,
           readConfidence: input.extraction.readConfidence,
           warnings: input.extraction.warnings,
+          costStatus: costCoverage(input.attemptTrace, input.usage?.costUsd),
           qualityLimitation: input.qualityLimitation ?? null,
           attemptTrace: input.attemptTrace,
           requestId: input.requestId ?? null,
+          reusedFromRunId: input.reusedFromRunId ?? null,
           routing: input.routingMetadata ?? null,
           extractionQuality:
             !input.qualityLimitation && input.extraction.itemCoverage.status === "COMPLETE"
@@ -463,7 +484,8 @@ async function persistExtraction(input: {
 
 export async function processNoteExtraction(
   noteId: string,
-  dependencies: { client?: InvoiceExtractionClient; processingJobId?: string } = {},
+  dependencies: { client?: InvoiceExtractionClient; processingJobId?: string;
+    windowClientFactory?: (options: ConstructorParameters<typeof WindowedExtractionClient>[0]) => InvoiceExtractionClient } = {},
 ) {
   // Validate configuration before claiming the note or doing paid work. A bad
   // environment is terminal for this job, not a reason to replay extraction.
@@ -479,11 +501,30 @@ export async function processNoteExtraction(
       { cause: error });
   }
   const note = await claimNote(noteId, dependencies.processingJobId);
+  config = selectDocumentExtractionConfig(config, { mimeType: note.originalMimeType, pageCount: note.originalPageCount });
   const extractingPdf = note.originalMimeType === "application/pdf";
   const configuredReasoning = (extractingPdf ? config.pdfReasoningEffort : config.reasoningEffort) as ExtractionReasoningEffort;
   let aiRun: { id: string } | undefined;
+  let result: InvoiceExtractionResult | undefined;
+  let checkpoint: ReturnType<typeof createExtractionCheckpoint> | undefined;
+  let reusedFromRunId: string | undefined;
   let failureStage: "PERSISTENCE" | "SOURCE" | "PROVIDER" = "PERSISTENCE";
   try {
+    const requestFingerprint = extractionCheckpointFingerprint(note, config);
+    // Only the latest failed persistence run qualifies. A normal explicit
+    // reprocess after a completed read always goes back to the original.
+    const previous = note.originalFileSha256 ? await prisma.aiRun.findFirst({
+      where: { noteId: note.id, kind: AiRunKind.EXTRACTION },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, status: true, errorCode: true, requestFingerprint: true, structuredResponse: true },
+    }) : null;
+    if (previous?.status === AiRunStatus.FAILED && previous.errorCode === "EXTRACTION_PERSISTENCE_FAILED" &&
+      previous.requestFingerprint === requestFingerprint && previous.structuredResponse &&
+      typeof previous.structuredResponse === "object" && !Array.isArray(previous.structuredResponse)) {
+      result = readExtractionCheckpoint(previous.structuredResponse.checkpoint, requestFingerprint) ?? undefined;
+      if (result) reusedFromRunId = previous.id;
+    }
+
     const idempotencyKey = `extract:${dependencies.processingJobId ?? note.id}:${note.claimedVersion}`;
     aiRun = await prisma.aiRun.create({
       data: {
@@ -496,9 +537,7 @@ export async function processNoteExtraction(
         promptVersion: HARNESS_VERSIONS.prompt,
         reasoningEffort: extractionReasoningStorage(configuredReasoning),
         structuredResponse: { extractionReasoningEffort: configuredReasoning },
-        requestFingerprint: createHash("sha256")
-          .update(`${note.id}:${note.claimedVersion}:${note.originalFileName}`)
-          .digest("hex"),
+        requestFingerprint,
         schemaVersion: HARNESS_VERSIONS.schema,
         status: AiRunStatus.RUNNING,
       },
@@ -512,25 +551,46 @@ export async function processNoteExtraction(
       );
     }
 
+    if (!result) {
     failureStage = "SOURCE";
     const { signedUrl } = await createInvoiceSignedUrl({
       path: note.originalFilePath,
       expiresInSeconds: 30 * 60,
     });
+    const documentSource = await resolveAiDocumentSource({ signedUrl, path: note.originalFilePath,
+      mimeType: note.originalMimeType, fileName: note.originalFileName,
+      forceInline: shouldReadVisualPdfWindows(config, { mimeType: note.originalMimeType, pageCount: note.originalPageCount }) });
     failureStage = "PROVIDER";
     const client =
-      dependencies.client ?? getOpenRouterInvoiceExtractionClient();
-    const result = await client.extractInvoice({
+      dependencies.client ?? (shouldReadVisualPdfWindows(config, { mimeType: note.originalMimeType, pageCount: note.originalPageCount })
+        ? (dependencies.windowClientFactory ?? (options => new WindowedExtractionClient(options)))({ config, originalSha256: note.originalFileSha256 ?? "",
+          checkpoint: async event => {
+            await prisma.noteEvent.create({ data: { noteId: note.id, type: "EXTRACTION_WINDOW_CHECKPOINT",
+              data: toJsonValue({ aiRunId: aiRun!.id, ...event }) } });
+          },
+        }) : getOpenRouterInvoiceExtractionClient());
+    result = await client.extractInvoice({
       fileName: note.originalFileName,
       mimeType: note.originalMimeType as
         | "application/pdf"
         | "image/jpeg"
         | "image/png",
-      signedUrl,
+      signedUrl: documentSource,
       pageCount: extractingPdf ? note.originalPageCount : 1,
     });
+    }
 
     failureStage = "PERSISTENCE";
+    checkpoint = createExtractionCheckpoint(result, requestFingerprint);
+    // Persist the expensive read outside the materialization transaction so a
+    // rollback does not erase the response and force another paid extraction.
+    await prisma.aiRun.update({ where: { id: aiRun.id }, data: {
+      attempts: result.attempts, model: result.model, provider: result.provider,
+      promptTokens: result.usage?.promptTokens, completionTokens: result.usage?.completionTokens,
+      totalTokens: result.usage?.totalTokens, costUsd: result.usage?.costUsd, latencyMs: result.latencyMs,
+      structuredResponse: toJsonValue({ checkpoint, reusedFromRunId: reusedFromRunId ?? null,
+        attemptTrace: result.attemptTrace ?? [], requestId: result.requestId ?? null }),
+    } });
     return await persistExtraction({
       extractionReasoningEffort: result.model === (extractingPdf ? config.pdfModel : config.model)
         ? configuredReasoning : config.extractionFallbackReasoningEffort ?? "high",
@@ -544,14 +604,13 @@ export async function processNoteExtraction(
       provider: result.provider,
       qualityLimitation: result.qualityLimitation,
       requestId: result.requestId,
+      reusedFromRunId,
       routingMetadata: result.routingMetadata,
       usage: result.usage,
       latencyMs: result.latencyMs,
     });
   } catch (error) {
-    if (error instanceof ExtractionPipelineError && error.code === "EXTRACTION_CONFLICT") {
-      throw error;
-    }
+    const conflict = error instanceof ExtractionPipelineError && error.code === "EXTRACTION_CONFLICT";
 
     const failure: ExtractionFailureDetails =
       error instanceof ExtractionPipelineError
@@ -562,7 +621,17 @@ export async function processNoteExtraction(
           }
         : getFailureDetails(error, failureStage);
 
-    await recordExtractionFailure(note.id, note.claimedVersion, failure);
+    if (result && failureStage === "PERSISTENCE") Object.assign(failure, {
+      attempts: result.attempts, attemptTrace: result.attemptTrace,
+      model: result.model, provider: result.provider, requestId: result.requestId,
+      routingMetadata: result.routingMetadata, latencyMs: result.latencyMs,
+      costUsd: result.usage?.costUsd, promptTokens: result.usage?.promptTokens,
+      completionTokens: result.usage?.completionTokens, totalTokens: result.usage?.totalTokens,
+    });
+
+    // A stale paid read still gets a terminal run/cost record, but cannot
+    // change the newer note version or the state owned by another worker.
+    if (!conflict) await recordExtractionFailure(note.id, note.claimedVersion, failure);
     const hasFailureDiagnostics = Boolean(
       failure.category ||
         failure.diagnostic ||
@@ -592,6 +661,7 @@ export async function processNoteExtraction(
                 extractionReasoningEffort: (failure.attempts ?? 1) > 1
                   ? config.extractionFallbackReasoningEffort ?? "high" : configuredReasoning,
                 category: failure.category,
+                costStatus: costCoverage(failure.attemptTrace ?? [], failure.costUsd),
                 attemptTrace: failure.attemptTrace ?? [],
                 diagnostic: failure.diagnostic ?? null,
                 details: failure.diagnosticDetails ?? null,
@@ -599,6 +669,7 @@ export async function processNoteExtraction(
                 requestId: failure.requestId ?? null,
                 retryable: failure.retryable ?? null,
                 routing: failure.routingMetadata ?? null,
+                ...(checkpoint ? { checkpoint, reusedFromRunId: reusedFromRunId ?? null } : {}),
               }),
             }
           : {}),

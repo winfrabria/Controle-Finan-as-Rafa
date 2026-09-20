@@ -6,6 +6,21 @@ import {
 
 export type PublicProcessingPhase = "READING" | "CHECKING";
 
+/** Only shown after the server confirms receipt, never during file transfer. */
+export function publicProcessingMessage(phase: PublicProcessingPhase) {
+  return {
+    title: "Nota recebida",
+    text:
+      phase === "READING"
+        ? "Seu documento foi salvo. A leitura continua em segundo plano; você já pode enviar outra nota."
+        : "A leitura terminou e a conferência continua em segundo plano. Você já pode enviar outra nota.",
+    activity:
+      phase === "READING"
+        ? "Leitura em segundo plano"
+        : "Conferência em segundo plano",
+  };
+}
+
 export function resolvePublicUploadResult(
   note: PublicNoteStatus,
 ): PublicNoteState | null {
@@ -29,7 +44,9 @@ export function resolvePublicProcessingPhase(
     normalized.includes("AUDIT") ||
     normalized.includes("CHECK") ||
     normalized.includes("RULE") ||
-    normalized.includes("CONFER")
+    normalized.includes("CONFER") ||
+    normalized.includes("FINAL") ||
+    normalized.includes("COMPLET")
   ) {
     return "CHECKING";
   }

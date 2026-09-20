@@ -229,6 +229,7 @@ export function createDemoNoteDetail({
     },
   ];
   const base: NoteDetailBase = {
+    isRead: false,
     analysis: {
       assurance: {
         band: "HIGH",

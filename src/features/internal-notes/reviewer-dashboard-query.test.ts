@@ -6,7 +6,10 @@ process.env.DATABASE_URL ??= "postgresql://user:pass@localhost:5432/test";
 test("inclui no período de recebimento uma nota emitida em mês antigo", async () => {
   const prismaMock = {
     note: {
-      findMany: async () => [
+      findMany: async (query: { select: { findings: { where: { status: string } } } }) => {
+        assert.equal(query.select.findings.where.status, "OPEN",
+          "o resumo atual não deve ressuscitar achados resolvidos de análises anteriores");
+        return [
         {
           auditResult: null,
           classification: null,
@@ -26,7 +29,8 @@ test("inclui no período de recebimento uma nota emitida em mês antigo", async 
             responsibleProfile: null,
           },
         },
-      ],
+      ];
+      },
     },
     noteRead: {},
     pushDelivery: {},

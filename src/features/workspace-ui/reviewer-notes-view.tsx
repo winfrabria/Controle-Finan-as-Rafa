@@ -6,23 +6,27 @@ import { type ReactNode, useMemo, useState } from "react";
 
 import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
 import { sanitizeReviewerText } from "@/features/note-detail/data/reviewer-data-policy";
+import { AnalysisScopeNotice } from "@/features/note-detail/analysis-scope-notice";
+import { analysisFailureMessage, unavailableDiagnosisCopy } from "@/features/note-detail/analysis-failure";
 import {
   compactFindingFieldPath,
-  formatReviewerConflictValueCards,
-  formatReviewerFindingValueLines,
   humanizeFindingText,
-  reviewerObservationValue,
+  reviewerConflictEvidencePreview,
+  reviewerComparisonDifferenceText,
 } from "@/features/internal-notes/finding-display";
 import {
   formatFindingObservationAmount,
   formatFindingObservationDate,
+  type FindingEvidenceObservation,
 } from "@/features/note-detail/finding-observations";
+import { buildFindingComparison } from "@/features/note-detail/finding-comparison";
 
 import { Icon } from "./ui-icons";
 import { PortalShell, type PortalRole } from "./portal-shell";
 import { filterReviewerNoteRows } from "./reviewer-note-filters";
 import type { NoteFindingVisual, NoteVisualItem } from "./note-types";
 import { ReviewerMobileNotesList } from "./reviewer-mobile-notes-list";
+import { reviewerStatusLabel as statusLabel } from "./reviewer-note-status";
 import styles from "./reviewer-notes-view.module.css";
 
 type ReviewerNotesViewProps = {
@@ -47,83 +51,17 @@ const statusClass: Record<string, string> = {
   "Não processado": styles.statusProcessing,
   OK: styles.statusOk,
   "Precisa de informação": styles.statusNeedsContext,
+  "Revisão manual": styles.statusIncomplete,
   Suspeita: styles.statusSuspicious,
 };
-
-function statusLabel(item: NoteVisualItem) {
-  const classification = item.classification?.trim();
-
-  if (
-    classification === "NEEDS_CONTEXT" ||
-    classification === "NO_PARAMETER" ||
-    classification === "Sem parâmetro"
-  ) {
-    return item.activeContextQuestionCount && item.activeContextQuestionCount > 0
-      ? "Precisa de informação"
-      : "Análise incompleta";
-  }
-
-  return classification || "Em análise";
-}
 
 function statusIcon(status: string): "help" | "document" {
   return status === "Precisa de informação" ||
     status === "Informação insuficiente" ||
-    status === "Análise incompleta"
+    status === "Análise incompleta" ||
+    status === "Revisão manual"
     ? "help"
     : "document";
-}
-
-function unavailableDiagnosisCopy(status: string | null) {
-  if (status === "Aguardando processamento" || status === "Em análise") {
-    return {
-      description:
-        "O anexo ainda está na fila de análise. O diagnóstico será exibido quando o processamento terminar.",
-      title: "Análise ainda não concluída",
-    };
-  }
-
-  if (status === "Não processado") {
-    return {
-      description:
-        "Este anexo antigo não possui uma execução de processamento associada.",
-      title: "Análise não iniciada",
-    };
-  }
-
-  if (status === "Falha de leitura") {
-    return {
-      description:
-        "Não foi possível obter dados confiáveis do arquivo para gerar um diagnóstico.",
-      title: "Não foi possível ler o anexo",
-    };
-  }
-
-  if (status === "Falha de processamento") {
-    return {
-      description:
-        "A leitura foi iniciada, mas o processamento não chegou a um diagnóstico final.",
-      title: "O processamento não foi concluído",
-    };
-  }
-
-  if (status === "Análise incompleta") {
-    return {
-      description:
-        "O processamento terminou sem evidências estruturadas suficientes para sustentar um diagnóstico. O anexo precisa ser reprocessado pelo administrador.",
-      title: "Diagnóstico precisa ser reprocessado",
-    };
-  }
-
-  if (status === "Informação insuficiente") {
-    return {
-      description:
-        "O arquivo foi lido, mas o contexto disponível não permite uma conclusão confiável.",
-      title: "Informação insuficiente para concluir",
-    };
-  }
-
-  return null;
 }
 
 function findingFor(item: NoteVisualItem): NoteFindingVisual[] {
@@ -273,38 +211,13 @@ function findingSeverityTone(value?: string | null) {
   return "warning";
 }
 
-function findingListComparisonLabels(finding: NoteFindingVisual) {
-  const code = finding.code?.toUpperCase() ?? "";
-  if (code === "TOTAL_MISMATCH") {
-    return {
-      actual: "Total encontrado no documento",
-      expected: "Soma calculada dos itens",
-    };
-  }
-  if (code === "ITEM_ARITHMETIC_MISMATCH") {
-    return {
-      actual: "Total encontrado no item",
-      expected: "Quantidade × valor unitário",
-    };
-  }
-  if (code.startsWith("EVIDENCE_DATE_MISMATCH_")) {
-    return { actual: "Data encontrada", expected: "Data de referência" };
-  }
-  if (
-    code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
-    code.startsWith("AGGREGATE_PAYMENT_MISMATCH_")
-  ) {
-    return { actual: "Valor encontrado", expected: "Valor de referência" };
-  }
-  return { actual: "Encontrado", expected: "Esperado / referência" };
-}
-
 function findingLocationKindLabel(value: string) {
   const labels: Record<string, string> = {
     BILL: "Boleto",
     BOLETO: "Boleto",
     DISCOUNT: "Desconto",
     FISCAL_DOCUMENT: "Nota fiscal",
+    FISCAL_LINE: "Nota fiscal",
     INVOICE: "Nota fiscal",
     NF: "Nota fiscal",
     NFE: "Nota fiscal",
@@ -317,6 +230,41 @@ function findingLocationKindLabel(value: string) {
   };
   const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, "_");
   return labels[normalized] ?? (humanizeFindingText(value) || "Fonte não identificada");
+}
+
+function findingComparisonObservationKind(
+  value: string,
+): FindingEvidenceObservation["kind"] {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+  const aliases: Record<string, FindingEvidenceObservation["kind"]> = {
+    DESCONTO: "DISCOUNT",
+    FICHA: "SHEET",
+    FISCAL_DOCUMENT: "FISCAL_LINE",
+    INVOICE: "FISCAL_LINE",
+    NOTA_FISCAL: "FISCAL_LINE",
+    PAGAMENTO: "PAYMENT",
+    RECIBO: "RECEIPT",
+    VENDA_OU_PEDIDO: "SALE",
+  };
+  const supported = new Set<FindingEvidenceObservation["kind"]>([
+    "CHARGE",
+    "DISCOUNT",
+    "FISCAL_LINE",
+    "OTHER",
+    "PAYMENT",
+    "RECEIPT",
+    "SALE",
+    "SHEET",
+  ]);
+  if (supported.has(normalized as FindingEvidenceObservation["kind"])) {
+    return normalized as FindingEvidenceObservation["kind"];
+  }
+  return aliases[normalized] ?? "OTHER";
 }
 
 function findingLocationDate(value: string) {
@@ -448,13 +396,17 @@ export function ReviewerNotesView({
   const hiddenFindingCount = Math.max(0, totalFindingCount - previewFindings.length);
   const isRead = selected ? readIds.has(selected.id) : false;
   const selectedStatus = selected ? statusLabel(selected) : null;
+  const selectedFailureMessage = selectedStatus === "Falha de processamento"
+    ? selected?.processingFailureMessage ?? analysisFailureMessage("FAILED") : null;
   const selectedNeedsContext = selectedStatus === "Precisa de informação";
-  const unavailableDiagnosis = unavailableDiagnosisCopy(selectedStatus);
+  const unavailableDiagnosis = unavailableDiagnosisCopy(selectedStatus,
+    selected?.assurance?.band === "LIMITED" ? sanitizeReviewerText(selected.assurance.reason) : null);
   const canMarkRead =
     selectedStatus !== "Aguardando processamento" &&
     selectedStatus !== "Em análise" &&
     selectedStatus !== "Precisa de informação" &&
-    selectedStatus !== "Análise incompleta";
+    selectedStatus !== "Análise incompleta" &&
+    selectedStatus !== "Revisão manual";
 
   function selectItem(id: string) {
     setReadNotice(null);
@@ -627,8 +579,7 @@ export function ReviewerNotesView({
               <option value="Suspeita">Suspeitas</option>
               <option value="OK">OK</option>
               <option value="Precisa de informação">Precisa de informação</option>
-              <option value="Informação insuficiente">Informação insuficiente</option>
-              <option value="Análise incompleta">Análise incompleta</option>
+              <option value="Revisão manual">Revisão manual</option>
               <option value="Falha de leitura">Falha de leitura</option>
               <option value="Falha de processamento">Falha de processamento</option>
               <option value="Não processado">Não processado</option>
@@ -842,12 +793,14 @@ export function ReviewerNotesView({
                 <div className={styles.diagnosisHeading}>
                   <div>
                     <p className={styles.kicker}>LEITURA DO ANEXO</p>
-                    <h2 id="diagnosis-title">Diagnóstico da IA</h2>
+                    <h2 id="diagnosis-title">{selectedFailureMessage ? "Andamento da análise" : "Diagnóstico da IA"}</h2>
                     <p>
-                      Evidências encontradas no processamento deste anexo.
+                      {selectedFailureMessage
+                        ? "Confira o que aconteceu com o processamento deste anexo."
+                        : "Evidências encontradas no processamento deste anexo."}
                     </p>
                   </div>
-                  {selectedNeedsContext ? (
+                  {selectedFailureMessage ? null : selectedNeedsContext ? (
                     <span className={styles.contextCount}>
                       <Icon name="help" /> Informação necessária
                     </span>
@@ -860,14 +813,16 @@ export function ReviewerNotesView({
                   )}
                 </div>
 
-                {selectedNeedsContext ? (
+                <AnalysisScopeNotice assurance={selected.assurance ?? null} failureMessage={selectedFailureMessage} />
+
+                {selectedFailureMessage ? null : selectedNeedsContext ? (
                   <div className={styles.contextSummary}>
                     <span className={styles.contextSummaryIcon}><Icon name="help" /></span>
                     <div>
                       <strong>Falta contexto para concluir a análise</strong>
                       <p>
-                        O anexo foi lido, mas as informações disponíveis ainda não permitem
-                        que a IA determine um diagnóstico final.
+                        Há informação pendente para concluir o diagnóstico. Confira acima
+                        quais etapas da análise puderam ser verificadas.
                       </p>
                     </div>
                   </div>
@@ -905,13 +860,6 @@ export function ReviewerNotesView({
                           ? `Gravidade ${severityLabel(finding.severity)}`
                           : findingCategoryLabel(finding.category),
                       ].filter(Boolean);
-                      const comparisonLabels =
-                        findingListComparisonLabels(finding);
-                      const comparisonMode =
-                        finding.comparisonMode ??
-                        (finding.referenceBasis
-                          ? "REFERENCE"
-                          : "CONFLICT");
                       const severityTone = findingSeverityTone(
                         finding.severity,
                       );
@@ -920,18 +868,35 @@ export function ReviewerNotesView({
                         code: finding.code,
                         title: finding.title,
                       };
-                      const conflictValueCards =
-                        formatReviewerConflictValueCards(
-                          finding.actualValue,
-                          finding.expectedValue,
+                      const comparison = buildFindingComparison({
+                        actualValue: finding.actualValue,
+                        category: finding.category,
+                        code: finding.code,
+                        comparisonMode: finding.comparisonMode,
+                        evidence: null,
+                        expectedValue: finding.expectedValue,
+                        observations: (finding.evidenceLocations ?? []).map((location) => ({
+                          amount: location.amount ?? null,
+                          date: location.date ?? null,
+                          kind: findingComparisonObservationKind(location.kind),
+                          label: findingLocationKindLabel(location.kind),
+                          page: location.page ?? null,
+                          text: location.text ?? null,
+                          value: location.value ?? null,
+                        })),
+                        referenceBasis: finding.referenceBasis,
+                        title: finding.title,
+                      });
+                      const comparisonMode = comparison.mode;
+                      const comparisonDifferenceText =
+                        reviewerComparisonDifferenceText(
+                          comparison.difference,
                           findingIdentity,
-                          (finding.evidenceLocations ?? []).map((location) => ({
-                            label: findingLocationKindLabel(location.kind),
-                            value: reviewerObservationValue(location, findingIdentity),
-                          })),
                         );
                       const visibleEvidenceLocations =
-                        finding.evidenceLocations?.slice(0, 2) ?? [];
+                        comparisonMode === "CONFLICT"
+                          ? reviewerConflictEvidencePreview(finding.evidenceLocations ?? [], findingIdentity)
+                          : finding.evidenceLocations?.slice(0, 3) ?? [];
                       const hiddenEvidenceLocationCount = Math.max(
                         (finding.evidenceLocations?.length ?? 0) -
                           visibleEvidenceLocations.length,
@@ -958,62 +923,38 @@ export function ReviewerNotesView({
                           </summary>
                           <div className={styles.findingBody}>
                             <p className={styles.findingBodyLead}>{shortDescription}</p>
-                            {finding.expectedValue || finding.actualValue ? (
+                            {comparison.cards.length ? (
                               <div
                                 className={styles.comparisonGrid}
                                 data-mode={comparisonMode.toLowerCase()}
                               >
-                                {comparisonMode === "CONFLICT" ? (
-                                  conflictValueCards.map((card, cardIndex) => (
-                                    <div
-                                      className={styles.comparisonConflict}
-                                      key={`${card.label}-${cardIndex}`}
-                                    >
-                                      <span>{card.label}</span>
-                                      <strong>
-                                        {card.lines.map((line, lineIndex) => (
-                                          <i key={`${line}-${lineIndex}`}>{line}</i>
-                                        ))}
-                                      </strong>
-                                    </div>
-                                  ))
-                                ) : finding.actualValue ? (
+                                {comparison.cards.map((card, cardIndex) => (
                                   <div
-                                    className={styles.comparisonActual}
+                                    className={
+                                      card.tone === "actual"
+                                        ? styles.comparisonActual
+                                        : card.tone === "expected"
+                                          ? styles.comparisonExpected
+                                          : styles.comparisonConflict
+                                    }
+                                    key={`${card.label}-${cardIndex}`}
                                   >
-                                    <span>{comparisonLabels.actual}</span>
+                                    <span>{card.label}</span>
                                     <strong>
-                                      {formatReviewerFindingValueLines(
-                                        finding.actualValue,
-                                        findingIdentity,
-                                      ).map(
-                                        (line, lineIndex) => (
-                                          <i key={`${line}-${lineIndex}`}>{line}</i>
-                                        ),
-                                      )}
+                                      {card.lines.map((line, lineIndex) => (
+                                        <i key={`${line}-${lineIndex}`}>{line}</i>
+                                      ))}
                                     </strong>
                                   </div>
+                                ))}
+                                {comparisonDifferenceText ? (
+                                  <small className={styles.comparisonDifferenceText}>
+                                    {comparisonDifferenceText}
+                                  </small>
                                 ) : null}
-                                {comparisonMode === "REFERENCE" && finding.expectedValue ? (
-                                  <div className={styles.comparisonExpected}>
-                                    <span>{comparisonLabels.expected}</span>
-                                    <strong>
-                                      {formatReviewerFindingValueLines(
-                                        finding.expectedValue,
-                                        findingIdentity,
-                                      ).map(
-                                        (line, lineIndex) => (
-                                          <i key={`${line}-${lineIndex}`}>{line}</i>
-                                        ),
-                                      )}
-                                    </strong>
-                                  </div>
-                                ) : null}
-                                {comparisonMode === "CONFLICT" ? (
+                                {comparison.hint ? (
                                   <small className={styles.comparisonConflictHint}>
-                                    Os valores acima foram encontrados em fontes
-                                    diferentes. Não há referência comprovada para
-                                    escolher um deles como correto.
+                                    {comparison.hint}
                                   </small>
                                 ) : null}
                               </div>
@@ -1090,25 +1031,17 @@ export function ReviewerNotesView({
                       </p>
                     ) : null}
                   </div>
-                ) : (
-                  <div className={selectedStatus === "Suspeita" ? styles.incompleteDiagnosis : styles.noFinding}>
-                    <span className={selectedStatus === "Suspeita" ? styles.incompleteDiagnosisIcon : styles.noFindingIcon}>
-                      <Icon name={selectedStatus === "Suspeita" ? "warning" : "check"} />
+                ) : selectedStatus === "Suspeita" ? (
+                  <div className={styles.incompleteDiagnosis}>
+                    <span className={styles.incompleteDiagnosisIcon}>
+                      <Icon name="warning" />
                     </span>
                     <div>
-                      <strong>
-                        {selectedStatus === "Suspeita"
-                          ? "Diagnóstico sem detalhes estruturados"
-                          : "Nenhuma inconsistência registrada"}
-                      </strong>
-                      <p>
-                        {selectedStatus === "Suspeita"
-                          ? "A classificação foi registrada como suspeita, mas os achados detalhados não estão disponíveis. Reprocesse o anexo no painel administrativo."
-                          : "A IA não encontrou um achado para este anexo."}
-                      </p>
+                      <strong>Diagnóstico sem detalhes estruturados</strong>
+                      <p>A classificação foi registrada como suspeita, mas os achados detalhados não estão disponíveis. Reprocesse o anexo no painel administrativo.</p>
                     </div>
                   </div>
-                )}
+                ) : null}
 
                 {informationalFindings.length > 0 ? (
                   <details className={styles.informationalFindings}>
@@ -1135,7 +1068,7 @@ export function ReviewerNotesView({
                   </summary>
                   <div className={styles.extractedContent}>
                     <span><strong>Fornecedor</strong>{selected.supplier}</span>
-                    <span><strong>Data de emissão</strong>{selected.date}</span>
+                    <span><strong>Data de emissão</strong>{selected.issuedAtLabel ?? "Não identificada"}</span>
                     <span><strong>Valor total</strong>{selected.value}</span>
                     {selected.work ? <span><strong>Obra</strong>{selected.work}</span> : null}
                   </div>
@@ -1170,6 +1103,8 @@ export function ReviewerNotesView({
                           ? "Marcar como lida"
                           : selectedNeedsContext
                             ? "Aguardando informação"
+                            : selectedStatus === "Análise incompleta" || selectedStatus === "Revisão manual"
+                              ? "Revisão manual"
                             : "Aguardando análise"}
                     </button>
                   )}

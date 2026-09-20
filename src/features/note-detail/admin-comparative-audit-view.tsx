@@ -22,6 +22,8 @@ import {
   formatDate,
   formatDateTime,
   formatDecimal,
+  formatQuantity,
+  formatUnitPrice,
 } from "./note-detail-format";
 import { NoteDocumentPreview } from "./note-document-preview";
 
@@ -48,10 +50,11 @@ export function AdminComparativeAuditView({
     data.analysis.auditResult,
     data.analysis.classification,
     data.status,
+    data.analysis.findings.length,
   );
   const classification =
     rawClassification === "Suspeita" && data.analysis.findings.length === 0
-      ? "Análise incompleta"
+      ? "Revisão manual"
       : rawClassification;
   const fields = [
     ["Número da nota", number],
@@ -199,7 +202,7 @@ function Metadata({ icon, label, value, green = false, orange = false }: { icon:
 }
 
 function ItemsTable({ data }: { data: AdminNoteDetail }) {
-  return <div className={styles.itemsWrap}><table><thead><tr><th>Código</th><th>Descrição</th><th>NCM/SH</th><th>UN</th><th>Qtd.</th><th>Vlr. unit.</th><th>Vlr. total</th></tr></thead><tbody>{data.items.map((item) => <tr key={item.id}><td>{item.code ?? "—"}</td><td>{item.description}</td><td>{rawItemValue(item.rawData, ["ncm", "ncmSh"]) ?? "—"}</td><td>{item.unit ?? "—"}</td><td>{formatDecimal(item.quantity, 0)}</td><td>{formatDecimal(item.unitPrice)}</td><td>{formatDecimal(item.totalAmount)}</td></tr>)}</tbody></table><div className={styles.itemCards}>{data.items.map((item) => <article key={item.id}><strong>{item.description}</strong><span>{item.code ?? "Sem código"}</span><dl><div><dt>Quantidade</dt><dd>{formatDecimal(item.quantity, 0)} {item.unit ?? ""}</dd></div><div><dt>Valor unitário</dt><dd>{formatDecimal(item.unitPrice)}</dd></div><div><dt>Total</dt><dd>{formatDecimal(item.totalAmount)}</dd></div></dl></article>)}</div></div>;
+  return <div className={styles.itemsWrap}><table><thead><tr><th>Código</th><th>Descrição</th><th>NCM/SH</th><th>UN</th><th>Qtd.</th><th>Vlr. unit.</th><th>Vlr. total</th></tr></thead><tbody>{data.items.map((item) => <tr key={item.id}><td>{item.code ?? "—"}</td><td>{item.description}</td><td>{rawItemValue(item.rawData, ["ncm", "ncmSh"]) ?? "—"}</td><td>{item.unit ?? "—"}</td><td>{formatQuantity(item.quantity)}</td><td>{formatUnitPrice(item.unitPrice)}</td><td>{formatDecimal(item.totalAmount)}</td></tr>)}</tbody></table><div className={styles.itemCards}>{data.items.map((item) => <article key={item.id}><strong>{item.description}</strong><span>{item.code ?? "Sem código"}</span><dl><div><dt>Quantidade</dt><dd>{formatQuantity(item.quantity)} {item.unit ?? ""}</dd></div><div><dt>Valor unitário</dt><dd>{formatUnitPrice(item.unitPrice)}</dd></div><div><dt>Total</dt><dd>{formatDecimal(item.totalAmount)}</dd></div></dl></article>)}</div></div>;
 }
 
 function FindingCard({ finding }: { finding: AdminNoteDetailFinding }) {

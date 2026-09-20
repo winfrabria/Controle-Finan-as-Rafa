@@ -7,6 +7,7 @@ export type NoteFindingVisual = {
   evidence?: string | null;
   evidenceDetails?: { label: string; value: string }[];
   evidenceLocations?: Array<{
+    value?: string | null;
     amount?: string | null;
     date?: string | null;
     kind: string;
@@ -17,19 +18,23 @@ export type NoteFindingVisual = {
   expectedValue?: string | null;
   justification?: string | null;
   referenceBasis?: string | null;
+  requiresSourceReview?: boolean;
   severity?: string | null;
   title: string;
 };
 
 export type NoteVisualItem = {
   activeContextQuestionCount?: number;
+  assurance?: { band: "HIGH" | "MEDIUM" | "LIMITED"; reason: string } | null;
   classification: string;
   date: string;
+  processingFailureMessage?: string | null;
   finding?: string;
   findingCount?: number;
   findings?: NoteFindingVisual[];
   id: string;
   isRead?: boolean;
+  issuedAtLabel?: string;
   number: string;
   responsible?: string;
   readAt?: string;

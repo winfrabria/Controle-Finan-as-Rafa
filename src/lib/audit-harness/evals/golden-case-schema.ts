@@ -34,7 +34,8 @@ export const goldenCaseCategorySchema = z.enum([
 ]);
 
 const evidenceObservationSchema = z.object({
-  kind: z.enum(["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"]),
+  kind: z.enum(["SHEET", "RECEIPT", "SALE", "PAYMENT", "CHARGE", "DISCOUNT", "OTHER"]),
+  amountScope: z.enum(["ITEM_TOTAL", "DOCUMENT_TOTAL", "UNIT_VALUE", "COMPONENT", "ADJUSTMENT", "CONTEXT", "UNKNOWN"]).optional(),
   documentGroup: z.string().nullish(),
   label: z.string().nullish(),
   amount: z.string().nullish(),
@@ -44,6 +45,7 @@ const evidenceObservationSchema = z.object({
 });
 
 export const goldenCaseInvoiceSchema = z.object({
+  originalFileSha256: z.string().regex(/^[a-f0-9]{64}$/i).nullish(),
   documentKind: z
     .enum(["FISCAL_INVOICE", "REIMBURSEMENT", "COMPOSITE", "PAYMENT_PROOF", "OTHER"])
     .optional(),
@@ -80,12 +82,15 @@ export const goldenCaseInvoiceSchema = z.object({
         field: z.string(),
         label: z.string(),
         requiredByDocument: z.boolean(),
+        requirementBasis: z.enum(["EXPLICIT_DOCUMENT", "VERIFIED_POLICY", "NONE"]).optional(),
+        requirementEvidence: z.string().nullish(),
         present: z.boolean(),
         page: z.number().int().nullable(),
         evidence: z.string().nullable(),
       }),
     )
     .optional(),
+  documentObservations: z.array(evidenceObservationSchema).optional(),
   items: z.array(
     z.object({
       lineNumber: z.number().int().positive(),
@@ -96,6 +101,12 @@ export const goldenCaseInvoiceSchema = z.object({
         .nullish(),
       countsTowardDocumentTotal: z.boolean().nullish(),
       arithmeticVerified: z.boolean().nullish(),
+      parentLineNumber: z.number().int().positive().nullish(),
+      breakdownComplete: z.boolean().optional(),
+      sourcePage: z.number().int().positive().nullish(),
+      sourceKind: z.enum(["FISCAL_LINE", "SHEET", "RECEIPT", "SALE", "PAYMENT", "CHARGE", "OTHER", "UNKNOWN"]).optional(),
+      sourceDate: z.string().nullable().optional(),
+      sourceText: z.string().nullish(),
       quantity: z.string().nullable(),
       unitPrice: z.string().nullable(),
       totalAmount: z.string().nullable(),
@@ -114,6 +125,7 @@ const workRuleSchema = z.object({
 
 const duplicateCandidateSchema = z.object({
   noteId: z.string(),
+  originalFileSha256: z.string().regex(/^[a-f0-9]{64}$/i).nullish(),
   documentNumber: z.string().nullable(),
   supplierTaxId: z.string().nullable(),
   issuedAt: z.string().nullable(),

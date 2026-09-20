@@ -4,7 +4,7 @@ import test from "node:test";
 import { AUDIT_POLICY, selectReasoningEffort } from "./policy";
 
 test("mantém Terra high como primário e Sol high como recuperação", () => {
-  assert.equal(AUDIT_POLICY.version, "2026-09-06.1");
+  assert.equal(AUDIT_POLICY.version, "2026-09-20.20");
   assert.equal(AUDIT_POLICY.defaultReasoningEffort, "high");
   assert.equal(AUDIT_POLICY.fallbackReasoningEffort, "high");
 

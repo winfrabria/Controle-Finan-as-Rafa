@@ -12,6 +12,7 @@ export type LogClassification =
   | "Falha de leitura"
   | "Falha de processamento"
   | "Informação insuficiente"
+  | "Revisão manual"
   | "OK"
   | "Precisa de informação"
   | "Processamento"
@@ -55,6 +56,7 @@ function tone(classification: LogClassification) {
   }
   if (
     classification === "Precisa de informação" ||
+    classification === "Revisão manual" ||
     classification === "Processamento"
   ) {
     return "info" as const;

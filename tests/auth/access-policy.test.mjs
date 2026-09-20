@@ -88,3 +88,9 @@ test("sessão autenticada prioriza claims verificadas antes do fallback remoto",
   assert.ok(userIndex > claimsIndex);
   assert.match(source, /claimsData\?\.claims\?\.sub/);
 });
+
+test("após trocar a senha, navegação nativa retorna ao landing de sessão e perfil", () => {
+  const source = readFileSync(new URL("../../src/app/atualizar-senha/page.tsx", import.meta.url), "utf8");
+  assert.match(source, /<a href="\/auth\/landing" className=\{styles\.btnPrimary\}>/);
+  assert.doesNotMatch(source, /window\.location\.assign/);
+});

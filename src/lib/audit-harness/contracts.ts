@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { findingSourceObservationSchema, FINDING_SOURCE_OBSERVATIONS_JSON_SCHEMA, findingClaimScopeSchema, FINDING_CLAIM_SCOPE_JSON_SCHEMA, MAX_FINDING_SOURCE_OBSERVATIONS } from "./finding-source-observations";
 
 export const harnessClassificationSchema = z.enum([
   "OK",
@@ -85,6 +86,8 @@ const aiDiscoveryEvidenceSchema = z
     source: z.string().trim().min(1).max(500).nullable(),
     page: z.number().int().positive().nullable(),
     lineNumber: z.number().int().positive().nullable(),
+    observations: z.array(findingSourceObservationSchema).max(MAX_FINDING_SOURCE_OBSERVATIONS).optional(),
+    claimScope: findingClaimScopeSchema,
   })
   .strict();
 
@@ -139,7 +142,7 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
         required: [
           "code", "title", "description", "category", "severity", "source",
           "confidence", "justification", "evidence", "expectedValue",
-          "actualValue", "noteItemLineNumber", "references",
+          "actualValue", "noteItemLineNumber", "references", "comparisonMode", "referenceBasis",
         ],
         properties: {
           code: { type: "string", minLength: 1, maxLength: 100 },
@@ -158,17 +161,21 @@ export const AI_DISCOVERY_JSON_SCHEMA = {
           evidence: {
             type: "object",
             additionalProperties: false,
-            required: ["summary", "field", "source", "page", "lineNumber"],
+            required: ["summary", "field", "source", "page", "lineNumber", "observations", "claimScope"],
             properties: {
               summary: { type: "string", minLength: 1, maxLength: 2000 },
               field: { type: ["string", "null"], minLength: 1, maxLength: 200 },
               source: { type: ["string", "null"], minLength: 1, maxLength: 500 },
               page: { type: ["integer", "null"], minimum: 1 },
               lineNumber: { type: ["integer", "null"], minimum: 1 },
+              observations: FINDING_SOURCE_OBSERVATIONS_JSON_SCHEMA,
+              claimScope: FINDING_CLAIM_SCOPE_JSON_SCHEMA,
             },
           },
           expectedValue: { type: ["string", "null"], maxLength: 1000 },
           actualValue: { type: ["string", "null"], maxLength: 1000 },
+          comparisonMode: { type: ["string", "null"], enum: ["REFERENCE", "CONFLICT", null] },
+          referenceBasis: { type: ["string", "null"], minLength: 1, maxLength: 500 },
           noteItemLineNumber: { type: ["integer", "null"], minimum: 1 },
         },
       },
@@ -240,6 +247,8 @@ export type ContextAnswerForAudit = {
 };
 
 export type HarnessInvoice = {
+  /** Computed from original bytes by storage; never supplied by extraction. */
+  originalFileSha256?: string | null;
   documentKind?:
     | "FISCAL_INVOICE"
     | "REIMBURSEMENT"
@@ -291,6 +300,18 @@ export type HarnessInvoice = {
       unit: "NORMALIZED" | "PIXEL";
     } | null;
   }>;
+  pageCoverage?: Array<{
+    page: number;
+    complete: boolean;
+    sources: Array<{
+      kind: "FISCAL_LINE" | "SHEET" | "RECEIPT" | "SALE" | "PAYMENT" | "CHARGE" | "DISCOUNT" | "OTHER";
+      count: number;
+    }>;
+    fieldsReviewed: boolean;
+    requirementScope: "ALL_FIELDS" | "SPECIFIC_FIELDS" | "NONE" | "UNKNOWN";
+    requirementEvidence: string | null;
+  }>;
+  documentObservations?: NonNullable<HarnessInvoice["items"][number]["evidenceObservations"]>;
   items: Array<{
     lineNumber: number;
     description: string;
@@ -302,6 +323,10 @@ export type HarnessInvoice = {
       | "SUMMARY";
     countsTowardDocumentTotal?: boolean;
     arithmeticVerified?: boolean;
+    parentLineNumber?: number | null;
+    breakdownComplete?: boolean;
+    sourceKind?: "FISCAL_LINE" | "SHEET" | "RECEIPT" | "SALE" | "PAYMENT" | "CHARGE" | "OTHER" | "UNKNOWN";
+    sourceDate?: string | null;
     sourcePage?: number | null;
     sourceText?: string | null;
     sourceBoundingBox?: {
@@ -312,10 +337,12 @@ export type HarnessInvoice = {
       unit: "NORMALIZED" | "PIXEL";
     } | null;
     quantity: string | null;
+    unit?: string | null;
     unitPrice: string | null;
     totalAmount: string | null;
     evidenceObservations?: Array<{
-      kind: "SHEET" | "RECEIPT" | "SALE" | "PAYMENT" | "DISCOUNT" | "OTHER";
+      kind: "SHEET" | "RECEIPT" | "SALE" | "PAYMENT" | "CHARGE" | "DISCOUNT" | "OTHER";
+      amountScope?: "ITEM_TOTAL" | "DOCUMENT_TOTAL" | "UNIT_VALUE" | "COMPONENT" | "ADJUSTMENT" | "CONTEXT" | "UNKNOWN";
       documentGroup?: string | null;
       label: string | null;
       amount: string | null;
@@ -343,6 +370,7 @@ export type WorkRuleInput = {
 
 export type DuplicateCandidate = {
   noteId: string;
+  originalFileSha256?: string | null;
   documentNumber: string | null;
   supplierTaxId: string | null;
   issuedAt: string | null;

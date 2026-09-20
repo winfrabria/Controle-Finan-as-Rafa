@@ -52,7 +52,7 @@ export function InternalShell({
             {email.slice(0, 1).toUpperCase()}
           </span>
           <span>
-            <strong>Rafael</strong>
+            <strong>Revisor</strong>
             <small>{email}</small>
           </span>
           <LogoutButton className={styles.logout} />

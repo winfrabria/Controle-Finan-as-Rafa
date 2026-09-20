@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 
 import { Icon } from "./ui-icons";
 import type { NoteVisualItem } from "./note-types";
+import { reviewerNotePrimaryReason } from "./reviewer-note-summary";
+import { reviewerStatusLabel as statusLabel } from "./reviewer-note-status";
 import styles from "./reviewer-mobile-notes-list.module.css";
 
 type MobileTab = "all" | "ok" | "suspicious" | "unread";
@@ -13,20 +15,6 @@ type ReviewerMobileNotesListProps = {
   items: NoteVisualItem[];
   mode: "history" | "inbox";
 };
-
-function statusLabel(item: NoteVisualItem) {
-  const classification = item.classification?.trim();
-  if (
-    classification === "NEEDS_CONTEXT" ||
-    classification === "NO_PARAMETER" ||
-    classification === "Sem parâmetro"
-  ) {
-    return item.activeContextQuestionCount && item.activeContextQuestionCount > 0
-      ? "Precisa de informação"
-      : "Análise incompleta";
-  }
-  return classification || "Em análise";
-}
 
 function parsePtBrDate(value: string) {
   const parts = value.split("/").map(Number);
@@ -74,16 +62,10 @@ function statusTone(status: string) {
   if (status === "Falha de leitura" || status === "Falha de processamento") {
     return styles.failed;
   }
-  if (status === "Precisa de informação" || status === "Informação insuficiente") {
+  if (status === "Precisa de informação" || status === "Informação insuficiente" || status === "Revisão manual") {
     return styles.context;
   }
   return styles.processing;
-}
-
-function primaryReason(item: NoteVisualItem, status: string) {
-  return item.findings?.find((finding) => finding.severity?.toUpperCase() !== "INFO")?.title
-    ?? item.finding
-    ?? (status === "OK" ? "Nenhuma inconsistência identificada" : status);
 }
 
 export function ReviewerMobileNotesList({
@@ -274,7 +256,9 @@ export function ReviewerMobileNotesList({
                       </span>
                       <span className={styles.supplier}>{item.supplier}</span>
                       {item.work ? <span className={styles.work}>Obra: {item.work}</span> : null}
-                      {!historyMode ? <span className={styles.reason}>{primaryReason(item, itemStatus)}</span> : null}
+                      {!historyMode && itemStatus !== "OK" ? (
+                        <span className={styles.reason}>{reviewerNotePrimaryReason(item, itemStatus)}</span>
+                      ) : null}
                       <span className={styles.cardFooter}>
                         <em>{itemStatus}</em>
                         <strong>{item.value}</strong>

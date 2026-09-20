@@ -189,6 +189,7 @@ export type NoteDetailBase = {
   history: NoteDetailHistoryEntry[];
   id: string;
   isDemo: boolean;
+  isRead: boolean;
   issuedAt: Date | null;
   items: NoteDetailItem[];
   number: string | null;

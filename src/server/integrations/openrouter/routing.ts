@@ -25,11 +25,23 @@ export function getOpenRouterOutputTokenParameter(
 export function getOpenRouterOutputTokenLimit(
   model: string,
   limit: number,
+  parameterOverride?: OpenRouterOutputTokenParameter,
 ): OpenRouterOutputTokenLimit {
-  const parameter = getOpenRouterOutputTokenParameter(model);
+  const parameter = parameterOverride ?? getOpenRouterOutputTokenParameter(model);
   return parameter === "max_completion_tokens"
     ? { max_completion_tokens: limit }
     : { max_tokens: limit };
+}
+
+/** Compatibility override for controlled verifier probes. Keep the documented
+ * completion-token spelling by default; endpoint catalogs may advertise the
+ * legacy spelling differently when require_parameters is enabled. */
+export function resolveVerificationOutputTokenParameter(value?: string): OpenRouterOutputTokenParameter {
+  const parameter = value?.trim() || "max_completion_tokens";
+  if (parameter !== "max_tokens" && parameter !== "max_completion_tokens") {
+    throw new Error("HARNESS_PROBE_TOKEN_PARAMETER must be max_tokens or max_completion_tokens.");
+  }
+  return parameter;
 }
 
 export type OpenRouterProviderSort = "latency" | "price" | "throughput";

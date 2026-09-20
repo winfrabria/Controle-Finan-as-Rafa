@@ -13,6 +13,7 @@ export const ACCEPTED_FILE_TYPES = [
 export type ProjectOption = {
   id: string;
   nome: string;
+  codigo?: string | null;
   local?: string | null;
 };
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { documentHierarchyIssue } from "@/lib/audit-harness/document-hierarchy";
 import { isValidIsoCalendarDate } from "@/lib/calendar-date";
 
 import { INVOICE_EXTRACTION_PROMPT } from "@/lib/audit-harness/prompts";
@@ -123,7 +124,8 @@ const UNKNOWN_SUPPORT_COVERAGE = {
 
 export const invoiceEvidenceObservationSchema = z
   .object({
-    kind: z.enum(["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"]),
+    kind: z.enum(["SHEET", "RECEIPT", "SALE", "PAYMENT", "CHARGE", "DISCOUNT", "OTHER"]),
+    amountScope: z.enum(["ITEM_TOTAL", "DOCUMENT_TOTAL", "UNIT_VALUE", "COMPONENT", "ADJUSTMENT", "CONTEXT", "UNKNOWN"]).optional(),
     documentGroup: nullableText,
     label: nullableText,
     amount: decimalText,
@@ -192,6 +194,10 @@ export const invoiceExtractionItemSchema = z
     documentRole: documentRoleSchema.default("LINE_ITEM"),
     countsTowardDocumentTotal: z.boolean().optional(),
     arithmeticVerified: z.boolean().optional(),
+    parentLineNumber: z.number().int().positive().nullable().optional(),
+    breakdownComplete: z.boolean().optional(),
+    sourceKind: z.enum(["FISCAL_LINE", "SHEET", "RECEIPT", "SALE", "PAYMENT", "CHARGE", "OTHER", "UNKNOWN"]).optional(),
+    sourceDate: isoDate.optional(),
     sourcePage: z.number().int().positive().nullable().default(null),
     sourceText: nullableText,
     sourceBoundingBox: invoiceBoundingBoxSchema.nullable().optional(),
@@ -210,9 +216,9 @@ export const invoicePageCoverageSchema = z.object({
   page: z.number().int().positive(),
   complete: z.boolean(),
   sources: z.array(z.object({
-    kind: z.enum(["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"]),
+    kind: z.enum(["FISCAL_LINE", "SHEET", "RECEIPT", "SALE", "PAYMENT", "CHARGE", "DISCOUNT", "OTHER"]),
     count: z.number().int().positive().max(500),
-  }).strict()).max(6),
+  }).strict()).max(8),
   fieldsReviewed: z.boolean(),
   requirementScope: z.enum(["ALL_FIELDS", "SPECIFIC_FIELDS", "NONE", "UNKNOWN"]),
   requirementEvidence: nullableText,
@@ -228,6 +234,7 @@ export const invoiceExtractionSchema = z
     totalAmount: decimalText,
     currency: z.string().trim().length(3).default("BRL"),
     items: z.array(invoiceExtractionItemSchema).max(500),
+    documentObservations: z.array(invoiceEvidenceObservationSchema).max(1000).optional(),
     itemCoverage: invoiceItemCoverageSchema.default(UNKNOWN_ITEM_COVERAGE),
     supportCoverage: invoiceSupportCoverageSchema.optional(),
     // Optional for historical rows; the provider contract requests it on new reads.
@@ -255,9 +262,31 @@ export const invoiceExtractionSchema = z
 
       lineNumbers.add(item.lineNumber);
     });
+    const hierarchyIssue = documentHierarchyIssue(value.items);
+    if (hierarchyIssue) {
+      context.addIssue({ code: "custom", message: `Invalid document hierarchy: ${hierarchyIssue.reason}.`, path: ["items"] });
+    }
   });
 
 export type InvoiceExtraction = z.infer<typeof invoiceExtractionSchema>;
+
+/** A typed primary control row or aggregate charge carries its own value/date/page.
+ * Materialize that source once for existing rules/UI; never infer its kind from
+ * document type, page number, matching sums or a previous reading. */
+function parseWithPrimarySources(value: unknown) {
+  const parsed = invoiceExtractionSchema.safeParse(value);
+  if (!parsed.success) return parsed;
+  const items = parsed.data.items.map((item) => {
+    const kind = item.sourceKind === "SHEET" ? "SHEET" as const
+      : item.sourceKind === "CHARGE" && item.documentRole === "AGGREGATE_PAYMENT" ? "CHARGE" as const : null;
+    if (!kind || item.sourcePage === null || !item.sourceText ||
+      item.evidenceObservations.some((observation) => observation.kind === kind && observation.page === item.sourcePage)) return item;
+    return { ...item, evidenceObservations: [{ kind, amountScope: kind === "CHARGE" ? "DOCUMENT_TOTAL" as const : "ITEM_TOTAL" as const,
+      amount: item.totalAmount, date: item.sourceDate ?? null, page: item.sourcePage, text: item.sourceText,
+      documentGroup: item.documentGroup, label: null, boundingBox: item.sourceBoundingBox ?? null }, ...item.evidenceObservations] };
+  });
+  return invoiceExtractionSchema.safeParse({ ...parsed.data, items });
+}
 
 const OCR_FALLBACK_WARNING =
   "A estruturação automática foi parcial; a auditoria deve usar o texto OCR integral.";
@@ -447,10 +476,10 @@ function normalizedDocumentKind(value: unknown, searchableText: string) {
   return "OTHER" as const;
 }
 
-function normalizedEvidenceObservations(value: unknown) {
+function normalizedEvidenceObservations(value: unknown, limit = 12) {
   if (!Array.isArray(value)) return [];
 
-  return value.slice(0, 12).flatMap((rawObservation) => {
+  return value.slice(0, limit).flatMap((rawObservation) => {
     if (!isRecord(rawObservation)) return [];
     const rawKind =
       typeof rawObservation.kind === "string"
@@ -462,6 +491,9 @@ function normalizedEvidenceObservations(value: unknown) {
     > = {
       CARD: "PAYMENT",
       CARTAO: "PAYMENT",
+      CHARGE: "CHARGE",
+      BOLETO: "CHARGE",
+      COBRANCA: "CHARGE",
       COMPROVANTE: "RECEIPT",
       CUPOM: "RECEIPT",
       DESCONTO: "DISCOUNT",
@@ -480,6 +512,7 @@ function normalizedEvidenceObservations(value: unknown) {
 
     const observation = {
       kind: kindAliases[rawKind] ?? "OTHER",
+      amountScope: rawObservation.amountScope,
       documentGroup: normalizeNullableText(
         rawObservation.documentGroup ??
           rawObservation.document_group ??
@@ -630,6 +663,27 @@ function unwrapExtractionPayload(value: unknown) {
 export const INVALID_DOCUMENT_DATE_WARNING =
   "Uma data extraída não existe no calendário e precisa ser conferida no documento original.";
 
+export const UNPROVED_BREAKDOWN_WARNING =
+  "A extração declarou detalhamento completo sem linhas filhas; a relação precisa ser conferida no documento original.";
+
+/** Revoke an unsupported completeness claim without inventing or discarding rows. */
+function recoverUnsupportedBreakdownClaims(value: unknown): unknown {
+  if (!isRecord(value) || !Array.isArray(value.items)) return value;
+  const parents = new Set(value.items.flatMap((item) =>
+    isRecord(item) && typeof item.parentLineNumber === "number" ? [item.parentLineNumber] : []));
+  let changed = false;
+  const items = value.items.map((item) => {
+    if (!isRecord(item) || item.breakdownComplete !== true ||
+      typeof item.lineNumber !== "number" || !Number.isSafeInteger(item.lineNumber) ||
+      item.lineNumber < 1 || parents.has(item.lineNumber)) return item;
+    changed = true;
+    return { ...item, breakdownComplete: false };
+  });
+  if (!changed) return value;
+  return { ...value, items, warnings: [UNPROVED_BREAKDOWN_WARNING,
+    ...normalizedWarnings(value.warnings).filter((warning) => warning !== UNPROVED_BREAKDOWN_WARNING)].slice(0, 50) };
+}
+
 /** Preserve readable fields and the original excerpt, never invent a date. */
 function recoverInvalidDocumentDates(value: unknown): unknown {
   if (!isRecord(value)) return value;
@@ -647,10 +701,14 @@ function recoverInvalidDocumentDates(value: unknown): unknown {
     return repaired;
   };
   const repaired = repairDateFields(value, ["issuedAt", "issued_at"]);
+  if (Array.isArray(value.documentObservations)) {
+    repaired.documentObservations = value.documentObservations.map((observation) =>
+      isRecord(observation) ? repairDateFields(observation, ["date", "issuedAt"]) : observation);
+  }
   if (Array.isArray(value.items)) {
     repaired.items = value.items.map((item) => {
       if (!isRecord(item)) return item;
-      const repairedItem = { ...item };
+      const repairedItem = repairDateFields(item, ["sourceDate"]);
       for (const key of ["evidenceObservations", "evidence_observations", "evidence"]) {
         const observations = item[key];
         if (Array.isArray(observations)) {
@@ -681,7 +739,7 @@ function recoverInvalidDocumentDates(value: unknown): unknown {
  * descartados e a ordem observada vira a numeração canônica persistida.
  */
 export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
-  const unwrapped = recoverInvalidDocumentDates(unwrapExtractionPayload(value));
+  const unwrapped = recoverUnsupportedBreakdownClaims(recoverInvalidDocumentDates(unwrapExtractionPayload(value)));
   if (!isRecord(unwrapped)) return unwrapped;
   const payload = unwrapped;
 
@@ -689,6 +747,13 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
   const suppliedMarkdown =
     typeof payload.markdown === "string" ? payload.markdown.trim() : "";
   const rawItems: unknown[] = Array.isArray(payload.items) ? payload.items : [];
+  const hasHierarchy = rawItems.some((item) => isRecord(item) && item.parentLineNumber != null);
+  const originalLines = rawItems.map((item) => isRecord(item) ? item.lineNumber : undefined);
+  // Renumbering must never silently change the parent a component refers to.
+  if (hasHierarchy && (originalLines.some((line) => typeof line !== "number" || !Number.isSafeInteger(line) || line <= 0) ||
+    new Set(originalLines).size !== originalLines.length ||
+    rawItems.some((item) => isRecord(item) && item.parentLineNumber != null && !originalLines.includes(item.parentLineNumber)))) return payload;
+  const canonicalLines = new Map(originalLines.map((line, index) => [line, index + 1]));
   const items = rawItems
     .slice(0, 500)
     .flatMap((rawItem, index) => {
@@ -722,6 +787,11 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
           ...(typeof rawItem.arithmeticVerified === "boolean"
             ? { arithmeticVerified: rawItem.arithmeticVerified }
             : {}),
+          parentLineNumber: rawItem.parentLineNumber == null ? rawItem.parentLineNumber
+            : canonicalLines.get(rawItem.parentLineNumber) ?? rawItem.parentLineNumber,
+          breakdownComplete: rawItem.breakdownComplete,
+          sourceKind: rawItem.sourceKind,
+          sourceDate: rawItem.sourceDate,
           sourcePage:
             typeof rawItem.sourcePage === "number"
               ? rawItem.sourcePage
@@ -778,6 +848,8 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
     totalAmount: payload.totalAmount ?? payload.total_amount,
     currency: normalizedCurrency(payload.currency),
     items,
+    documentObservations: Array.isArray(payload.documentObservations)
+      ? normalizedEvidenceObservations(payload.documentObservations, 1000) : undefined,
     itemCoverage: normalizedItemCoverage(
       payload.itemCoverage ?? payload.item_coverage,
       items,
@@ -805,11 +877,45 @@ export function normalizeInvoiceExtractionPayload(value: unknown): unknown {
   };
 }
 
-export function parseInvoiceExtractionPayload(value: unknown) {
-  const recovered = recoverInvalidDocumentDates(unwrapExtractionPayload(value));
+function recoverWindowFragmentEconomicLayer(value: unknown) {
+  if (!isRecord(value) || !Array.isArray(value.items)) return value;
+  const rows = value.items.filter(isRecord);
+  const byLine = new Map(rows.flatMap(row => typeof row.lineNumber === "number" && Number.isSafeInteger(row.lineNumber)
+    ? [[row.lineNumber, row] as const] : []));
+  let changed = false;
+  const items = value.items.map(item => {
+    if (!isRecord(item) || item.countsTowardDocumentTotal !== true || typeof item.parentLineNumber !== "number") return item;
+    const visited = new Set<number>();
+    let parentLine: unknown = item.parentLineNumber;
+    while (typeof parentLine === "number" && !visited.has(parentLine)) {
+      visited.add(parentLine);
+      const parent = byLine.get(parentLine);
+      if (!parent) break;
+      if (parent.countsTowardDocumentTotal === true) {
+        changed = true;
+        return { ...item, countsTowardDocumentTotal: false };
+      }
+      parentLine = parent.parentLineNumber;
+    }
+    return item;
+  });
+  if (!changed) return value;
+  const selected = items.flatMap(item => isRecord(item) && item.countsTowardDocumentTotal === true &&
+    typeof item.lineNumber === "number" ? [item.lineNumber] : []).sort((left, right) => left - right);
+  const coverage = isRecord(value.itemCoverage) ? value.itemCoverage : {};
+  return { ...value, items, itemCoverage: { ...coverage,
+    status: selected.length > 0 && coverage.status === "COMPLETE" ? "COMPLETE" : "UNKNOWN",
+    declaredItemCount: null, extractedItemCount: selected.length,
+    firstLineNumber: selected[0] ?? null, lastLineNumber: selected.at(-1) ?? null, missingLineNumbers: [] } };
+}
+
+export function parseInvoiceExtractionPayload(value: unknown, options: { windowFragment?: boolean } = {}) {
+  const payload = unwrapExtractionPayload(value);
+  const recoveredLayer = options.windowFragment ? recoverWindowFragmentEconomicLayer(payload) : payload;
+  const recovered = recoverUnsupportedBreakdownClaims(recoverInvalidDocumentDates(recoveredLayer));
   const direct = invoiceExtractionSchema.safeParse(recovered);
   if (direct.success) {
-    return invoiceExtractionSchema.safeParse({
+    return parseWithPrimarySources({
       ...direct.data,
       itemCoverage: normalizedItemCoverage(
         direct.data.itemCoverage,
@@ -821,7 +927,7 @@ export function parseInvoiceExtractionPayload(value: unknown) {
       ),
     });
   }
-  return invoiceExtractionSchema.safeParse(
+  return parseWithPrimarySources(
     normalizeInvoiceExtractionPayload(recovered),
   );
 }
@@ -886,6 +992,7 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
     "totalAmount",
     "currency",
     "items",
+    "documentObservations",
     "itemCoverage",
     "supportCoverage",
     "pageCoverage",
@@ -917,6 +1024,23 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
       description: "Decimal string without currency symbols.",
     },
     currency: { type: "string", minLength: 3, maxLength: 3 },
+    documentObservations: {
+      type: "array", maxItems: 1000,
+      description: "Evidence belonging to the document rather than one expense: an unpaid charge, email, tax note, control header, or contextual statement. Never create a fake monetary item for these sources.",
+      items: {
+        type: "object", additionalProperties: false,
+        required: ["kind", "amountScope", "documentGroup", "label", "amount", "date", "page", "text", "boundingBox"],
+        properties: {
+          kind: { type: "string", enum: ["SHEET", "RECEIPT", "SALE", "PAYMENT", "CHARGE", "DISCOUNT", "OTHER"] },
+          amountScope: { type: "string", enum: ["ITEM_TOTAL", "DOCUMENT_TOTAL", "UNIT_VALUE", "COMPONENT", "ADJUSTMENT", "CONTEXT", "UNKNOWN"] },
+          documentGroup: { type: ["string", "null"] }, label: { type: ["string", "null"] },
+          amount: { type: ["string", "null"] }, date: { type: ["string", "null"] },
+          page: { type: ["integer", "null"], minimum: 1 }, text: { type: ["string", "null"],
+            description: "Literal source excerpt containing EVERY non-null amount and date in this observation, including their printed labels. Never copy a value from another source into the quote. Use null for an unreadable scalar." },
+          boundingBox: BOUNDING_BOX_JSON_SCHEMA,
+        },
+      },
+    },
     pageCoverage: {
       type: "array", maxItems: 500,
       items: {
@@ -926,16 +1050,18 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
           page: { type: "integer", minimum: 1 },
           complete: { type: "boolean" },
           sources: {
-            type: "array", maxItems: 6,
+            type: "array", maxItems: 8,
             items: {
               type: "object", additionalProperties: false, required: ["kind", "count"],
               properties: {
-                kind: { type: "string", enum: ["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"] },
-                count: { type: "integer", minimum: 1, maximum: 500 },
+                kind: { type: "string", enum: ["FISCAL_LINE", "SHEET", "RECEIPT", "SALE", "PAYMENT", "CHARGE", "DISCOUNT", "OTHER"] },
+                count: { type: "integer", minimum: 1, maximum: 500,
+                  description: "Individual visible records of this type, not tables or pages. FISCAL_LINE counts fiscal product/service rows already located in items, without artificial OTHER observations. A sheet with 8 filled rows has 8 SHEET records; overlapping receipt and card payment are separate source kinds." },
               },
             },
           },
-          fieldsReviewed: { type: "boolean" },
+          fieldsReviewed: { type: "boolean",
+            description: "True only after checking the legible fields, header and footer on this page, including receipts and pages with no mandatory fields. False means that review was not completed; it does NOT mean no mandatory instruction exists." },
           requirementScope: { type: "string", enum: ["ALL_FIELDS", "SPECIFIC_FIELDS", "NONE", "UNKNOWN"] },
           requirementEvidence: { type: ["string", "null"] },
         },
@@ -955,6 +1081,10 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
           "documentRole",
           "countsTowardDocumentTotal",
           "arithmeticVerified",
+          "parentLineNumber",
+          "breakdownComplete",
+          "sourceKind",
+          "sourceDate",
           "sourcePage",
           "sourceText",
           "sourceBoundingBox",
@@ -992,14 +1122,25 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
             description:
               "True only after quantity, unit price and printed line total were visually confirmed in the same source row.",
           },
+          parentLineNumber: {
+            type: ["integer", "null"], minimum: 1,
+            description: "Line number of the total or subtotal explicitly broken down by this row. Null without documentary evidence of that relationship.",
+          },
+          breakdownComplete: {
+            type: "boolean",
+            description: "True only on a PARENT with at least one extracted child linked by parentLineNumber, after all its non-overlapping immediate components were read. Always false on a leaf, an independent expense, or a partial/unknown breakdown. Does not mean the row itself was fully read.",
+          },
           sourcePage: {
             type: ["integer", "null"],
             minimum: 1,
             description: "PDF page containing the source row for this item.",
           },
+          sourceKind: { type: "string", enum: ["FISCAL_LINE", "SHEET", "RECEIPT", "SALE", "PAYMENT", "CHARGE", "OTHER", "UNKNOWN"],
+            description: "Kind of the exact primary row at sourcePage/sourceText. SHEET for a reimbursement/control row; FISCAL_LINE for an invoice product/service row; UNKNOWN when its origin cannot be identified. Never infer it only from the overall document type." },
+          sourceDate: { type: ["string", "null"], description: "Date printed in this exact primary row, YYYY-MM-DD; null if absent. Do not copy a date from the linked receipt, payment or document header." },
           sourceText: {
             type: ["string", "null"],
-            description: "Shortest useful visible excerpt identifying the source row.",
+            description: "Literal source row including its printed totalAmount and sourceDate when non-null. If arithmeticVerified is true, also quote quantity and unitPrice from this SAME row. A description or supplier name alone is insufficient; never insert inferred values into the quote.",
           },
           sourceBoundingBox: BOUNDING_BOX_JSON_SCHEMA,
           quantity: { type: ["string", "null"] },
@@ -1014,6 +1155,7 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
               additionalProperties: false,
               required: [
                 "kind",
+                "amountScope",
                 "documentGroup",
                 "label",
                 "amount",
@@ -1025,8 +1167,9 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
               properties: {
                 kind: {
                   type: "string",
-                  enum: ["SHEET", "RECEIPT", "SALE", "PAYMENT", "DISCOUNT", "OTHER"],
+                  enum: ["SHEET", "RECEIPT", "SALE", "PAYMENT", "CHARGE", "DISCOUNT", "OTHER"],
                 },
+                amountScope: { type: "string", enum: ["ITEM_TOTAL", "DOCUMENT_TOTAL", "UNIT_VALUE", "COMPONENT", "ADJUSTMENT", "CONTEXT", "UNKNOWN"] },
                 documentGroup: {
                   type: ["string", "null"],
                   description:
@@ -1036,7 +1179,8 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
                 amount: { type: ["string", "null"] },
                 date: { type: ["string", "null"] },
                 page: { type: ["integer", "null"], minimum: 1 },
-                text: { type: ["string", "null"] },
+                text: { type: ["string", "null"],
+                  description: "Literal source excerpt containing EVERY non-null amount and date in this observation, including their printed labels. Never copy a value from another source into the quote. Use null for an unreadable scalar." },
                 boundingBox: BOUNDING_BOX_JSON_SCHEMA,
               },
             },
@@ -1065,8 +1209,8 @@ export const INVOICE_EXTRACTION_JSON_SCHEMA = {
         },
         declaredItemCount: { type: ["integer", "null"], minimum: 0 },
         extractedItemCount: { type: "integer", minimum: 0 },
-        firstLineNumber: { type: ["integer", "null"], minimum: 1 },
-        lastLineNumber: { type: ["integer", "null"], minimum: 1 },
+        firstLineNumber: { type: ["integer", "null"], minimum: 1, description: "Minimum lineNumber among items with countsTowardDocumentTotal=true only; exclude support/detail rows." },
+        lastLineNumber: { type: ["integer", "null"], minimum: 1, description: "Maximum lineNumber among items with countsTowardDocumentTotal=true only; exclude support/detail rows." },
         missingLineNumbers: {
           type: "array",
           maxItems: 500,

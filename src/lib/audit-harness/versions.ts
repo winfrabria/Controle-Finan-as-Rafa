@@ -1,8 +1,8 @@
 export const HARNESS_VERSIONS = {
-  policy: "2026-09-06.1",
-  prompt: "2026-09-07.1",
-  schema: "2026-09-07.1",
-  rules: "2026-09-06.1",
+  policy: "2026-09-20.20",
+  prompt: "2026-09-19.9",
+  schema: "2026-09-19.27",
+  rules: "2026-09-19.29",
 } as const;
 
 export const HARNESS_MODEL = "openai/gpt-5.6-terra" as const;
@@ -20,6 +20,7 @@ export const AUDIT_EVALUATOR_MODELS = [
   "openai/gpt-5.6-luna",
   "google/gemini-3.1-flash-lite",
   "google/gemini-3.7-flash",
+  "google/gemini-3.8-flash",
   "google/gemini-3.6-flash",
   "openai/gpt-5-nano",
   "qwen/qwen3.8-flash",
@@ -99,7 +100,7 @@ export const AUDIT_BENCHMARK_MODEL_PROFILES: Record<
     structuredOutput: "JSON_SCHEMA",
   },
 };
-export type AuditReasoningEffort = "high" | "max" | "xhigh";
+export type AuditReasoningEffort = "low" | "medium" | "high" | "max" | "xhigh";
 
 const AUDIT_EVALUATOR_MODEL_SET = new Set<string>(AUDIT_EVALUATOR_MODELS);
 const EXTRACTION_RUNTIME_MODELS = new Set<string>([
@@ -112,6 +113,8 @@ const EXTRACTION_RUNTIME_MODELS = new Set<string>([
   "qwen/qwen3.8-flash",
 ]);
 const AUDIT_REASONING_EFFORT_SET = new Set<AuditReasoningEffort>([
+  "low",
+  "medium",
   "high",
   "max",
   "xhigh",
@@ -141,7 +144,7 @@ export function resolveAuditReasoningEffort(
   const effort = (configured?.trim() || fallback) as AuditReasoningEffort;
   if (!AUDIT_REASONING_EFFORT_SET.has(effort)) {
     throw new Error(
-      "OPENROUTER_AUDIT_REASONING_EFFORT must be high, max or xhigh.",
+      "OPENROUTER_AUDIT_REASONING_EFFORT must be low, medium, high, max or xhigh.",
     );
   }
   return effort;
@@ -241,24 +244,24 @@ export function resolveHarnessFallbackModel(configured: string | undefined) {
 
 export function resolveHarnessVerifierModel(configured: string | undefined) {
   const model = configured?.trim() || HARNESS_VERIFIER_MODEL;
-  if (model !== HARNESS_VERIFIER_MODEL) {
+  if (model !== HARNESS_VERIFIER_MODEL && model !== "google/gemini-3.8-flash") {
     throw new Error(
-      `OpenRouter verifier model must be ${HARNESS_VERIFIER_MODEL}.`,
+      `OpenRouter verifier model must be ${HARNESS_VERIFIER_MODEL} or google/gemini-3.8-flash.`,
     );
   }
-  return HARNESS_VERIFIER_MODEL;
+  return model;
 }
 
 export function resolveHarnessVerifierReasoningEffort(
   configured: string | undefined,
 ) {
   const effort = configured?.trim() || "high";
-  if (effort !== "high") {
+  if (effort !== "high" && effort !== "medium") {
     throw new Error(
-      "OPENROUTER_VERIFIER_REASONING_EFFORT must be high in runtime.",
+      "OPENROUTER_VERIFIER_REASONING_EFFORT must be medium or high in runtime.",
     );
   }
-  return "high" as const;
+  return effort;
 }
 
 export function resolveHarnessVerifierMode(

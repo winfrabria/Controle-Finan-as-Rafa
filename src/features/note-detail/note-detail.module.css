@@ -640,9 +640,10 @@
 
 .emptyFinding {
   align-items: center;
-  color: #09894d;
+  color: #475569;
   display: flex;
-  font-size: 10px;
+  font-size: 14px;
+  line-height: 1.5;
   gap: 8px;
   margin: 12px;
 }
@@ -872,6 +873,14 @@
   grid-template-columns: minmax(250px, 0.55fr) minmax(0, 1.45fr);
   min-width: 0;
 }
+
+.pdfViewer { min-width: 0; margin: 0 13px; border: 1px solid #cad5e1; background: #f6f8fa; }
+.pdfControls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 8px; }
+.pdfControls button, .pdfControls select { min-height: 44px; border: 1px solid #cad5e1; border-radius: 6px; background: white; color: #17345e; padding: 4px 10px; cursor: pointer; }
+.pdfControls button:disabled { opacity: .45; cursor: default; }
+.pdfControls button:focus-visible { outline: 2px solid #005dff; outline-offset: 2px; }
+.pdfPages { height: 510px; overflow: auto; padding: 12px; }
+.pdfPages canvas { display: block; margin: 0 auto; background: white; }
 
 .findingsPanel,
 .findingDetailPanel {
@@ -1349,11 +1358,11 @@
 }
 
 .comparison > .comparisonActual {
-  background: #fff8f8;
+  background: #fff;
 }
 
 .comparison > .comparisonExpected {
-  background: #f5fbf7;
+  background: #fff;
 }
 
 .comparison > .comparisonDifference {
@@ -1378,13 +1387,13 @@
 }
 
 .comparison span {
-  background: #fff3df;
-  border-radius: 5px;
-  color: #dc7300;
+  background: transparent;
+  border-radius: 0;
+  color: #17345e;
   display: inline-flex;
   font-size: 11px;
   margin-top: 8px;
-  padding: 4px 7px;
+  padding: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
   white-space: normal;
@@ -1396,16 +1405,16 @@
 }
 
 .comparisonActual span {
-  background: #ffe9ea;
+  background: transparent;
 }
 
 .comparisonExpected h3,
 .comparisonExpected span {
-  color: #147247;
+  color: #17345e;
 }
 
 .comparisonExpected span {
-  background: #e5f6ec;
+  background: transparent;
 }
 
 .comparison.comparisonConflict {
@@ -1673,8 +1682,8 @@
 }
 
 .analysisEvidenceCard {
-  background: linear-gradient(180deg, #fffdf9 0%, #fff9ef 100%);
-  border: 1px solid #f0c878;
+  background: #fff;
+  border: 1px solid #d9e3ee;
   border-radius: 9px;
   display: grid;
   gap: 8px;
@@ -1698,7 +1707,7 @@
 }
 
 .analysisEvidenceEyebrow {
-  color: #a66308;
+  color: #526788;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -1721,7 +1730,7 @@
 
 .analysisEvidenceCard dl > div {
   background: #fff;
-  border: 1px solid #f0dfc0;
+  border: 1px solid #d9e3ee;
   border-radius: 7px;
   min-width: 0;
   padding: 8px;

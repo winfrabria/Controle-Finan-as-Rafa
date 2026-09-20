@@ -14,6 +14,7 @@ const restrictedText =
 test("sanitiza achados antes das props do REVIEWER sem mutar a origem", () => {
   const original: NoteListItem = {
     activeContextQuestionCount: 0,
+    assurance: { band: "LIMITED", reason: restrictedText },
     auditResult: "SUSPICIOUS" as NoteListItem["auditResult"],
     classification: "SUSPICIOUS" as NoteListItem["classification"],
     createdAt: new Date("2026-08-02T12:00:00Z"),
@@ -29,6 +30,7 @@ test("sanitiza achados antes das props do REVIEWER sem mutar a origem", () => {
         expectedValue: restrictedText,
         justification: restrictedText,
         severity: "HIGH",
+        requiresSourceReview: true,
         title: restrictedText,
       },
     ],
@@ -56,6 +58,9 @@ test("sanitiza achados antes das props do REVIEWER sem mutar a origem", () => {
   );
   assert.match(serialized, /Divergência confirmada/i);
   assert.match(original.findings[0]!.description, /Confiança: 93%/i);
+  assert.equal(sanitized.assurance?.band, "LIMITED");
+  assert.equal(sanitized.findings[0].requiresSourceReview, true);
+  assert.match(original.assurance!.reason, /Confiança: 93%/i);
 });
 
 test("sanitiza causas do dashboard somente na transformação do REVIEWER", () => {

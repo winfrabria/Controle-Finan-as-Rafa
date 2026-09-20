@@ -23,10 +23,14 @@ function errorResponse(
   message: string,
   status: number,
   requestId: string,
+  additionalHeaders: Record<string, string> = {},
 ) {
   return NextResponse.json(
     { erro: { codigo: code, mensagem: message } },
-    { status, headers: { "X-Request-Id": requestId } },
+    {
+      status,
+      headers: { ...additionalHeaders, "X-Request-Id": requestId },
+    },
   );
 }
 
@@ -152,6 +156,9 @@ export async function POST(request: Request) {
         error.message,
         error.httpStatus,
         requestId,
+        error.retryAfterSeconds
+          ? { "Retry-After": String(error.retryAfterSeconds) }
+          : {},
       );
     }
 

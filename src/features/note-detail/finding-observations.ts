@@ -1,10 +1,11 @@
 export type FindingEvidenceObservation = {
   amount: string | number | null;
   date: string | null;
-  kind: "SHEET" | "RECEIPT" | "SALE" | "PAYMENT" | "DISCOUNT" | "OTHER";
+  kind: "FISCAL_LINE" | "SHEET" | "RECEIPT" | "SALE" | "PAYMENT" | "CHARGE" | "DISCOUNT" | "OTHER";
   label: string | null;
   page: number | null;
   text: string | null;
+  value?: string | null;
 };
 
 export type FindingEvidenceObservationSummary = FindingEvidenceObservation & {
@@ -18,10 +19,12 @@ const observationKindLabels: Record<
   FindingEvidenceObservation["kind"],
   string
 > = {
+  FISCAL_LINE: "Nota fiscal",
   SHEET: "Ficha",
   RECEIPT: "Recibo",
   SALE: "Venda ou pedido",
   PAYMENT: "Pagamento",
+  CHARGE: "Cobrança (não comprova pagamento)",
   DISCOUNT: "Desconto",
   OTHER: "Outro registro",
 };
@@ -46,10 +49,12 @@ export function extractFindingEvidenceObservations(
     const rawKind =
       typeof entry.kind === "string" ? entry.kind.toUpperCase() : "OTHER";
     const kind = [
+      "FISCAL_LINE",
       "SHEET",
       "RECEIPT",
       "SALE",
       "PAYMENT",
+      "CHARGE",
       "DISCOUNT",
       "OTHER",
     ].includes(rawKind)
@@ -67,6 +72,7 @@ export function extractFindingEvidenceObservations(
         label: typeof entry.label === "string" ? entry.label : null,
         page: typeof entry.page === "number" ? entry.page : null,
         text: typeof entry.text === "string" ? entry.text : null,
+        ...(typeof entry.value === "string" ? { value: entry.value } : {}),
       },
     ];
   });
@@ -76,6 +82,33 @@ export function findingObservationKindLabel(
   kind: FindingEvidenceObservation["kind"],
 ) {
   return observationKindLabels[kind];
+}
+
+export function extractFindingComparisonValues(value: unknown): Array<{ label: string; value: string | number }> {
+  if (!isRecord(value)) return [];
+  const entries = Array.isArray(value.comparisonValues) ? value.comparisonValues : value.observations;
+  if (!Array.isArray(entries)) return [];
+  return entries.slice(0, 500).flatMap((entry) => {
+    if (!isRecord(entry) || typeof entry.label !== "string" || !entry.label.trim() ||
+      (typeof entry.value !== "string" && typeof entry.value !== "number")) return [];
+    return [{ label: entry.label.trim().slice(0, 120), value: entry.value }];
+  });
+}
+
+export function findingDocumentPageUrl(documentUrl: string | null, page: number | null) {
+  if (!documentUrl) return null;
+  if (!/^https?:\/\//i.test(documentUrl) && !/^\/(?!\/)/.test(documentUrl)) return null;
+  const validPage = page !== null && Number.isSafeInteger(page) && page > 0;
+  return `${documentUrl.split("#")[0]}${validPage ? `#page=${page}` : ""}`;
+}
+
+export function findingEvidenceLocationSummary(observations: readonly Pick<FindingEvidenceObservation, "page">[]) {
+  if (!observations.length) return "Abrir evidências do achado";
+  const pages = [...new Set(observations.map((entry) => entry.page).filter((page): page is number =>
+    page !== null && Number.isSafeInteger(page) && page > 0))].sort((a, b) => a - b);
+  const location = pages.length === 0 ? "Localização não informada" : pages.length === 1 ? `Página ${pages[0]}`
+    : pages.length <= 3 ? `Páginas ${pages.join(", ")}` : `${pages.length} páginas`;
+  return `${location} · ${observations.length} ${observations.length === 1 ? "trecho" : "trechos"}`;
 }
 
 /**
@@ -92,7 +125,7 @@ export function summarizeFindingEvidenceObservations(
     const identity = normalizeReviewerText(
       observation.label ?? observation.text ?? `registro-${index}`,
     );
-    const key = [observation.kind, observation.page ?? "", identity].join(":");
+    const key = [observation.kind, observation.page ?? "", identity, observation.value ?? ""].join(":");
     const entries = groups.get(key) ?? [];
     entries.push(observation);
     groups.set(key, entries);

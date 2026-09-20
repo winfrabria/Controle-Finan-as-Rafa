@@ -460,6 +460,20 @@ test("não soma três camadas de R$ 35,90 como R$ 107,70", () => {
   );
 });
 
+test("valor contradizendo seu próprio trecho não acusa divergência financeira nem apaga a data", () => {
+  const doc = invoice({ documentKind: "REIMBURSEMENT", items: [{ lineNumber: 1, description: "Despesa sintética",
+    quantity: "1", unitPrice: "20", totalAmount: "20", countsTowardDocumentTotal: true,
+    evidenceObservations: [
+      { kind: "SHEET", amountScope: "ITEM_TOTAL", label: "Ficha", amount: "20.00", date: "2026-07-10", page: 1, text: "Total R$ 20,00" },
+      { kind: "RECEIPT", amountScope: "ITEM_TOTAL", label: "Recibo", amount: "25.00", date: "2026-07-09", page: 2, text: "Total R$ 20,00" },
+    ] }] });
+  const findings = evaluateUniversalRules({ invoice: doc }).findings;
+  assert.equal(findings.some((entry) => entry.code.startsWith("EVIDENCE_AMOUNT_MISMATCH")), false);
+  assert.equal(findings.some((entry) => entry.code === "EVIDENCE_DATE_MISMATCH_1"), true);
+  doc.items[0].evidenceObservations![1].text = "Total R$ 25,00";
+  assert.equal(evaluateUniversalRules({ invoice: doc }).findings.some((entry) => entry.code === "EVIDENCE_AMOUNT_MISMATCH_1"), true);
+});
+
 test("não transforma provável erro de OCR aritmético em suspeita", () => {
   const result = evaluateUniversalRules({
     invoice: invoice({
@@ -507,6 +521,21 @@ test("não transforma provável erro de OCR aritmético em suspeita", () => {
   assert.equal(result.coveredAreas.includes("QUANTITY_TIMES_PRICE"), true);
 });
 
+test("linha tipada não publica data sem trecho, mas preserva a divergência monetária rastreável", () => {
+  const doc = invoice({ documentKind: "REIMBURSEMENT", items: [{ lineNumber: 1, description: "Material",
+    sourceKind: "SHEET", sourcePage: 1, sourceText: "01/06/2026 Material 20,00",
+    quantity: null, unitPrice: null, totalAmount: "20.00",
+    evidenceObservations: [
+      { kind: "SHEET", amountScope: "ITEM_TOTAL", label: "Ficha", amount: "20.00", date: "2026-06-01", page: 1, text: "01/06/2026 Material 20,00" },
+      { kind: "PAYMENT", amountScope: "ITEM_TOTAL", label: "Cartão", amount: "30.00", date: "2026-06-02", page: 2, text: "DEBITO R$ 30,00" },
+    ] }] });
+  const codes = () => evaluateUniversalRules({ invoice: doc }).findings.map(f => f.code);
+  assert.equal(codes().includes("EVIDENCE_DATE_MISMATCH_1"), false);
+  assert.equal(codes().includes("EVIDENCE_AMOUNT_MISMATCH_1"), true);
+  doc.items[0].evidenceObservations![1].text = "02/06/2026 DEBITO R$ 30,00";
+  assert.equal(codes().includes("EVIDENCE_DATE_MISMATCH_1"), true);
+});
+
 test("mantém divergência aritmética confirmada visualmente", () => {
   const result = evaluateUniversalRules({
     invoice: invoice({
@@ -528,6 +557,49 @@ test("mantém divergência aritmética confirmada visualmente", () => {
     result.findings.some((finding) => finding.code === "ITEM_ARITHMETIC_MISMATCH"),
     true,
   );
+});
+
+test("não combina quantidade de recibo com total líquido da ficha sem rastreio dos operandos", () => {
+  const row = { lineNumber: 1, description: "Material", arithmeticVerified: true,
+    sourceKind: "SHEET" as const, sourcePage: 1, sourceText: "01/06/2026 Material R$ 32,00",
+    quantity: "6", unitPrice: "7.00", totalAmount: "32.00" };
+  const result = evaluateUniversalRules({ invoice: invoice({ totalAmount: "32.00", items: [row] }) });
+  assert.equal(result.findings.some(f => f.code === "ITEM_ARITHMETIC_MISMATCH"), false);
+  assert.equal(result.coveredAreas.includes("QUANTITY_TIMES_PRICE"), false);
+});
+
+test("mantém erro aritmético com operandos localizados na mesma linha tipada", () => {
+  const row = { lineNumber: 1, description: "Material", arithmeticVerified: true,
+    sourceKind: "FISCAL_LINE" as const, sourcePage: 2, sourceText: "Material QTD 6 UN 7,00 TOTAL 32,00",
+    quantity: "6", unitPrice: "7.00", totalAmount: "32.00" };
+  assert.equal(evaluateUniversalRules({ invoice: invoice({ totalAmount: "32.00", items: [row] }) })
+    .findings.some(f => f.code === "ITEM_ARITHMETIC_MISMATCH"), true);
+});
+
+test("desconto explícito no trecho da própria fonte reconcilia cálculo sem depender da descrição", () => {
+  const row = { lineNumber: 1, description: "Material", arithmeticVerified: true,
+    sourceKind: "FISCAL_LINE" as const, sourcePage: 2,
+    sourceText: "Material QTD 6 UN 7,00 SUBTOTAL 42,00 DESCONTO 10,00 TOTAL 32,00",
+    quantity: "6", unitPrice: "7.00", totalAmount: "32.00" };
+  assert.equal(evaluateUniversalRules({ invoice: invoice({ totalAmount: "32.00", items: [row] }) })
+    .findings.some(f => f.code === "ITEM_ARITHMETIC_MISMATCH"), false);
+  row.sourceText = row.sourceText.replace("DESCONTO 10,00", "DESCONTO 2,00");
+  assert.equal(evaluateUniversalRules({ invoice: invoice({ totalAmount: "32.00", items: [row] }) })
+    .findings.some(f => f.code === "ITEM_ARITHMETIC_MISMATCH"), true);
+});
+
+test("desconto tipado da mesma linha reconcilia preço bruto com total líquido", () => {
+  const row = { lineNumber: 52, description: "Bebida", arithmeticVerified: true,
+    documentGroup: "NF-1", sourceKind: "FISCAL_LINE" as const, sourcePage: 3,
+    sourceText: "Bebida 1 9,1900 1,20 7,99", quantity: "1", unitPrice: "9.19", totalAmount: "7.99",
+    evidenceObservations: [{ kind: "DISCOUNT" as const, amountScope: "ADJUSTMENT" as const,
+      documentGroup: "NF-1", label: null, amount: "1.20", date: null, page: 3,
+      text: "Bebida 1 9,1900 1,20 7,99" }] };
+  const hasMismatch = (value: typeof row) => evaluateUniversalRules({ invoice: invoice({ totalAmount: "7.99", items: [value] }) })
+    .findings.some(finding => finding.code === "ITEM_ARITHMETIC_MISMATCH");
+  assert.equal(hasMismatch(row), false);
+  assert.equal(hasMismatch({ ...row, evidenceObservations: [{ ...row.evidenceObservations[0], amount: "0.20" }] }), true);
+  assert.equal(hasMismatch({ ...row, evidenceObservations: [{ ...row.evidenceObservations[0], page: 2 }] }), true);
 });
 
 test("não compara total fiscal com resumo e linhas diárias sobrepostas", () => {
@@ -786,6 +858,89 @@ test("gera um único achado para divergência real de R$ 18,00 e R$ 28,00", () =
   assert.equal(amountFindings[0]?.code, "EVIDENCE_AMOUNT_MISMATCH_19");
   assert.equal(amountFindings[0]?.expectedValue, "18.00");
   assert.equal(amountFindings[0]?.actualValue, "28.00");
+});
+
+test("compara a linha primária da venda com ficha e pagamento do mesmo evento", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "REIMBURSEMENT",
+      totalAmount: "40.00",
+      items: [
+        {
+          lineNumber: 12,
+          description: "Despesa na ficha",
+          documentGroup: "evento-item-12",
+          documentRole: "LINE_ITEM",
+          countsTowardDocumentTotal: true,
+          quantity: null,
+          unitPrice: null,
+          totalAmount: "40.00",
+          sourceKind: "SHEET",
+          sourceDate: "2026-05-21",
+          sourcePage: 1,
+          sourceText: "12 21/05/2026 RECIBO R$ 40,00",
+          evidenceObservations: [
+            { kind: "SHEET", amountScope: "ITEM_TOTAL", documentGroup: "evento-item-12", label: "Ficha", amount: "40.00", date: "2026-05-21", page: 1, text: "12 21/05/2026 RECIBO R$ 40,00" },
+          ],
+        },
+        {
+          lineNumber: 36,
+          description: "TRENA LUFKIN 8M C/ TRAVA",
+          documentGroup: "evento-item-12",
+          documentRole: "LINE_ITEM",
+          countsTowardDocumentTotal: false,
+          quantity: "1",
+          unitPrice: "44.50",
+          totalAmount: "44.50",
+          sourceKind: "SALE",
+          sourceDate: "2026-05-21",
+          sourcePage: 13,
+          sourceText: "TRENA Qtde 1 Preço 44,50 Total 44,50 21/05/2026",
+          evidenceObservations: [
+            { kind: "PAYMENT", amountScope: "DOCUMENT_TOTAL", documentGroup: "evento-item-12", label: "Pagamento", amount: "40.00", date: "2026-05-21", page: 13, text: "Débito R$ 40,00 21/05/2026" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  const findings = result.findings.filter((finding) => finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_"));
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0]?.comparisonMode, "REFERENCE");
+  assert.equal(findings[0]?.expectedValue, "40.00");
+  assert.equal(findings[0]?.actualValue, "44.50");
+  assert.deepEqual(
+    (findings[0]?.evidence.observations as Array<{ kind: string }>).map((observation) => observation.kind),
+    ["SHEET", "SALE", "PAYMENT"],
+  );
+});
+
+test("reconcilia o mesmo total transacional mesmo com escopos ITEM_TOTAL e DOCUMENT_TOTAL", () => {
+  const result = evaluateUniversalRules({
+    invoice: invoice({
+      documentKind: "REIMBURSEMENT",
+      totalAmount: "18.00",
+      items: [{
+        lineNumber: 19,
+        description: "Despesa 19",
+        documentGroup: "evento-item-19",
+        documentRole: "LINE_ITEM",
+        countsTowardDocumentTotal: true,
+        quantity: null,
+        unitPrice: null,
+        totalAmount: "18.00",
+        evidenceObservations: [
+          { kind: "SHEET", amountScope: "ITEM_TOTAL", documentGroup: "evento-item-19", label: "Ficha", amount: "18.00", date: null, page: 1, text: "Ficha R$ 18,00" },
+          { kind: "RECEIPT", amountScope: "DOCUMENT_TOTAL", documentGroup: "evento-item-19", label: "Recibo", amount: "18.00", date: null, page: 20, text: "Recibo R$ 18,00" },
+          { kind: "PAYMENT", amountScope: "DOCUMENT_TOTAL", documentGroup: "evento-item-19", label: "Pagamento", amount: "28.00", date: null, page: 20, text: "Débito R$ 28,00" },
+        ],
+      }],
+    }),
+  });
+  const finding = result.findings.find((entry) => entry.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_19"));
+  assert.equal(finding?.expectedValue, "18.00");
+  assert.equal(finding?.actualValue, "28.00");
+  assert.equal(finding?.code, "EVIDENCE_AMOUNT_MISMATCH_19");
 });
 
 test("desconto explícito reconcilia as camadas do mesmo evento", () => {

@@ -1,5 +1,5 @@
 export type AuditResultLabel =
-  | "Análise incompleta"
+  | "Revisão manual"
   | "Em análise"
   | "Falha de leitura"
   | "Falha de processamento"
@@ -12,17 +12,21 @@ export function auditResultLabel(
   auditResult: string | null | undefined,
   legacyClassification: string | null | undefined,
   noteStatus?: string | null,
+  findingCount = 0,
 ): AuditResultLabel {
-  if (legacyClassification === "NO_PARAMETER") {
-    return "Informação insuficiente";
+  if (auditResult === "READ_FAILED" || noteStatus === "READ_FAILED") {
+    return "Falha de leitura";
   }
+  if (noteStatus === "FAILED") return "Falha de processamento";
+  if (findingCount > 0) return "Suspeita";
   if (auditResult === "OK") return "OK";
   if (auditResult === "SUSPICIOUS") return "Suspeita";
-  if (auditResult === "NEEDS_CONTEXT") return "Precisa de informação";
-  if (auditResult === "READ_FAILED") return "Falha de leitura";
-
-  if (noteStatus === "READ_FAILED") return "Falha de leitura";
-  if (noteStatus === "FAILED") return "Falha de processamento";
+  // Legacy terminal coverage gaps share NEEDS_CONTEXT + NO_PARAMETER. They are
+  // not active user questions and, critically, are not proof of an OK audit.
+  if (auditResult === "NEEDS_CONTEXT") {
+    return legacyClassification === "NO_PARAMETER" ? "Falha de leitura" : "Precisa de informação";
+  }
+  if (legacyClassification === "NO_PARAMETER") return "Falha de leitura";
 
   if (legacyClassification === "OK") return "OK";
   if (legacyClassification === "SUSPICIOUS") return "Suspeita";
@@ -36,7 +40,7 @@ export function auditResultTone(label: AuditResultLabel) {
     return "danger" as const;
   }
   if (
-    label === "Análise incompleta" ||
+    label === "Revisão manual" ||
     label === "Informação insuficiente" ||
     label === "Precisa de informação" ||
     label === "Em análise"

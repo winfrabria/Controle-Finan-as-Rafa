@@ -1,6 +1,3 @@
-import type { NoteDetailFinding } from "./data";
-import { extractFindingEvidenceObservations } from "./finding-observations";
-
 export type FindingComparisonLabels = {
   actual: string;
   expected: string;
@@ -8,152 +5,34 @@ export type FindingComparisonLabels = {
 
 const DEFAULT_LABELS: FindingComparisonLabels = {
   actual: "Encontrado",
-  expected: "Esperado / referência",
+  expected: "Esperado",
 };
 
-const CONTRACT_ITEM_LABELS: FindingComparisonLabels = {
-  actual: "Item encontrado na nota",
-  expected: "Item previsto no contrato",
+type FindingComparisonInput = {
+  actualValue: unknown;
+  affectedItem?: unknown;
+  category?: string | null;
+  code?: string | null;
+  evidence?: unknown;
+  expectedValue: unknown;
+  rule?: {
+    code?: string | null;
+    description?: string | null;
+    id?: string | null;
+    name?: string | null;
+  } | null;
+  title?: string | null;
 };
-
-type FindingComparisonInput = Pick<
-  NoteDetailFinding,
-  | "actualValue"
-  | "affectedItem"
-  | "category"
-  | "code"
-  | "evidence"
-  | "expectedValue"
-  | "rule"
-  | "title"
->;
 
 /**
- * Selects reviewer-facing comparison labels from the finding structure.
- * Contract, payment, date and fiscal-sheet checks receive labels that name the
- * compared documents instead of exposing generic expected/found terminology.
+ * Every reviewer surface uses the same two labels. The source-specific names
+ * remain in "Onde encontramos", where they explain why each side was chosen.
  */
 export function findingComparisonLabels(
   finding: FindingComparisonInput,
 ): FindingComparisonLabels {
-  const code = finding.code.toUpperCase();
-  if (code === "TOTAL_MISMATCH") {
-    return {
-      actual: "Total encontrado no documento",
-      expected: "Soma calculada dos itens",
-    };
-  }
-  if (code === "ITEM_ARITHMETIC_MISMATCH") {
-    return {
-      actual: "Total encontrado no item",
-      expected: "Quantidade × valor unitário",
-    };
-  }
-  if (code.startsWith("EVIDENCE_DATE_MISMATCH_")) {
-    return {
-      actual: "Data encontrada no comprovante",
-      expected: "Data de referência",
-    };
-  }
-  if (
-    code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
-    code.startsWith("AGGREGATE_PAYMENT_MISMATCH_")
-  ) {
-    return {
-      actual: "Valor encontrado",
-      expected: "Valor de referência",
-    };
-  }
-
-  const primaryStructure = normalizeStructure([
-    finding.category,
-    finding.code,
-    finding.title,
-    finding.rule?.code,
-    finding.rule?.name,
-  ]);
-  const structure = normalizeStructure([
-    primaryStructure,
-    ...collectJsonKeys(finding.evidence),
-    ...collectJsonKeys(finding.expectedValue),
-    ...collectJsonKeys(finding.actualValue),
-  ]);
-  const evidenceField = normalizeStructure([
-    extractEvidenceField(finding.evidence),
-  ]);
-
-  const isContractual = /\bcontrat/.test(structure);
-  const concernsItem =
-    Boolean(finding.affectedItem) ||
-    /\b(item|itens|material|materiais|produto|produtos)\b/.test(structure);
-  const comparesMeasuredValue =
-    /\b(quantidade|quantitativo|valor|preco|percentual|total|data|emissao|vencimento|validade|periodo|prazo|volume|medicao|medido|executado|limite|tolerancia|amount|price|date|issued|due|quantity)\b/.test(
-      structure,
-    );
-
-  const observationKinds = new Set(
-    extractFindingEvidenceObservations(finding.evidence).map(
-      (observation) => observation.kind,
-    ),
-  );
-  const hasSheet =
-    observationKinds.has("SHEET") || /\b(ficha|sheet)\b/.test(structure);
-  const hasPayment =
-    observationKinds.has("PAYMENT") ||
-    /\b(pagamento|pago|cartao|debito|credito|payment)\b/.test(structure);
-  const hasSaleOrReceipt =
-    observationKinds.has("SALE") ||
-    observationKinds.has("RECEIPT") ||
-    /\b(venda|pedido|recibo|cupom|sale|receipt)\b/.test(structure);
-  const explicitlyComparesMoney =
-    /\b(valor|total|preco|amount|price|payment)\b/.test(evidenceField) ||
-    /\b(valor|total|preco|amount|price|payment)\b/.test(primaryStructure);
-  const comparesDate =
-    /\b(data|date|emissao|issued|periodo|vencimento|validade|due)\b/.test(
-      evidenceField,
-    ) ||
-    (!explicitlyComparesMoney &&
-      /\b(data|emissao|periodo|vencimento|validade|date|issued|due)\b/.test(
-        primaryStructure,
-      ));
-  const comparesFiscalDocumentWithSheet =
-    hasSheet && /\b(fiscal|nota fiscal|nfe|danfe|linha fiscal)\b/.test(structure);
-
-  if (comparesFiscalDocumentWithSheet && !comparesDate) {
-    return { actual: "Ficha", expected: "Nota fiscal" };
-  }
-
-  if (comparesDate) {
-    if (hasSheet && (hasPayment || hasSaleOrReceipt)) {
-      return { actual: "Data do comprovante", expected: "Data da ficha" };
-    }
-    if (/\bemissao\b/.test(structure) && /\b(ficha|periodo)\b/.test(structure)) {
-      return { actual: "Período detalhado na ficha", expected: "Data de emissão" };
-    }
-    return { actual: "Data encontrada", expected: "Data de referência" };
-  }
-
-  if (hasPayment) {
-    const expected =
-      hasSheet && hasSaleOrReceipt
-        ? "Ficha / venda ou recibo"
-        : hasSheet
-          ? "Ficha"
-          : hasSaleOrReceipt
-            ? "Venda ou recibo"
-            : "Valor do documento";
-    return { actual: "Pagamento", expected };
-  }
-
-  return isContractual && concernsItem && !comparesMeasuredValue
-    ? CONTRACT_ITEM_LABELS
-    : DEFAULT_LABELS;
-}
-
-function extractEvidenceField(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const field = (value as Record<string, unknown>).field;
-  return typeof field === "string" ? field : null;
+  void finding;
+  return DEFAULT_LABELS;
 }
 
 export function findingComparisonDifference(
@@ -166,9 +45,15 @@ export function findingComparisonDifference(
     finding.rule?.code,
     finding.rule?.name,
   ]);
-  if (!/\b(valor|preco|total|pagamento|debito|credito|amount|price|payment)\b/.test(structure)) {
-    return null;
+  if (/\b(data|date|emissao|issued|periodo|vencimento|validade|due)\b/.test(structure)) {
+    const expectedDate = extractComparableDate(finding.expectedValue);
+    const actualDate = extractComparableDate(finding.actualValue);
+    if (expectedDate === null || actualDate === null) return null;
+    const days = Math.round(Math.abs(expectedDate - actualDate) / 86_400_000);
+    return days === 0 ? null : `${days} ${days === 1 ? "dia" : "dias"}`;
   }
+
+  if (!/\b(valor|preco|total|pagamento|debito|credito|amount|price|payment)\b/.test(structure)) return null;
 
   const expected = extractComparableNumber(finding.expectedValue);
   const actual = extractComparableNumber(finding.actualValue);
@@ -181,19 +66,6 @@ export function findingComparisonDifference(
     currency: "BRL",
     style: "currency",
   }).format(difference);
-}
-
-function collectJsonKeys(value: unknown, depth = 0): string[] {
-  if (!value || depth > 3) return [];
-  if (Array.isArray(value)) {
-    return value.flatMap((entry) => collectJsonKeys(entry, depth + 1));
-  }
-  if (typeof value !== "object") return [];
-
-  return Object.entries(value).flatMap(([key, entry]) => [
-    key,
-    ...collectJsonKeys(entry, depth + 1),
-  ]);
 }
 
 function normalizeStructure(values: Array<string | null | undefined>) {
@@ -240,6 +112,37 @@ function collectComparableNumbers(value: unknown, depth = 0): number[] {
   return Object.values(value).flatMap((entry) =>
     collectComparableNumbers(entry, depth + 1),
   );
+}
+
+function extractComparableDate(value: unknown): number | null {
+  const values = collectComparableDates(value);
+  const unique = [...new Set(values)];
+  return unique.length === 1 ? (unique[0] ?? null) : null;
+}
+
+function collectComparableDates(value: unknown, depth = 0): number[] {
+  if (typeof value === "string") {
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value.trim());
+    const localized = /^(\d{2})\/(\d{2})\/(\d{4})$/u.exec(value.trim());
+    const parts = iso
+      ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+      : localized
+        ? [Number(localized[3]), Number(localized[2]), Number(localized[1])]
+        : null;
+    if (!parts) return [];
+    const [year, month, day] = parts;
+    const timestamp = Date.UTC(year, month - 1, day);
+    const parsed = new Date(timestamp);
+    return parsed.getUTCFullYear() === year &&
+      parsed.getUTCMonth() === month - 1 &&
+      parsed.getUTCDate() === day
+      ? [timestamp]
+      : [];
+  }
+  if (depth > 2 || !value || typeof value !== "object") return [];
+  return Array.isArray(value)
+    ? value.flatMap((entry) => collectComparableDates(entry, depth + 1))
+    : Object.values(value).flatMap((entry) => collectComparableDates(entry, depth + 1));
 }
 
 function parseComparableNumber(value: unknown): number | null {

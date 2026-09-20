@@ -25,6 +25,7 @@ const SENSITIVE_KEYS = new Set([
 ]);
 
 const SENSITIVE_TEXT_PATTERNS: Array<[RegExp, string]> = [
+  [/data:(?:application\/pdf|image\/(?:png|jpeg));base64,[A-Za-z0-9+/=]+/giu, "[REDACTED_DOCUMENT_BYTES]"],
   [/-----BEGIN (?:RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC )?PRIVATE KEY-----/giu, "[REDACTED_PRIVATE_KEY]"],
   [/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/giu, "Bearer [REDACTED]"],
   [

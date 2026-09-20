@@ -17,9 +17,12 @@ import { AuditFeedbackPanel } from "./audit-feedback-panel";
 import { NoteAnalysisExplorer } from "./note-analysis-explorer";
 import { NoteDocumentPreview } from "./note-document-preview";
 import { NoteReadAction } from "./note-read-action";
-import { formatCurrency, formatDate, formatDecimal } from "./note-detail-format";
+import { formatCurrency, formatDate, formatDecimal, formatQuantity, formatUnitPrice } from "./note-detail-format";
 import { ReviewerMobileNoteDetail } from "./reviewer-mobile-note-detail";
 import styles from "./note-detail.module.css";
+import { AnalysisScopeNotice } from "./analysis-scope-notice";
+import { currentDiagnosisFindings } from "./current-diagnosis-findings";
+import { analysisFailureMessage } from "./analysis-failure";
 
 export function NoteAnalysisView({
   data,
@@ -31,15 +34,18 @@ export function NoteAnalysisView({
   userEmail: string;
 }) {
   const role: PortalRole = data.viewerRole === "ADMIN" ? "admin" : "reviewer";
+  const failureMessage = analysisFailureMessage(data.status, data.failure.code);
   const basePath = role === "admin" ? "/admin" : "/revisao";
+  const currentFindings = currentDiagnosisFindings(data.analysis.findings);
   const rawClassification = auditResultLabel(
     data.analysis.auditResult,
     data.analysis.classification,
     data.status,
+    currentFindings.length,
   );
   const classification =
-    rawClassification === "Suspeita" && data.analysis.findings.length === 0
-      ? "Análise incompleta"
+    rawClassification === "Suspeita" && currentFindings.length === 0
+      ? "Revisão manual"
       : rawClassification;
   const number = attachmentReference(data.number, data.id);
   const supplier = data.supplier.name ?? "Fornecedor não identificado";
@@ -56,7 +62,10 @@ export function NoteAnalysisView({
     >
       {role === "reviewer" ? (
         <ReviewerMobileNoteDetail
+          key={`${data.id}:${data.version}`}
+          isRead={data.isRead}
           assurance={data.analysis.assurance}
+          failureMessage={failureMessage}
           classification={classification}
           document={{
             fileName: data.document.fileName,
@@ -64,7 +73,7 @@ export function NoteAnalysisView({
             isImage: data.document.mimeType.startsWith("image/"),
             url: documentUrl,
           }}
-          findings={data.analysis.findings}
+          findings={currentFindings}
           feedback={data.feedback}
           feedbackEnabled={
             data.processingStage === "COMPLETED" &&
@@ -93,13 +102,13 @@ export function NoteAnalysisView({
             </>
           ) : null}
           <Icon name="chevron" />
-          <strong>Análise completa da IA</strong>
+          <strong>Análise do documento</strong>
         </nav>
 
         <header className={styles.analysisHeader}>
           <div>
             <div className={styles.titleRow}>
-              <h1>Análise completa da IA</h1>
+              <h1>Análise do documento</h1>
               <StatusBadge tone={auditResultTone(classification)}>
                 ● &nbsp;{classification}
               </StatusBadge>
@@ -107,10 +116,7 @@ export function NoteAnalysisView({
                 <span className={styles.demoBadge}>{data.demoLabel}</span>
               ) : null}
             </div>
-            <p>
-              Entenda cada apontamento identificado pela IA e as evidências
-              encontradas na nota fiscal eletrônica.
-            </p>
+            <p>Confira os apontamentos e suas fontes no arquivo original.</p>
           </div>
           <Link className={styles.backButton} href={backHref}>
             <Icon name="chevron" /> {backLabel}
@@ -142,14 +148,16 @@ export function NoteAnalysisView({
           />
         </section>
 
-        <NoteAnalysisExplorer
+        <AnalysisScopeNotice assurance={data.analysis.assurance} failureMessage={failureMessage} />
+        {!failureMessage ? <NoteAnalysisExplorer
           documentUrl={documentUrl}
-          findings={data.analysis.findings}
+          findings={currentFindings}
           reviewer={role === "reviewer"}
-        />
+        /> : null}
 
-        {role === "reviewer" ? (
+        {role === "reviewer" && !failureMessage ? (
           <AuditFeedbackPanel
+            showAssurance={false}
             assurance={data.analysis.assurance}
             collapsible
             currentFeedback={data.feedback}
@@ -162,12 +170,12 @@ export function NoteAnalysisView({
           />
         ) : null}
 
-        {role === "reviewer" ? <NoteReadAction noteId={data.id} /> : null}
+        {role === "reviewer" ? <NoteReadAction key={`${data.id}:${data.version}`} noteId={data.id} noteVersion={data.version} isRead={data.isRead} /> : null}
 
         <section className={styles.analysisSourceSection}>
           <header className={styles.analysisSourceHeader}>
             <div>
-              <span>Documento auditado</span>
+              <span>{failureMessage ? "Documento enviado" : "Documento auditado"}</span>
               <h2>Nota fiscal e dados extraídos</h2>
               <p>Consulte o arquivo original e os campos usados no diagnóstico.</p>
             </div>
@@ -227,8 +235,8 @@ export function NoteAnalysisView({
                           {data.items.map((item) => (
                             <tr key={item.id}>
                               <td>{item.description}</td>
-                              <td>{formatDecimal(item.quantity, 0)}</td>
-                              <td>{formatDecimal(item.unitPrice)}</td>
+                              <td>{formatQuantity(item.quantity)}</td>
+                              <td>{formatUnitPrice(item.unitPrice)}</td>
                               <td>{formatDecimal(item.totalAmount)}</td>
                             </tr>
                           ))}
@@ -240,8 +248,8 @@ export function NoteAnalysisView({
                         <article key={item.id}>
                           <strong>{item.description}</strong>
                           <dl>
-                            <div><dt>Quantidade</dt><dd>{formatDecimal(item.quantity, 0)}</dd></div>
-                            <div><dt>Valor unitário</dt><dd>{formatDecimal(item.unitPrice)}</dd></div>
+                            <div><dt>Quantidade</dt><dd>{formatQuantity(item.quantity)}</dd></div>
+                            <div><dt>Valor unitário</dt><dd>{formatUnitPrice(item.unitPrice)}</dd></div>
                             <div><dt>Total</dt><dd>{formatDecimal(item.totalAmount)}</dd></div>
                           </dl>
                         </article>

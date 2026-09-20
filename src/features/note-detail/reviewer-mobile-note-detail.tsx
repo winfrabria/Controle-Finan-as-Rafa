@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import type { MouseEvent, RefObject } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { beginPwaCriticalActivity } from "@/components/pwa/pwa-critical-activity";
 import {
   formatReviewerFindingParts,
   humanizeReviewerFindingText,
@@ -20,18 +19,20 @@ import { AuditFeedbackPanel } from "./audit-feedback-panel";
 import { buildReviewerMobileComparison } from "./reviewer-mobile-comparison";
 import {
   extractFindingEvidenceObservations,
-  findingObservationKindLabel,
-  formatFindingObservationAmount,
-  formatFindingObservationDate,
+  findingEvidenceLocationSummary,
+  findingDocumentPageUrl,
   reviewerTextIsDistinct,
-  type FindingEvidenceObservation,
 } from "./finding-observations";
 import { NoteDocumentPreview } from "./note-document-preview";
 import styles from "./reviewer-mobile-note-detail.module.css";
+import { FindingEvidenceSources } from "./finding-evidence-sources";
+import { AnalysisScopeNotice } from "./analysis-scope-notice";
+import { useNoteRead } from "./use-note-read";
 
 type ReviewerMobileNoteDetailProps = {
   assurance: { band: "HIGH" | "MEDIUM" | "LIMITED"; reason: string } | null;
   classification: string;
+  failureMessage?: string | null;
   document: {
     fileName: string;
     isDemo: boolean;
@@ -45,6 +46,7 @@ type ReviewerMobileNoteDetailProps = {
   items: NoteDetailItem[];
   noteId: string;
   noteVersion: number;
+  isRead: boolean;
   number: string;
   supplier: string;
   supplierTaxId: string;
@@ -52,10 +54,10 @@ type ReviewerMobileNoteDetailProps = {
   work: string;
 };
 
-type ReadState = "idle" | "loading" | "done";
-
 export function ReviewerMobileNoteDetail({
   assurance,
+  classification,
+  failureMessage,
   document,
   feedback,
   feedbackEnabled,
@@ -64,6 +66,7 @@ export function ReviewerMobileNoteDetail({
   items,
   noteId,
   noteVersion,
+  isRead,
   number,
   supplier,
   supplierTaxId,
@@ -71,15 +74,25 @@ export function ReviewerMobileNoteDetail({
   work,
 }: ReviewerMobileNoteDetailProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [readState, setReadState] = useState<ReadState>("idle");
-  const [readError, setReadError] = useState<string | null>(null);
+  const { readState, readError, markAsRead } = useNoteRead(noteId, noteVersion, isRead);
   const documentDialog = useRef<HTMLDialogElement>(null);
   const evidenceDialog = useRef<HTMLDialogElement>(null);
+  const findingHeading = useRef<HTMLHeadingElement>(null);
+  const focusRequested = useRef(false);
   const selectedFinding = findings[selectedIndex] ?? null;
+  const limitedReview = !assurance || assurance.band === "LIMITED";
+  const analysisIsOk = classification === "OK";
+
+  useEffect(() => {
+    if (!focusRequested.current) return;
+    focusRequested.current = false;
+    findingHeading.current?.focus({ preventScroll: true });
+  }, [selectedIndex]);
 
   function selectFinding(index: number) {
-    if (index < 0 || index >= findings.length) return;
+    if (index < 0 || index >= findings.length || index === selectedIndex) return;
     evidenceDialog.current?.close();
+    focusRequested.current = true;
     setSelectedIndex(index);
     window.scrollTo({
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -89,38 +102,6 @@ export function ReviewerMobileNoteDetail({
     });
   }
 
-  async function markAsRead() {
-    if (readState !== "idle") return;
-
-    const endCriticalActivity = beginPwaCriticalActivity();
-    setReadError(null);
-    setReadState("loading");
-    try {
-      const response = await fetch(`/api/notas/${noteId}/read`, {
-        headers: { Accept: "application/json" },
-        method: "POST",
-      });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as
-          | { erro?: { mensagem?: string } }
-          | null;
-        throw new Error(
-          payload?.erro?.mensagem ?? "Não foi possível marcar a nota como lida.",
-        );
-      }
-      setReadState("done");
-    } catch (error) {
-      setReadState("idle");
-      setReadError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível marcar a nota como lida.",
-      );
-    } finally {
-      endCriticalActivity();
-    }
-  }
-
   return (
     <section className={styles.mobileDetail} aria-label="Detalhe da nota">
       <header className={styles.appBar}>
@@ -128,11 +109,17 @@ export function ReviewerMobileNoteDetail({
           <Icon name="chevron" />
         </Link>
         <div className={styles.appBarTitle}>
-          <strong>Diagnóstico da IA</strong>
+          <h1>Análise do documento</h1>
           <span>
             {findings.length
               ? `${selectedIndex + 1} de ${findings.length}`
-              : "Sem achados"}
+              : failureMessage
+                ? "Falha de processamento"
+                : analysisIsOk
+                  ? "Análise concluída"
+                  : limitedReview
+                    ? "Revisão manual"
+                    : "Análise concluída"}
           </span>
         </div>
         <button
@@ -146,21 +133,27 @@ export function ReviewerMobileNoteDetail({
       </header>
 
       <div className={styles.mobileContent}>
-        {selectedFinding ? (
+        <section className={styles.documentIdentity} aria-label="Documento em revisão">
+          <div><span>Nota {number}</span><strong>{supplier}</strong></div>
+          <div><span>Total da nota</span><strong>{total}</strong></div>
+        </section>
+        <AnalysisScopeNotice assurance={assurance} failureMessage={failureMessage} />
+        {failureMessage ? null : selectedFinding ? (
           <FindingSummary
             finding={selectedFinding}
+            headingRef={findingHeading}
             index={selectedIndex}
             onOpenEvidence={() => openDialog(evidenceDialog)}
           />
-        ) : (
+        ) : limitedReview && !analysisIsOk ? (
           <section className={styles.noFindings}>
-            <Icon name="check" />
+            <Icon name="document" />
             <div>
-              <strong>Nenhum achado identificado</strong>
-              <p>A análise não registrou divergências nesta nota.</p>
+              <strong>Revisão manual necessária</strong>
+              <p>{assurance?.reason || "A leitura automática não reuniu evidência suficiente para classificar este anexo com segurança."}</p>
             </div>
           </section>
-        )}
+        ) : null}
 
         <details className={styles.noteSummary}>
           <summary>
@@ -185,13 +178,15 @@ export function ReviewerMobileNoteDetail({
           </div>
         </details>
 
-        <AuditFeedbackPanel
+        {!failureMessage ? <AuditFeedbackPanel
+          collapsible
+          showAssurance={false}
           assurance={assurance}
           currentFeedback={feedback}
           feedbackEnabled={feedbackEnabled}
           noteId={noteId}
           noteVersion={noteVersion}
-        />
+        /> : null}
 
         {readError ? <p className={styles.readError} role="alert">{readError}</p> : null}
       </div>
@@ -283,10 +278,12 @@ export function ReviewerMobileNoteDetail({
 
 function FindingSummary({
   finding,
+  headingRef,
   index,
   onOpenEvidence,
 }: {
   finding: NoteDetailFinding;
+  headingRef: RefObject<HTMLHeadingElement | null>;
   index: number;
   onOpenEvidence: () => void;
 }) {
@@ -295,14 +292,13 @@ function FindingSummary({
   const comparison = buildReviewerMobileComparison(finding);
   const showExplanation = reviewerTextIsDistinct(explanation, [description]);
   const evidence = findingEvidence(finding, description, explanation);
-  const firstObservation = evidence.observations[0] ?? null;
 
   return (
     <article className={styles.focusFinding} data-tone={severityTone(finding.severity)}>
       <span className={styles.severityPill}>{mobileSeverityLabel(finding.severity)}</span>
       <div className={styles.focusTitle}>
         <span>{String(index + 1).padStart(2, "0")}</span>
-        <h1>{humanizeReviewerFindingText(finding.title)}</h1>
+        <h2 ref={headingRef} tabIndex={-1}>{humanizeReviewerFindingText(finding.title)}</h2>
       </div>
       <p className={styles.focusDescription}>{description}</p>
 
@@ -323,7 +319,7 @@ function FindingSummary({
               }
               key={`${card.label}-${cardIndex}`}
             >
-              <h2>{card.label}</h2>
+              <h3>{card.label}</h3>
               <p>
                 {card.lines.map((line, lineIndex) => (
                   <span key={`${line}-${lineIndex}`}>
@@ -347,7 +343,7 @@ function FindingSummary({
 
       {showExplanation ? (
         <section className={styles.attentionReason}>
-          <h2>Por que merece atenção</h2>
+          <h3>Por que merece atenção</h3>
           <p>{explanation}</p>
         </section>
       ) : null}
@@ -357,7 +353,7 @@ function FindingSummary({
           <Icon name="search" />
           <span>
             <strong>Onde encontramos</strong>
-            <small>{evidenceLocationSummary(firstObservation, evidence.observations.length)}</small>
+            <small>{findingEvidenceLocationSummary(evidence.observations)}</small>
           </span>
         </span>
         <Icon name="chevron" />
@@ -381,17 +377,15 @@ function FindingEvidencePanel({
     explanation,
   );
   const firstPage = observations.find((observation) => observation.page)?.page ?? null;
-  const pageUrl = documentUrl
-    ? `${documentUrl.split("#")[0]}${firstPage ? `#page=${firstPage}` : ""}`
-    : null;
+  const pageUrl = findingDocumentPageUrl(documentUrl, firstPage);
 
   return (
     <div className={styles.evidencePanel}>
       <section>
         <h3>Trechos relacionados</h3>
         {observations.length ? (
-          <MobileEvidenceObservations
-            comparedWith={[description, explanation]}
+          <FindingEvidenceSources
+            documentUrl={documentUrl}
             observations={observations}
           />
         ) : evidence.length ? (
@@ -412,14 +406,14 @@ function FindingEvidencePanel({
 
       {references.length ? (
         <section>
-          <h3>Referência usada</h3>
+          <h3>Fontes citadas</h3>
           <ul className={styles.referenceList}>
             {references.map((reference) => <li key={reference}>{reference}</li>)}
           </ul>
         </section>
       ) : null}
 
-      {pageUrl ? (
+      {pageUrl && observations.length === 0 ? (
         <a className={styles.openPageLink} href={pageUrl} rel="noreferrer" target="_blank">
           <Icon name="document" />
           {firstPage ? `Abrir documento na página ${firstPage}` : "Abrir documento original"}
@@ -450,47 +444,6 @@ function DialogHeader({
         <Icon name="close" />
       </button>
     </header>
-  );
-}
-
-function MobileEvidenceObservations({
-  comparedWith,
-  observations,
-}: {
-  comparedWith: string[];
-  observations: FindingEvidenceObservation[];
-}) {
-  return (
-    <div className={styles.observationList}>
-      {observations.map((observation, index) => {
-        const amount = formatFindingObservationAmount(observation.amount);
-        const date = formatFindingObservationDate(observation.date);
-        const label = observation.label
-          ? humanizeReviewerFindingText(observation.label)
-          : null;
-        const text = observation.text
-          ? humanizeReviewerFindingText(observation.text)
-          : null;
-        const showText = reviewerTextIsDistinct(text, [...comparedWith, label]);
-
-        return (
-          <article
-            key={`${observation.kind}:${observation.page ?? ""}:${observation.label ?? ""}:${index}`}
-          >
-            <header>
-              <strong>{findingObservationKindLabel(observation.kind)}</strong>
-              {observation.page ? <span>Página {observation.page}</span> : null}
-            </header>
-            <div className={styles.observationMeta}>
-              {date ? <span>{date}</span> : null}
-              {amount ? <b>{amount}</b> : null}
-            </div>
-            {label ? <h4>{label}</h4> : null}
-            {showText ? <p>{text}</p> : null}
-          </article>
-        );
-      })}
-    </div>
   );
 }
 
@@ -538,15 +491,6 @@ function findingEvidence(
     observations: extractFindingEvidenceObservations(finding.evidence),
     references: [...new Map(references.map((value) => [normalizedValue(value), value])).values()],
   };
-}
-
-function evidenceLocationSummary(
-  firstObservation: FindingEvidenceObservation | null,
-  count: number,
-) {
-  if (!firstObservation) return "Abrir evidências do achado";
-  const page = firstObservation.page ? `Página ${firstObservation.page}` : "Trecho extraído";
-  return `${page} · ${count} ${count === 1 ? "trecho" : "trechos"}`;
 }
 
 function openDialog(ref: RefObject<HTMLDialogElement | null>) {

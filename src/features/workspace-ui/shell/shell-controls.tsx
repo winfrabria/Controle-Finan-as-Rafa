@@ -113,8 +113,8 @@ export function ShellControls({
     };
   }, [openPanel]);
   const isAdmin = role === "admin";
-  const displayName = isAdmin ? "Administrador WinfraBR" : "Rafael";
-  const roleName = isAdmin ? "Administrador" : "Gerente Financeiro";
+  const displayName = userEmail || (isAdmin ? "Administrador WinfraBR" : "Revisor WinfraBR");
+  const roleName = isAdmin ? "Administrador" : "Revisor";
 
   const searchTargets = useMemo<SearchTarget[]>(
     () => [

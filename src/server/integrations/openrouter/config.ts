@@ -66,13 +66,28 @@ export function getOpenRouterConfig(
   environment: NodeJS.ProcessEnv = process.env,
   workload: OpenRouterWorkload = "audit",
 ) {
+  const schemaMode = environment.OPENROUTER_STRUCTURED_SCHEMA_MODE?.trim() || "bounded";
+  if (schemaMode !== "bounded" && schemaMode !== "shape-only") throw new Error("OPENROUTER_STRUCTURED_SCHEMA_MODE must be bounded or shape-only.");
   const extractionPipelineMode = resolveExtractionPipelineMode(
     workload === "extraction"
       ? environment.OPENROUTER_EXTRACTION_PIPELINE
       : undefined,
   );
-  const pdfEngine = (environment.OPENROUTER_PDF_ENGINE ||
-    (extractionPipelineMode === "adaptive"
+  const largePdfReader = workload === "extraction"
+    ? environment.OPENROUTER_LARGE_PDF_READER?.trim() || "off" : "off";
+  if (largePdfReader !== "off" && largePdfReader !== "gemini-3.7-low") {
+    throw new Error("OPENROUTER_LARGE_PDF_READER must be off or gemini-3.7-low.");
+  }
+  if (largePdfReader !== "off" && extractionPipelineMode !== "adaptive") {
+    throw new Error("OPENROUTER_LARGE_PDF_READER requires adaptive extraction.");
+  }
+  const configuredPdfEngine = workload === "verification"
+    ? environment.OPENROUTER_VERIFIER_PDF_ENGINE ?? environment.OPENROUTER_PDF_ENGINE
+    : environment.OPENROUTER_PDF_ENGINE;
+  // The fixed verifier model supports native files. Do not silently prepend an
+  // OCR pass (and its image cap/cost) when the caller did not request that engine.
+  const pdfEngine = (configuredPdfEngine ||
+    (extractionPipelineMode === "adaptive" || workload === "verification"
       ? "native"
       : "mistral-ocr")) as OpenRouterPdfEngine;
   const pdfFallbackEngine = (environment.OPENROUTER_PDF_FALLBACK_ENGINE ||
@@ -80,7 +95,7 @@ export function getOpenRouterConfig(
 
   if (!PDF_ENGINES.has(pdfEngine) || !PDF_ENGINES.has(pdfFallbackEngine)) {
     throw new Error(
-      "OPENROUTER_PDF_ENGINE and OPENROUTER_PDF_FALLBACK_ENGINE must be cloudflare-ai, mistral-ocr or native.",
+      "OPENROUTER_PDF_ENGINE, OPENROUTER_VERIFIER_PDF_ENGINE and OPENROUTER_PDF_FALLBACK_ENGINE must be cloudflare-ai, mistral-ocr or native.",
     );
   }
 
@@ -106,7 +121,7 @@ export function getOpenRouterConfig(
             environment.OPENROUTER_VERIFIER_MAX_TOKENS,
             16_384,
             1_024,
-            16_384,
+            32_768,
             "OPENROUTER_VERIFIER_MAX_TOKENS",
           )
         : parseInteger(
@@ -118,6 +133,9 @@ export function getOpenRouterConfig(
           );
 
   return {
+    largePdfReader,
+    visualPdfWindows: workload === "extraction" && parseBoolean(environment.OPENROUTER_PDF_VISUAL_WINDOWS, false, "OPENROUTER_PDF_VISUAL_WINDOWS"),
+    schemaMode,
     apiKey: requireApiKey(environment),
     appUrl: environment.NEXT_PUBLIC_APP_URL,
     // Audit and extraction use at most two calls. The second call is a bounded
@@ -198,22 +216,30 @@ export function getOpenRouterConfig(
         extractionPipelineMode === "adaptive",
         "OPENROUTER_EXTRACTION_QUALITY_GATE",
       ),
+    // A second model shares the extraction deadline; it does not buy a fresh
+    // full timeout. Legacy deployments keep their existing per-attempt budget.
+    totalTimeoutMs: workload === "extraction" &&
+      (extractionPipelineMode === "adaptive" || environment.OPENROUTER_EXTRACTION_TOTAL_TIMEOUT_MS)
+      ? parseInteger(environment.OPENROUTER_EXTRACTION_TOTAL_TIMEOUT_MS, 90_000, 1_000, 240_000,
+          "OPENROUTER_EXTRACTION_TOTAL_TIMEOUT_MS") : undefined,
     providerSort:
       workload === "extraction" && extractionPipelineMode === "adaptive"
         ? ("throughput" as const)
         : ("latency" as const),
-    // O verificador é uma salvaguarda seletiva e nunca pode segurar o fluxo
-    // principal por mais de 30 segundos por padrão. Extração e descoberta
-    // continuam com o orçamento próprio de documentos longos.
+    // Reading and background auditing have independent deadlines. A longer
+    // audit must not delay upload acceptance or cancel a previously saved read.
     timeoutMs:
       workload === "verification"
         ? parseInteger(
             environment.OPENROUTER_VERIFIER_TIMEOUT_MS,
-            30_000,
-            1_000,
             120_000,
+            1_000,
+            600_000,
             "OPENROUTER_VERIFIER_TIMEOUT_MS",
           )
+        : workload === "audit"
+          ? parseInteger(environment.OPENROUTER_AUDIT_TIMEOUT_MS ?? environment.OPENROUTER_TIMEOUT_MS,
+              120_000, 1_000, 180_000, "OPENROUTER_AUDIT_TIMEOUT_MS")
         : Math.min(
             parseInteger(
               workload === "extraction"
@@ -247,4 +273,21 @@ export function getOpenRouterConfig(
       "OPENROUTER_WEB_SEARCH_MAX_RESULTS",
     ),
   } as const;
+}
+
+/** Explicit trial profile. Small/unknown PDFs, images and saved-window text
+ * keep their original route. Physical page count comes from the upload parser,
+ * not a model's completeness claim. No hidden recovery call follows this read. */
+export function selectDocumentExtractionConfig(config: ReturnType<typeof getOpenRouterConfig>, document: {
+  mimeType: string; pageCount?: number | null; visualWindows?: unknown;
+}): ReturnType<typeof getOpenRouterConfig> {
+  if (config.largePdfReader !== "gemini-3.7-low" || document.mimeType !== "application/pdf" || document.visualWindows ||
+    !Number.isSafeInteger(document.pageCount) || (document.pageCount ?? 0) < 10) return config;
+  return { ...config, pdfModel: "google/gemini-3.7-flash", pdfReasoningEffort: "low", pdfEngine: "native",
+    maxAttempts: 1, maxTokens: 32768, timeoutMs: 120000, totalTimeoutMs: 120000, extractionQualityGateEnabled: true };
+}
+
+export function shouldReadVisualPdfWindows(config: ReturnType<typeof getOpenRouterConfig>, document: { mimeType: string; pageCount?: number | null }) {
+  return config.visualPdfWindows && document.mimeType === "application/pdf" && Number.isSafeInteger(document.pageCount) &&
+    (document.pageCount ?? 0) >= 5 && (document.pageCount ?? 0) <= 32;
 }

@@ -13,9 +13,43 @@ import {
   formatFindingValue,
   humanizeFindingText,
   humanizeReviewerFindingText,
+  inferReviewerDirectedComparison,
+  isFindingLocationPart,
+  reviewerComparisonDifferenceText,
   reviewerFindingValueDimension,
   reviewerObservationValue,
+  reviewerConflictEvidencePreview,
 } from "./finding-display";
+
+test("localização preserva o registro extraído separado do item impresso e das observações", () => {
+  const evidence = { page: 3, field: "totalAmount", item: 7, lineNumber: 12, excerpt: "Item 7 — Total 84,00" };
+  for (const format of [formatFindingParts, formatReviewerFindingParts]) {
+    const parts = format(evidence);
+    const location = parts.filter(isFindingLocationPart);
+    assert.deepEqual(location.map((part) => part.label), ["Página", "Campo", "Item", "Registro extraído"]);
+    assert.equal(location.find((part) => part.label === "Item")?.value, "7");
+    assert.equal(location.find((part) => part.label === "Registro extraído")?.value, "12");
+    assert.equal(parts.filter((part) => !isFindingLocationPart(part)).length, 1);
+  }
+});
+
+test("resumo das evidências destaca o valor divergente sem alterar as fontes", () => {
+  const sources = [{ value: "83.00", label: "Ficha" }, { value: "R$ 83,00", label: "Recibo" }, { value: "85.00", label: "Pagamento" }];
+  const before = structuredClone(sources);
+  assert.deepEqual(reviewerConflictEvidencePreview(sources, { category: "AMOUNT" }), [sources[0], sources[2]]);
+  assert.deepEqual(sources, before);
+});
+
+test("resumo sem valor comparável mantém a ordem original", () => {
+  const sources = [{ value: null }, { value: null }, { value: null }];
+  assert.deepEqual(reviewerConflictEvidencePreview(sources), sources.slice(0, 2));
+});
+
+test("resumo de datas não escolhe duas representações do mesmo dia", () => {
+  const sources = [{ value: "2026-01-10" }, { value: "10/01/2026" }, { value: "2026-01-11" }];
+  assert.deepEqual(reviewerConflictEvidencePreview(sources, { category: "DATE" }), [sources[0], sources[2]]);
+  assert.equal(humanizeFindingText("sourceDate"), "Data do documento");
+});
 
 test("resume caminhos longos de evidência para leitura rápida", () => {
   assert.equal(
@@ -88,9 +122,9 @@ test("traduz localização técnica da evidência para rótulos amigáveis", () 
   ]);
 });
 
-test("apresenta lineNumber como item e não como linha visual", () => {
+test("índice da extração não se apresenta como número impresso do item no documento", () => {
   assert.deepEqual(formatFindingParts({ lineNumber: 19, page: 20 }), [
-    { label: "Item", value: "19" },
+    { label: "Registro extraído", value: "19" },
     { label: "Página", value: "20" },
   ]);
 });
@@ -132,6 +166,14 @@ test("separa comparações compostas em linhas legíveis", () => {
       "Fornecedor: Mercado Central",
     ],
   );
+});
+
+test("traduz identificadores de evidência sem inventar referência contratual", () => {
+  assert.equal(humanizeReviewerFindingText("FISCAL_LINE"), "Item da nota fiscal");
+  assert.equal(humanizeReviewerFindingText("FILE_SHA256"), "Arquivo idêntico");
+  assert.equal(humanizeReviewerFindingText("ENVIO_UNICO_POR_SOLICITACAO"), "Um envio por solicitação");
+  assert.deepEqual(formatReviewerFindingParts({ matchBasis: "FILE_SHA256" }),
+    [{ label: "Como identificamos", value: "Arquivo idêntico" }]);
 });
 
 test("resume listas extensas de valores em vez de criar um card infinito", () => {
@@ -331,8 +373,7 @@ test("localiza valor numérico agregado no cartão da fonte sem perder moeda", (
 });
 
 test("agrupa fontes que confirmam o mesmo valor sem criar cartões repetidos", () => {
-  assert.deepEqual(
-    formatReviewerConflictValueCards(
+  const cards = formatReviewerConflictValueCards(
       ["40.00", "44.50"],
       null,
       { category: "AMOUNTS", code: "EVIDENCE_AMOUNT_MISMATCH_12" },
@@ -341,11 +382,64 @@ test("agrupa fontes que confirmam o mesmo valor sem criar cartões repetidos", (
         { label: "Pagamento", value: "40.00" },
         { label: "Venda ou pedido", value: "44.50" },
       ],
-    ),
-    [
+    );
+  assert.deepEqual(cards, [
       { label: "Ficha / Pagamento", lines: ["R$\u00a040,00"] },
       { label: "Venda ou pedido", lines: ["R$\u00a044,50"] },
+    ]);
+  const directed = inferReviewerDirectedComparison(cards, {
+    category: "AMOUNTS",
+    code: "EVIDENCE_AMOUNT_MISMATCH_12",
+  });
+  assert.deepEqual(directed, {
+    actual: { label: "Venda ou pedido", lines: ["R$\u00a044,50"] },
+    difference: "R$\u00a04,50",
+    expected: { label: "Ficha / Pagamento", lines: ["R$\u00a040,00"] },
+  });
+  assert.equal(
+    reviewerComparisonDifferenceText(directed?.difference ?? null, {
+      category: "AMOUNTS",
+    }),
+    "Os valores divergem em R$\u00a04,50.",
+  );
+});
+
+test("orienta conflitos legados somente quando o tipo das fontes define os lados", () => {
+  const receiptPayment = inferReviewerDirectedComparison(
+    [
+      { label: "Recibo", lines: ["R$\u00a018,00"] },
+      { label: "Pagamento", lines: ["R$\u00a028,00"] },
     ],
+    { category: "AMOUNTS", code: "RECEIPT_PAYMENT_MISMATCH_ITEM_48" },
+  );
+  assert.equal(receiptPayment?.actual.lines[0], "R$\u00a028,00");
+  assert.equal(receiptPayment?.expected.lines[0], "R$\u00a018,00");
+  assert.equal(receiptPayment?.difference, "R$\u00a010,00");
+
+  const date = inferReviewerDirectedComparison(
+    [
+      { label: "Ficha", lines: ["19/05/2026"] },
+      { label: "Pagamento", lines: ["18/05/2026"] },
+    ],
+    { category: "DATES", code: "EVIDENCE_DATE_MISMATCH_8" },
+  );
+  assert.equal(date?.actual.lines[0], "19/05/2026");
+  assert.equal(date?.expected.lines[0], "18/05/2026");
+  assert.equal(date?.difference, "1 dia");
+  assert.equal(
+    reviewerComparisonDifferenceText(date?.difference ?? null, { category: "DATES" }),
+    "As datas divergem em 1 dia.",
+  );
+
+  assert.equal(
+    inferReviewerDirectedComparison(
+      [
+        { label: "Fonte A", lines: ["R$\u00a018,00"] },
+        { label: "Fonte B", lines: ["R$\u00a028,00"] },
+      ],
+      { category: "AMOUNTS", code: "GENERIC_CONFLICT" },
+    ),
+    null,
   );
 });
 
@@ -422,4 +516,22 @@ test("não herda fallback de valor para fonte sem a dimensão observada", () => 
       { label: "Valor encontrado 1", lines: ["R$\u00a040,00"] },
     ],
   );
+});
+
+test("lista de datas serializada não cria terceiro card repetindo as duas fontes", () => {
+  for (const value of ["2026-08-04, 2026-08-03", "04/08/2026; 03/08/2026"]) {
+    assert.deepEqual(formatReviewerConflictValueCards(value, null, { category: "DATES" }, [
+      { label: "Ficha", value: "2026-08-04" }, { label: "Recibo", value: "2026-08-03" },
+    ]), [
+      { label: "Ficha", lines: ["04/08/2026"] }, { label: "Recibo", lines: ["03/08/2026"] },
+    ]);
+  }
+});
+
+test("data adicional sem fonte continua visível sem ser atribuída a um recibo", () => {
+  assert.deepEqual(formatReviewerConflictValueCards("2026-08-04, 2026-08-03, 2026-08-02", null,
+    { category: "DATES" }, [{ label: "Ficha", value: "2026-08-04" }, { label: "Recibo", value: "2026-08-03" }]), [
+    { label: "Ficha", lines: ["04/08/2026"] }, { label: "Recibo", lines: ["03/08/2026"] },
+    { label: "Data encontrada 1", lines: ["02/08/2026"] },
+  ]);
 });

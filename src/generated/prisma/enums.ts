@@ -82,6 +82,8 @@ export type AiRunStatus = (typeof AiRunStatus)[keyof typeof AiRunStatus]
 
 
 export const ReasoningEffort = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
   MAX: 'MAX',
   HIGH: 'HIGH',
   XHIGH: 'XHIGH'

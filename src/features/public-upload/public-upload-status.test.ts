@@ -3,11 +3,29 @@ import test from "node:test";
 
 import {
   normalizePublicQuestions,
+  publicProcessingMessage,
   resolvePublicProcessingPhase,
   resolvePublicUploadResult,
 } from "./public-upload-status";
 
 const base = { etapa: "COMPLETED", id: "note-1" } as const;
+
+test("recebimento libera outro envio sem declarar a leitura concluída", () => {
+  const message = publicProcessingMessage("READING");
+  assert.equal(message.title, "Nota recebida");
+  assert.match(message.text, /documento foi salvo/);
+  assert.match(message.text, /já pode enviar outra nota/);
+  assert.match(message.activity, /Leitura em segundo plano/);
+  assert.doesNotMatch(message.text, /leitura terminou|aprovad|aguarde/i);
+});
+
+test("conferência em segundo plano não significa aprovação", () => {
+  const message = publicProcessingMessage("CHECKING");
+  assert.match(message.text, /leitura terminou/);
+  assert.match(message.text, /já pode enviar outra nota/);
+  assert.equal(message.activity, "Conferência em segundo plano");
+  assert.doesNotMatch(message.text, /aprovad|sem problemas|conferência terminou/i);
+});
 
 test("usa apenas o estado público fornecido pela API", () => {
   assert.equal(
@@ -44,6 +62,8 @@ test("traduz a etapa técnica para o progresso público simples", () => {
   assert.equal(resolvePublicProcessingPhase("OCR"), "READING");
   assert.equal(resolvePublicProcessingPhase("ANALYZING"), "CHECKING");
   assert.equal(resolvePublicProcessingPhase("AUDIT_RULES"), "CHECKING");
+  assert.equal(resolvePublicProcessingPhase("FINALIZING"), "CHECKING");
+  assert.equal(resolvePublicProcessingPhase("COMPLETED"), "CHECKING");
 });
 
 test("limita, limpa e preserva no máximo três perguntas suportadas", () => {

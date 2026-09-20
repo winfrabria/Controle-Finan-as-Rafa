@@ -24,15 +24,17 @@ import {
   type ProjectOption,
   type SubmitPublicContextBody,
 } from "./api-contract";
-import { requestProjects } from "./projects-api";
+import { projectMatchesSearch, requestProjects } from "./projects-api";
 import { uploadInvoice } from "./upload-api";
 import {
   normalizePublicQuestions,
+  publicProcessingMessage,
   resolvePublicProcessingPhase,
   resolvePublicUploadResult,
   type PublicProcessingPhase,
 } from "./public-upload-status";
 import styles from "./public-upload.module.css";
+import { canShowStoredCompletion, readSubmissionHistory, rememberSubmission, submissionStageLabel, type SubmissionHistoryEntry } from "./submission-history";
 
 // ── Ícones SVG Compartilhados ──
 function IconBuilding() {
@@ -335,6 +337,7 @@ type View =
   | "processing"
   | "context"
   | "pending"
+  | "unavailable"
   | "success"
   | "error";
 type FailureKind = "READ_FAILED" | "TECHNICAL";
@@ -354,16 +357,22 @@ class ProcessingTimeoutError extends Error {}
 
 const PUBLIC_SUBMISSION_STORAGE_KEY = "winfrabr.public-submission.v1";
 
+function publicSessionStorage(): Pick<Storage, "getItem" | "setItem" | "removeItem"> {
+  try { return window.sessionStorage; } catch {
+    return { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  }
+}
+
 function persistSubmission(submission: StoredSubmission) {
-  window.sessionStorage.setItem(
+  try { publicSessionStorage().setItem(
     PUBLIC_SUBMISSION_STORAGE_KEY,
     JSON.stringify(submission),
-  );
+  ); } catch { /* A received upload remains successful when storage is unavailable. */ }
 }
 
 function readStoredSubmission(): StoredSubmission | null {
   try {
-    const raw = window.sessionStorage.getItem(PUBLIC_SUBMISSION_STORAGE_KEY);
+    const raw = publicSessionStorage().getItem(PUBLIC_SUBMISSION_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredSubmission>;
     if (
@@ -372,18 +381,18 @@ function readStoredSubmission(): StoredSubmission | null {
       typeof parsed.protocolo !== "string" ||
       !parsed.protocolo
     ) {
-      window.sessionStorage.removeItem(PUBLIC_SUBMISSION_STORAGE_KEY);
+      clearStoredSubmission();
       return null;
     }
     return { noteId: parsed.noteId, protocolo: parsed.protocolo };
   } catch {
-    window.sessionStorage.removeItem(PUBLIC_SUBMISSION_STORAGE_KEY);
+    clearStoredSubmission();
     return null;
   }
 }
 
 function clearStoredSubmission() {
-  window.sessionStorage.removeItem(PUBLIC_SUBMISSION_STORAGE_KEY);
+  try { publicSessionStorage().removeItem(PUBLIC_SUBMISSION_STORAGE_KEY); } catch { /* optional session recovery */ }
 }
 
 async function parseApiError(response: Response, fallback: string) {
@@ -528,14 +537,6 @@ function validateFile(file: File) {
   return null;
 }
 
-function normalizeProjectSearch(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("pt-BR")
-    .trim();
-}
-
 export function PublicUploadFlow() {
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -543,6 +544,8 @@ export function PublicUploadFlow() {
   const pollingControllerRef = useRef<AbortController | null>(null);
   const contextSubmissionStartedRef = useRef(false);
   const [view, setView] = useState<View>("form");
+  const [completedFromHistory, setCompletedFromHistory] = useState(false);
+  const [recentSubmissions, setRecentSubmissions] = useState<SubmissionHistoryEntry[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectOption | null>(
     null,
@@ -634,10 +637,11 @@ export function PublicUploadFlow() {
 
   useEffect(() => {
     const stored = readStoredSubmission();
-    if (!stored) return;
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
+      setRecentSubmissions(readSubmissionHistory(publicSessionStorage()));
+      if (!stored) return;
       setInvoiceId(stored.noteId);
       setProtocol(stored.protocolo);
       setProcessingPhase("READING");
@@ -715,7 +719,12 @@ export function PublicUploadFlow() {
     void waitForNoteResult(
       invoiceId,
       controller.signal,
-      (note) => setProcessingPhase(resolvePublicProcessingPhase(note.etapa)),
+      (note) => {
+        const phase = resolvePublicProcessingPhase(note.etapa);
+        setProcessingPhase(phase);
+        rememberSubmission(publicSessionStorage(), { noteId: invoiceId, protocolo: note.protocolo || invoiceId,
+          stage: note.estadoPublico === "PROCESSING" ? phase : note.estadoPublico });
+      },
       contextSubmissionStartedRef.current,
       view === "pending" ? null : 90_000,
     )
@@ -757,6 +766,7 @@ export function PublicUploadFlow() {
         }
         clearStoredSubmission();
         setCanRetryProcessing(false);
+        setCompletedFromHistory(false);
         setView("success");
       })
       .catch((caught) => {
@@ -765,14 +775,8 @@ export function PublicUploadFlow() {
           setView("pending");
           return;
         }
-        setFailureKind("TECHNICAL");
-        setCanRetryProcessing(true);
-        setFailureMessage(
-          caught instanceof Error
-            ? caught.message
-            : "Não foi possível consultar a análise.",
-        );
-        setView("error");
+        // A failed status request is not evidence that the server job failed.
+        setView("unavailable");
       });
 
     return () => controller.abort();
@@ -834,6 +838,7 @@ export function PublicUploadFlow() {
       }
       const nextProtocol = result.nota.protocolo || result.nota.id;
       persistSubmission({ noteId: result.nota.id, protocolo: nextProtocol });
+      rememberSubmission(publicSessionStorage(), { noteId: result.nota.id, protocolo: nextProtocol, stage: "READING" });
       contextSubmissionStartedRef.current = false;
       setInvoiceId(result.nota.id);
       setProtocol(nextProtocol);
@@ -859,6 +864,8 @@ export function PublicUploadFlow() {
   function sendAnotherNote() {
     pollingControllerRef.current?.abort();
     clearStoredSubmission();
+    setRecentSubmissions(readSubmissionHistory(publicSessionStorage()));
+    setCompletedFromHistory(false);
     if (inputRef.current) inputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     contextSubmissionStartedRef.current = false;
@@ -877,6 +884,22 @@ export function PublicUploadFlow() {
     setFailureMessage("");
     setCanRetryProcessing(false);
     setView("form");
+  }
+
+  function followSubmission(submission: SubmissionHistoryEntry) {
+    pollingControllerRef.current?.abort();
+    persistSubmission(submission);
+    contextSubmissionStartedRef.current = false;
+    setInvoiceId(submission.noteId);setProtocol(submission.protocolo);
+    setProcessingPhase(submission.stage === "READING" ? "READING" : "CHECKING");
+    if (canShowStoredCompletion(submission)) {
+      clearStoredSubmission();
+      setCompletedFromHistory(true);
+      setView("success");
+      return;
+    }
+    setCompletedFromHistory(false);
+    setView("pending");
   }
 
   function chooseAnotherFile() {
@@ -968,7 +991,8 @@ export function PublicUploadFlow() {
     view === "sending" ||
     view === "processing" ||
     view === "context" ||
-    view === "pending";
+    view === "pending" ||
+    view === "unavailable";
   const readFailure = failureKind === "READ_FAILED";
   const activePreview: PreviewResource | null = previewUrl
     ? {
@@ -982,12 +1006,7 @@ export function PublicUploadFlow() {
       (activePreview.mimeType === "application/pdf" ||
         activePreview.fileName.toLowerCase().endsWith(".pdf")),
   );
-  const normalizedProjectQuery = normalizeProjectSearch(projectQuery);
-  const filteredProjects = projects.filter((project) =>
-    normalizeProjectSearch(`${project.nome} ${project.local ?? ""}`).includes(
-      normalizedProjectQuery,
-    ),
-  );
+  const filteredProjects = projects.filter((project) => projectMatchesSearch(project, projectQuery));
 
   useEffect(() => {
     const shouldWarn =
@@ -1048,6 +1067,20 @@ export function PublicUploadFlow() {
                 <span className={styles.titleMeta}>Leva menos de um minuto para enviar</span>
               ) : null}
             </div>
+
+            {view === "form" && !file && recentSubmissions.length > 0 ? (
+              <section className={styles.recentSubmissions} aria-label="Envios desta sessão">
+                <h2>Envios desta sessão</h2>
+                <p>Você pode enviar outra nota enquanto as anteriores são analisadas. Consulte o andamento ou reveja as confirmações já recebidas nesta sessão.</p>
+                <ul>{recentSubmissions.map(submission => <li key={submission.noteId}>
+                  <div><strong>{submission.protocolo}</strong><span>{submissionStageLabel(submission.stage)}</span></div>
+                  <button className={styles.btnOutline} type="button" onClick={() => followSubmission(submission)}
+                    aria-label={`${canShowStoredCompletion(submission) ? "Ver resumo do" : "Acompanhar"} protocolo ${submission.protocolo}`}>
+                    {canShowStoredCompletion(submission) ? "Ver resumo" : "Acompanhar"}
+                  </button>
+                </li>)}</ul>
+              </section>
+            ) : null}
 
             <section
               className={`${styles.formCard} ${view === "context" ? styles.contextCard : ""}`}
@@ -1352,20 +1385,19 @@ export function PublicUploadFlow() {
               ) : null}
               {view === "processing" ? (
                 <Status
-                  icon={<IconCloudUpload />}
-                  title={
-                    processingPhase === "READING"
-                      ? "Lendo nota fiscal"
-                      : "Conferindo informações"
-                  }
-                  text={
-                    processingPhase === "READING"
-                      ? "Aguarde enquanto lemos o documento enviado."
-                      : "Documento lido; conferência continua em segundo plano."
-                  }
+                  icon={<IconFileText />}
+                  title={publicProcessingMessage(processingPhase).title}
+                  text={publicProcessingMessage(processingPhase).text}
                 >
+                  {protocol ? (
+                    <p className={styles.protocolInline}>
+                      Protocolo: <strong>{protocol}</strong>
+                    </p>
+                  ) : null}
                   <ProcessingSteps current={processingPhase} />
-                  <p className={styles.pulsing}>Análise em andamento</p>
+                  <p className={styles.pulsing}>
+                    {publicProcessingMessage(processingPhase).activity}
+                  </p>
                   <div className={styles.processingActions}>
                     <button
                       className={styles.submitBtn}
@@ -1374,23 +1406,21 @@ export function PublicUploadFlow() {
                     >
                       <IconFilePlus /> Enviar outra nota
                     </button>
-                    {processingPhase === "CHECKING" ? (
-                      <button
-                        className={styles.btnOutline}
-                        onClick={() => setView("pending")}
-                        type="button"
-                      >
-                        Acompanhar esta nota
-                      </button>
-                    ) : null}
+                    <button
+                      className={styles.btnOutline}
+                      onClick={() => setView("pending")}
+                      type="button"
+                    >
+                      Acompanhar esta nota
+                    </button>
                   </div>
                 </Status>
               ) : null}
               {view === "pending" ? (
                 <Status
                   icon={<IconInfo />}
-                  title="A análise continua em andamento"
-                  text="A nota fiscal já foi recebida. Você pode consultar o andamento novamente nesta sessão."
+                  title={publicProcessingMessage(processingPhase).activity}
+                  text={publicProcessingMessage(processingPhase).text}
                 >
                   <ProcessingSteps current={processingPhase} />
                   {protocol ? (
@@ -1413,6 +1443,27 @@ export function PublicUploadFlow() {
                       type="button"
                     >
                       Consultar andamento
+                    </button>
+                  </div>
+                </Status>
+              ) : null}
+              {view === "unavailable" ? (
+                <Status
+                  icon={<IconInfo />}
+                  title="Consulta de andamento indisponível"
+                  text="Isso não indica falha no processamento. O acesso temporário pode ter expirado ou a conexão estar indisponível. Guarde o protocolo e, se precisar, consulte o responsável pela obra."
+                >
+                  {protocol ? (
+                    <p className={styles.protocolInline}>
+                      Protocolo: <strong>{protocol}</strong>
+                    </p>
+                  ) : null}
+                  <div className={styles.processingActions}>
+                    <button className={styles.submitBtn} onClick={sendAnotherNote} type="button">
+                      <IconFilePlus /> Enviar outra nota
+                    </button>
+                    <button className={styles.btnOutline} onClick={retryProcessing} disabled={!isOnline} type="button">
+                      Consultar novamente
                     </button>
                   </div>
                 </Status>
@@ -1611,8 +1662,9 @@ export function PublicUploadFlow() {
               </div>
               <h2>Nota fiscal enviada com sucesso</h2>
               <p>
-                A nota fiscal foi recebida e encaminhada com segurança para o
-                sistema.
+                {completedFromHistory
+                  ? "Conclusão já recebida nesta sessão. Este resumo foi guardado no dispositivo e não representa uma nova consulta ao sistema."
+                  : "A nota fiscal foi recebida e encaminhada com segurança para o sistema."}
               </p>
               <span className={styles.badgeSuccess}>
                 <IconCheckCircle /> Envio concluído
@@ -1645,7 +1697,7 @@ export function PublicUploadFlow() {
                     <IconCalendar />
                   </span>
                   <span className={styles.summaryLabel}>
-                    Data e hora da conclusão
+                    Consulta neste dispositivo
                   </span>
                   <span className={styles.summaryValue}>{formatDate()}</span>
                 </div>
@@ -1882,7 +1934,7 @@ function ProcessingSteps({
   current: "UPLOADING" | PublicProcessingPhase;
 }) {
   const steps = [
-    { id: "UPLOADING", label: "Enviando nota fiscal" },
+    { id: "UPLOADING", label: current === "UPLOADING" ? "Enviando documento" : "Documento recebido" },
     { id: "READING", label: "Lendo nota fiscal" },
     { id: "CHECKING", label: "Conferindo informações" },
   ] as const;
@@ -1892,6 +1944,7 @@ function ProcessingSteps({
     <ol aria-label="Progresso do envio" className={styles.processingSteps}>
       {steps.map((step, index) => (
         <li
+          aria-current={index === currentIndex ? "step" : undefined}
           data-state={
             index < currentIndex
               ? "completed"
@@ -2019,6 +2072,9 @@ function contextAnswerHint(question: PublicContextQuestion) {
   if (question.tipo === "CONFIRMATION") {
     return "Marque Sim ou Não conforme o controle da obra.";
   }
+  if (question.tipo === "SELECT") {
+    return "Selecione a opção que corresponde ao que você sabe. Se não tiver certeza, use Não sei quando disponível.";
+  }
   if (question.tipo === "NUMBER") {
     return /pessoa|funcion[aá]ri|refei/.test(prompt)
       ? "Informe apenas a quantidade relacionada a esta despesa."
@@ -2027,7 +2083,7 @@ function contextAnswerHint(question: PublicContextQuestion) {
   if (/placa|ve[ií]culo|equipamento/.test(prompt)) {
     return "Exemplo: placa ABC1D23 ou identificação do equipamento.";
   }
-  if (/obra/.test(prompt)) {
+  if (/\bobra\b/.test(prompt)) {
     return "Informe o nome ou código oficial usado pela empresa.";
   }
   if (/motivo|finalidade|justific/.test(prompt)) {

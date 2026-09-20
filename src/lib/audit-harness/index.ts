@@ -6,4 +6,5 @@ export * from "./prompts";
 export * from "./rules";
 export * from "./security";
 export * from "./verification";
+export * from "./individual-verification";
 export * from "./versions";

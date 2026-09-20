@@ -6,6 +6,7 @@ import {
   canRetainSuspiciousAfterVerificationFailure,
   explicitlyConfirmedVerificationFindings,
   evaluateHarness,
+  normalizeVerificationFailureCode,
   resolveAuditAssurance,
   selectVerification,
   validateVerificationCoverage,
@@ -15,6 +16,29 @@ import {
   type HarnessInvoice,
   type VerificationResponse,
 } from "./index";
+
+test("verificador confirma todos os valores de conflito sem inventar referência esperada", () => {
+  const initial = { ...aiFinding(), source: "AI_DISCOVERY" as const, code: "AMOUNT_CONFLICT",
+    category: "AMOUNTS", expectedValue: null, actualValue: ["30.00", "35.00"] };
+  const confirmed = { ...aiFinding(), source: "AI_VERIFICATION" as const, code: initial.code,
+    confirmsInitialFindingCode: initial.code, category: "AMOUNTS", expectedValue: null,
+    evidence: { field: "valor", lineNumber: 1, page: 1, source: "Original sintético", summary: "R$ 35,00 e R$ 30,00 no original." },
+    actualValue: "Recibo: R$ 35,00; ficha: R$ 30,00" };
+  assert.equal(explicitlyConfirmedVerificationFindings([initial], [confirmed]).length, 1);
+  for (const actualValue of ["R$ 35,00", "R$ 30,00; R$ 34,00", "R$ 30,00; R$ 35,00; R$ 40,00"]) {
+    assert.equal(explicitlyConfirmedVerificationFindings([initial], [{ ...confirmed, actualValue }]).length, 0);
+  }
+});
+
+test("verificador de conflito compara o conjunto exato de datas, aceitando ordem e formato distintos", () => {
+  const initial = { ...aiFinding(), source: "AI_DISCOVERY" as const, code: "DATE_CONFLICT",
+    category: "DATES", expectedValue: null, actualValue: "10/07/2026 × 11/07/2026" };
+  const confirmed = { ...aiFinding(), source: "AI_VERIFICATION" as const, code: initial.code,
+    evidence: { field: "data", lineNumber: 1, page: 1, source: "Original sintético", summary: "10/07/2026 e 11/07/2026 no original." },
+    confirmsInitialFindingCode: initial.code, category: "DATES", expectedValue: "2026-07-11", actualValue: "2026-07-10" };
+  assert.equal(explicitlyConfirmedVerificationFindings([initial], [confirmed]).length, 1);
+  assert.equal(explicitlyConfirmedVerificationFindings([initial], [{ ...confirmed, actualValue: "2026-07-12" }]).length, 0);
+});
 
 function invoice(overrides: Partial<HarnessInvoice> = {}): HarnessInvoice {
   return {
@@ -80,7 +104,9 @@ function response(expectedChecks: ReturnType<typeof buildVerificationChecks>): V
     checks: expectedChecks.map((check) => ({
       ...check,
       documentRole: check.documentRole ?? null,
-      evidence: [],
+      evidence: check.key === "document:coverage"
+        ? [1, 2].map((page) => ({ page, field: "cobertura", quote: `Registro sintético legível da página ${page}.`, source: "Documento original sintético" }))
+        : [{ page: 1, field: "valor", quote: "Item 1: R$ 100,00; total R$ 100,00.", source: "Documento original sintético" }],
       findingCode: null,
       limitationCode: null,
       state: "VERIFIED",
@@ -122,7 +148,7 @@ test("seleciona verificação por sinais genéricos e nunca por caso real", () =
   assert.deepEqual(
     new Set(selected.reasons),
     new Set([
-      "SUPPORT_COVERAGE_NOT_COMPLETE",
+      "COMPLEX_MULTI_PAGE_DOCUMENT",
       "LOW_READABLE_CONFIDENCE",
       "MULTIPLE_EXTRACTION_WARNINGS",
       "RECOVERED_EXTRACTION",
@@ -147,6 +173,50 @@ test("READ_FAILED nunca abre chamada seletiva", () => {
   );
 });
 
+function selfDeclaredCompleteInvoice(kind: HarnessInvoice["documentKind"]): HarnessInvoice {
+  return invoice({ documentKind: kind, supportCoverage: { status: "COMPLETE",
+    basis: "EXPLICIT_COMPLETENESS_STATEMENT", evidence: "Todas as fontes estão presentes (declaração sintética).",
+    referencedDocuments: [], presentDocuments: [], missingDocuments: [] } });
+}
+
+test("composto ou reembolso de cinco páginas ou mais não dispensa verificação por autodeclarar cobertura", () => {
+  for (const kind of ["COMPOSITE", "REIMBURSEMENT"] as const) {
+    for (const pageCount of [5, 8, 32]) {
+      const selected = selectVerification({ aiCoverage: true, baseClassification: "OK", baseFindings: [],
+        invoice: selfDeclaredCompleteInvoice(kind), pageCount });
+      assert.equal(selected.required, true, `${kind}, ${pageCount} páginas`);
+      assert.ok(selected.reasons.includes("COMPLEX_MULTI_PAGE_DOCUMENT"));
+      assert.equal(resolveAuditAssurance({ aiCoverage: true, classification: "OK", mode: "shadow",
+        selection: selected, verificationStatus: "NOT_RUN" }).band, "LIMITED");
+    }
+  }
+});
+
+test("documento longo exige verificação mesmo classificado como nota fiscal simples", () => {
+  const selected = selectVerification({ aiCoverage: true, baseClassification: "OK", baseFindings: [],
+    invoice: selfDeclaredCompleteInvoice("FISCAL_INVOICE"), pageCount: 10 });
+  assert.equal(selected.required, true);
+  assert.ok(selected.reasons.includes("LONG_DOCUMENT"));
+});
+
+test("quantidade de páginas desconhecida não elimina o risco de documento composto", () => {
+  for (const pageCount of [undefined, null, 0, -1, 2.5, Number.NaN]) {
+    const selected = selectVerification({ aiCoverage: true, baseClassification: "OK", baseFindings: [],
+      invoice: selfDeclaredCompleteInvoice("COMPOSITE"), pageCount });
+    assert.equal(selected.required, true);
+    assert.ok(selected.reasons.includes("COMPLEX_PAGE_COUNT_UNKNOWN"));
+  }
+});
+
+test("nota curta com cobertura completa mantém seleção enxuta e não altera o documento", () => {
+  for (const [kind, pageCount] of [["FISCAL_INVOICE", 2], ["COMPOSITE", 4]] as const) {
+    const document = selfDeclaredCompleteInvoice(kind); const before = structuredClone(document);
+    assert.deepEqual(selectVerification({ aiCoverage: true, baseClassification: "OK", baseFindings: [],
+      invoice: document, pageCount }), { required: false, reasons: [] });
+    assert.deepEqual(document, before);
+  }
+});
+
 test("cobertura do verificador exige todas as chaves e páginas", () => {
   const checks = buildVerificationChecks(invoice());
   const complete = validateVerificationCoverage({
@@ -167,6 +237,51 @@ test("cobertura do verificador exige todas as chaves e páginas", () => {
   assert.equal(incomplete.complete, false);
   assert.equal(incomplete.missingKeys.length, 1);
   assert.deepEqual(incomplete.missingPages, [2]);
+});
+
+test("PASS sem trechos por check não comprova cobertura", () => {
+  const checks = buildVerificationChecks(invoice());
+  const value = response(checks);
+  value.checks.forEach((check) => { check.evidence = []; });
+  const coverage = validateVerificationCoverage({ expectedChecks: checks, expectedPageCount: 2, response: value });
+  assert.equal(coverage.complete, false);
+});
+
+test("chave correta não permite trocar a linha, o grupo ou o papel conferido", () => {
+  const checks = buildVerificationChecks(invoice());
+  for (const identity of [{ lineNumber: 2 }, { documentGroup: "outro-grupo" }, { documentRole: "SUMMARY" as const }]) {
+    const value = response(checks);
+    Object.assign(value.checks.find((check) => check.key === "line:1")!, identity);
+    assert.equal(validateVerificationCoverage({ expectedChecks: checks, expectedPageCount: 2, response: value }).complete, false);
+  }
+});
+
+test("páginas declaradas precisam ser únicas, válidas e apoiadas por trechos", () => {
+  const checks = buildVerificationChecks(invoice());
+  for (const checkedPages of [[1, 2, 2], [1, 2, 3]]) {
+    const value = response(checks);
+    value.pageCoverage.checkedPages = checkedPages;
+    assert.equal(validateVerificationCoverage({ expectedChecks: checks, expectedPageCount: 2, response: value }).complete, false);
+  }
+  const unsupportedPage = response(checks);
+  unsupportedPage.checks.forEach((check) => { check.evidence = check.evidence.filter((item) => item.page === 1); });
+  assert.equal(validateVerificationCoverage({ expectedChecks: checks, expectedPageCount: 2, response: unsupportedPage }).complete, false);
+  const outsidePage = response(checks);
+  outsidePage.checks[1].evidence[0].page = 3;
+  assert.equal(validateVerificationCoverage({ expectedChecks: checks, expectedPageCount: 2, response: outsidePage }).complete, false);
+});
+
+test("limitação declarada impede certificado de cobertura completa", () => {
+  const checks = buildVerificationChecks(invoice());
+  const value = response(checks);
+  value.status = "LIMITED";
+  value.limitations = ["Parte de um comprovante está ilegível."];
+  assert.equal(validateVerificationCoverage({ expectedChecks: checks, expectedPageCount: 2, response: value }).complete, false);
+});
+
+test("shadow sem cobertura comprovada permanece limitado mesmo com PASS declarado", () => {
+  assert.equal(resolveAuditAssurance({ aiCoverage: true, classification: "OK", mode: "shadow",
+    selection: { required: true, reasons: ["RECOVERED_EXTRACTION"] }, verificationStatus: "PASS", verificationCoverageComplete: false }).band, "LIMITED");
 });
 
 test("mais de 297 linhas nunca recebe cobertura completa artificial", () => {
@@ -319,6 +434,49 @@ test("faixa de garantia não expõe score e sinaliza risco não verificado", () 
     }).band,
     "MEDIUM",
   );
+});
+
+test("falhas operacionais da IA são distintas de falta de documentos, sem ampliar garantia", () => {
+  for (const mode of ["shadow", "enforce"] as const) {
+    for (const code of ["VERIFICATION_TIMEOUT", "VERIFICATION_ENDPOINT_UNAVAILABLE", "VERIFICATION_PROVIDER_ERROR"] as const) {
+      const input = { aiCoverage: true, classification: "OK" as const, mode,
+        selection: { required: true, reasons: ["LONG_DOCUMENT"] }, verificationStatus: "FAILED" as const,
+        verificationFailureCode: code };
+      const assurance = resolveAuditAssurance(input);
+      assert.equal(assurance.band, "LIMITED");
+      assert.match(assurance.reason, /não comprova falta de informação no documento/);
+      assert.doesNotMatch(resolveAuditAssurance({ ...input, mode: "off" }).reason, /serviço de IA/);
+    }
+  }
+});
+
+test("normalização de falha nunca exibe erro bruto, segredo ou código arbitrário", () => {
+  for (const value of ["PRIVATE_PROVIDER_MESSAGE", null, { code: "PRIVATE" }, 503]) {
+    assert.equal(normalizeVerificationFailureCode(value), "VERIFICATION_PROVIDER_ERROR");
+  }
+  assert.equal(normalizeVerificationFailureCode("VERIFICATION_ENDPOINT_UNAVAILABLE"), "VERIFICATION_ENDPOINT_UNAVAILABLE");
+  assert.equal(normalizeVerificationFailureCode("VERIFICATION_REFERENCE_CHANGED"), "VERIFICATION_REFERENCE_CHANGED");
+});
+
+test("mudança da regra limita a garantia sem culpar o documento ou repetir a IA", () => {
+  for (const mode of ["shadow", "enforce"] as const) {
+    const assurance = resolveAuditAssurance({ aiCoverage: true, classification: "OK", mode,
+      selection: { required: true, reasons: ["LONG_DOCUMENT"] }, verificationStatus: "FAILED",
+      verificationFailureCode: "VERIFICATION_REFERENCE_CHANGED" });
+    assert.equal(assurance.band, "LIMITED");
+    assert.match(assurance.reason, /regras da obra mudaram/);
+    assert.match(assurance.reason, /nenhuma nova chamada/);
+  }
+});
+
+test("mudança da hipótese não reutiliza decisão antiga nem culpa o documento", () => {
+  assert.equal(normalizeVerificationFailureCode("VERIFICATION_HYPOTHESES_CHANGED"), "VERIFICATION_HYPOTHESES_CHANGED");
+  const assurance = resolveAuditAssurance({ aiCoverage: true, classification: "OK", mode: "shadow",
+    selection: { required: true, reasons: ["LONG_DOCUMENT"] }, verificationStatus: "FAILED",
+    verificationFailureCode: "VERIFICATION_HYPOTHESES_CHANGED" });
+  assert.equal(assurance.band, "LIMITED");
+  assert.match(assurance.reason, /hipóteses mudaram/);
+  assert.match(assurance.reason, /nenhuma nova chamada/);
 });
 
 test("achado independente sustentado promove suspeita sem remover achados anteriores", () => {

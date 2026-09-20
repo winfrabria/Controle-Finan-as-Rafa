@@ -23,10 +23,17 @@ function isProjectOption(value: unknown): value is ProjectOption {
     candidate.id.length > 0 &&
     typeof candidate.nome === "string" &&
     candidate.nome.length > 0 &&
+    (candidate.codigo == null || typeof candidate.codigo === "string") &&
     (candidate.local === undefined ||
       candidate.local === null ||
       typeof candidate.local === "string")
   );
+}
+
+export function projectMatchesSearch(project: ProjectOption, query: string) {
+  const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR").trim();
+  return normalize(`${project.nome} ${project.codigo ?? ""} ${project.local ?? ""}`).includes(normalize(query));
 }
 
 function wait(milliseconds: number) {

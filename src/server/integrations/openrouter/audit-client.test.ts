@@ -12,6 +12,7 @@ import {
 import {
   normalizeAuditContent,
   OpenRouterAuditDiscoveryClient,
+  OpenRouterAuditDiscoveryError,
   type AuditDiscoveryRequest,
 } from "./audit-client";
 import { getOpenRouterConfig } from "./config";
@@ -32,6 +33,23 @@ const discoveryRequest: AuditDiscoveryRequest = {
   workRules: [],
   reasoningEffort: "high",
 };
+
+test("resposta vazia preserva custo e ID da geração sem armazenar raciocínio", async () => {
+  const client = new OpenRouterAuditDiscoveryClient({ apiKey: "test-only", appUrl: undefined, model: HARNESS_MODEL,
+    maxAttempts: 1, timeoutMs: 1000, pdfEngine: "native", fetchImplementation: async () => new Response(JSON.stringify({
+      id: "gen-synthetic-empty", model: HARNESS_MODEL, choices: [{ finish_reason: "length", message: {
+        content: null, reasoning: "PRIVATE_REASONING_MUST_NOT_BE_STORED" } }],
+      usage: { prompt_tokens: 10, completion_tokens: 90, total_tokens: 100, cost: 0.012 },
+    }), { status: 200 }) });
+  await assert.rejects(client.discover(discoveryRequest), (error: unknown) => {
+    assert(error instanceof OpenRouterAuditDiscoveryError);
+    assert.equal(error.generationId, "gen-synthetic-empty");assert.equal(error.usage?.costUsd, 0.012);
+    assert.equal(error.attemptTrace[0].usage?.costUsd, 0.012);
+    assert.equal(error.attemptTrace[0].generationId, "gen-synthetic-empty");
+    assert.doesNotMatch(JSON.stringify(error.attemptTrace), /PRIVATE_REASONING/);
+    return true;
+  });
+});
 
 function successfulAuditResponse(model: string) {
   return new Response(
@@ -459,6 +477,38 @@ test("usa Sol uma vez quando a resposta estruturada do Terra é inválida", asyn
     result.attemptTrace.map((attempt) => attempt.kind),
     ["invalid-response", "success"],
   );
+});
+
+test("resposta inválida com uso explicitamente zerado repete o mesmo modelo antes do fallback", async () => {
+  const requestedModels: string[] = [];
+  const client = new OpenRouterAuditDiscoveryClient({
+    apiKey: "test-only",
+    appUrl: undefined,
+    fallbackModel: AUDIT_POLICY.fallbackModel,
+    model: HARNESS_MODEL,
+    maxAttempts: 2,
+    pdfEngine: "native",
+    timeoutMs: 1_000,
+    sleep: async () => undefined,
+    fetchImplementation: async (_url, init) => {
+      const payload = JSON.parse(String(init?.body)) as { model: string };
+      requestedModels.push(payload.model);
+      if (requestedModels.length > 1) return successfulAuditResponse(HARNESS_MODEL);
+      return new Response(JSON.stringify({
+        id: "gen-zero-cost-invalid",
+        model: HARNESS_MODEL,
+        provider: "test",
+        choices: [{ message: { content: "not-json" } }],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0 },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+
+  const result = await client.discover(discoveryRequest);
+  assert.deepEqual(requestedModels, [HARNESS_MODEL, HARNESS_MODEL]);
+  assert.equal(result.model, HARNESS_MODEL);
+  assert.equal(result.attempts, 2);
+  assert.equal(result.attemptTrace[0]?.usage?.costUsd, 0);
 });
 
 for (const status of [402, 429, 503]) {

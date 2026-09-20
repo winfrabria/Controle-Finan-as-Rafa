@@ -9,11 +9,12 @@ export async function GET() {
     const works = await prisma.work.findMany({
       where: { active: true },
       orderBy: [{ name: "asc" }, { id: "asc" }],
-      select: { id: true, location: true, name: true },
+      select: { id: true, code: true, location: true, name: true },
     });
     const obras = works.map((work) => ({
       id: work.id,
       nome: work.name,
+      codigo: work.code,
       ...(work.location ? { local: work.location } : {}),
     }));
 

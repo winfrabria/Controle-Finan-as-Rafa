@@ -1,6 +1,7 @@
 import type { HarnessFinding, HarnessInvoice } from "./contracts";
-import { INVALID_DOCUMENT_DATE_WARNING, isOcrFallbackExtraction } from "@/lib/integrations/openrouter/extraction-contract";
+import { INVALID_DOCUMENT_DATE_WARNING, UNPROVED_BREAKDOWN_WARNING, isOcrFallbackExtraction } from "@/lib/integrations/openrouter/extraction-contract";
 import { isValidIsoCalendarDate } from "@/lib/calendar-date";
+import { ambiguousDocumentGroup, documentHierarchyIssue } from "./document-hierarchy";
 import {
   HARNESS_FALLBACK_MODEL,
   HARNESS_MODEL,
@@ -134,21 +135,59 @@ export function isReadFailure(invoice: HarnessInvoice) {
   return !compositeDocument;
 }
 
+/** Eligibility for provisional discovery, never proof of a finding or coverage.
+ * A missing page must not silence readable evidence on other pages. */
+export function canAuditReadableSubset(invoice: HarnessInvoice, pageCount: number | null) {
+  if (isReadFailure(invoice) || !Number.isSafeInteger(pageCount) || (pageCount ?? 0) < 1) return false;
+  const located = (page: number | null | undefined, text: string | null | undefined) =>
+    Number.isSafeInteger(page) && (page ?? 0) > 0 && (page ?? 0) <= pageCount! && Boolean(text?.trim());
+  return invoice.items.some(item =>
+    located(item.sourcePage, item.sourceText) ||
+    item.evidenceObservations?.some(observation => located(observation.page, observation.text)));
+}
+
 /**
  * A readable document may still be insufficient for a conclusive audit. This
  * is not a read failure: it is completed as information insufficient, while
  * objective findings supported by the document remain eligible to win.
  */
 export function hasUncertainSupportCoverage(invoice: HarnessInvoice) {
-  if (invoice.supportCoverage?.status === "PARTIAL") return true;
+  const aggregatePayment = invoice.items.some((item) => item.documentRole === "AGGREGATE_PAYMENT");
+  const coverage = invoice.supportCoverage;
+  const fiscalOriginReferences = coverage?.status === "PARTIAL" &&
+    invoice.documentKind !== "REIMBURSEMENT" &&
+    invoice.items.some(item => item.sourceKind === "FISCAL_LINE") &&
+    coverage.missingDocuments.length > 0 &&
+    coverage.missingDocuments.every(reference => /\b(?:cupom|nfce|nf-c-e|nota fiscal de consumidor)\b/i.test(reference)) &&
+    /(?:tributa[çc][aã]o\s+j[aá]\s+realizada|emiss[aã]o\s+da\s+nfce|ref(?:er[eê]ncia)?\.?\s*cupom|\becf\b)/i.test(coverage.evidence ?? "");
+  // A referência fiscal impressa em uma NF-e (por exemplo, cupons que deram
+  // origem à nota) não transforma esses documentos em anexos obrigatórios.
+  // Cobertura parcial só bloqueia conjuntos que realmente dependem de suporte.
+  if (invoice.supportCoverage?.status === "PARTIAL") {
+    if (fiscalOriginReferences) return false;
+    return invoice.documentKind === "REIMBURSEMENT" || invoice.documentKind === "COMPOSITE" || aggregatePayment;
+  }
   const requiresSupportCoverage =
-    invoice.documentKind === "COMPOSITE" ||
     invoice.documentKind === "REIMBURSEMENT" ||
-    invoice.items.some((item) => item.documentRole === "AGGREGATE_PAYMENT");
+    aggregatePayment;
   return requiresSupportCoverage && invoice.supportCoverage?.status !== "COMPLETE";
 }
 
+/** Explain an explicit support gap without calling it a failed extraction or
+ * claiming that an absent reference proves an irregularity. */
+export function missingSupportCoverageReason(invoice: HarnessInvoice) {
+  const coverage = invoice.supportCoverage;
+  if (!hasUncertainSupportCoverage(invoice) || coverage?.status !== "PARTIAL" || coverage.basis !== "DOCUMENT_REFERENCES") return null;
+  const missing = [...new Set(coverage.missingDocuments.map(value => value.trim()).filter(Boolean))];
+  if (missing.length === 0) return null;
+  const references = missing.slice(0, 10).map(value => value.replace(/\s+/g, " ").slice(0, 96)).join("; ");
+  const remaining = missing.length > 10 ? `; e mais ${missing.length - 10}` : "";
+  return `A leitura identificou referências a documentos não localizados no anexo: ${references}${remaining}. A comparação com esses documentos ficou pendente; isso não significa que a nota esteja errada. Reprocessar o mesmo arquivo não acrescenta os documentos ausentes.`;
+}
+
 export function hasInsufficientAuditBasis(invoice: HarnessInvoice) {
+  if (invoice.warnings.includes(UNPROVED_BREAKDOWN_WARNING)) return true;
+  if (documentHierarchyIssue(invoice.items) || ambiguousDocumentGroup(invoice.items)) return true;
   if (isOcrFallbackExtraction(invoice)) return true;
   if (hasInvalidExplicitTotalLayer(invoice)) return true;
   if (hasUncertainSupportCoverage(invoice)) return true;

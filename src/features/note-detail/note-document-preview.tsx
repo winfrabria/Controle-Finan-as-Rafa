@@ -5,8 +5,9 @@ import { useState } from "react";
 
 import type { NoteDetailItem } from "./data";
 import { resolveNoteDocumentPreviewKind } from "./note-document-policy";
-import { formatDecimal } from "./note-detail-format";
+import { formatDecimal, formatQuantity, formatUnitPrice } from "./note-detail-format";
 import styles from "./note-detail.module.css";
+import { PdfDocumentViewer } from "./pdf-document-viewer";
 
 type NoteDocumentPreviewProps = {
   documentUrl: string | null;
@@ -36,6 +37,11 @@ export function NoteDocumentPreview({
     isImage,
   });
 
+  if (documentUrl && previewKind === "pdf") return <>
+    <PdfDocumentViewer key={documentUrl} url={documentUrl} title={`Nota fiscal ${number}`} />
+    <footer className={styles.documentToolbar}><a href={documentUrl} target="_blank" rel="noreferrer">Abrir PDF original</a></footer>
+  </>;
+
   return (
     <>
       <div className={styles.documentViewport}>
@@ -44,7 +50,6 @@ export function NoteDocumentPreview({
           style={{ transform: `scale(${zoom / 100})` }}
         >
           {documentUrl ? (
-            previewKind === "image" ? (
               <Image
                 alt={`Nota fiscal ${number}`}
                 fill
@@ -52,25 +57,6 @@ export function NoteDocumentPreview({
                 src={documentUrl}
                 unoptimized
               />
-            ) : (
-              <>
-                <iframe
-                  className={styles.pdfFrame}
-                  src={documentUrl}
-                  title={`Nota fiscal ${number}`}
-                />
-                <div className={styles.pdfMobileFallback}>
-                  <strong>Visualização de PDF no navegador</strong>
-                  <span>
-                    Para uma leitura mais estável no celular, abra o documento
-                    no visualizador do aparelho.
-                  </span>
-                  <a href={documentUrl} rel="noreferrer" target="_blank">
-                    Abrir PDF
-                  </a>
-                </div>
-              </>
-            )
           ) : previewKind === "demo" ? (
             <DemoDanfe
               items={items}
@@ -204,8 +190,8 @@ function DemoDanfe({
               <td>{item.code ?? "—"}</td>
               <td>{item.description}</td>
               <td>{item.unit ?? "—"}</td>
-              <td>{formatDecimal(item.quantity, 0)}</td>
-              <td>{formatDecimal(item.unitPrice)}</td>
+              <td>{formatQuantity(item.quantity)}</td>
+              <td>{formatUnitPrice(item.unitPrice)}</td>
               <td>{formatDecimal(item.totalAmount)}</td>
             </tr>
           ))}

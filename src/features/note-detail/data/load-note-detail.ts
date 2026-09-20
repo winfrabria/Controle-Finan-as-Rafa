@@ -23,6 +23,7 @@ import {
   sanitizeReviewerText,
 } from "./reviewer-data-policy";
 import { findingComparisonMetadata } from "@/features/internal-notes/finding-display";
+import { currentReviewerDiagnosisFindings } from "../current-diagnosis-findings";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -81,6 +82,8 @@ const noteDetailSelect = {
   createdAt: true,
   documentNumber: true,
   events: {
+    // Durable page reads belong to server recovery, not the browser timeline.
+    where: { type: { not: "EXTRACTION_WINDOW_CHECKPOINT" } },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: {
       actor: { select: { email: true, fullName: true, id: true } },
@@ -203,7 +206,10 @@ export async function loadNoteDetail(
   if (!UUID_PATTERN.test(input.id)) return null;
 
   const note = await prisma.note.findUnique({
-    select: noteDetailSelect,
+    select: { ...noteDetailSelect, noteReads: {
+      where: { profileId: input.viewerId ?? "00000000-0000-0000-0000-000000000000" },
+      select: { readAt: true }, take: 1,
+    } },
     where: { id: input.id },
   });
 
@@ -222,7 +228,7 @@ export async function loadNoteDetail(
     url: null,
   };
   const visibleFindings = forReviewer
-    ? note.findings.filter((finding) => finding.category !== "DOCUMENT_TYPE")
+    ? currentReviewerDiagnosisFindings(note.findings).filter((finding) => finding.category !== "DOCUMENT_TYPE")
     : note.findings;
   const findings: NoteDetailFinding[] = visibleFindings.map((finding) => {
     const comparison = findingComparisonMetadata(
@@ -386,6 +392,7 @@ export async function loadNoteDetail(
     history,
     id: note.id,
     isDemo,
+    isRead: note.noteReads.some((entry) => !note.processedAt || entry.readAt >= note.processedAt),
     issuedAt: note.issuedAt,
     items: note.items.map((item) => ({
       code: item.code,

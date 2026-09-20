@@ -62,20 +62,12 @@
 
 .summaryAction {
   color: #075cff;
-  font-size: 12px;
+  font-size: 20px;
   font-weight: 800;
 }
 
-.collapsiblePanel[open] .summaryAction::before {
-  content: "Fechar";
-}
-
 .collapsiblePanel[open] .summaryAction {
-  font-size: 0;
-}
-
-.collapsiblePanel[open] .summaryAction::before {
-  font-size: 12px;
+  transform: rotate(180deg);
 }
 
 .collapsibleContent {
@@ -115,13 +107,14 @@
 .field select,
 .field textarea { border: 1px solid #cbd6df; border-radius: 10px; padding: 10px; font: inherit; font-weight: 400; width: 100%; }
 .field textarea { min-height: 82px; resize: vertical; }
-.actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
-.actions button { border: 0; border-radius: 10px; padding: 10px 14px; background: #143f56; color: #fff; font-weight: 800; cursor: pointer; }
-.actions button:disabled { cursor: wait; opacity: .65; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
+.actions button { border: 0; border-radius: 10px; min-height: 44px; padding: 10px 14px; background: #143f56; color: #fff; font-weight: 800; cursor: pointer; }
+.actions button:disabled { cursor: not-allowed; opacity: .65; }
 .success { color: #12633d !important; }
 .error { color: #9a2f1f !important; }
 
 @media (max-width: 640px) {
   .panel { border-radius: 12px; padding: 14px; margin: 14px 12px; }
+  .collapsiblePanel { padding: 0; margin: 14px 0; }
   .choices { grid-template-columns: 1fr; }
 }

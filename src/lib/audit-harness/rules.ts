@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { isValidIsoCalendarDate } from "@/lib/calendar-date";
+import { completeDocumentBreakdowns, documentHierarchyIssue } from "./document-hierarchy";
+import { findRepeatedOriginal, fiscalDocumentNumber, fiscalSupplierId, hasCompleteFiscalIdentity } from "./duplicate-identity";
+import { observationQuoteConflict, untracedObservationClaim } from "@/lib/integrations/openrouter/source-value-consistency";
 
 import type {
   DuplicateCandidate,
@@ -74,6 +77,7 @@ function sumItemTotals(items: HarnessInvoice["items"]) {
 }
 
 export function hasCompleteItemCoverage(invoice: HarnessInvoice) {
+  if (documentHierarchyIssue(invoice.items)) return false;
   const coverage = invoice.itemCoverage;
   if (!coverage || coverage.status !== "COMPLETE") return false;
   if (coverage.extractedItemCount <= 0) return false;
@@ -371,6 +375,43 @@ function normalizeDocumentGroup(value: string | null | undefined) {
   return value?.replace(/\s+/g, " ").trim().toLocaleLowerCase("pt-BR") || null;
 }
 
+function primaryEvidenceObservation(
+  item: HarnessInvoice["items"][number],
+): EvidenceObservation | null {
+  const kind = item.sourceKind;
+  if (!kind || kind === "UNKNOWN" || kind === "FISCAL_LINE" || item.sourcePage == null || !item.sourceText) {
+    return null;
+  }
+  return {
+    amount: item.totalAmount,
+    amountScope:
+      item.documentRole === "AGGREGATE_PAYMENT" || kind === "CHARGE"
+        ? "DOCUMENT_TOTAL"
+        : "ITEM_TOTAL",
+    boundingBox: item.sourceBoundingBox ?? null,
+    date: item.sourceDate ?? null,
+    documentGroup: item.documentGroup ?? null,
+    kind,
+    label: null,
+    page: item.sourcePage,
+    text: item.sourceText,
+  };
+}
+
+function comparisonObservations(item: HarnessInvoice["items"][number]) {
+  const observations = [...(item.evidenceObservations ?? [])];
+  const primary = primaryEvidenceObservation(item);
+  if (!primary) return observations;
+
+  const alreadyPresent = observations.some((observation) =>
+    observation.kind === primary.kind &&
+    observation.page === primary.page &&
+    decimal(observation.amount) === decimal(primary.amount) &&
+    (observation.date ?? null) === (primary.date ?? null)
+  );
+  return alreadyPresent ? observations : [primary, ...observations];
+}
+
 function groupedAggregatePaymentFindings(
   items: HarnessInvoice["items"],
 ) {
@@ -380,7 +421,7 @@ function groupedAggregatePaymentFindings(
   >();
 
   for (const item of items) {
-    for (const observation of item.evidenceObservations ?? []) {
+    for (const observation of comparisonObservations(item)) {
       const group = normalizeDocumentGroup(
         observation.documentGroup ?? item.documentGroup,
       );
@@ -416,7 +457,7 @@ function groupedAggregatePaymentFindings(
     // o default do parser para ficha, recibo e pagamento sobrepostos.
     const economicItems = explicitlySelectedItems;
     const paymentEntries = entries.filter(
-      ({ observation }) => observation.kind === "PAYMENT" && decimal(observation.amount) !== null,
+      ({ observation }) => observation.kind === "PAYMENT" && decimal(observation.amount) !== null && !observationQuoteConflict(observation),
     );
 
     const aggregateEconomicLines =
@@ -432,7 +473,7 @@ function groupedAggregatePaymentFindings(
       // the same transaction. Each line is still reconciled below against its
       // own evidence, but cross-line comparison is unsafe without an explicit
       // aggregate payment or more than one selected economic line.
-      if (containsSummaryLayer) continue;
+      if (containsSummaryLayer || groupItems.some((item) => item.parentLineNumber != null)) continue;
 
       const observations = [
         ...new Set(entries.map(({ observation }) => observation)),
@@ -442,6 +483,18 @@ function groupedAggregatePaymentFindings(
           .filter((observation) => observation.kind !== "DISCOUNT")
           .map((observation) => observation.kind),
       );
+
+      // A fiscal total and multiple control rows may share a document group.
+      // More than one line per source kind is not a one-to-one comparison.
+      // Only explicit breakdown relationships authorize summing those rows.
+      const linesByKind = new Map<EvidenceObservation["kind"], Set<number>>();
+      for (const { item, observation } of entries) {
+        if (observation.kind === "DISCOUNT") continue;
+        const lines = linesByKind.get(observation.kind) ?? new Set<number>();
+        lines.add(item.lineNumber);
+        linesByKind.set(observation.kind, lines);
+      }
+      if ([...linesByKind.values()].some((lines) => lines.size > 1)) continue;
 
       // Uma ficha de reembolso, a venda/recibo e o pagamento representam
       // camadas de evidência do mesmo evento. Sem uma cobrança agregada ou
@@ -603,12 +656,103 @@ function groupedAggregatePaymentFindings(
   return { findings, reconciledObservations };
 }
 
+function breakdownInventoryIsComplete(
+  invoice: HarnessInvoice,
+  parent: HarnessInvoice["items"][number],
+) {
+  if (!invoice.pageCoverage || parent.sourcePage == null || !parent.sourceKind || parent.sourceKind === "UNKNOWN") {
+    return true;
+  }
+  const page = invoice.pageCoverage.find((entry) => entry.page === parent.sourcePage);
+  if (!page || page.complete === false) return false;
+  const declared = page.sources.find((source) => source.kind === parent.sourceKind)?.count;
+  if (declared === undefined) return true;
+  const represented = invoice.items.filter((item) =>
+    item.sourcePage === parent.sourcePage && item.sourceKind === parent.sourceKind
+  ).length;
+  return represented >= declared;
+}
+
+function documentBreakdownFindings(invoice: HarnessInvoice) {
+  const findings: HarnessFinding[] = [];
+  for (const { parent, children, discounts } of completeDocumentBreakdowns(invoice.items)) {
+    if (!breakdownInventoryIsComplete(invoice, parent)) continue;
+    const declared = decimal(parent.totalAmount);
+    const gross = sumItemTotals(children);
+    const discount = discounts.reduce((sum, entry) => sum + Number(entry.observation.amount), 0);
+    const calculated = gross === null ? null : gross - discount;
+    if (declared === null || gross === null || calculated === null ||
+      Math.abs(declared - calculated) <= moneyTolerance(declared)) continue;
+    const observations = [parent, ...children].map((item) => ({
+      amount: item.totalAmount, date: null,
+      kind: item.sourceKind && item.sourceKind !== "UNKNOWN" ? item.sourceKind : item.evidenceObservations?.[0]?.kind ?? "OTHER",
+      label: item.description, page: item.sourcePage ?? null,
+      text: item.sourceText ?? null, boundingBox: item.sourceBoundingBox ?? null,
+      lineNumber: item.lineNumber,
+      role: item === parent ? "DECLARED_TOTAL" : "COMPONENT",
+    })).concat(discounts.map(({ observation, ownerLineNumber }) => ({
+      amount: observation.amount, date: null, kind: observation.kind, label: observation.label ?? "Desconto",
+      page: observation.page, text: observation.text, boundingBox: observation.boundingBox ?? null,
+      lineNumber: ownerLineNumber, role: "DISCOUNT",
+    })));
+    findings.push(finding({
+      code: `DOCUMENT_BREAKDOWN_MISMATCH_${parent.lineNumber}`,
+      title: "Total e detalhamento não conciliam",
+      description: "O total declarado difere da soma do detalhamento completo vinculado a ele.",
+      category: "AMOUNTS", severity: "WARNING", confidence: 0.99,
+      justification: "A comparação usa somente os componentes imediatos, explicitamente vinculados e declarados completos. Não soma novamente os subtotais e seus detalhes.",
+      references: observations.map((observation) => `DOCUMENTO:página:${observation.page ?? "não identificada"}:linha:${observation.lineNumber}`),
+      evidence: {
+        field: "valor", lineNumber: parent.lineNumber, observations,
+        comparisonValues: [
+          { label: "Total declarado", value: declared.toFixed(2) },
+          { label: "Soma bruta do detalhamento", value: gross.toFixed(2) },
+          ...(discount > 0 ? [{ label: "Descontos explícitos", value: discount.toFixed(2) }] : []),
+          { label: "Detalhamento líquido", value: calculated.toFixed(2) },
+        ],
+        calculation: { operation: discount > 0 ? "SUM_MINUS_DISCOUNT" : "SUM",
+          lineNumbers: children.map((item) => item.lineNumber), values: children.map((item) => item.totalAmount),
+          discountValues: discounts.map(entry => entry.observation.amount), result: calculated.toFixed(2) },
+      },
+      comparisonMode: "CONFLICT", referenceBasis: null, expectedValue: null,
+      actualValue: [declared.toFixed(2), calculated.toFixed(2)], noteItemLineNumber: parent.lineNumber,
+    }));
+  }
+  return findings;
+}
+
 function observationValue(observation: EvidenceObservation) {
   const parts = [
     observation.amount === null ? null : `R$ ${Number(observation.amount).toFixed(2)}`,
     observation.date === null ? null : observation.date,
   ].filter((value): value is string => Boolean(value));
   return parts.join(" · ");
+}
+
+/** Typed rows must locate all operands in the same primary source. A model's
+ * boolean alone cannot join receipt quantities to a net reimbursement total.
+ * Legacy snapshots remain readable under their original contract. */
+function hasTraceableArithmetic(item: HarnessInvoice["items"][number]) {
+  if (item.arithmeticVerified !== true) return false;
+  if (item.sourceKind === undefined) return true;
+  if (item.sourceKind === "UNKNOWN" || item.sourcePage == null || !item.sourceText) return false;
+  return [item.quantity, item.unitPrice, item.totalAmount].every(amount =>
+    amount !== null && !untracedObservationClaim({ amount, date: null, text: item.sourceText! }));
+}
+
+function itemDiscountReconciles(item: HarnessInvoice["items"][number], calculated: number, total: number, tolerance: number) {
+  if (discountReconcilesItem(item.description, calculated, total, tolerance) ||
+    Boolean(item.sourceText && discountReconcilesItem(item.sourceText, calculated, total, tolerance))) return true;
+  const discounts = (item.evidenceObservations ?? []).filter(observation =>
+    observation.kind === "DISCOUNT" && observation.amount !== null && Number(observation.amount) > 0 &&
+    (observation.amountScope === undefined || observation.amountScope === "ADJUSTMENT") &&
+    observation.page === item.sourcePage &&
+    (!item.documentGroup || !observation.documentGroup ||
+      normalizeDocumentGroup(observation.documentGroup) === normalizeDocumentGroup(item.documentGroup)) &&
+    untracedObservationClaim(observation) === null);
+  if (discounts.length === 0) return false;
+  const discount = discounts.reduce((sum, observation) => sum + Number(observation.amount), 0);
+  return Math.abs(calculated - discount - total) <= tolerance;
 }
 
 function hasUnverifiedArithmeticMismatch(
@@ -622,9 +766,9 @@ function hasUnverifiedArithmeticMismatch(
     const calculated = quantity * unitPrice;
     const tolerance = moneyTolerance(total);
     return (
-      item.arithmeticVerified !== true &&
+      !hasTraceableArithmetic(item) &&
       Math.abs(calculated - total) > tolerance &&
-      !discountReconcilesItem(item.description, calculated, total, tolerance)
+      !itemDiscountReconciles(item, calculated, total, tolerance)
     );
   });
 }
@@ -658,6 +802,11 @@ function observationSearchText(observation: EvidenceObservation) {
 function observationAmountRole(
   observation: EvidenceObservation,
 ): ObservationAmountRole {
+  if (observation.amountScope) {
+    if (observation.amountScope === "ITEM_TOTAL" || observation.amountScope === "DOCUMENT_TOTAL") return "TRANSACTION_TOTAL";
+    if (observation.amountScope === "CONTEXT" || observation.amountScope === "UNKNOWN") return "UNKNOWN";
+    return observation.amountScope;
+  }
   const text = observationSearchText(observation);
   if (
     observation.kind === "DISCOUNT" ||
@@ -689,6 +838,7 @@ function observationAmountRole(
 function observationDateRole(
   observation: EvidenceObservation,
 ): ObservationDateRole {
+  if (observation.kind === "CHARGE") return "UNKNOWN";
   const text = observationSearchText(observation);
   if (/\b(vencimento|vence|data limite|due date)\b/.test(text)) return "DUE_DATE";
   if (/\b(periodo|período|competencia|competência|de \d{1,2}\/\d{1,2}.* a \d{1,2}\/\d{1,2})\b/.test(text)) {
@@ -726,6 +876,36 @@ function explicitReferenceObservation(observation: EvidenceObservation) {
   );
 }
 
+const REFERENCE_KIND_ORDER: EvidenceObservation["kind"][] = [
+  "SHEET",
+  "RECEIPT",
+  "SALE",
+  "PAYMENT",
+  "CHARGE",
+  "OTHER",
+  "DISCOUNT",
+];
+
+function corroboratedReferenceBasis(kinds: Set<EvidenceObservation["kind"]>) {
+  const ordered = REFERENCE_KIND_ORDER.filter((kind) => kinds.has(kind));
+  return `CORROBORATED_${ordered.join("_AND_")}`;
+}
+
+function corroboratedReferenceGroup<T extends {
+  observation: EvidenceObservation;
+  value: number | string;
+}>(groups: Map<string, T[]>) {
+  const candidates = [...groups.entries()].flatMap(([value, group]) => {
+    const kinds = new Set(group.map(({ observation }) => observation.kind));
+    return kinds.size >= 2 ? [{ value, group, kinds }] : [];
+  });
+  if (candidates.length !== 1) return null;
+  return {
+    value: candidates[0].value,
+    basis: corroboratedReferenceBasis(candidates[0].kinds),
+  };
+}
+
 function amountReferenceGroup<T extends {
   observation: EvidenceObservation;
   value: number;
@@ -739,16 +919,6 @@ function amountReferenceGroup<T extends {
   }
 
   for (const [value, group] of groups) {
-    const kinds = new Set(group.map(({ observation }) => observation.kind));
-    // Ficha + recibo são duas bases documentais independentes do valor
-    // reembolsável. Ficha + pagamento, por outro lado, pode repetir um valor
-    // informado e não transforma automaticamente a venda em incorreta.
-    if (kinds.has("SHEET") && kinds.has("RECEIPT")) {
-      return {
-        value: Number(value),
-        basis: "CORROBORATED_SHEET_AND_RECEIPT",
-      };
-    }
     if (group.some(({ observation }) => explicitReferenceObservation(observation))) {
       return {
         value: Number(value),
@@ -756,7 +926,83 @@ function amountReferenceGroup<T extends {
       };
     }
   }
-  return null;
+  const corroborated = corroboratedReferenceGroup(groups);
+  return corroborated
+    ? { value: Number(corroborated.value), basis: corroborated.basis }
+    : null;
+}
+
+function dateReferenceGroup<T extends {
+  observation: EvidenceObservation;
+  value: string;
+}>(entries: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const entry of entries) {
+    const group = groups.get(entry.value) ?? [];
+    group.push(entry);
+    groups.set(entry.value, group);
+  }
+  for (const [value, group] of groups) {
+    if (group.some(({ observation }) => explicitReferenceObservation(observation))) {
+      return { value, basis: "EXPLICIT_DOCUMENT_REFERENCE" };
+    }
+  }
+  return corroboratedReferenceGroup(groups);
+}
+
+function evidenceKindLabel(kind: EvidenceObservation["kind"]) {
+  const labels: Record<EvidenceObservation["kind"], string> = {
+    CHARGE: "cobrança",
+    DISCOUNT: "desconto",
+    OTHER: "outro registro",
+    PAYMENT: "pagamento",
+    RECEIPT: "recibo",
+    SALE: "venda ou pedido",
+    SHEET: "ficha",
+  };
+  return labels[kind];
+}
+
+function joinPortuguese(values: string[]) {
+  const unique = [...new Set(values)];
+  if (unique.length <= 1) return unique[0] ?? "fonte documental";
+  if (unique.length === 2) return `${unique[0]} e ${unique[1]}`;
+  return `${unique.slice(0, -1).join(", ")} e ${unique.at(-1)}`;
+}
+
+function formatRuleMoney(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    currency: "BRL",
+    style: "currency",
+  }).format(value);
+}
+
+function formatRuleDate(value: string) {
+  const [year, month, day] = value.split("-");
+  return year && month && day ? `${day}/${month}/${year}` : value;
+}
+
+function corroboratedExplanation<T extends { observation: EvidenceObservation; value: number | string }>(input: {
+  entries: T[];
+  referenceValue: number | string;
+  valueLabel: (value: T["value"]) => string;
+}) {
+  const referenceSources = input.entries
+    .filter((entry) => entry.value === input.referenceValue)
+    .map(({ observation }) => evidenceKindLabel(observation.kind));
+  const conflicting = input.entries.filter((entry) => entry.value !== input.referenceValue);
+  const conflictingGroups = new Map<T["value"], string[]>();
+  for (const entry of conflicting) {
+    const sources = conflictingGroups.get(entry.value) ?? [];
+    sources.push(evidenceKindLabel(entry.observation.kind));
+    conflictingGroups.set(entry.value, sources);
+  }
+  const uniqueReferenceSources = [...new Set(referenceSources)];
+  const conflicts = [...conflictingGroups.entries()].map(([value, sources]) => {
+    const uniqueSources = [...new Set(sources)];
+    return `${joinPortuguese(uniqueSources)} ${uniqueSources.length === 1 ? "registra" : "registram"} ${input.valueLabel(value)}`;
+  });
+  return `${joinPortuguese(uniqueReferenceSources)} ${uniqueReferenceSources.length === 1 ? "registra" : "registram"} ${input.valueLabel(input.referenceValue)}; ${joinPortuguese(conflicts)}. A referência está corroborada por fontes independentes do mesmo comprovante.`;
 }
 
 function reconcileEvidenceObservations(
@@ -767,23 +1013,48 @@ function reconcileEvidenceObservations(
     (observation) => !ignoredObservations.has(observation),
   );
   const findings: HarnessFinding[] = [];
+  const requiresScalarTrace = item.sourceKind !== undefined;
   const amounts = observations.flatMap((observation) => {
+    // A number contradicting its own excerpt is an extraction limitation, not
+    // evidence of a financial inconsistency. Date evidence remains usable.
+    if (observationQuoteConflict(observation) || (requiresScalarTrace && untracedObservationClaim({
+      amount: observation.amount, date: null, text: observation.text,
+    }))) return [];
     const value = decimal(observation.amount);
     return value === null ? [] : [{ observation, value }];
   });
   const dates = observations.flatMap((observation) =>
-    observation.date === null || !isValidIsoCalendarDate(observation.date)
+    observation.date === null || !isValidIsoCalendarDate(observation.date) ||
+      (requiresScalarTrace && untracedObservationClaim({ amount: null, date: observation.date, text: observation.text }))
       ? []
       : [{ observation, value: observation.date }],
   );
   const discount = amounts
     .filter(({ observation }) => observation.kind === "DISCOUNT")
     .reduce((sum, entry) => sum + Math.abs(entry.value), 0);
-  const comparableAmounts = amounts.filter(
+  const transactionAmounts = amounts.filter(
     ({ observation }) =>
       observationAmountRole(observation) === "TRANSACTION_TOTAL",
   );
 
+  const amountDocumentGroups = new Set(
+    transactionAmounts
+      .map(({ observation }) => normalizeDocumentGroup(observation.documentGroup))
+      .filter((group): group is string => group !== null),
+  );
+  const amountKinds = new Set(
+    transactionAmounts.map(({ observation }) => observation.kind),
+  );
+  // ITEM_TOTAL and DOCUMENT_TOTAL are extraction coordinates, not different
+  // economic claims when ficha, venda/recibo and pagamento are explicitly
+  // linked to one event. Keep raw scopes only when that linkage is absent.
+  const scopes = amountDocumentGroups.size === 1 && amountKinds.size >= 2
+    ? ["TRANSACTION_TOTAL"]
+    : [...new Set(transactionAmounts.map(({ observation }) => observation.amountScope ?? "LEGACY"))];
+  for (const scope of scopes) {
+  const comparableAmounts = scope === "TRANSACTION_TOTAL"
+    ? transactionAmounts
+    : transactionAmounts.filter(({ observation }) => (observation.amountScope ?? "LEGACY") === scope);
   if (comparableAmounts.length >= 2) {
     const highest = comparableAmounts.reduce((left, right) =>
       right.value > left.value ? right : left,
@@ -810,14 +1081,19 @@ function reconcileEvidenceObservations(
       ];
       findings.push(
         finding({
-          code: `EVIDENCE_AMOUNT_MISMATCH_${item.lineNumber}`,
+          code: `EVIDENCE_AMOUNT_MISMATCH_${item.lineNumber}${scopes.length > 1 ? `_${scope}` : ""}`,
           title: "Valores divergentes no mesmo comprovante",
           description: `O item ${item.lineNumber} apresenta valores diferentes entre ficha, venda, recibo ou pagamento.`,
           category: "AMOUNTS",
           severity: "WARNING",
           confidence: 0.99,
-          justification:
-            "Os valores conflitantes estão registrados no próprio anexo e não há desconto explícito que reconcilie a diferença.",
+          justification: reference
+            ? corroboratedExplanation({
+                entries: comparableAmounts,
+                referenceValue: reference.value,
+                valueLabel: formatRuleMoney,
+              })
+            : "Os valores conflitantes estão registrados no próprio anexo e não há desconto explícito que reconcilie a diferença.",
           references: [
             ...new Set(
               comparableAmounts.map(
@@ -842,6 +1118,7 @@ function reconcileEvidenceObservations(
               label: observation.label,
               page: observation.page,
               text: observation.text,
+              boundingBox: observation.boundingBox ?? null,
             })),
             summary: comparableAmounts
               .map(
@@ -865,6 +1142,8 @@ function reconcileEvidenceObservations(
         }),
       );
     }
+  }
+
   }
 
   const directComparableDates = dates.filter(({ observation }) => {
@@ -907,9 +1186,10 @@ function reconcileEvidenceObservations(
     comparableDates.map(({ observation }) => observation.kind),
   );
   if (distinctDates.length >= 2 && comparableDateKinds.size >= 2) {
-    const explicitReference = distinctDates.find(({ observation }) =>
-      explicitReferenceObservation(observation),
-    );
+    const reference = dateReferenceGroup(comparableDates);
+    const conflictingDates = reference
+      ? comparableDates.filter((entry) => entry.value !== reference.value)
+      : comparableDates;
     findings.push(
       finding({
         code: `EVIDENCE_DATE_MISMATCH_${item.lineNumber}`,
@@ -918,44 +1198,47 @@ function reconcileEvidenceObservations(
         category: "DATES",
         severity: "WARNING",
         confidence: 0.99,
-        justification:
-          "As datas conflitantes estão registradas no próprio conjunto documental.",
-        references: distinctDates.map(
+        justification: reference
+          ? corroboratedExplanation({
+              entries: comparableDates,
+              referenceValue: reference.value,
+              valueLabel: formatRuleDate,
+            })
+          : "As datas conflitantes estão registradas no próprio conjunto documental.",
+        references: comparableDates.map(
           ({ observation }) =>
             `DOCUMENTO:página:${observation.page ?? "não identificada"}:${observationIdentity(observation)}`,
         ),
         evidence: {
           documentGroup:
             item.documentGroup ??
-            distinctDates.find(
+            comparableDates.find(
               ({ observation }) => observation.documentGroup !== null,
             )?.observation.documentGroup ??
             null,
           field: "data",
           lineNumber: item.lineNumber,
-          observations: distinctDates.map(({ observation }) => ({
+          observations: comparableDates.map(({ observation }) => ({
             date: observation.date,
             kind: observation.kind,
             label: observation.label,
             page: observation.page,
             text: observation.text,
+            boundingBox: observation.boundingBox ?? null,
           })),
-          summary: distinctDates
+          summary: comparableDates
             .map(
               ({ observation }) =>
                 `${observation.kind}: ${observation.date ?? "data ausente"}`,
             )
             .join("; "),
         },
-        comparisonMode: explicitReference ? "REFERENCE" : "CONFLICT",
-        referenceBasis: explicitReference
-          ? "EXPLICIT_DOCUMENT_REFERENCE"
-          : null,
-        expectedValue: explicitReference?.value ?? null,
-        actualValue: explicitReference
+        comparisonMode: reference ? "REFERENCE" : "CONFLICT",
+        referenceBasis: reference?.basis ?? null,
+        expectedValue: reference?.value ?? null,
+        actualValue: reference
           ? compactDateValues(
-              distinctDates
-                .filter((entry) => entry.value !== explicitReference.value)
+              conflictingDates
                 .map((entry) => entry.value),
             )
           : distinctDates.map((entry) => entry.value),
@@ -994,6 +1277,7 @@ export function evaluateUniversalRules(input: {
   const noteTotal = decimal(invoice.totalAmount);
   const aggregatePayments = groupedAggregatePaymentFindings(invoice.items);
   findings.push(...aggregatePayments.findings);
+  findings.push(...documentBreakdownFindings(invoice));
   findings.push(...requiredDocumentFieldFindings(invoice));
 
   for (const item of invoice.items) {
@@ -1051,15 +1335,16 @@ export function evaluateUniversalRules(input: {
     const unitPrice = decimal(item.unitPrice);
     const total = decimal(item.totalAmount);
     if (quantity === null || unitPrice === null || total === null) continue;
-    if (item.arithmeticVerified === true) {
+    const traceable = hasTraceableArithmetic(item);
+    if (traceable) {
       coveredAreas.add("QUANTITY_TIMES_PRICE");
     }
     const calculated = quantity * unitPrice;
     const tolerance = moneyTolerance(total);
     if (
       Math.abs(calculated - total) > tolerance &&
-      !discountReconcilesItem(item.description, calculated, total, tolerance) &&
-      item.arithmeticVerified === true
+      !itemDiscountReconciles(item, calculated, total, tolerance) &&
+      traceable
     ) {
       findings.push(finding({
         code: "ITEM_ARITHMETIC_MISMATCH", title: "Quantidade vezes preço diverge",
@@ -1129,17 +1414,15 @@ export function evaluateUniversalRules(input: {
 
   if (input.duplicates) {
     coveredAreas.add("DUPLICATE");
+    const repeatedOriginal = findRepeatedOriginal(invoice, input.duplicates);
     const invoiceTotal = decimal(invoice.totalAmount);
-    const normalizedDocumentNumber = invoice.documentNumber
-      ?.replace(/[^\p{L}\p{N}]+/gu, "")
-      .toLocaleLowerCase("pt-BR") || null;
-    const normalizedSupplierTaxId = invoice.supplierTaxId?.replace(/\D/g, "") || null;
-    const duplicate = input.duplicates.find((candidate) => {
+    const normalizedDocumentNumber = fiscalDocumentNumber(invoice.documentNumber);
+    const normalizedSupplierTaxId = fiscalSupplierId(invoice.supplierTaxId);
+    const duplicate = hasCompleteFiscalIdentity(invoice) && input.duplicates.find((candidate) => {
+      if (!hasCompleteFiscalIdentity(candidate)) return false;
       const candidateTotal = decimal(candidate.totalAmount);
-      const candidateDocumentNumber = candidate.documentNumber
-        ?.replace(/[^\p{L}\p{N}]+/gu, "")
-        .toLocaleLowerCase("pt-BR") || null;
-      const candidateSupplierTaxId = candidate.supplierTaxId?.replace(/\D/g, "") || null;
+      const candidateDocumentNumber = fiscalDocumentNumber(candidate.documentNumber);
+      const candidateSupplierTaxId = fiscalSupplierId(candidate.supplierTaxId);
       const sameAmount =
         invoiceTotal !== null &&
         candidateTotal !== null &&
@@ -1152,13 +1435,24 @@ export function evaluateUniversalRules(input: {
         sameAmount
       );
     });
-    if (duplicate && (invoice.documentNumber || invoice.supplierTaxId)) {
+    if (repeatedOriginal) {
+      findings.push(finding({
+        code: "DUPLICATE_ATTACHMENT", title: "Arquivo já enviado",
+        description: "O mesmo arquivo original aparece em outro registro. Isso não comprova pagamento em duplicidade.",
+        category: "DUPLICATE", severity: "WARNING", confidence: 1,
+        justification: "O hash SHA-256 dos bytes originais coincide. Confira se os dois registros representam a mesma solicitação.",
+        evidence: { duplicateNoteId: repeatedOriginal.noteId, matchBasis: "FILE_SHA256" },
+        expectedValue: "ENVIO_UNICO_POR_SOLICITACAO", actualValue: repeatedOriginal.noteId, noteItemLineNumber: null,
+      }));
+    } else if (duplicate) {
       findings.push(finding({
         code: "POSSIBLE_DUPLICATE", title: "Possível nota duplicada",
         description: "Outra nota possui a mesma identidade fiscal e financeira.",
         category: "DUPLICATE", severity: "CRITICAL", confidence: 0.98,
         justification: "Número, fornecedor, data e valor coincidem com registro anterior.",
-        evidence: { duplicateNoteId: duplicate.noteId }, expectedValue: "NOTA_UNICA",
+        evidence: { duplicateNoteId: duplicate.noteId, matchBasis: "FISCAL_IDENTITY",
+          documentNumber: invoice.documentNumber, supplierTaxId: invoice.supplierTaxId,
+          issuedAt: invoice.issuedAt, totalAmount: invoice.totalAmount }, expectedValue: "NOTA_UNICA",
         actualValue: duplicate.noteId, noteItemLineNumber: null,
       }));
     }

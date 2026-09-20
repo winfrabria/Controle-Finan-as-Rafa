@@ -7,10 +7,7 @@ import type {
   HarnessInvoice,
   WorkRuleInput,
 } from "./contracts";
-import {
-  contextQuestionSchema,
-  harnessFindingSchema,
-} from "./contracts";
+import { harnessFindingSchema } from "./contracts";
 import { decideClassification } from "./decision-matrix";
 import {
   hasInsufficientAuditBasis,
@@ -29,6 +26,8 @@ import {
   type VerificationFinding,
 } from "./verification";
 import { HARNESS_VERSIONS } from "./versions";
+import { markFindingsForSourceReview } from "./source-review";
+import { findingSourceClaims } from "./finding-source-observations";
 
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
@@ -64,6 +63,9 @@ function resolveSupportCoverage(input: {
   contextAnswers?: ContextAnswerForAudit[];
 }) {
   const coverage = input.invoice.supportCoverage;
+  if (!hasUncertainSupportCoverage(input.invoice)) {
+    return { finding: null, informationInsufficient: false, question: null };
+  }
   if (
     !coverage ||
     coverage.status !== "PARTIAL" ||
@@ -82,20 +84,11 @@ function resolveSupportCoverage(input: {
   if (!answer) {
     return {
       finding: null,
-      informationInsufficient: false,
-      question: contextQuestionSchema.parse({
-        code: SUPPORT_SET_COMPLETENESS_CODE,
-        options: [
-          { label: "Sim", value: "YES_COMPLETE_SET" },
-          { label: "Não", value: "NO_PARTIAL_SET" },
-          { label: "Não sei", value: "UNKNOWN" },
-        ],
-        prompt: "Este arquivo contém todo o conjunto cobrado neste boleto?",
-        rationale:
-          "O boleto cita documentos que não foram localizados no arquivo enviado. A resposta define se a ausência pode ser auditada ou se falta contexto.",
-        required: true,
-        type: "SINGLE_SELECT",
-      }),
+      // Missing support limits coverage; it is not an automatic public question.
+      // Discovery may still request exceptional, decision-critical context.
+      // Historical explicit answers remain usable below; never invent one.
+      informationInsufficient: true,
+      question: null,
     };
   }
 
@@ -344,10 +337,9 @@ function contradictionFinding(
       page: null,
       lineNumber: null,
     },
-    expectedValue: isDate
-      ? "Datas coerentes entre ficha e comprovante"
-      : "Valores coerentes ou ajuste explicitado no documento",
+    expectedValue: null,
     actualValue: comparison,
+    comparisonMode: "CONFLICT",
     noteItemLineNumber: null,
   };
 }
@@ -461,6 +453,7 @@ export function deduplicateHarnessFindings<T extends {
           : finding.code,
       expectedValue: comparableFindingValue(finding, finding.expectedValue),
       field: finding.evidence.field ?? null,
+      claimScope: finding.evidence.claimScope ?? null,
       lineNumber,
       page: finding.evidence.page ?? null,
       summary:
@@ -479,6 +472,7 @@ export function deduplicateHarnessFindings<T extends {
         category: finding.category,
         expectedValue: comparableFindingValue(finding, finding.expectedValue),
         field: finding.evidence.field ?? null,
+        claimScope: finding.evidence.claimScope ?? null,
       });
       const scope = scopeFor(finding);
       const previousScopes = semanticScopes.get(semanticKey) ?? [];
@@ -580,6 +574,69 @@ function resolveFindingDocumentGroup<T extends {
   };
 }
 
+function comparableEvidenceClaims(finding: {
+  category: string;
+  evidence: Record<string, unknown>;
+}) {
+  const observations = Array.isArray(finding.evidence.observations)
+    ? finding.evidence.observations
+    : [];
+  const claims = new Set<string>();
+  const category = finding.category.toLocaleUpperCase("en-US");
+  const monetary = /AMOUNT|TOTAL|PRICE|VALOR|PRE[CÇ]O/u.test(category);
+  const dated = /DATE|DATA/u.test(category);
+  for (const observation of observations) {
+    if (!observation || typeof observation !== "object") continue;
+    const record = observation as Record<string, unknown>;
+    const value = monetary
+      ? record.amount ?? record.value
+      : dated
+        ? record.date ?? record.value
+        : null;
+    if (value === null || value === undefined) continue;
+    if (monetary) {
+      const normalized = normalizeComparableMoney(value);
+      if (typeof normalized === "string" && normalized.startsWith("money:")) {
+        claims.add(normalized);
+      }
+      continue;
+    }
+    if (dated && typeof value === "string") {
+      const raw = value.trim();
+      const local = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/u.exec(raw);
+      const normalized = local
+        ? `${local[3]}-${local[2].padStart(2, "0")}-${local[1].padStart(2, "0")}`
+        : raw;
+      if (/^\d{4}-\d{2}-\d{2}$/u.test(normalized)) claims.add(`date:${normalized}`);
+    }
+  }
+  return claims;
+}
+
+function isCoveredAiEvidenceConflict<T extends {
+  category: string;
+  code: string;
+  evidence: Record<string, unknown>;
+  source?: string;
+}>(finding: T, canonicalFindings: T[]) {
+  if (finding.source !== "AI_VERIFICATION") return false;
+  const group = typeof finding.evidence.documentGroup === "string"
+    ? normalizeComparableToken(finding.evidence.documentGroup)
+    : null;
+  if (!group) return false;
+  const claims = comparableEvidenceClaims(finding);
+  if (claims.size < 2) return false;
+  return canonicalFindings.some((canonical) => {
+    const canonicalGroup = typeof canonical.evidence.documentGroup === "string"
+      ? normalizeComparableToken(canonical.evidence.documentGroup)
+      : null;
+    if (canonicalGroup !== group) return false;
+    const canonicalClaims = comparableEvidenceClaims(canonical);
+    return canonicalClaims.size >= 2 &&
+      [...claims].every((claim) => canonicalClaims.has(claim));
+  });
+}
+
 function reconcileFindingPrecedence<T extends {
   actualValue: unknown;
   category: string;
@@ -587,6 +644,7 @@ function reconcileFindingPrecedence<T extends {
   evidence: Record<string, unknown>;
   expectedValue: unknown;
   noteItemLineNumber: number | null;
+  source?: string;
 }>(findings: T[]) {
   const coverageGaps = findings.filter(
     (finding) =>
@@ -605,8 +663,16 @@ function reconcileFindingPrecedence<T extends {
       )
       .filter((value): value is number => value !== null),
   );
+  const canonicalEvidenceConflicts = findings.filter((finding) =>
+    finding.source === "UNIVERSAL_RULE" &&
+    (finding.code.startsWith("EVIDENCE_AMOUNT_MISMATCH_") ||
+      finding.code.startsWith("EVIDENCE_DATE_MISMATCH_")),
+  );
 
   return findings.filter((finding) => {
+    if (isCoveredAiEvidenceConflict(finding, canonicalEvidenceConflicts)) {
+      return false;
+    }
     if (finding.code.startsWith("AGGREGATE_PAYMENT_MISMATCH_")) {
       const findingGroup =
         typeof finding.evidence.documentGroup === "string"
@@ -756,14 +822,33 @@ export function filterAiDiscoveryFindings(
     if (finding.severity === "INFO") return false;
 
     const text = findingSearchText(finding);
-    if (NAME_VARIATION_PATTERN.test(text)) {
+    const field = typeof finding.evidence.field === "string" ? finding.evidence.field.normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "").trim().toLowerCase() : "";
+    const claimScope = finding.evidence.claimScope;
+    const legacyIntrinsicField = /^(?:produto|servico|item|especificacao|variante|modelo|unidade|valor|total|quantidade|data|product|service|specification|variant|model|unit|amount|quantity|date)$/.test(field);
+    // A content scope cannot override an explicitly identity/authorization field.
+    // Quotes can mention a vehicle or supplier without making either the claim.
+    const restrictedField = /\b(?:fornecedor|beneficiario|supplier|vendor|cnpj|cpf|placa|autorizacao|authorization|ownership|propriedade)\b/u.test(field);
+    const intrinsicConflict = !restrictedField &&
+      (claimScope === "DOCUMENT_CONTENT" || (claimScope == null && legacyIntrinsicField)) &&
+      findingSourceClaims(finding.evidence) !== null;
+    const referencedWorkRule = claimScope === "WORK_AUTHORIZATION" && workRules.some(rule =>
+      finding.references.some(reference => normalizeComparableToken(reference) === normalizeComparableToken(rule.code)),
+    );
+    // A supplied rule must be explicitly cited; a plausible-looking rule name or
+    // an unrelated active rule does not establish authorization policy.
+    if (claimScope === "WORK_AUTHORIZATION" && !referencedWorkRule) return false;
+    // Operational words in a source quote do not change a product/amount claim
+    // into an asset-authorization or supplier-identity claim. Intrinsic conflicts
+    // still require independent source confirmation before they can be retained.
+    if (claimScope === "ENTITY_IDENTITY" || (NAME_VARIATION_PATTERN.test(text) && !intrinsicConflict)) {
       // Abreviação ou variação textual não comprova duas entidades distintas.
       // São necessários dois identificadores fiscais diferentes no próprio
       // conjunto de evidências.
       if (distinctTaxIdentifiers(text).size < 2) return false;
     }
 
-    if (ASSET_ASSOCIATION_PATTERN.test(text) && !hasAssetRule) {
+    if (ASSET_ASSOCIATION_PATTERN.test(text) && !hasAssetRule && !referencedWorkRule && !intrinsicConflict) {
       // No MVP, placa/equipamento só é auditável quando um cadastro ou regra
       // ativa da obra foi realmente fornecido ao Harness.
       return false;
@@ -775,6 +860,7 @@ export function filterAiDiscoveryFindings(
 
 export function evaluateHarness(input: {
   invoice: HarnessInvoice;
+  extractionLimited?: boolean;
   contextAnswers?: ContextAnswerForAudit[];
   workRules?: WorkRuleInput[];
   duplicates?: DuplicateCandidate[];
@@ -818,13 +904,6 @@ export function evaluateHarness(input: {
       finding.source === "AI_VERIFICATION" &&
       "confirmsInitialFindingCode" in finding,
   );
-  const protectedDiscoveryFindings = aiFindings.filter(
-    requiresIndependentAiConfirmation,
-  );
-  const unconfirmedAiFindings = protectedDiscoveryFindings.filter(
-    (finding) =>
-      !isAiDiscoveryFindingExplicitlyConfirmed(finding, verificationFindings),
-  );
   // Sugestões financeiras ou de data da descoberta livre são hipóteses. Elas
   // nunca são persistidas como achado: quando confirmadas, o achado canônico é
   // o AI_VERIFICATION que consultou o documento original.
@@ -843,14 +922,18 @@ export function evaluateHarness(input: {
     input.aiDiscovery?.contextQuestions ?? [],
     [...universal.findings, ...work.findings, ...gatedAiFindings],
   );
-  const findings = deduplicateHarnessFindings(
+  const promotedFindings = filterAiDiscoveryFindings(routedContext.promotedFindings, input.workRules ?? []);
+  const unconfirmedAiFindings = [...aiFindings, ...promotedFindings]
+    .filter(requiresIndependentAiConfirmation)
+    .filter((finding) => !isAiDiscoveryFindingExplicitlyConfirmed(finding, verificationFindings));
+  const findings = markFindingsForSourceReview(deduplicateHarnessFindings(
     reconcileFindingPrecedence([
       ...universal.findings,
       ...work.findings,
       ...(supportCoverage.finding ? [supportCoverage.finding] : []),
       ...reconciliationSignals,
       ...gatedAiFindings,
-      ...routedContext.promotedFindings,
+      ...promotedFindings.filter((finding) => !requiresIndependentAiConfirmation(finding)),
     ].map((finding) => resolveFindingDocumentGroup(finding, input.invoice))).filter(
       (finding) =>
         finding.code !== "TOTAL_MISMATCH" ||
@@ -861,7 +944,7 @@ export function evaluateHarness(input: {
       (finding.source !== "AI_DISCOVERY" &&
         finding.source !== "AI_VERIFICATION") ||
       finding.severity !== "INFO",
-  );
+  ), input.extractionLimited === true);
   const deterministicCoverage = universal.covered || work.covered;
   const aiCoverage = input.aiDiscovery?.coverage.sufficientEvidence ?? false;
   const contextQuestions = [
@@ -886,6 +969,7 @@ export function evaluateHarness(input: {
     // camadas econômicas ausentes da extração. Achados objetivos continuam
     // tendo precedência, mas a ausência dessa base nunca encerra como OK.
     informationInsufficient:
+      input.extractionLimited === true ||
       hasInsufficientAuditBasis(input.invoice) ||
       supportCoverage.informationInsufficient ||
       declaredContextWithoutQuestion ||

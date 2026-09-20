@@ -18,6 +18,8 @@ import {
 } from "@/server/notes/public-capability";
 import { processNoteAudit } from "./process-note-audit";
 import { processNoteExtraction } from "./process-note-extraction";
+import { invalidateNoteReads } from "./note-read-invalidation";
+import { assertIsolatedHarnessTargets } from "@/server/testing/isolated-harness";
 
 export class ProcessingJobError extends Error {
   constructor(public readonly code: string, message: string) {
@@ -223,9 +225,16 @@ export async function claimProcessingJob(jobId: string, workerId: string) {
         status: true,
         type: true,
         contextSubmissionId: true,
+        idempotencyKey: true,
       },
     });
     if (!job) throw new ProcessingJobError("JOB_NOT_FOUND", "Job não encontrado.");
+    // A local replay requires injected, non-billing extraction/discovery
+    // clients. A background worker must never pick it up without those clients.
+    if (job.idempotencyKey.startsWith("isolated-manual:") &&
+      !job.idempotencyKey.startsWith(`isolated-manual:${workerId}:`)) {
+      throw new ProcessingJobError("JOB_NOT_CLAIMABLE", "Ensaio local reservado ao executor explícito.");
+    }
     const statusIsClaimable =
       job.status === ProcessingJobStatus.PENDING ||
       job.status === ProcessingJobStatus.FAILED;
@@ -653,12 +662,19 @@ export async function scheduleNoteAuditRecovery(noteId: string) {
   );
 }
 
-export async function scheduleNoteReprocess(noteId: string) {
+export async function scheduleNoteReprocess(noteId: string, options: { isolatedManualWorkerId?: string } = {}) {
+  if (options.isolatedManualWorkerId) {
+    assertIsolatedHarnessTargets();
+    if (!/^snapshot-reaudit:[a-f0-9-]{36}$/.test(options.isolatedManualWorkerId)) {
+      throw new ProcessingJobError("INVALID_LOCAL_WORKER", "Executor local inválido.");
+    }
+  }
   return prisma.$transaction(async (tx) => {
     const note = await tx.note.findUnique({
       where: { id: noteId },
       select: {
         id: true,
+        processingStage: true,
         status: true,
         version: true,
       },
@@ -694,7 +710,7 @@ export async function scheduleNoteReprocess(noteId: string) {
     if (
       activeJob ||
       activeSubmission ||
-      note.status === NoteStatus.PROCESSING
+      (note.status === NoteStatus.PROCESSING && note.processingStage !== ProcessingStage.COMPLETED)
     ) {
       throw new ProcessingJobError("REPROCESS_CONFLICT", "A nota já possui processamento ativo.");
     }
@@ -730,6 +746,7 @@ export async function scheduleNoteReprocess(noteId: string) {
     if (reset.count !== 1) {
       throw new ProcessingJobError("REPROCESS_CONFLICT", "A nota mudou durante o reprocessamento.");
     }
+    await invalidateNoteReads(tx, noteId);
     await tx.finding.updateMany({
       where: { noteId, status: FindingStatus.OPEN },
       data: { needsValidation: false, status: FindingStatus.RESOLVED },
@@ -741,8 +758,8 @@ export async function scheduleNoteReprocess(noteId: string) {
     await tx.noteItem.deleteMany({ where: { noteId } });
     const job = await tx.processingJob.create({
       data: {
-        idempotencyKey: `reprocess:${noteId}:${note.version + 1}`,
-        maxAttempts: 2,
+        idempotencyKey: `${options.isolatedManualWorkerId ? `isolated-manual:${options.isolatedManualWorkerId}:` : ""}reprocess:${noteId}:${note.version + 1}`,
+        maxAttempts: options.isolatedManualWorkerId ? 1 : 2,
         noteId,
         type: ProcessingJobType.FULL_AUDIT,
       },

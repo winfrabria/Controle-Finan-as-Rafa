@@ -1,4 +1,7 @@
 import "server-only";
+import { buildSourceComparisons } from "@/lib/audit-harness/source-comparisons";
+import { buildDateReviewSources } from "@/lib/audit-harness/date-review";
+import { providerVerificationSchema } from "@/lib/audit-harness/provider-verification-schema";
 
 import { z } from "zod";
 
@@ -250,10 +253,12 @@ async function safeProviderErrorDetails(response: Response) {
 
 export type AuditDiscoveryRequest = {
   contextAnswers?: ContextAnswerForAudit[];
+  extractionLimitations?: Array<{ page: number; kind: "OTHER"; expectedSources: number; extractedSources: number }>;
+  extractionLimitationSummary?: string;
   invoice: HarnessInvoice;
   deterministicFindings: HarnessFinding[];
   workRules: WorkRuleInput[];
-  reasoningEffort: "high" | "max" | "xhigh";
+  reasoningEffort: "low" | "medium" | "high" | "max" | "xhigh";
 };
 
 export type AuditDiscoveryResult = {
@@ -289,10 +294,14 @@ type Options = Omit<
   | "pdfFallbackEngine"
   | "pdfReasoningEffort"
   | "extractionPipelineMode"
+  | "largePdfReader"
+  | "visualPdfWindows"
   | "extractionQualityGateEnabled"
+  | "totalTimeoutMs"
   | "providerSort"
   | "reasoningEffort"
   | "maxTokens"
+  | "schemaMode"
   | "webSearchEnabled"
   | "webSearchMaxResults"
 > & {
@@ -301,6 +310,9 @@ type Options = Omit<
   pdfModel?: string;
   pdfReasoningEffort?: string;
   reasoningEffort?: string;
+  /** Isolated model trials only; runtime keeps request-owned effort. */
+  experimentalReasoningEffort?: "low" | "medium";
+  schemaMode?: "bounded" | "shape-only";
   maxTokens?: number;
   webSearchEnabled?: boolean;
   webSearchMaxResults?: number;
@@ -326,6 +338,8 @@ export type AuditDiscoveryAttempt = {
   routingMetadata?: Record<string, string | number | boolean | null>;
   status?: number;
   validationIssues?: string[];
+  generationId?: string;
+  usage?: AuditDiscoveryResult["usage"];
 };
 
 function safeAttemptDiagnostics(error: OpenRouterClientError) {
@@ -356,6 +370,8 @@ function safeAttemptDiagnostics(error: OpenRouterClientError) {
     provider: error.provider,
     requestId: error.requestId,
     routingMetadata: error.routingMetadata,
+    ...(error.generationId ? { generationId: error.generationId } : {}),
+    ...(error.usage ? { usage: error.usage } : {}),
     ...(validationIssues && validationIssues.length > 0
       ? { validationIssues }
       : {}),
@@ -382,6 +398,9 @@ export class OpenRouterAuditDiscoveryError extends OpenRouterClientError {
         provider: error.provider,
         requestId: error.requestId,
         routingMetadata: error.routingMetadata,
+        generationId: error.generationId,
+        usage: error.usage,
+        latencyMs: attemptTrace.reduce((sum, attempt) => sum + attempt.latencyMs, 0),
       },
     );
     this.name = "OpenRouterAuditDiscoveryError";
@@ -402,9 +421,9 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
     const startedAt = Date.now();
     const attemptTrace: AuditDiscoveryAttempt[] = [];
     const callBudget = Math.min(2, Math.max(1, this.options.maxAttempts));
-    let route = {
+    let route: { model: string; reasoningEffort: AuditDiscoveryRequest["reasoningEffort"] | "low" | "medium" } = {
       model: this.options.model,
-      reasoningEffort: request.reasoningEffort,
+      reasoningEffort: this.options.experimentalReasoningEffort ?? request.reasoningEffort,
     };
 
     for (let attempt = 1; attempt <= callBudget; attempt += 1) {
@@ -451,12 +470,24 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
         const isEndpointUnavailable =
           normalized.kind === "provider" &&
           normalized.diagnostic === "provider-endpoint-unavailable";
+        // Some providers occasionally return an HTTP 200 response with an
+        // unusable body and explicit zero-token/zero-cost usage. That request
+        // was not processed, so retry the same route once before paying for a
+        // materially more expensive fallback. Missing usage is not evidence
+        // of zero cost and keeps the existing fallback behavior.
+        const isZeroCostInvalidResponse =
+          normalized.kind === "invalid-response" &&
+          normalized.usage?.promptTokens === 0 &&
+          normalized.usage.completionTokens === 0 &&
+          normalized.usage.totalTokens === 0 &&
+          normalized.usage.costUsd === 0;
         const canRetry =
-          hasDistinctFallback &&
-          (normalized.kind === "timeout" ||
-            normalized.kind === "invalid-response" ||
-            isConfigurationRejection ||
-            isEndpointUnavailable);
+          isZeroCostInvalidResponse ||
+          (hasDistinctFallback &&
+            (normalized.kind === "timeout" ||
+              normalized.kind === "invalid-response" ||
+              isConfigurationRejection ||
+              isEndpointUnavailable));
 
         if (!hasAnotherAttempt || !canRetry) {
           throw new OpenRouterAuditDiscoveryError(
@@ -472,10 +503,12 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
             Math.min(500 * 2 ** (attempt - 1), 5_000),
         );
 
-        route = {
-          model: this.options.fallbackModel!,
-          reasoningEffort: this.options.fallbackReasoningEffort ?? "high",
-        };
+        if (!isZeroCostInvalidResponse) {
+          route = {
+            model: this.options.fallbackModel!,
+            reasoningEffort: this.options.fallbackReasoningEffort ?? "high",
+          };
+        }
       }
     }
 
@@ -494,7 +527,7 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
   private async performRequest(
     request: AuditDiscoveryRequest,
     model: string,
-    reasoningEffort: AuditDiscoveryRequest["reasoningEffort"],
+    reasoningEffort: AuditDiscoveryRequest["reasoningEffort"] | "low" | "medium",
   ) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs);
@@ -515,18 +548,23 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
             { role: "system", content: AUDIT_DISCOVERY_PROMPT.system },
             {
               role: "user",
-              content: `${AUDIT_DISCOVERY_PROMPT.user}\n\n${JSON.stringify({
+              content: `${AUDIT_DISCOVERY_PROMPT.user}\n${request.extractionLimitationSummary || request.extractionLimitations?.length ? "A leitura é parcial. Analise as evidências rastreáveis disponíveis, mesmo havendo outras páginas ou campos incompletos. Não preencha lacunas por suposição, não conclua ausência de documento pela falha de extração, nem declare cobertura integral. Compare fontes vinculadas considerando total versus componentes, descontos explícitos e datas com funções distintas. Uma falha de leitura não é pergunta ao usuário. Os apontamentos são hipóteses para conferência no original." : ""}\n\n${JSON.stringify({
                 contextAnswers: request.contextAnswers ?? [],
                 invoice: request.invoice,
                 deterministicFindings: request.deterministicFindings,
                 workRules: request.workRules,
+                extractionLimitations: request.extractionLimitations ?? [],
+                extractionLimitationSummary: request.extractionLimitationSummary ?? null,
+                  sourceComparisons: buildSourceComparisons(request.invoice),
+                  dateReviewSources: buildDateReviewSources(request.invoice),
               })}`,
             },
           ],
           reasoning: { effort: reasoningEffort, exclude: true },
           response_format: {
             type: "json_schema",
-            json_schema: { name: "audit_discovery", strict: true, schema: AI_DISCOVERY_JSON_SCHEMA },
+            json_schema: { name: "audit_discovery", strict: true, schema: this.options.schemaMode === "shape-only"
+              ? providerVerificationSchema(AI_DISCOVERY_JSON_SCHEMA) : AI_DISCOVERY_JSON_SCHEMA },
           },
           provider: getOpenRouterProviderRouting(),
           ...getOpenRouterOutputTokenLimit(model, this.options.maxTokens ?? 8_192),
@@ -595,6 +633,18 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
         throw new OpenRouterClientError("invalid-response", "OpenRouter returned a non-JSON envelope.", true, undefined, undefined, { cause: error });
       }
       const envelope = responseSchema.safeParse(body);
+      // Billing metadata survives a null/truncated/invalid content response.
+      // Never retain the model's hidden reasoning or raw response body.
+      const record = isRecord(body) ? body : {};
+      const usageResult = responseSchema.shape.usage.safeParse(record.usage);
+      const usageMetadata = usageResult.success ? usageResult.data : undefined;
+      const responseMetadata = {
+        generationId: typeof record.id === "string" ? record.id.slice(0, 200) : undefined,
+        provider: typeof record.provider === "string" ? record.provider.slice(0, 160) : undefined,
+        requestId: response.headers.get("x-openrouter-request-id") ?? response.headers.get("x-request-id") ?? undefined,
+        ...(usageMetadata ? { usage: { promptTokens: usageMetadata.prompt_tokens, completionTokens: usageMetadata.completion_tokens,
+          totalTokens: usageMetadata.total_tokens, costUsd: usageMetadata.cost } } : {}),
+      };
       if (!envelope.success) {
         const providerError = providerErrorEnvelopeSchema.safeParse(body);
         if (providerError.success) {
@@ -696,7 +746,7 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
             );
           }
         }
-        throw new OpenRouterClientError("invalid-response", "OpenRouter returned an invalid audit envelope.", true, undefined, undefined, { cause: envelope.error });
+        throw new OpenRouterClientError("invalid-response", "OpenRouter returned an invalid audit envelope.", true, undefined, undefined, { ...responseMetadata, cause: envelope.error });
       }
 
       let content: unknown;
@@ -705,11 +755,11 @@ export class OpenRouterAuditDiscoveryClient implements AuditDiscoveryClient {
           JSON.parse(envelope.data.choices[0].message.content),
         );
       } catch (error) {
-        throw new OpenRouterClientError("invalid-response", "OpenRouter returned non-JSON audit content.", true, undefined, undefined, { cause: error });
+        throw new OpenRouterClientError("invalid-response", "OpenRouter returned non-JSON audit content.", true, undefined, undefined, { ...responseMetadata, cause: error });
       }
       const parsed = aiDiscoveryResponseSchema.safeParse(content);
       if (!parsed.success) {
-        throw new OpenRouterClientError("invalid-response", "OpenRouter audit output violated the schema.", true, undefined, undefined, { cause: parsed.error });
+        throw new OpenRouterClientError("invalid-response", "OpenRouter audit output violated the schema.", true, undefined, undefined, { ...responseMetadata, cause: parsed.error });
       }
 
       const usage = envelope.data.usage;

@@ -24,7 +24,7 @@ function finding(overrides: Partial<FindingInput> = {}): FindingInput {
   };
 }
 
-test("uses semantic labels for contract item-presence findings", () => {
+test("usa encontrado e esperado também em itens contratuais", () => {
   const labels = findingComparisonLabels(
     finding({
       actualValue: { item: "Material B", previstoNoContrato: false },
@@ -48,12 +48,12 @@ test("uses semantic labels for contract item-presence findings", () => {
   );
 
   assert.deepEqual(labels, {
-    actual: "Item encontrado na nota",
-    expected: "Item previsto no contrato",
+    actual: "Encontrado",
+    expected: "Esperado",
   });
 });
 
-test("recognizes contract item checks from nested evidence structure", () => {
+test("mantém encontrado e esperado com evidência contratual aninhada", () => {
   const labels = findingComparisonLabels(
     finding({
       actualValue: { itemNota: "Material encontrado" },
@@ -64,8 +64,8 @@ test("recognizes contract item checks from nested evidence structure", () => {
   );
 
   assert.deepEqual(labels, {
-    actual: "Item encontrado na nota",
-    expected: "Item previsto no contrato",
+    actual: "Encontrado",
+    expected: "Esperado",
   });
 });
 
@@ -88,7 +88,7 @@ test("keeps generic labels for quantified contract findings", () => {
 
   assert.deepEqual(labels, {
     actual: "Encontrado",
-    expected: "Esperado / referência",
+    expected: "Esperado",
   });
 });
 
@@ -99,19 +99,19 @@ test("keeps generic labels for value and price comparisons without document role
   ]) {
     assert.deepEqual(findingComparisonLabels(input), {
       actual: "Encontrado",
-      expected: "Esperado / referência",
+      expected: "Esperado",
     });
   }
 });
 
-test("explica a origem da referência nos cálculos determinísticos", () => {
+test("padroniza cálculos determinísticos como encontrado e esperado", () => {
   assert.deepEqual(
     findingComparisonLabels(
       finding({ code: "TOTAL_MISMATCH", category: "TOTALS" }),
     ),
     {
-      actual: "Total encontrado no documento",
-      expected: "Soma calculada dos itens",
+      actual: "Encontrado",
+      expected: "Esperado",
     },
   );
   assert.deepEqual(
@@ -122,13 +122,13 @@ test("explica a origem da referência nos cálculos determinísticos", () => {
       }),
     ),
     {
-      actual: "Total encontrado no item",
-      expected: "Quantidade × valor unitário",
+      actual: "Encontrado",
+      expected: "Esperado",
     },
   );
 });
 
-test("uses document roles for payment, date and fiscal-sheet comparisons", () => {
+test("mantém as fontes em onde encontramos e padroniza os cartões", () => {
   assert.deepEqual(
     findingComparisonLabels(
       finding({
@@ -143,7 +143,7 @@ test("uses document roles for payment, date and fiscal-sheet comparisons", () =>
         },
       }),
     ),
-    { actual: "Pagamento", expected: "Ficha / venda ou recibo" },
+    { actual: "Encontrado", expected: "Esperado" },
   );
 
   assert.deepEqual(
@@ -156,7 +156,7 @@ test("uses document roles for payment, date and fiscal-sheet comparisons", () =>
         },
       }),
     ),
-    { actual: "Data do comprovante", expected: "Data da ficha" },
+    { actual: "Encontrado", expected: "Esperado" },
   );
 
   assert.deepEqual(
@@ -167,7 +167,7 @@ test("uses document roles for payment, date and fiscal-sheet comparisons", () =>
         title: "Composição da ficha diverge da nota fiscal",
       }),
     ),
-    { actual: "Ficha", expected: "Nota fiscal" },
+    { actual: "Encontrado", expected: "Esperado" },
   );
 });
 
@@ -186,7 +186,7 @@ test("não chama comparação monetária de data só porque as evidências têm 
         },
       }),
     ),
-    { actual: "Valor encontrado", expected: "Valor de referência" },
+    { actual: "Encontrado", expected: "Esperado" },
   );
 });
 
@@ -236,7 +236,7 @@ test("agrupa linhas repetidas de evidência sem perder período ou total", () =>
   assert.equal(summaries[1]?.count, 1);
 });
 
-test("shows the monetary difference when both compared values are objective", () => {
+test("shows the monetary or date difference when both values are objective", () => {
   assert.equal(
     findingComparisonDifference(
       finding({
@@ -257,7 +257,7 @@ test("shows the monetary difference when both compared values are objective", ()
         expectedValue: "2026-05-19",
       }),
     ),
-    null,
+    "1 dia",
   );
 });
 

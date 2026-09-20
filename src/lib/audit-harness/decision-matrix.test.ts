@@ -606,7 +606,7 @@ test("converte divergências internas de data e valor em achados, não perguntas
   assert.ok(routed.promotedFindings.every((finding) => finding.severity === "WARNING"));
 });
 
-test("as três divergências do reembolso resultam em suspeita sem rodada pública", () => {
+test("divergências sugeridas em perguntas exigem verificação, sem rodada pública para explicar o anexo", () => {
   const result = evaluateHarness({
     invoice: sparseInvoice,
     aiDiscovery: {
@@ -622,9 +622,11 @@ test("as três divergências do reembolso resultam em suspeita sem rodada públi
     },
   });
 
-  assert.equal(result.classification, "SUSPICIOUS");
+  assert.equal(result.classification, "INFORMATION_INSUFFICIENT");
   assert.equal(result.contextQuestions.length, 0);
-  assert.equal(result.findings.length, 3);
+  assert.equal(result.findings.length, 0);
+  assert.equal(result.unconfirmedAiFindings.length, 3);
+  assert.ok(result.unconfirmedAiFindings.every((finding) => finding.expectedValue === null));
 });
 
 test("pergunta sobre fato externo continua como contexto", () => {
@@ -724,6 +726,7 @@ test("remove repetições semânticas do mesmo achado e preserva itens distintos
 function reimbursementWithAiAmountFinding(options: {
   aiGroup: string;
   aiLineNumber?: number | null;
+  conflictMode?: boolean;
   deterministicGroup: string;
   formattedAiValues?: boolean;
 }) {
@@ -802,19 +805,28 @@ function reimbursementWithAiAmountFinding(options: {
   const aiDiscovery: AiDiscoveryResponse = {
     findings: [
       {
-        actualValue: options.formattedAiValues ? "R$ 28,00" : "28.00",
+        actualValue: options.conflictMode
+          ? "18.00 vs 28.00"
+          : options.formattedAiValues ? "R$ 28,00" : "28.00",
         category: "AMOUNTS",
         code: "AI_PAYMENT_DIFFERENCE",
         confidence: 0.99,
         description: "O pagamento diverge da despesa registrada.",
         evidence: {
+          ...(options.conflictMode ? { observations: [
+            { kind: "RECEIPT" as const, label: "Recibo", page: 20, text: "Recibo R$ 18,00", value: "18.00" },
+            { kind: "PAYMENT" as const, label: "Pagamento", page: 20, text: "Pagamento R$ 28,00", value: "28.00" },
+          ] } : {}),
+          ...(options.conflictMode ? { claimScope: "DOCUMENT_CONTENT" as const } : {}),
           field: "valor",
           lineNumber: options.aiLineNumber === undefined ? 20 : options.aiLineNumber,
           page: 20,
           source: "Comprovante de pagamento",
           summary: "O cartão registra R$ 28,00 para a despesa de R$ 18,00.",
         },
-        expectedValue: options.formattedAiValues ? "R$ 18,00" : "18.00",
+        expectedValue: options.conflictMode
+          ? null
+          : options.formattedAiValues ? "R$ 18,00" : "18.00",
         justification: "Os valores estão no mesmo conjunto documental.",
         noteItemLineNumber:
           options.aiLineNumber === undefined ? 20 : options.aiLineNumber,
@@ -822,6 +834,7 @@ function reimbursementWithAiAmountFinding(options: {
         severity: "WARNING",
         source: "AI_DISCOVERY",
         title: "Pagamento diverge da despesa",
+        ...(options.conflictMode ? { comparisonMode: "CONFLICT" as const, referenceBasis: null } : {}),
       },
     ],
     coverage: {
@@ -849,9 +862,8 @@ function reimbursementWithAiAmountFinding(options: {
     invoice,
     verificationFindings: [verificationFinding],
   }).findings.filter((finding) => {
-    const expected = String(finding.expectedValue ?? "").replace(/\D/g, "");
-    const actual = String(finding.actualValue ?? "").replace(/\D/g, "");
-    return expected === "1800" && actual === "2800";
+    const claims = `${JSON.stringify(finding.expectedValue)} ${JSON.stringify(finding.actualValue)} ${JSON.stringify(finding.evidence)}`;
+    return claims.includes("18.00") && claims.includes("28.00");
   });
 }
 
@@ -882,6 +894,17 @@ test("deduplica valor monetário formatado quando a IA localiza apenas a página
       aiLineNumber: null,
       deterministicGroup: "evento-casa-da-uva",
       formattedAiValues: true,
+    }).length,
+    1,
+  );
+});
+
+test("deduplica confirmação da IA em modo conflito quando a regra já cobre as mesmas fontes", () => {
+  assert.equal(
+    reimbursementWithAiAmountFinding({
+      aiGroup: "evento-casa-da-uva",
+      conflictMode: true,
+      deterministicGroup: "evento-casa-da-uva",
     }).length,
     1,
   );

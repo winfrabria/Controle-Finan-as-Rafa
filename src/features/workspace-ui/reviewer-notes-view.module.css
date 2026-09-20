@@ -280,8 +280,7 @@
 }
 
 .attachmentIcon,
-.selectedIcon,
-.noFindingIcon {
+.selectedIcon {
   align-items: center;
   border-radius: 10px;
   display: inline-flex;
@@ -590,17 +589,17 @@
 }
 
 .findingCard {
-  background: linear-gradient(180deg, #fffdf9 0%, #fffaf2 100%);
-  border: 1px solid #efc477;
+  background: #fff;
+  border: 1px solid #d9e3ee;
   border-radius: 10px;
-  box-shadow: 0 6px 18px rgb(132 82 5 / 6%);
+  box-shadow: 0 6px 18px rgb(20 47 96 / 5%);
   padding: 10px 12px;
 }
 
 .findingCard[data-severity="critical"] {
-  background: linear-gradient(180deg, #fffafa 0%, #fff5f5 100%);
-  border-color: #ef9a9a;
-  box-shadow: 0 6px 18px rgb(166 35 35 / 7%);
+  background: #fff;
+  border-color: #d9e3ee;
+  box-shadow: 0 6px 18px rgb(20 47 96 / 5%);
 }
 
 .findingCard[data-severity="critical"] .findingNumber {
@@ -608,12 +607,12 @@
 }
 
 .findingCard[data-severity="critical"] .findingSummaryCopy small {
-  color: #b4232c;
+  color: #667b9b;
 }
 
 .findingCard[data-severity="info"] {
-  background: linear-gradient(180deg, #fbfdff 0%, #f5f9ff 100%);
-  border-color: #a9c8f5;
+  background: #fff;
+  border-color: #d9e3ee;
 }
 
 .findingCard[data-severity="info"] .findingNumber {
@@ -650,7 +649,7 @@
 }
 
 .findingSummaryCopy small {
-  color: #ad6e16;
+  color: #667b9b;
   font-size: 11px;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -658,7 +657,7 @@
 
 .findingToggle {
   align-items: center;
-  color: #8d6728;
+  color: #607493;
   display: inline-flex;
   height: 24px;
   justify-content: center;
@@ -695,7 +694,7 @@
 
 .findingNumber {
   align-items: center;
-  background: #ff9f1c;
+  background: #246fd3;
   border-radius: 50%;
   color: #fff;
   display: inline-flex;
@@ -715,7 +714,7 @@
 }
 
 .findingMeta {
-  color: #ad6e16;
+  color: #667b9b;
   display: inline-block;
   font-size: 11px;
   margin-top: 4px;
@@ -738,7 +737,7 @@
 }
 
 .findingReason {
-  border-top: 1px solid #f4dfb7;
+  border-top: 1px solid #e2e9f2;
   color: #3d557a;
   font-size: 12px;
   line-height: 1.48;
@@ -776,14 +775,14 @@
 
 .evidenceBlock,
 .justificationBlock {
-  border-top: 1px solid #f4dfb7;
+  border-top: 1px solid #e2e9f2;
   margin-top: 8px;
   padding-top: 7px;
 }
 
 .evidenceBlock span,
 .comparisonGrid span {
-  color: #a36b18;
+  color: #526788;
   display: block;
   font-size: 11px;
   font-weight: 800;
@@ -806,7 +805,7 @@
 
 .evidenceFacts > div {
   background: #fff;
-  border: 1px solid #f0dfc0;
+  border: 1px solid #d9e3ee;
   border-radius: 7px;
   display: grid;
   gap: 3px;
@@ -815,7 +814,7 @@
 }
 
 .evidenceFacts dt {
-  color: #a36b18;
+  color: #526788;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -839,19 +838,19 @@
 
 .comparisonGrid > div {
   background: #fff;
-  border: 1px solid #f0dfc0;
+  border: 1px solid #d9e3ee;
   border-radius: 7px;
   padding: 7px 8px;
 }
 
 .comparisonGrid > .comparisonActual {
-  background: #fff7f7;
-  border-color: #efc2c5;
+  background: #fff;
+  border-color: #d9e3ee;
 }
 
 .comparisonGrid > .comparisonExpected {
-  background: #f4fbf7;
-  border-color: #bddfcb;
+  background: #fff;
+  border-color: #d9e3ee;
 }
 
 .comparisonGrid > .comparisonActual span,
@@ -861,7 +860,7 @@
 
 .comparisonGrid > .comparisonExpected span,
 .comparisonGrid > .comparisonExpected strong {
-  color: #147247;
+  color: #17345e;
 }
 
 .comparisonGrid[data-mode="conflict"] {
@@ -883,6 +882,14 @@
 
 .comparisonGrid[data-mode="conflict"] > .comparisonConflict:only-child {
   grid-column: 1 / -1;
+}
+
+.comparisonDifferenceText {
+  color: #8f2831;
+  font-size: 11px;
+  font-weight: 700;
+  grid-column: 1 / -1;
+  line-height: 1.45;
 }
 
 .comparisonConflictHint {
@@ -1070,16 +1077,6 @@
   color: #12623f;
 }
 
-.noFinding {
-  align-items: center;
-  background: #effaf4;
-  border: 1px solid #bfe8d0;
-  border-radius: 10px;
-  display: flex;
-  gap: 11px;
-  padding: 15px;
-}
-
 .contextSummary {
   align-items: flex-start;
   background: #f8f7ff;
@@ -1116,30 +1113,6 @@
   color: #625683;
   font-size: 11px;
   line-height: 1.5;
-  margin: 4px 0 0;
-}
-
-.noFindingIcon {
-  background: #d7f5e3;
-  color: #09844b;
-  flex: 0 0 auto;
-  height: 33px;
-  width: 33px;
-}
-
-.noFindingIcon svg {
-  height: 17px;
-  width: 17px;
-}
-
-.noFinding strong {
-  color: #125437;
-  font-size: 12px;
-}
-
-.noFinding p {
-  color: #48725d;
-  font-size: 11px;
   margin: 4px 0 0;
 }
 

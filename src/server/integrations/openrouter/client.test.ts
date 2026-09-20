@@ -11,6 +11,7 @@ import { evaluateHarness, evaluateUniversalRules } from "@/lib/audit-harness";
 import {
   invoiceExtractionSchema,
   INVALID_DOCUMENT_DATE_WARNING,
+  UNPROVED_BREAKDOWN_WARNING,
   parseInvoiceExtractionPayload,
   type InvoiceExtraction,
 } from "@/lib/integrations/openrouter/extraction-contract";
@@ -61,6 +62,39 @@ const validExtraction: InvoiceExtraction = {
   warnings: [],
 };
 
+test("imagens de páginas não usam parser PDF e mantêm a numeração local sem valores prévios", async () => {
+  const image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
+  let called = false, focused = false;
+  const client = new OpenRouterInvoiceExtractionClient({ apiKey: "synthetic", model: FAST_EXTRACTION_REVIEW_MODEL,
+    pdfModel: FAST_EXTRACTION_REVIEW_MODEL, pdfEngine: "native", reasoningEffort: "low", maxAttempts: 1, timeoutMs: 1000,
+    fetchImplementation: async (_url, init) => {
+      called = true;
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.plugins.some((plugin: { id: string }) => plugin.id === "file-parser"), false);
+      const content = body.messages[1].content;
+      assert.equal(content.filter((part: { type: string }) => part.type === "file").length, 0);
+      assert.equal(content.filter((part: { type: string }) => part.type === "image_url").length, 1);
+      assert.ok(content.some((part: { text?: string }) => part.text?.includes("Página 1 de 1")));
+      const instruction = content.find((part: { type: string }) => part.type === "text")?.text ?? "";
+      if (focused) {
+        assert.match(instruction, /releitura focal/);
+        assert.match(instruction, /folha 1 de 2/);
+        assert.match(instruction, /não alcance o total global/);
+      } else assert.doesNotMatch(instruction, /releitura focal/);
+      return successResponse(FAST_EXTRACTION_REVIEW_MODEL);
+    } });
+  await client.extractInvoice({ fileName: "neutral.pdf", mimeType: "application/pdf", signedUrl: "", pageCount: 1, pageImages: [image] });
+  assert.equal(called, true);
+  focused = true;
+  await client.extractInvoice({ fileName: "neutral.pdf", mimeType: "application/pdf", signedUrl: "", pageCount: 1,
+    pageImages: [image], pageReviewScope: "SOURCE_INVENTORY" });
+  called = false;
+  await assert.rejects(client.extractInvoice({ fileName: "neutral.pdf", mimeType: "application/pdf", signedUrl: "", pageCount: 2, pageImages: [image] }));
+  await assert.rejects(client.extractInvoice({ fileName: "neutral.pdf", mimeType: "application/pdf", signedUrl: "", pageCount: 2,
+    pageImages: [image, image], pageReviewScope: "SOURCE_INVENTORY" }));
+  assert.equal(called, false);
+});
+
 function successResponse(
   model: string,
   options: {
@@ -95,17 +129,216 @@ function successResponse(
   );
 }
 
+test("modelo primário igual ao fallback não herda esforço alto nem parser da recuperação", async () => {
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({
+    apiKey: "test", model: FAST_EXTRACTION_REVIEW_MODEL, pdfModel: FAST_EXTRACTION_REVIEW_MODEL,
+    fallbackModel: FAST_EXTRACTION_REVIEW_MODEL, pdfFallbackModel: FAST_EXTRACTION_REVIEW_MODEL,
+    pdfEngine: "native", pdfFallbackEngine: "mistral-ocr", reasoningEffort: "low",
+    pdfReasoningEffort: "low", extractionFallbackReasoningEffort: "high", timeoutMs: 1000, maxAttempts: 1,
+    fetchImplementation: async (_url, init) => {
+      calls += 1;
+      const payload = JSON.parse(String(init?.body));
+      assert.equal(payload.reasoning.effort, "low");
+      assert.equal(payload.plugins[0].pdf.engine, "native");
+      return successResponse(FAST_EXTRACTION_REVIEW_MODEL);
+    },
+  });
+  await client.extractInvoice({ fileName: "synthetic.pdf", mimeType: "application/pdf", signedUrl: "https://example.com/synthetic.pdf" });
+  assert.equal(calls, 1);
+});
+
 test("nota simples com um identificador de grupo não exige segunda extração", () => {
   const simple = invoiceExtractionSchema.parse({ ...validExtraction, items: validExtraction.items.map(item => ({ ...item, documentGroup: "doc-1" })) });
   assert.equal(getInvoiceExtractionLimitation(simple, "application/pdf"), null);
   assert.equal(getInvoiceExtractionLimitation(simple, "image/png"), null);
 });
 
+test("consolidação de janelas envia somente texto não confiável, sem PDF ou parser", async () => {
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({ apiKey: "synthetic", model: FAST_EXTRACTION_MODEL,
+    pdfEngine: "native", reasoningEffort: "low", timeoutMs: 1000, maxAttempts: 2,
+    fallbackModel: FAST_EXTRACTION_REVIEW_MODEL,
+    fetchImplementation: async (_url, init) => {
+      calls++;
+      const payload = JSON.parse(String(init?.body));
+      assert.equal(payload.messages[1].content.length, 1);
+      assert.equal(payload.messages[1].content[0].type, "text");
+      assert.match(payload.messages[1].content[0].text, /untrusted_visual_windows/);
+      assert.doesNotMatch(String(init?.body), /original-never-transmitted/);
+      assert.equal(payload.plugins.some((plugin: { id: string }) => plugin.id === "file-parser"), false);
+      assert.equal(payload.response_format.json_schema.name, "window_association_plan");
+      assert.equal(payload.response_format.json_schema.schema.properties.items, undefined);
+      return successResponse(FAST_EXTRACTION_MODEL, { extraction: {
+        headerWindow: 1, economicItemRefs: ["w1:i1"], groups: [], parents: [],
+      } });
+    } });
+  const result = await client.extractInvoice({ mimeType: "application/pdf", fileName: "synthetic.pdf", pageCount: 1,
+    signedUrl: "https://example.com/original-never-transmitted", visualWindows: [{ pages: [1], data: validExtraction }] });
+  assert.equal(result.data.items.length, 1);
+  assert.equal(result.data.items[0].totalAmount, validExtraction.items[0].totalAmount);
+  assert.equal(result.qualityLimitation, undefined);
+  assert.equal(calls, 1);
+  await assert.rejects(client.extractInvoice({ mimeType: "application/pdf", fileName: "synthetic.pdf", pageCount: 2,
+    signedUrl: "", visualWindows: [{ pages: [1], data: validExtraction }] }), /every original page/);
+  assert.equal(calls, 1);
+});
+
+test("subcontagem fiscal segura é corrigida sem segunda leitura paga", async () => {
+  const extraction = structuredClone(validExtraction);
+  extraction.items.push({ ...structuredClone(extraction.items[0]), lineNumber: 2,
+    description: "ALMOÇO", sourceText: "ALMOÇO 1 UN 25,00 TOTAL 25,00", quantity: "1",
+    unitPrice: "25.00", totalAmount: "25.00" });
+  extraction.items.forEach(item => { item.sourceKind = "FISCAL_LINE"; item.sourcePage = 1; });
+  extraction.pageCoverage = [{ page: 1, complete: true, fieldsReviewed: true, requirementScope: "NONE",
+    requirementEvidence: null, sources: [{ kind: "FISCAL_LINE", count: 1 }] }];
+  extraction.itemCoverage = { status: "COMPLETE", declaredItemCount: 2, extractedItemCount: 2,
+    firstLineNumber: 1, lastLineNumber: 2, missingLineNumbers: [], evidence: "Duas linhas" };
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({ apiKey: "synthetic", model: FAST_EXTRACTION_MODEL,
+    fallbackModel: FAST_EXTRACTION_REVIEW_MODEL, pdfEngine: "native", reasoningEffort: "low", timeoutMs: 1000,
+    maxAttempts: 2, extractionQualityGateEnabled: true, fetchImplementation: async () => {
+      calls++; return successResponse(FAST_EXTRACTION_MODEL, { extraction });
+    } });
+  const result = await client.extractInvoice({ fileName: "synthetic.pdf", mimeType: "application/pdf",
+    pageCount: 1, signedUrl: "https://example.com/synthetic.pdf" });
+  assert.equal(calls, 1);
+  assert.equal(result.qualityLimitation, undefined);
+  assert.equal(result.data.pageCoverage?.[0].sources[0].count, 2);
+  assert.deepEqual(result.attemptTrace?.[0].diagnosticDetails?.inventoryCorrections,
+    [{ page: 1, kind: "FISCAL_LINE", declaredCount: 1, extractedCount: 2 }]);
+});
+
+test("plano inválido termina em uma chamada com custo e rascunho de referências preservados", async () => {
+  let calls = 0;
+  const candidate = { headerWindow: 1, economicItemRefs: ["w2:i1"], groups: [], parents: [] };
+  const client = new OpenRouterInvoiceExtractionClient({ apiKey: "synthetic", model: FAST_EXTRACTION_MODEL,
+    fallbackModel: FAST_EXTRACTION_REVIEW_MODEL, pdfEngine: "native", reasoningEffort: "low", timeoutMs: 1000,
+    maxAttempts: 2, fetchImplementation: async () => {
+      calls++; return successResponse(FAST_EXTRACTION_MODEL, { extraction: candidate, costUsd: 0.01 });
+    } });
+  await assert.rejects(client.extractInvoice({ mimeType: "application/pdf", fileName: "synthetic.pdf", pageCount: 1,
+    signedUrl: "", visualWindows: [{ pages: [1], data: validExtraction }] }), error => {
+    assert.ok(error instanceof OpenRouterClientError);
+    assert.equal(error.diagnostic, "window-association-plan-invalid");
+    assert.equal(error.usage?.costUsd, 0.01);
+    assert.equal(error.attemptTrace?.length, 1);
+    assert.deepEqual(JSON.parse(error.recoveryDraft!), candidate);
+    return true;
+  });
+  assert.equal(calls, 1);
+});
+
+test("completude inválida de folha preserva primeira leitura quando a recuperação falha", async () => {
+  const raw = { ...validExtraction, totalAmount: "100.00", items: [{ ...validExtraction.items[0],
+    quantity: "1", unitPrice: "100.00", totalAmount: "100.00", sourceText: "Despesa: 100,00",
+    breakdownComplete: true,
+    evidenceObservations: [
+      { kind: "SHEET", amount: "100.00", date: null, page: 1, text: "Ficha: 100,00" },
+      { kind: "PAYMENT", amount: "110.00", date: null, page: 2, text: "Cartão: 110,00" },
+    ],
+  }] };
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({ apiKey: "offline-key", model: FAST_EXTRACTION_MODEL,
+    fallbackModel: FAST_EXTRACTION_REVIEW_MODEL, pdfEngine: "native", reasoningEffort: "low",
+    maxAttempts: 2, timeoutMs: 1000, extractionQualityGateEnabled: true, sleep: async () => {},
+    fetchImplementation: async (_url, init) => {
+      calls++;
+      if (calls === 1) return successResponse(FAST_EXTRACTION_MODEL, { extraction: raw, costUsd: 0.002 });
+      const payload = JSON.parse(String(init?.body));
+      assert.match(JSON.stringify(payload.messages), /file_data/);
+      assert.match(JSON.stringify(payload.messages), /complete-breakdown-without-children/);
+      assert.doesNotMatch(JSON.stringify(payload.messages), /extraction_draft/);
+      return new Response(JSON.stringify({ error: { message: "Gateway timeout" } }), { status: 504 });
+    },
+  });
+  const result = await client.extractInvoice({ fileName: "synthetic.pdf", mimeType: "application/pdf", pageCount: 2,
+    signedUrl: "https://storage.invalid/original.pdf" });
+  assert.equal(calls, 2);
+  assert.equal(result.model, FAST_EXTRACTION_MODEL);
+  assert.equal(result.data.items[0].evidenceObservations.length, 2);
+  assert.equal(result.data.items[0].breakdownComplete, false);
+  assert.equal(result.data.items[0].totalAmount, "100.00");
+  assert.equal(result.data.itemCoverage.status, "UNKNOWN");
+  assert.ok(result.data.warnings.includes(UNPROVED_BREAKDOWN_WARNING));
+  assert.equal(result.qualityLimitation?.diagnostic, "pdf-recovery-incomplete");
+  assert.equal(result.attemptTrace?.[0].diagnostic, "evidence-economic-relationship-unknown");
+  assert.equal(result.attemptTrace?.[1].recoveryMode, "quality");
+  assert.equal(result.attemptTrace?.[1].costStatus, "UNKNOWN");
+  assert.equal(result.usage?.costUsd, 0.002);
+  const audit = evaluateHarness({ invoice: result.data, extractionLimited: true });
+  assert.equal(audit.classification, "INFORMATION_INSUFFICIENT");
+  assert.ok(audit.findings.some((finding) => finding.evidence.requiresSourceReview === true));
+});
+
+test("segunda leitura válida substitui a declaração de hierarquia inválida, sem carregar a limitação antiga", async () => {
+  let calls = 0;
+  const client = new OpenRouterInvoiceExtractionClient({ apiKey: "offline-key", model: FAST_EXTRACTION_MODEL,
+    fallbackModel: FAST_EXTRACTION_REVIEW_MODEL, pdfEngine: "native", reasoningEffort: "low",
+    maxAttempts: 2, timeoutMs: 1000, extractionQualityGateEnabled: true, sleep: async () => {},
+    fetchImplementation: async () => {
+      calls++;
+      return successResponse(calls === 1 ? FAST_EXTRACTION_MODEL : FAST_EXTRACTION_REVIEW_MODEL, { extraction:
+        calls === 1 ? { ...validExtraction, items: [{ ...validExtraction.items[0], breakdownComplete: true }] } : validExtraction });
+    },
+  });
+  const result = await client.extractInvoice({ fileName: "synthetic.pdf", mimeType: "application/pdf", pageCount: 1,
+    signedUrl: "https://storage.invalid/original.pdf" });
+  assert.equal(calls, 2);
+  assert.equal(result.qualityLimitation, undefined);
+  assert.equal(result.data.warnings.includes(UNPROVED_BREAKDOWN_WARNING), false);
+  assert.equal(result.model, FAST_EXTRACTION_REVIEW_MODEL);
+});
+
 test("imagem composta e imagem de cobertura parcial também acionam revisão seletiva", () => {
-  const composite = invoiceExtractionSchema.parse({ ...validExtraction, documentKind: "COMPOSITE" });
+  const composite = invoiceExtractionSchema.parse({ ...validExtraction, documentKind: "COMPOSITE",
+    items: validExtraction.items.map((item) => ({ ...item, sourceText: null })) });
   assert.equal(getInvoiceExtractionLimitation(composite, "image/png")?.diagnostic, "image-evidence-observations-missing");
   const partial = invoiceExtractionSchema.parse({ ...validExtraction, itemCoverage: { ...validExtraction.itemCoverage, status: "INCOMPLETE" } });
   assert.equal(getInvoiceExtractionLimitation(partial, "image/jpeg")?.diagnostic, "image-item-coverage-incomplete");
+});
+
+test("fonte primária tipada de apoio não exige observação duplicada; linha econômica de reembolso ainda exige", () => {
+  const composite = invoiceExtractionSchema.parse({ ...validExtraction, documentKind: "COMPOSITE" });
+  assert.equal(getInvoiceExtractionLimitation(composite, "application/pdf"), null);
+  assert.equal(getInvoiceExtractionLimitation({ ...composite, documentKind: "REIMBURSEMENT" }, "application/pdf")?.diagnostic,
+    "pdf-evidence-observations-missing");
+  composite.items.push({ ...composite.items[0], lineNumber: 2, countsTowardDocumentTotal: false, sourcePage: 2 });
+  assert.equal(getInvoiceExtractionLimitation(composite, "application/pdf")?.diagnostic, "pdf-evidence-observations-missing");
+  composite.items[1].sourceKind = "RECEIPT";
+  assert.equal(getInvoiceExtractionLimitation(composite, "application/pdf"), null);
+
+  const reimbursement = invoiceExtractionSchema.parse({ ...validExtraction, documentKind: "REIMBURSEMENT",
+    items: [{ ...validExtraction.items[0], sourceKind: "SALE", documentGroup: "pedido-1", sourceDate: "2026-07-31" }],
+    documentObservations: [{ kind: "SALE", amountScope: "DOCUMENT_TOTAL", amount: "1148.50", date: "2026-07-31",
+      page: 1, text: "PEDIDO 31/07/2026 TOTAL 1.148,50", documentGroup: "pedido-1" }] });
+  assert.equal(getInvoiceExtractionLimitation(reimbursement, "application/pdf"), null);
+});
+
+test("fragmento aceita linha econômica tipada e desconto explícito sem relaxar o documento final", () => {
+  const reimbursement = invoiceExtractionSchema.parse({ ...validExtraction, documentKind: "REIMBURSEMENT",
+    items: [
+      { ...validExtraction.items[0], sourceKind: "SALE", documentGroup: "pedido-1", totalAmount: "12.00",
+        quantity: "4", unitPrice: "3.00", sourceText: "4 UN X 3,00 TOTAL 12,00" },
+      { ...validExtraction.items[0], lineNumber: 2, sourceKind: "SALE", documentGroup: "pedido-1",
+        description: "Descontos", totalAmount: "-2.00", quantity: null, unitPrice: null,
+        sourceText: "DESCONTOS 2,00" },
+    ],
+    itemCoverage: { status: "COMPLETE", declaredItemCount: 2, extractedItemCount: 2,
+      firstLineNumber: 1, lastLineNumber: 2, missingLineNumbers: [], evidence: "Duas linhas conferidas." } });
+
+  assert.equal(getInvoiceExtractionLimitation(reimbursement, "application/pdf")?.diagnostic,
+    "pdf-evidence-observations-missing");
+  assert.equal(getInvoiceExtractionLimitation(reimbursement, "application/pdf", { windowFragment: true }), null);
+  reimbursement.items.forEach(item => { item.countsTowardDocumentTotal = false; });
+  reimbursement.items.push({ ...structuredClone(reimbursement.items[0]), lineNumber: 3,
+    countsTowardDocumentTotal: true, sourceKind: "SHEET", documentGroup: "ficha-1",
+    description: "Despesa declarada", totalAmount: "10.00", sourceText: "Ficha: 10,00",
+    evidenceObservations: [{ kind: "SHEET", documentGroup: "ficha-1", label: "Ficha",
+      amount: "10.00", date: null, page: 1, text: "Ficha: 10,00" }] });
+  reimbursement.itemCoverage = { status: "COMPLETE", declaredItemCount: 1, extractedItemCount: 1,
+    firstLineNumber: 3, lastLineNumber: 3, missingLineNumbers: [], evidence: "Camada econômica selecionada." };
+  assert.equal(getInvoiceExtractionLimitation(reimbursement, "application/pdf"), null);
 });
 
 test("normaliza formatos monetários e campos ausentes sem inventar conteúdo", () => {
@@ -1081,7 +1314,7 @@ test("normaliza cobertura declarada completa com contagem inconsistente", async 
   assert.equal(result.data.itemCoverage.status, "INCOMPLETE");
 });
 
-test("resposta inválida é reconstruída uma vez antes de falhar o job", async () => {
+test("JSON inválido aciona uma releitura do original, nunca somente reparação do rascunho", async () => {
   let calls = 0;
   const payloads: Array<Record<string, unknown>> = [];
   const client = new OpenRouterInvoiceExtractionClient({
@@ -1116,9 +1349,10 @@ test("resposta inválida é reconstruída uma vez antes de falhar o job", async 
 
   assert.equal(calls, 2);
   assert.equal(result.attempts, 2);
-  assert.deepEqual(payloads[1]?.plugins, [{ id: "response-healing" }]);
-  assert.match(JSON.stringify(payloads[1]?.messages), /extraction_draft/);
-  assert.doesNotMatch(JSON.stringify(payloads[1]?.messages), /file_data/);
+  assert.deepEqual(payloads[1]?.plugins, [{ id: "file-parser", pdf: { engine: "mistral-ocr" } }, { id: "response-healing" }]);
+  assert.match(JSON.stringify(payloads[1]?.messages), /previous_diagnostic/);
+  assert.match(JSON.stringify(payloads[1]?.messages), /file_data/);
+  assert.doesNotMatch(JSON.stringify(payloads[1]?.messages), /extraction_draft|json-incompleto/);
 });
 
 test("envelope de erro HTTP 200 vira resposta estrutural e recua uma vez para Sol", async () => {
@@ -1422,8 +1656,12 @@ test("classifica como timeout quando o prazo expira durante a leitura do corpo",
       mimeType: "application/pdf",
       signedUrl: "https://storage.test/reembolso.pdf?token=redacted",
     }),
-    (error: unknown) =>
-      error instanceof OpenRouterClientError && error.kind === "timeout",
+    (error: unknown) => {
+      assert.ok(error instanceof OpenRouterClientError);
+      assert.equal(error.kind, "timeout");
+      assert.ok((error.attemptTrace?.[0]?.latencyMs ?? 0) >= 5);
+      return true;
+    },
   );
 });
 
@@ -1675,6 +1913,7 @@ test("HTTP 400 reaproveita file_annotations no Sol sem reler o PDF", async () =>
       route: "openai-primary",
     },
     status: 400,
+    costStatus: "UNKNOWN",
   });
   assert.equal(JSON.stringify(result.attemptTrace).includes("must-not-escape"), false);
 });
@@ -2078,6 +2317,9 @@ test("pipeline adaptativo revisa cobertura insuficiente com outro modelo", async
   );
   assert.match(JSON.stringify(payloads[0]?.plugins), /native/);
   assert.match(JSON.stringify(payloads[1]?.plugins), /native/);
+  assert.match(JSON.stringify(payloads[1]?.messages), /previous_diagnostic/);
+  assert.match(JSON.stringify(payloads[1]?.messages), /pdf-item-coverage-unknown/);
+  assert.match(JSON.stringify(payloads[1]?.messages), /file_data/);
   assert.deepEqual(payloads.map((payload) => payload.reasoning), [
     { effort: "low", exclude: true },
     { effort: "high", exclude: true },
@@ -2213,3 +2455,48 @@ test("falha genérica do parser não é prova de documento corrompido",async()=>
     (e:unknown)=>e instanceof OpenRouterClientError && e.diagnostic==="pdf-parser-rejected" &&
       e.diagnosticDetails?.providerMessage==="Unable to parse PDF; token=[REDACTED]");
 });
+
+for (const asFallback of [false, true]) {
+  test(`Luna recebe o esforço configurado e não o padrão do provedor (${asFallback ? "recuperação" : "primário"})`, async () => {
+    const payloads: Array<Record<string, unknown>> = [];
+    const client = new OpenRouterInvoiceExtractionClient({ apiKey: "offline-key",
+      model: asFallback ? FAST_EXTRACTION_MODEL : "openai/gpt-5.6-luna",
+      fallbackModel: asFallback ? "openai/gpt-5.6-luna" : undefined,
+      reasoningEffort: "low", extractionFallbackReasoningEffort: "medium", pdfEngine: "native",
+      maxAttempts: 2, timeoutMs: 1000, sleep: async () => {},
+      fetchImplementation: async (_url, init) => {
+        const payload = JSON.parse(String(init?.body)); payloads.push(payload);
+        if (asFallback && payloads.length === 1) return new Response(JSON.stringify({ error: { message: "Model does not support this parameter" } }), { status: 400 });
+        return successResponse(payload.model);
+      },
+    });
+    await client.extractInvoice({ fileName: "synthetic.pdf", mimeType: "application/pdf", signedUrl: "https://storage.invalid/test.pdf" });
+    assert.deepEqual(payloads.at(-1)?.reasoning, { effort: asFallback ? "medium" : "low", exclude: true });
+  });
+}
+
+for (const afterBackoff of [false, true]) {
+  test(`prazo total não compra uma segunda leitura sem janela útil (${afterBackoff ? "após espera" : "após resposta"})`, async (context) => {
+    let clock = 1000;
+    context.mock.method(Date, "now", () => clock);
+    let calls = 0;
+    const client = new OpenRouterInvoiceExtractionClient({ apiKey: "offline-key", model: FAST_EXTRACTION_MODEL,
+      fallbackModel: FAST_EXTRACTION_REVIEW_MODEL, pdfEngine: "native", reasoningEffort: "low",
+      maxAttempts: 2, timeoutMs: 60_000, totalTimeoutMs: 60_000, extractionQualityGateEnabled: true,
+      sleep: async () => { clock += afterBackoff ? 5000 : 500; },
+      fetchImplementation: async () => {
+        calls++; clock += afterBackoff ? 44_000 : 56_900;
+        return successResponse(FAST_EXTRACTION_MODEL, { extraction: {
+          ...validExtraction, itemCoverage: { ...validExtraction.itemCoverage, firstLineNumber: 2 },
+        }, costUsd: 0.001 });
+      },
+    });
+    const result = await client.extractInvoice({ fileName: "synthetic.pdf", mimeType: "application/pdf", signedUrl: "https://storage.invalid/test.pdf" });
+    assert.equal(calls, 1); assert.equal(result.attempts, 1); assert.equal(result.attemptTrace?.length, 1);
+    assert.equal(result.data.documentNumber, validExtraction.documentNumber);
+    assert.equal(result.data.itemCoverage.status, "UNKNOWN");
+    assert.equal(result.qualityLimitation?.details.recoverySkipped, "TOTAL_DEADLINE");
+    assert.equal(result.usage?.costUsd, 0.001);
+    assert.match(result.qualityLimitation!.message, /não permite iniciar outra leitura/);
+  });
+}

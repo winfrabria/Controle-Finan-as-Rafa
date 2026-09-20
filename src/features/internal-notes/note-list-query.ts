@@ -20,7 +20,6 @@ import {
   formatReviewerFindingParts,
 } from "./finding-display";
 import {
-  findingObservationKindLabel,
   formatFindingObservationAmount,
   formatFindingObservationDate,
   summarizeFindingEvidenceObservations,
@@ -28,6 +27,9 @@ import {
 } from "@/features/note-detail/finding-observations";
 import { buildNoteReadFilter, type NoteReadMode } from "./note-read-filter";
 import { sanitizeReviewerNoteListItem } from "./reviewer-payload-policy";
+import { requiresSourceReview } from "@/lib/audit-harness/source-review";
+import { analysisFailureMessage } from "@/features/note-detail/analysis-failure";
+import { currentReviewerDiagnosisFindings } from "@/features/note-detail/current-diagnosis-findings";
 
 function stringifyJson(value: unknown) {
   if (value === null || value === undefined) return null;
@@ -51,10 +53,12 @@ export type NoteListFilters = {
 
 export type NoteListItem = {
   activeContextQuestionCount: number;
+  assurance?: { band: "HIGH" | "MEDIUM" | "LIMITED"; reason: string } | null;
   auditResult: AuditResult | null;
   classification: NoteClassification | null;
   createdAt: Date;
   documentNumber: string | null;
+  processingFailureMessage?: string | null;
   findingCount: number;
   findings: {
     actualValue: string | null;
@@ -65,6 +69,7 @@ export type NoteListItem = {
     evidence: string | null;
     evidenceDetails: { label: string; value: string }[];
     evidenceLocations?: Array<{
+      value?: string | null;
       amount: string | null;
       date: string | null;
       kind: string;
@@ -75,6 +80,7 @@ export type NoteListItem = {
     expectedValue: string | null;
     justification: string;
     referenceBasis?: string | null;
+    requiresSourceReview?: boolean;
     severity: string;
     title: string;
   }[];
@@ -241,6 +247,8 @@ export async function listNotes(
             take: NOTES_PAGE_SIZE,
           }),
       select: {
+        assuranceBand: true,
+        assuranceReason: true,
         auditResult: true,
         classification: true,
         contextRound: true,
@@ -252,10 +260,10 @@ export async function listNotes(
         },
         createdAt: true,
         documentNumber: true,
+        failureCode: true,
         findings: {
           where: visibleFindingWhere,
           orderBy: [{ severity: "desc" }, { createdAt: "asc" }],
-          take: 25,
           select: {
             actualValue: true,
             category: true,
@@ -265,6 +273,7 @@ export async function listNotes(
             expectedValue: true,
             justification: true,
             severity: true,
+            status: true,
             title: true,
           },
         },
@@ -313,6 +322,13 @@ export async function listNotes(
       ? note.noteReads.find((item) => item.profileId === options.profileId)
       : note.noteReads[0];
 
+    const visibleFindings = options.sanitizeForReviewer
+      ? currentReviewerDiagnosisFindings(note.findings)
+      : note.findings;
+    const actionableFindingCount = visibleFindings.filter(
+      (finding) => finding.severity !== FindingSeverity.INFO,
+    ).length;
+
     return {
       activeContextQuestionCount:
         note.auditResult === AuditResult.NEEDS_CONTEXT &&
@@ -322,11 +338,16 @@ export async function listNotes(
             ).length
           : 0,
       auditResult: note.auditResult,
+      assurance: note.assuranceBand ? { band: note.assuranceBand,
+        reason: note.assuranceReason ?? "As etapas de conferência não foram informadas." } : null,
       classification: note.classification,
       createdAt: note.createdAt,
       documentNumber: note.documentNumber,
-      findingCount: note._count.findings,
-      findings: note.findings.map((finding) => {
+      processingFailureMessage: analysisFailureMessage(note.status, note.failureCode),
+      findingCount: options.sanitizeForReviewer
+        ? actionableFindingCount
+        : note._count.findings,
+      findings: visibleFindings.map((finding) => {
         const comparison = findingComparisonMetadata(
           finding.evidence,
           finding.expectedValue,
@@ -347,10 +368,11 @@ export async function listNotes(
               formatFindingObservationDate(
                 observation.firstDate ?? observation.date,
               ) ?? null,
-            kind: findingObservationKindLabel(observation.kind),
+            kind: observation.kind,
             label: observation.label,
             page: observation.page,
             text: observation.text,
+            value: observation.value ?? null,
           }));
 
         return {
@@ -367,6 +389,7 @@ export async function listNotes(
           expectedValue: stringifyJson(finding.expectedValue),
           justification: finding.justification,
           referenceBasis: comparison.referenceBasis,
+          requiresSourceReview: requiresSourceReview(finding.evidence),
           severity: finding.severity,
           title: finding.title,
         };
@@ -375,7 +398,7 @@ export async function listNotes(
       isRead: Boolean(read),
       issuedAt: note.issuedAt,
       primaryFinding:
-        note.findings.find(
+        visibleFindings.find(
           (finding) => finding.severity !== FindingSeverity.INFO,
         )?.title ?? null,
       processingJobStatus: note.processingJobs[0]?.status ?? null,

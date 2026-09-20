@@ -278,7 +278,7 @@ export function ReviewerDashboardView({
         {role === "reviewer" ? (
           <section className={styles.mobileDashboard} aria-label="Dashboard mobile">
             <header className={styles.mobileHeading}>
-              <h1>Bom dia, Rafael</h1>
+              <h1>Painel de revisão</h1>
               <p>Resumo dos anexos</p>
             </header>
 

@@ -3,6 +3,7 @@ import type {
   HarnessFinding,
 } from "./contracts";
 import { AUDIT_POLICY } from "./policy";
+import { requiresSourceReview } from "./source-review";
 
 export type DecisionMatrixInput = {
   contextQuestions?: number;
@@ -15,6 +16,7 @@ export type DecisionMatrixInput = {
 };
 
 export function isSupportedFinding(finding: HarnessFinding) {
+  if (requiresSourceReview(finding.evidence)) return false;
   if (
     finding.confidence < AUDIT_POLICY.supportedFindingThreshold ||
     finding.justification.trim().length === 0 ||

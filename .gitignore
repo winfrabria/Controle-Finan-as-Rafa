@@ -59,7 +59,9 @@ next-env.d.ts
 /reviewer-*.png
 /winfra-*.png
 /winfrabr-*.png
+/artifacts/qa/
 
 # Unused local design references
 /public/reference.png
+/public/pdfjs/
 /public/images/hero-login.png
